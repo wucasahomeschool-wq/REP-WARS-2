@@ -16,4 +16,5 @@ export declare class SeededRNG {
     reset(): SeededRNG;
     getSeed(): number;
     fork(extraSalt: number): SeededRNG;
+    reseed(seed: number): void;
 }

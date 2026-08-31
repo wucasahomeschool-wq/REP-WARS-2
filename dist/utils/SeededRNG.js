@@ -69,6 +69,12 @@ class SeededRNG {
     fork(extraSalt) {
         return new SeededRNG(this.originalSeed * 31 + extraSalt);
     }
+    reseed(seed) {
+        this.originalSeed = seed;
+        this.state = this.mixSeed(seed >>> 0);
+        if (this.state === 0)
+            this.state = 0xdeadbeef;
+    }
 }
 exports.SeededRNG = SeededRNG;
 //# sourceMappingURL=SeededRNG.js.map

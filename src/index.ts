@@ -6,4 +6,8 @@ export { MemorySystem, MemorySummary } from './memory/MemorySystem';
 export { GoalSystem, GoalAlignmentResult } from './goals/GoalSystem';
 export { ScoringHelpers, ActionScorer, ScorerInput } from './scoring/ActionScorer';
 export { DecisionEngine, WarlordState } from './engine/DecisionEngine';
+export { BattleEngine } from './battle/BattleEngine';
+export { MapEngine } from './map/MapEngine';
+export { NamingSystem } from './map/NamingSystem';
+export { DEFAULT_THEME_LIBRARY, IRON_HILLS, CHRISTMAS_TREE_MOUNTAINS, TUNA_ISLES, EMBER_PLAINS, CRYSTAL_COAST, MISTWOOD, GOLDEN_DESERT } from './map/Themes';
 export { SimulationBuilder, SAMPLE_MAP, WARLORD_SPECS, MapTerritorySpec, WarlordSpec } from './simulation/SampleMap';

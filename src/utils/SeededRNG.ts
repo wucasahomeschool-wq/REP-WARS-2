@@ -75,4 +75,10 @@ export class SeededRNG {
   fork(extraSalt: number): SeededRNG {
     return new SeededRNG(this.originalSeed * 31 + extraSalt);
   }
+
+  reseed(seed: number): void {
+    this.originalSeed = seed;
+    this.state = this.mixSeed(seed >>> 0);
+    if (this.state === 0) this.state = 0xdeadbeef;
+  }
 }

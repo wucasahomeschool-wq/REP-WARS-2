@@ -7,7 +7,11 @@
     "build": "tsc",
     "start": "node dist/simulation/cli.js",
     "simulate": "npm run build && node dist/simulation/cli.js",
-    "dev": "ts-node src/simulation/cli.ts"
+    "battles": "npm run build && node dist/simulation/cli.js --battles",
+    "map": "npm run build && node dist/simulation/cli.js --map",
+    "dev": "ts-node src/simulation/cli.ts",
+    "dev-battles": "ts-node src/simulation/cli.ts --battles",
+    "dev-map": "ts-node src/simulation/cli.ts --map"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

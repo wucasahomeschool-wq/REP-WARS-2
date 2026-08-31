@@ -62,6 +62,7 @@ export type ActionType =
 export type TerrainType =
   | 'plains'
   | 'mountain'
+  | 'hills'
   | 'forest'
   | 'coastal'
   | 'desert'
@@ -361,4 +362,126 @@ export interface BattleResult {
   marginOfVictory: number;
   summary: string;
   readableLog: string[];
+}
+
+export type VisibilityState = 'unknown' | 'discovered' | 'scouted' | 'controlled';
+export type RegionId = string;
+export type ThemeId = string;
+export type CoordinateKey = string;
+
+export interface ThemeDefinition {
+  id: ThemeId;
+  name: string;
+  description?: string;
+  environmentalTag?: string;
+  preferredTerrain: { terrain: TerrainType; weight: number }[];
+  terrainDistributionWeights: Record<TerrainType, number>;
+  naming: {
+    prefixes: string[];
+    roots: string[];
+    suffixes: string[];
+    formatWeights: { prefixRoot: number; rootSuffix: number; prefixRootSuffix: number; standaloneRoot: number; compound: number };
+    capitalNameChance: number;
+  };
+  resourceTendencies: Partial<Record<ResourceType, number>>;
+  strategicTendency: number;
+  baseValueRange: [number, number];
+  populationRange: [number, number];
+  garrisonRange: [number, number];
+  fortificationWeights: Record<number, number>;
+  capitalBonus: boolean;
+  isCoastalBias: boolean;
+  borderSizePreference: { min: number; max: number; avg: number };
+  rarity: number;
+  allowedAdjacentThemes: ThemeId[];
+}
+
+export interface Region {
+  id: RegionId;
+  name: string;
+  themeId: ThemeId;
+  territories: TerritoryId[];
+  centerTerritoryId: TerritoryId | null;
+  seed: number;
+  createdAt: number;
+  isCapitalRegion?: boolean;
+}
+
+export interface MapWorldState {
+  worldSeed: number;
+  turn: number;
+  territories: Map<TerritoryId, Territory>;
+  regions: Map<RegionId, Region>;
+  themes: Map<ThemeId, ThemeDefinition>;
+  graphMeta: {
+    nextTerritoryIndex: number;
+    nextRegionIndex: number;
+    generatedTerritoriesCount: number;
+    generatedRegionsCount: number;
+    frontierTerritories: Set<TerritoryId>;
+    coordToTerritory: Map<CoordinateKey, TerritoryId>;
+    territoryPos: Map<TerritoryId, { q: number; r: number }>;
+  };
+  generationSalt: number;
+}
+
+export interface PlayerVisibilityMap {
+  owner: FactionId;
+  visibility: Map<TerritoryId, { state: VisibilityState; lastUpdatedTurn: number; turnsSinceSeen: number | null; revealedBy: 'control' | 'scout' | 'diplomacy' | 'event' | null }>;
+  knownThemes: Set<ThemeId>;
+  knownRegions: Set<RegionId>;
+}
+
+export interface InitialWorldParams {
+  worldSeed: number;
+  playerFactionIds: FactionId[];
+  startingTerritoriesPerFaction?: number;
+  initialTerritoryCount?: number;
+  initialRegionCount?: number;
+  themes?: ThemeDefinition[];
+  ensureCoastalStart?: boolean;
+  minCapitalsDistance?: number;
+}
+
+export interface ExpansionRequest {
+  worldState: MapWorldState;
+  fromFrontierTerritoryId: TerritoryId;
+  newTerritoryCount: number;
+  ownerFaction?: FactionId | null;
+  themeHint?: ThemeId | null;
+  adjacentOnly?: boolean;
+  salt?: number;
+  preferUnusedThemes?: ThemeId[] | null;
+}
+
+export interface ExpansionResult {
+  newTerritories: Territory[];
+  updatedFrontierTerritories: TerritoryId[];
+  newRegions: Region[];
+  newConnections: { from: TerritoryId; to: TerritoryId }[];
+  newlyAdjacentExistingTerritories: TerritoryId[];
+  generatedFor: TerritoryId;
+  validation: {
+    allConnected: boolean;
+    noIsolated: boolean;
+    noOverwrites: boolean;
+    frontierCount: number;
+  };
+}
+
+export interface ScoutResult {
+  fromTerritoryId: TerritoryId;
+  range: number;
+  revealedTerritories: { id: TerritoryId; fromState: VisibilityState; toState: VisibilityState; distance: number }[];
+  newlyDiscovered: TerritoryId[];
+  newlyScouted: TerritoryId[];
+}
+
+export interface MapGenerationReport {
+  territoryCount: number;
+  regionCount: number;
+  frontierCount: number;
+  terrainDistribution: Record<string, number>;
+  themeDistribution: Record<string, number>;
+  perFactionStart?: Record<FactionId, { capital: TerritoryId; territoryCount: number }>;
 }

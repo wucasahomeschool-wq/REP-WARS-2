@@ -37,6 +37,8 @@ const DecisionEngine_1 = require("../engine/DecisionEngine");
 const SampleMap_1 = require("./SampleMap");
 const balance_1 = require("../constants/balance");
 const balance_2 = require("../constants/balance");
+const battleTests_1 = require("./battleTests");
+const mapDemo_1 = require("./mapDemo");
 const readline = __importStar(require("readline"));
 function printBanner() {
     console.log('');
@@ -368,6 +370,10 @@ function parseArgs(argv) {
         interactive: false,
         selectedWarlords: null,
         showScores: false,
+        battles: false,
+        battleRepro: false,
+        map: false,
+        mapIterations: 4,
     };
     for (const arg of argv) {
         if (arg.startsWith('--turns='))
@@ -380,6 +386,14 @@ function parseArgs(argv) {
             opts.interactive = true;
         else if (arg === '--scores' || arg === '-s')
             opts.showScores = true;
+        else if (arg === '--battles' || arg === '-b')
+            opts.battles = true;
+        else if (arg === '--battle-repro')
+            opts.battleRepro = true;
+        else if (arg === '--map' || arg === '-m')
+            opts.map = true;
+        else if (arg.startsWith('--map-iterations='))
+            opts.mapIterations = Math.max(1, parseInt(arg.split('=')[1]) || opts.mapIterations);
         else if (arg.startsWith('--warlords=')) {
             opts.selectedWarlords = arg.split('=')[1].split(',').map((s) => s.trim()).filter(Boolean);
         }
@@ -394,26 +408,76 @@ function printHelp() {
     printBanner();
     console.log('USAGE:');
     console.log('  npm run simulate -- [options]');
+    console.log('  npm run battles  -- [options]');
+    console.log('  npm run map      -- [options]');
     console.log('');
     console.log('OPTIONS:');
-    console.log('  --turns=N         Number of turns to simulate (default: ' + balance_1.BALANCE.simulate.defaultTurns + ')');
-    console.log('  --seed=N          RNG seed for reproducible runs (default: ' + balance_1.BALANCE.simulate.defaultSeed + ')');
-    console.log('  --verbose, -v     Show score, confidence and top alternatives');
-    console.log('  --scores, -s      Show detailed score breakdown per warlord');
-    console.log('  --interactive, -i Step through turns one by one');
-    console.log('  --warlords=a,b,c  Filter output to specific warlord ids');
-    console.log('                    (ashen_horde, iron_kingdom, merchant_republic, celestial_theocracy)');
+    console.log('  Decision Engine:');
+    console.log('    --turns=N         Number of turns to simulate (default: ' + balance_1.BALANCE.simulate.defaultTurns + ')');
+    console.log('    --seed=N          RNG seed for reproducible runs (default: ' + balance_1.BALANCE.simulate.defaultSeed + ')');
+    console.log('    --verbose, -v     Show score, confidence and top alternatives');
+    console.log('    --scores, -s      Show detailed score breakdown per warlord');
+    console.log('    --interactive, -i Step through turns one by one');
+    console.log('    --warlords=a,b,c  Filter output to specific warlord ids');
+    console.log('                      (ashen_horde, iron_kingdom, merchant_republic, celestial_theocracy)');
+    console.log('');
+    console.log('  Battle Resolution Engine:');
+    console.log('    --battles, -b     Run full battle test suite (10 scenarios + statistical sample)');
+    console.log('    --battle-repro    Run only seeded reproducibility + diff-seed tests');
+    console.log('');
+    console.log('  Map Generation & Expansion Engine:');
+    console.log('    --map, -m         Run full map generation + expansion demo');
+    console.log('    --map-iterations=N Number of frontier conquest rounds (default: 4)');
+    console.log('');
     console.log('  --help, -h        Show this help');
     console.log('');
     console.log('EXAMPLES:');
     console.log('  npm run simulate -- --turns=15 --seed=123');
     console.log('  npm run simulate -- --warlords=ashen_horde,iron_kingdom -v');
     console.log('  npm run simulate -- -i --scores');
+    console.log('  npm run battles  -- --seed=99 -v');
+    console.log('  npm run battles  -- --battle-repro');
+    console.log('  npm run map      -- --seed=2026 -v --map-iterations=6');
     console.log('');
+}
+async function runBattleMode(opts) {
+    printBanner();
+    if (opts.battleRepro) {
+        console.log('Seeded reproducibility test:');
+        const repro = (0, battleTests_1.runSeededReproducibilityTest)();
+        console.log(`  Same seed (42) produces identical result: ${repro.same ? 'PASS ✓' : 'FAIL ✗'}`);
+        console.log(`  Seed=42: outcome=${repro.result1.outcomeType}  winner=${repro.result1.winner}`);
+        console.log(`  Seed=42: casA=${repro.result1.attacker.casualties.total}  casD=${repro.result1.defender.casualties.total}`);
+        console.log(`  Seed=42: territoryOutcome=${repro.result1.territoryOutcome}  ratio=${repro.result1.effectiveRatio}`);
+        console.log('');
+        console.log(`  Seed=99: outcome=${repro.diffSeedResult.outcomeType}  winner=${repro.diffSeedResult.winner}`);
+        console.log(`  Seed=99: casA=${repro.diffSeedResult.attacker.casualties.total}  casD=${repro.diffSeedResult.defender.casualties.total}`);
+        console.log(`  Seed=99: territoryOutcome=${repro.diffSeedResult.territoryOutcome}  ratio=${repro.diffSeedResult.effectiveRatio}`);
+    }
+    else {
+        const reports = (0, battleTests_1.runBattleTestSuite)({ seed: opts.seed, verbose: opts.verbose });
+        console.log((0, battleTests_1.formatTestSuite)(reports));
+    }
+}
+async function runMapMode(opts) {
+    const output = (0, mapDemo_1.runMapDemo)({
+        seed: opts.seed,
+        verbose: opts.verbose,
+        iterations: opts.mapIterations,
+    });
+    console.log(output);
 }
 async function main() {
     const opts = parseArgs(process.argv.slice(2));
-    await runSimulation(opts);
+    if (opts.battles || opts.battleRepro) {
+        await runBattleMode(opts);
+    }
+    else if (opts.map) {
+        await runMapMode(opts);
+    }
+    else {
+        await runSimulation(opts);
+    }
 }
 main().catch((err) => {
     console.error('Simulation failed:', err);

@@ -78,8 +78,11 @@ export class BattleEngine {
     const attackerTroops = this.sumArmies(input.attackerArmies);
     const defenderFieldTroops = this.sumArmies(input.defenderArmies ?? []);
     const garrisonTroops = input.defenderGarrison ?? 0;
-    const totalDefenderUnits = defenderFieldTroops;
-    totalDefenderUnits.soldiers += garrisonTroops;
+    const totalDefenderUnits = {
+      soldiers: defenderFieldTroops.soldiers,
+      knights: defenderFieldTroops.knights,
+      siegeEngines: defenderFieldTroops.siegeEngines,
+    };
 
     const { baseStrength: atkBase, factors: atkBaseFactors } = this.calculateBaseStrength(
       input.attackerArmies,
@@ -145,8 +148,9 @@ export class BattleEngine {
     const ratio = Math.max(C.numericalAdvantage.minRatio, Math.min(C.numericalAdvantage.maxRatioAdvantage, rawRatio));
     const margin = (finalAtk - finalDef) / Math.max(1, (finalAtk + finalDef) / 2);
     const baseIntensity = (atkEff + defEff) / 2;
+    const closeFactor = 1 - Math.min(0.6, Math.abs(margin));
     const battleIntensity = Math.min(1, Math.max(0.05,
-      baseIntensity / (Math.max(1, atkBase + defBase) * 0.8) + Math.abs(margin) * -0.4 + 0.5
+      0.35 + closeFactor * 0.4 + baseIntensity / Math.max(1, atkBase + defBase) * 0.25
     ));
 
     let winner: BattleSide | 'draw';
@@ -284,7 +288,7 @@ export class BattleEngine {
       retreatSurvivorsPct: defSurvivorsPct,
     };
 
-    const readableLog = this.buildReadableLog(input, { attacker: attackerBreakdown, defender: defenderBreakdown }, outcomeType, territoryOutcome, ratio, margin, events);
+    const readableLog = this.buildReadableLog(input, { attacker: attackerBreakdown, defender: defenderBreakdown }, outcomeType, territoryOutcome, ratio, margin, battleIntensity, events);
     const summary = this.buildSummary(input, outcomeType, territoryOutcome, attackerBreakdown, defenderBreakdown);
 
     const result: BattleResult = {
@@ -622,7 +626,7 @@ export class BattleEngine {
       siegeEngines: atkInit.siegeEngines - atk.siegeEngines,
     };
     const defRemaining = {
-      soldiers: defInit.soldiers - def.soldiers - garrisonCas,
+      soldiers: defInit.soldiers - def.soldiers,
       knights: defInit.knights - def.knights,
       siegeEngines: defInit.siegeEngines - def.siegeEngines,
     };
@@ -697,6 +701,7 @@ export class BattleEngine {
     territoryOutcome: TerritoryOutcome,
     ratio: number,
     margin: number,
+    battleIntensity: number,
     events: BattleEvent[]
   ): string[] {
     const atkName = input.attackerFactionName ?? input.attackerFactionId;
@@ -711,7 +716,7 @@ export class BattleEngine {
     lines.push(this.formatSideBreakdown('DEFENDER  EFFECTIVE STRENGTH', sides.defender));
     lines.push('');
     lines.push(`Effective strength ratio: ${ratio.toFixed(2)}:1  |  Margin: ${(margin >= 0 ? '+' : '')}${(margin * 100).toFixed(1)}%`);
-    lines.push(`Battle intensity: ${(input.territory ? '' : '')}${(sides.attacker.casualties.casualtyRate + sides.defender.casualties.casualtyRate).toFixed(2)} (theoretical)`);
+    lines.push(`Battle intensity: ${(sides.attacker.casualties.casualtyRate + sides.defender.casualties.casualtyRate).toFixed(2)} (composite ${(battleIntensity * 100).toFixed(0)}%)`);
     lines.push('');
     lines.push('OUTCOME:');
     const headline = this.describeOutcomeHeadline(outcomeType, atkName, defName);
