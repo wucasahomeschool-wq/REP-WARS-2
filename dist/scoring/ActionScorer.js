@@ -3,7 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ActionScorer = exports.ScoringHelpers = void 0;
 const balance_1 = require("../constants/balance");
 const PersonalitySystem_1 = require("../personality/PersonalitySystem");
-const { scoring: S, military: M, territory: T, diplomacy: D, economy: E, risk: R } = balance_1.BALANCE;
+const CombatPower_1 = require("../battle/CombatPower");
+const { scoring: S, military: M, territory: T, diplomacy: D, economy: E, risk: R, } = balance_1.BALANCE;
 class ScoringHelpers {
     static computeArmyPower(army) {
         return (army.soldiers * M.soldierValue +
@@ -19,24 +20,27 @@ class ScoringHelpers {
         const terrainBonus = 1 + (M.defenderTerrainBonus[t.terrain] || 0);
         const fortBonus = 1 + t.fortification * M.defenderFortificationBonus;
         const troops = garrisonOnly ? t.garrison : t.garrison;
+        const defendingArmies = [];
+        void defendingArmies;
         return troops * M.soldierValue * terrainBonus * fortBonus;
     }
-    static estimateMilitaryAdvantage(attackerArmies, defenderTerritory, allArmies) {
-        const attackerPower = attackerArmies.reduce((s, a) => s + ScoringHelpers.computeArmyPower(a), 0);
-        const defenderPower = ScoringHelpers.computeTerritoryMilitaryDefense(defenderTerritory);
-        const ratio = defenderPower === 0 ? 100 : attackerPower / defenderPower;
-        const advantage = (ratio - 1) * 50;
-        const risk = Math.max(0, Math.min(1, 1 - ratio / M.criticalThreatRatio));
-        return { advantage, ratio, risk };
+    static estimateMilitaryAdvantage(attackerArmies, defenderTerritory, _allArmies) {
+        const defendingArmies = [];
+        const { ratio, advantageScore, risk } = (0, CombatPower_1.computeMilitaryAdvantageRatio)(attackerArmies, defendingArmies, defenderTerritory.garrison, defenderTerritory);
+        return { advantage: advantageScore, ratio, risk };
     }
     static evaluateTerritoryValue(t) {
         const resourceVal = Object.entries(t.resourceOutput).reduce((s, [k, v]) => {
-            const weight = E.goldWeight[`${k}Weight`] ?? 0.5;
+            const weight = E[`${k}Weight`] ?? 0.5;
             return s + (v ?? 0) * weight * E.resourceScarcityMultiplier;
         }, 0);
         const popVal = (t.population / 1000) * T.populationValuePerThousand;
         const capitalBonus = t.isCapital ? T.capitalBonus : 0;
-        const chokepointBonus = t.neighboring.length >= 4 ? T.chokepointBonus : t.neighboring.length === 3 ? T.chokepointBonus * 0.5 : 0;
+        const chokepointBonus = t.neighboring.length >= 4
+            ? T.chokepointBonus
+            : t.neighboring.length === 3
+                ? T.chokepointBonus * 0.5
+                : 0;
         return (t.baseValue * T.baseValueWeight +
             resourceVal * T.resourceValueWeight +
             popVal +
@@ -58,7 +62,9 @@ class ScoringHelpers {
                 }
             }
         }
-        const powerRatio = self.totalMilitaryPower === 0 ? 10 : targetFaction.totalMilitaryPower / self.totalMilitaryPower;
+        const powerRatio = self.totalMilitaryPower === 0
+            ? 10
+            : targetFaction.totalMilitaryPower / self.totalMilitaryPower;
         const powerThreat = (powerRatio - 1) * 40;
         return borderThreat + Math.max(0, powerThreat);
     }
@@ -111,7 +117,8 @@ class ScoringHelpers {
             const monthsOfSupply = inc > 0 ? current / (inc * 10) : current > 0 ? 2 : 0;
             const sc = Math.max(0, Math.min(1, 1 - monthsOfSupply / 3));
             scarcity[k] = sc;
-            totalNeed += sc * (E.goldWeight[`${k}Weight`] ?? 0.5);
+            const weight = E[`${k}Weight`] ?? 0.5;
+            totalNeed += sc * weight;
         }
         return { scarcity, overallNeed: totalNeed / keys.length };
     }
@@ -211,9 +218,8 @@ class ActionScorer {
             const riskMod = PersonalitySystem_1.PersonalitySystem.getRiskModifier(ctx.self.personality, risk);
             score += riskMod;
             factors.push({ factor: 'Risk assessment', weight: 1, contribution: riskMod });
-            if (risk > R.highRisk && ctx.self.personality.riskTolerance < 0.4) {
+            if (risk > R.highRisk && ctx.self.personality.riskTolerance < 0.4)
                 reasoning.push('too risky');
-            }
             const rel = ScoringHelpers.getRelationship(ctx.self, targetFactionId);
             const relMod = ScoringHelpers.evaluateRelationshipModifier(rel);
             score += -relMod * 0.8;
@@ -237,18 +243,13 @@ class ActionScorer {
             if (memSummary.totalGrievances > 20)
                 reasoning.push('long-standing rivalry');
             const goalAlign = goals.evaluateActionAlignment({
-                actionType: 'ATTACK',
-                targetFaction: targetFactionId,
-                targetTerritory: targetTerr.id,
-                self: ctx.self,
-                currentTurn: turn,
-                allTerritories: ctx.allTerritories,
+                actionType: 'ATTACK', targetFaction: targetFactionId, targetTerritory: targetTerr.id,
+                self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
             });
             score += goalAlign.scoreContribution;
             factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
-            for (const g of goalAlign.alignedGoals) {
+            for (const g of goalAlign.alignedGoals)
                 reasoning.push(`aligns with goal: ${g.type.replace(/_/g, ' ')}`);
-            }
             const myNeighbor = targetTerr.neighboring.find((nId) => ctx.self.territories.includes(nId));
             if (myNeighbor) {
                 const neighborTerr = ctx.allTerritories.get(myNeighbor);
@@ -260,19 +261,14 @@ class ActionScorer {
             }
             score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
             results.push({
-                action: 'ATTACK',
-                targetId: targetTerr.id,
-                targetName: targetTerr.name,
-                score,
-                baseScore: S.baseScores.ATTACK,
-                factorBreakdown: factors,
-                reasoning,
+                action: 'ATTACK', targetId: targetTerr.id, targetName: targetTerr.name,
+                score, baseScore: S.baseScores.ATTACK, factorBreakdown: factors, reasoning,
             });
         }
         return results.sort((a, b) => b.score - a.score).slice(0, 3);
     }
     scoreDefend(input) {
-        const { ctx, turn, rng, goals } = input;
+        const { ctx, turn, goals } = input;
         const results = [];
         for (const myTerr of ctx.myTerritories) {
             let { base, factors, reasoning } = this.baseScored('DEFEND', input);
@@ -324,19 +320,14 @@ class ActionScorer {
                 score -= 20;
             score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
             results.push({
-                action: 'DEFEND',
-                targetId: myTerr.id,
-                targetName: myTerr.name,
-                score,
-                baseScore: S.baseScores.DEFEND,
-                factorBreakdown: factors,
-                reasoning,
+                action: 'DEFEND', targetId: myTerr.id, targetName: myTerr.name,
+                score, baseScore: S.baseScores.DEFEND, factorBreakdown: factors, reasoning,
             });
         }
         return results.sort((a, b) => b.score - a.score).slice(0, 2);
     }
     scoreReinforce(input) {
-        const { ctx, turn, rng, goals } = input;
+        const { ctx, turn, goals } = input;
         const results = [];
         const { scarcity, overallNeed } = ScoringHelpers.evaluateResourceNeed(ctx.self.resources, ctx.self.resourceIncome);
         for (const myTerr of ctx.myTerritories) {
@@ -371,21 +362,18 @@ class ActionScorer {
             });
             score += goalAlign.scoreContribution;
             factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
+            void scarcity;
+            void overallNeed;
             score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
             results.push({
-                action: 'REINFORCE',
-                targetId: myTerr.id,
-                targetName: myTerr.name,
-                score,
-                baseScore: S.baseScores.REINFORCE,
-                factorBreakdown: factors,
-                reasoning,
+                action: 'REINFORCE', targetId: myTerr.id, targetName: myTerr.name,
+                score, baseScore: S.baseScores.REINFORCE, factorBreakdown: factors, reasoning,
             });
         }
         return results.sort((a, b) => b.score - a.score).slice(0, 2);
     }
     scoreExpand(input) {
-        const { ctx, turn, rng, goals } = input;
+        const { ctx, turn, goals } = input;
         const results = [];
         for (const targetTerr of ctx.unownedNeighbors) {
             let { base, factors, reasoning } = this.baseScored('EXPAND', input);
@@ -431,27 +419,23 @@ class ActionScorer {
                 reasoning.push(`aligns with goal: ${g.type.replace(/_/g, ' ')}`);
             score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
             results.push({
-                action: 'EXPAND',
-                targetId: targetTerr.id,
-                targetName: targetTerr.name,
-                score,
-                baseScore: S.baseScores.EXPAND,
-                factorBreakdown: factors,
-                reasoning,
+                action: 'EXPAND', targetId: targetTerr.id, targetName: targetTerr.name,
+                score, baseScore: S.baseScores.EXPAND, factorBreakdown: factors, reasoning,
             });
         }
         return results.sort((a, b) => b.score - a.score).slice(0, 3);
     }
     scoreScout(input) {
-        const { ctx, turn, rng, goals } = input;
-        const { base, factors, reasoning } = this.baseScored('SCOUT', input);
+        const { ctx, turn, goals } = input;
+        let { base, factors, reasoning } = this.baseScored('SCOUT', input);
         let score = base;
         const candidates = [];
         for (const myT of ctx.myTerritories) {
             for (const nId of myT.neighboring) {
                 const t = ctx.allTerritories.get(nId);
                 if (t && !ctx.self.knownTerritories.includes(t.id))
-                    candidates.push(t);
+                    if (!candidates.find((c) => c.id === t.id))
+                        candidates.push(t);
             }
             for (const nId of myT.neighboring) {
                 const t = ctx.allTerritories.get(nId);
@@ -491,16 +475,14 @@ class ActionScorer {
             f.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
             s = Math.max(S.minReasonableScore, Math.min(S.maxScore, s));
             results.push({
-                action: 'SCOUT',
-                targetId: t.id, targetName: t.name,
-                score: s, baseScore: S.baseScores.SCOUT,
-                factorBreakdown: f, reasoning: r,
+                action: 'SCOUT', targetId: t.id, targetName: t.name,
+                score: s, baseScore: S.baseScores.SCOUT, factorBreakdown: f, reasoning: r,
             });
         }
         return results.sort((a, b) => b.score - a.score);
     }
     scoreBuild(input) {
-        const { ctx, turn, rng, goals } = input;
+        const { ctx, turn, goals } = input;
         const results = [];
         const res = ctx.self.resources;
         const canAffordFortify = res.stone >= 50 && res.gold >= 100;
@@ -554,17 +536,16 @@ class ActionScorer {
             factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
             score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
             results.push({
-                action: 'BUILD',
-                targetId: myTerr.id, targetName: myTerr.name,
-                score, baseScore: S.baseScores.BUILD,
-                factorBreakdown: factors, reasoning,
+                action: 'BUILD', targetId: myTerr.id, targetName: myTerr.name,
+                score, baseScore: S.baseScores.BUILD, factorBreakdown: factors, reasoning,
             });
         }
         return results.sort((a, b) => b.score - a.score).slice(0, 2);
     }
     scoreMove(input) {
         const { ctx, rng } = input;
-        const { base, factors, reasoning } = this.baseScored('MOVE', input);
+        void rng;
+        let { base, factors, reasoning } = this.baseScored('MOVE', input);
         let score = base;
         let bestTarget = null;
         let bestMoveScore = -Infinity;
@@ -576,7 +557,8 @@ class ActionScorer {
                 const dest = ctx.allTerritories.get(nId);
                 if (!dest)
                     continue;
-                if (!ctx.self.territories.includes(dest.id) && !dest.neighboring.some((nn) => ctx.self.territories.includes(nn)))
+                if (!ctx.self.territories.includes(dest.id) &&
+                    !dest.neighboring.some((nn) => ctx.self.territories.includes(nn)))
                     continue;
                 let ms = 0;
                 if (dest.owner && dest.owner !== ctx.self.id) {
@@ -614,15 +596,12 @@ class ActionScorer {
         }
         score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
         return [{
-                action: 'MOVE',
-                targetId: bestTarget?.id ?? null,
-                targetName: bestTarget?.name ?? null,
-                score, baseScore: S.baseScores.MOVE,
-                factorBreakdown: factors, reasoning,
+                action: 'MOVE', targetId: bestTarget?.id ?? null, targetName: bestTarget?.name ?? null,
+                score, baseScore: S.baseScores.MOVE, factorBreakdown: factors, reasoning,
             }];
     }
     scoreNegotiate(input) {
-        const { ctx, turn, rng, memory, goals } = input;
+        const { ctx, turn, memory, goals } = input;
         const results = [];
         const diplomacies = Array.from(ctx.self.diplomacy.entries())
             .filter(([id]) => id !== ctx.self.id)
@@ -630,9 +609,8 @@ class ActionScorer {
         for (const [targetId, rel] of diplomacies) {
             let { base, factors, reasoning } = this.baseScored('NEGOTIATE', input);
             let score = base;
-            if (rel.state === 'allied') {
+            if (rel.state === 'allied')
                 score -= 10;
-            }
             else if (rel.state === 'at_war') {
                 score += 5;
                 reasoning.push('end war through diplomacy');
@@ -671,16 +649,14 @@ class ActionScorer {
             factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
             score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
             results.push({
-                action: 'NEGOTIATE',
-                targetId, targetName: target?.name ?? targetId,
-                score, baseScore: S.baseScores.NEGOTIATE,
-                factorBreakdown: factors, reasoning,
+                action: 'NEGOTIATE', targetId, targetName: target?.name ?? targetId,
+                score, baseScore: S.baseScores.NEGOTIATE, factorBreakdown: factors, reasoning,
             });
         }
         return results.sort((a, b) => b.score - a.score).slice(0, 3);
     }
     scoreOfferPeace(input) {
-        const { ctx, turn, rng, memory } = input;
+        const { ctx, turn, memory } = input;
         const results = [];
         const atWarRelations = Array.from(ctx.self.diplomacy.entries())
             .filter(([id]) => id !== ctx.self.id)
@@ -703,19 +679,21 @@ class ActionScorer {
             const myPower = ctx.self.totalMilitaryPower;
             const theirPower = target.totalMilitaryPower;
             const ratio = myPower / Math.max(1, theirPower);
+            let warFactor = 0;
             if (ratio < 0.6) {
-                score += 30;
+                warFactor = 30;
                 reasoning.push('losing war, seek peace');
             }
             else if (ratio < 0.9) {
-                score += 15;
+                warFactor = 15;
                 reasoning.push('stalemate, peace beneficial');
             }
             else if (ratio > 1.3) {
-                score -= 20;
+                warFactor = -20;
                 reasoning.push('winning, why offer peace?');
             }
-            factors.push({ factor: 'War balance', weight: 1, contribution: ratio < 1 ? (1 - ratio) * 40 : (ratio - 1) * -20 });
+            factors.push({ factor: 'War balance', weight: 1, contribution: warFactor });
+            score += warFactor;
             const costOfWar = rel.yearsAtWar * 5;
             score += costOfWar;
             factors.push({ factor: 'War exhaustion', weight: 1, contribution: costOfWar });
@@ -732,16 +710,14 @@ class ActionScorer {
             }
             score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
             results.push({
-                action: 'OFFER_PEACE',
-                targetId, targetName: target.name,
-                score, baseScore: S.baseScores.OFFER_PEACE,
-                factorBreakdown: factors, reasoning,
+                action: 'OFFER_PEACE', targetId, targetName: target.name,
+                score, baseScore: S.baseScores.OFFER_PEACE, factorBreakdown: factors, reasoning,
             });
         }
         return results.sort((a, b) => b.score - a.score);
     }
     scoreDeclareWar(input) {
-        const { ctx, turn, rng, memory, goals } = input;
+        const { ctx, turn, memory, goals } = input;
         const results = [];
         const knownHostiles = ctx.self.knownFactions.filter((id) => id !== ctx.self.id);
         for (const targetId of knownHostiles) {
@@ -788,13 +764,16 @@ class ActionScorer {
                 reasoning.push('shared border makes war feasible');
             }
             const mem = memory.summarizeForFaction(targetId, turn);
+            let grievanceScore = 0;
             if (mem.totalGrievances > 25) {
                 score += 20;
                 reasoning.push('history of grievances demands war');
+                grievanceScore += 20;
             }
             if (mem.recentAttacks > 0) {
                 score += 15;
                 reasoning.push('recent attacks justify declaration');
+                grievanceScore += 15;
             }
             factors.push({ factor: 'Grievances', weight: 1, contribution: Math.min(20, mem.totalGrievances * 0.5) });
             const numEnemies = Array.from(ctx.self.diplomacy.values()).filter((r) => r.state === 'at_war').length;
@@ -809,18 +788,17 @@ class ActionScorer {
             });
             score += goalAlign.scoreContribution;
             factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
+            void grievanceScore;
             score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
             results.push({
-                action: 'DECLARE_WAR',
-                targetId, targetName: target.name,
-                score, baseScore: S.baseScores.DECLARE_WAR,
-                factorBreakdown: factors, reasoning,
+                action: 'DECLARE_WAR', targetId, targetName: target.name,
+                score, baseScore: S.baseScores.DECLARE_WAR, factorBreakdown: factors, reasoning,
             });
         }
         return results.sort((a, b) => b.score - a.score).slice(0, 3);
     }
     scoreTrade(input) {
-        const { ctx, turn, rng, memory, goals } = input;
+        const { ctx, turn, memory, goals } = input;
         const results = [];
         const { scarcity } = ScoringHelpers.evaluateResourceNeed(ctx.self.resources, ctx.self.resourceIncome);
         const mySurplus = {};
@@ -845,7 +823,8 @@ class ActionScorer {
             const { scarcity: theirScarcity } = ScoringHelpers.evaluateResourceNeed(target.resources, target.resourceIncome);
             let matchScore = 0;
             let hasMatch = false;
-            for (const k of Object.keys(scarcity)) {
+            const keys = ['gold', 'food', 'iron', 'wood', 'stone'];
+            for (const k of keys) {
                 if (mySurplus[k] && theirScarcity[k] > 0.3) {
                     matchScore += mySurplus[k] * theirScarcity[k] * 30;
                     hasMatch = true;
@@ -862,7 +841,7 @@ class ActionScorer {
             else {
                 score -= 15;
             }
-            const rel = ctx.self.diplomacy.get(targetId) ?? null;
+            const rel = ScoringHelpers.getRelationship(ctx.self, targetId) ?? null;
             const relMod = ScoringHelpers.evaluateRelationshipModifier(rel);
             score += relMod * 0.6;
             factors.push({ factor: 'Trade relations', weight: 0.6, contribution: relMod * 0.6 });
@@ -889,17 +868,15 @@ class ActionScorer {
             factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
             score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
             results.push({
-                action: 'TRADE',
-                targetId, targetName: target.name,
-                score, baseScore: S.baseScores.TRADE,
-                factorBreakdown: factors, reasoning,
+                action: 'TRADE', targetId, targetName: target.name,
+                score, baseScore: S.baseScores.TRADE, factorBreakdown: factors, reasoning,
             });
         }
         return results.sort((a, b) => b.score - a.score).slice(0, 3);
     }
     scoreRetreat(input) {
-        const { ctx, rng } = input;
-        const { base, factors, reasoning } = this.baseScored('RETREAT', input);
+        const { ctx } = input;
+        let { base, factors, reasoning } = this.baseScored('RETREAT', input);
         let score = base;
         let worstArmy = null;
         let worstScore = -Infinity;
@@ -941,13 +918,12 @@ class ActionScorer {
                 action: 'RETREAT',
                 targetId: worstArmy?.location ?? null,
                 targetName: worstArmy ? ctx.allTerritories.get(worstArmy.location)?.name ?? null : null,
-                score, baseScore: S.baseScores.RETREAT,
-                factorBreakdown: factors, reasoning,
+                score, baseScore: S.baseScores.RETREAT, factorBreakdown: factors, reasoning,
             }];
     }
     scoreWait(input) {
-        const { ctx, rng, turn } = input;
-        const { base, factors, reasoning } = this.baseScored('WAIT', input);
+        const { ctx, turn } = input;
+        let { base, factors, reasoning } = this.baseScored('WAIT', input);
         let score = base;
         const recentActions = ctx.self.lastActions.filter((a) => a.turn >= turn - 2);
         const sameActions = recentActions.filter((a) => a.action === 'WAIT').length;
@@ -973,10 +949,8 @@ class ActionScorer {
         }
         score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
         return [{
-                action: 'WAIT',
-                targetId: null, targetName: null,
-                score, baseScore: S.baseScores.WAIT,
-                factorBreakdown: factors, reasoning,
+                action: 'WAIT', targetId: null, targetName: null,
+                score, baseScore: S.baseScores.WAIT, factorBreakdown: factors, reasoning,
             }];
     }
 }

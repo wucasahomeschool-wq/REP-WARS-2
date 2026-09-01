@@ -6,8 +6,66 @@ export { MemorySystem, MemorySummary } from './memory/MemorySystem';
 export { GoalSystem, GoalAlignmentResult } from './goals/GoalSystem';
 export { ScoringHelpers, ActionScorer, ScorerInput } from './scoring/ActionScorer';
 export { DecisionEngine, WarlordState } from './engine/DecisionEngine';
-export { BattleEngine } from './battle/BattleEngine';
+export { BattleEngine, BattleInput, BattleResult, BattleCalculation, BattleSideBreakdown, CasualtyBreakdown } from './battle/BattleEngine';
+export {
+  ArmyLike,
+  TerritoryLike,
+  UnitBreakdown,
+  CombatPowerBreakdown,
+  sumUnits,
+  averageMorale,
+  computeRawUnitPower,
+  computeAttackerPower,
+  computeDefenderPower,
+  computeWinProbability,
+  computeMilitaryAdvantageRatio,
+} from './battle/CombatPower';
 export { MapEngine } from './map/MapEngine';
 export { NamingSystem } from './map/NamingSystem';
 export { DEFAULT_THEME_LIBRARY, IRON_HILLS, CHRISTMAS_TREE_MOUNTAINS, TUNA_ISLES, EMBER_PLAINS, CRYSTAL_COAST, MISTWOOD, GOLDEN_DESERT } from './map/Themes';
 export { SimulationBuilder, SAMPLE_MAP, WARLORD_SPECS, MapTerritorySpec, WarlordSpec } from './simulation/SampleMap';
+export {
+  LabParams,
+  BatchStats,
+  ScenarioReport,
+  buildLabInput,
+  runBattleLabSingle,
+  runBattleLabBatch,
+  formatBatchStats,
+  runBattleTestSuite,
+  runSeededReproducibilityTest,
+  runStatisticalSample,
+  formatTestSuite,
+} from './simulation/battleTests';
+export {
+  EXTREME_RATIO_SCENARIOS,
+  EQUAL_FORCE_SCENARIOS,
+  RATIO_SCENARIOS,
+  RatioScenario,
+  PropertyCheckResult,
+  StressReport,
+  runStressScenario,
+  assertAttackerTroopMonotonicity,
+  assertAttackerMoraleMonotonicity,
+  assertDefenseBonusMonotonicity,
+  runFullStressSuite,
+  formatStressCsvReport,
+} from './simulation/battleStressTests';
+
+// ====== IMPERIAL EVENT & WORLD SIMULATION ENGINE ======
+export {
+  EventSeverity, SEVERITY_ORDER, EventCategory, EventStatus, EffectTarget, HistoryKind,
+  ConditionContext, WorldHelper, TriggerScore, ImperialChoice, ConsequenceDelta,
+  ChainDefinition, EventDefinition, ActiveEvent, TriggeredEvent, HistoryEntry,
+  WorldStepInput, WorldStepOutput, EventConditionFn,
+  buildDefaultSeverityTable, pickSeverityFromTable, severityScale, severityAtLeast,
+} from './events/EventModel';
+export {
+  WorldHelperImpl, buildConditionContext, buildTriggerFn, COMMON_ELIGIBILITY,
+  computeFactionStabilityModifier, candidateTerritoriesForEvents,
+} from './events/EventTriggers';
+export {
+  EVENT_REGISTRY, EVENT_LIST, getEventById, evaluateAllTriggersForTerritory,
+} from './events/EventDefinitions';
+export { WorldSimulator, ConsequenceApplier } from './events/WorldSimulator';
+

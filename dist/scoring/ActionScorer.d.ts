@@ -1,4 +1,4 @@
-import { ActionContext, ScoredAction, Territory, Army, WarlordSnapshot, DiplomaticRelationship, Resources, FactionId } from '../types';
+import { ActionContext, Army, DiplomaticRelationship, FactionId, Resources, ScoredAction, Territory, WarlordSnapshot } from '../types';
 import { MemorySystem } from '../memory/MemorySystem';
 import { GoalSystem } from '../goals/GoalSystem';
 import { SeededRNG } from '../utils/SeededRNG';
@@ -6,7 +6,7 @@ export declare class ScoringHelpers {
     static computeArmyPower(army: Army): number;
     static computeTotalMilitaryPower(myArmies: Army[], myTerritories: Territory[]): number;
     static computeTerritoryMilitaryDefense(t: Territory, garrisonOnly?: boolean): number;
-    static estimateMilitaryAdvantage(attackerArmies: Army[], defenderTerritory: Territory, allArmies: Map<string, Army>): {
+    static estimateMilitaryAdvantage(attackerArmies: Army[], defenderTerritory: Territory, _allArmies: Map<string, Army>): {
         advantage: number;
         ratio: number;
         risk: number;

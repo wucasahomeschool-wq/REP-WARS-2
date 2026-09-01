@@ -1,0 +1,23 @@
+import { SimulationBuilder, ActiveEvent, HistoryEntry, FactionId } from '../index';
+type FactionState = {
+    gameState: ReturnType<typeof SimulationBuilder.buildFromSpecs>['gameState'];
+    activeEvents: ActiveEvent[];
+    eventHistory: HistoryEntry[];
+    turn: number;
+    seed: number;
+    playerFactionId: FactionId;
+};
+declare function createInitialEmpire(seed: number, playerFactionId?: FactionId): FactionState;
+declare function reportFactionStatus(st: FactionState): void;
+declare function printHistory(st: FactionState, limitPerTurn?: number): void;
+declare function scenario_1_StableEmpire(seed: number): FactionState;
+declare function scenario_2_ForceDrought(): FactionState;
+declare function scenario_3_DroughtChainInterrupted(): FactionState;
+declare function scenario_4_UnrestToRebellion(): FactionState;
+declare function scenario_5_EventExpires(seed: number): FactionState;
+declare function scenario_6_MultipleSimultaneousEvents(): FactionState;
+declare function scenario_7_PositiveEvents(seed: number): FactionState;
+declare function scenario_8_DeterministicReproducibility(): boolean;
+declare function scenario_9_HistoryRecording(): FactionState;
+declare function scenario_10_RegionalDifferences(): void;
+export { scenario_1_StableEmpire, scenario_2_ForceDrought, scenario_3_DroughtChainInterrupted, scenario_4_UnrestToRebellion, scenario_5_EventExpires, scenario_6_MultipleSimultaneousEvents, scenario_7_PositiveEvents, scenario_8_DeterministicReproducibility, scenario_9_HistoryRecording, scenario_10_RegionalDifferences, createInitialEmpire, reportFactionStatus, printHistory, };

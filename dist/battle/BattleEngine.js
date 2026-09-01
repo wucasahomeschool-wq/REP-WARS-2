@@ -3,23 +3,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BattleEngine = void 0;
 const balance_1 = require("../constants/balance");
 const SeededRNG_1 = require("../utils/SeededRNG");
-const C = balance_1.BALANCE.combat;
+const CombatPower_1 = require("./CombatPower");
 class BattleEngine {
     validate(input) {
         const errors = [];
-        if (!input.attackerArmies || input.attackerArmies.length === 0) {
-            errors.push('No attacking armies provided');
-        }
-        else {
-            const totalAttackers = input.attackerArmies.reduce((s, a) => s + a.soldiers + a.knights, 0);
-            if (totalAttackers <= 0)
-                errors.push('Attacking armies have zero soldiers/knights');
-        }
-        const defenderTroops = (input.defenderArmies ?? []).reduce((s, a) => s + a.soldiers + a.knights, 0) +
-            (input.defenderGarrison ?? 0);
-        if (defenderTroops <= 0)
-            errors.push('Defender has no troops to fight with');
-        if (!input.territory)
+        const totalAttackers = (input.attackerArmies ?? []).reduce((s, a) => s + Math.max(0, a.soldiers) + Math.max(0, a.knights), 0);
+        if (totalAttackers <= 0)
+            errors.push('Attacking armies have zero troops');
+        const defenderField = (input.defenderArmies ?? []).reduce((s, a) => s + Math.max(0, a.soldiers) + Math.max(0, a.knights), 0);
+        const defenderGarrison = Math.max(0, input.defenderGarrison ?? 0);
+        if (defenderField + defenderGarrison <= 0)
+            errors.push('Defender has no troops');
+        if (!input.territory?.id)
             errors.push('No territory provided for battle');
         if (!input.attackerFactionId)
             errors.push('Missing attacker faction');
@@ -35,541 +30,306 @@ class BattleEngine {
         if (!validation.valid) {
             throw new Error(`Battle validation failed: ${validation.errors.join('; ')}`);
         }
-        const battleRNG = new SeededRNG_1.SeededRNG(input.seed ^ C.randomness.seedSaltBase);
-        const battleId = input.battleId ?? `battle_${input.turn}_${input.attackerFactionId}_${input.defenderFactionId}_${Math.floor(battleRNG.next() * 1e6)}`;
+        const C = balance_1.BALANCE.combat;
+        const rng = new SeededRNG_1.SeededRNG((input.seed >>> 0) ^ C.randomness.seedSaltBase);
+        const battleId = input.battleId ??
+            `battle_${input.turn}_${input.attackerFactionId}_${input.defenderFactionId}_${Math.floor(rng.next() * 1e6)}`;
         const events = [];
-        const phases = [];
-        let eventCounter = 0;
-        const addEvent = (phase, type, side, message, impact) => {
+        let evId = 0;
+        const emit = (phase, type, side, message, impact = 0) => {
             events.push({
-                id: `evt_${battleId}_${eventCounter++}`,
+                id: `evt_${battleId}_${evId++}`,
                 turn: input.turn,
-                phase,
-                type,
-                side,
-                message,
-                impact,
+                phase, type, side, message, impact,
             });
         };
-        addEvent('setup', 'phase_start', 'both', `${input.attackerFactionName ?? input.attackerFactionId} marches on ${input.territory.name}.`, 0);
-        const attackerTroops = this.sumArmies(input.attackerArmies);
-        const defenderFieldTroops = this.sumArmies(input.defenderArmies ?? []);
-        const garrisonTroops = input.defenderGarrison ?? 0;
-        const totalDefenderUnits = {
-            soldiers: defenderFieldTroops.soldiers,
-            knights: defenderFieldTroops.knights,
-            siegeEngines: defenderFieldTroops.siegeEngines,
-        };
-        const { baseStrength: atkBase, factors: atkBaseFactors } = this.calculateBaseStrength(input.attackerArmies, null, 'attacker');
-        const { baseStrength: defBase, factors: defBaseFactors } = this.calculateBaseStrength(input.defenderArmies ?? [], garrisonTroops, 'defender');
-        const { effectiveStrength: atkEff, factors: atkFactors } = this.calculateEffectiveStrength(atkBase, 'attacker', input, attackerTroops, battleRNG, atkBaseFactors);
-        const { effectiveStrength: defEff, factors: defFactors } = this.calculateEffectiveStrength(defBase, 'defender', input, totalDefenderUnits, battleRNG, defBaseFactors);
-        let runningAtk = atkEff;
-        let runningDef = defEff;
-        const phaseScores = [];
-        for (let i = 0; i < C.phases.count; i++) {
-            const phaseName = C.phases.names[i];
-            const phaseWeight = C.phases.weights[i];
-            const phaseRNG = battleRNG.fork(i + 31);
-            const phaseAtkMod = 1 + (phaseRNG.next() - 0.5) * 2 * C.randomness.perPhaseRange;
-            const phaseDefMod = 1 + (phaseRNG.next() - 0.5) * 2 * C.randomness.perPhaseRange;
-            const phaseAtk = runningAtk * phaseAtkMod * phaseWeight;
-            const phaseDef = runningDef * phaseDefMod * phaseWeight;
-            const phaseAdv = (phaseAtk - phaseDef) / Math.max(1, (phaseAtk + phaseDef) / 2);
-            phaseScores.push(phaseAdv);
-            this.rollPhaseEvents(phaseName, i, phaseAdv, input, phaseRNG, addEvent);
-            phases.push({
-                name: phaseName,
-                description: this.describePhase(phaseName, phaseAdv, phaseAtkMod, phaseDefMod),
-                attackerAdvantage: phaseAdv,
-            });
-            const attritionAtk = Math.max(0.02, (1 - phaseAtkMod)) * phaseWeight;
-            const attritionDef = Math.max(0.02, (1 - phaseDefMod)) * phaseWeight;
-            runningAtk *= 1 - attritionAtk;
-            runningDef *= 1 - attritionDef;
-        }
-        const finalAtk = runningAtk;
-        const finalDef = runningDef;
-        const rawRatio = finalAtk / Math.max(0.001, finalDef);
-        const ratio = Math.max(C.numericalAdvantage.minRatio, Math.min(C.numericalAdvantage.maxRatioAdvantage, rawRatio));
-        const margin = (finalAtk - finalDef) / Math.max(1, (finalAtk + finalDef) / 2);
-        const baseIntensity = (atkEff + defEff) / 2;
-        const closeFactor = 1 - Math.min(0.6, Math.abs(margin));
-        const battleIntensity = Math.min(1, Math.max(0.05, 0.35 + closeFactor * 0.4 + baseIntensity / Math.max(1, atkBase + defBase) * 0.25));
+        const atkName = input.attackerFactionName ?? input.attackerFactionId;
+        const defName = input.defenderFactionName ?? input.defenderFactionId;
+        emit('setup', 'phase_start', 'both', `${atkName} marches on ${input.territory.name}.`, 0);
+        const atkQuality = input.attackerQuality ?? C.qualityDefault;
+        const defQuality = input.defenderQuality ?? C.qualityDefault;
+        const atkInit = (0, CombatPower_1.sumUnits)(input.attackerArmies, 0);
+        const defInit = (0, CombatPower_1.sumUnits)(input.defenderArmies ?? [], input.defenderGarrison ?? 0);
+        let atkPower = (0, CombatPower_1.computeAttackerPower)(input.attackerArmies, atkQuality);
+        let defPower = (0, CombatPower_1.computeDefenderPower)(input.defenderArmies ?? [], input.defenderGarrison ?? 0, input.territory, defQuality);
+        if (input.strategicAttackerBonus)
+            atkPower.effectivePower += input.strategicAttackerBonus;
+        if (input.strategicDefenderBonus)
+            defPower.effectivePower += input.strategicDefenderBonus;
+        if (input.additionalAttackerModifiers)
+            atkPower.effectivePower += input.additionalAttackerModifiers;
+        if (input.additionalDefenderModifiers)
+            defPower.effectivePower += input.additionalDefenderModifiers;
+        atkPower.effectivePower = Math.max(0.0001, atkPower.effectivePower);
+        defPower.effectivePower = Math.max(0.0001, defPower.effectivePower);
+        const winProb = (0, CombatPower_1.computeWinProbability)(atkPower.effectivePower, defPower.effectivePower);
+        const powerRatio = atkPower.effectivePower / defPower.effectivePower;
+        const roll = rng.next();
+        const total = atkPower.effectivePower + defPower.effectivePower;
+        const dominance = Math.max(atkPower.effectivePower, defPower.effectivePower) / Math.max(0.0001, total);
+        const rawAdvantage = (atkPower.effectivePower - defPower.effectivePower) / Math.max(0.0001, total);
+        const relativeAdvantage = Math.abs(rawAdvantage);
         let winner;
         let loser;
-        let outcomeType;
-        let territoryOutcome = 'unchanged';
-        let defenderSurrendered = false;
-        if (Math.abs(margin) < C.victory.stalemateMaxMargin && Math.abs(ratio - 1) < C.victory.stalemateMaxRatio - 1) {
-            winner = 'draw';
-            loser = 'draw';
-            outcomeType = 'stalemate';
-            addEvent('resolution', 'phase_end', 'both', 'Neither side can gain the upper hand; the battle ends in stalemate.', 0);
+        let isStalemate = false;
+        if (Math.abs(roll - winProb) < 1e-9 && winProb === 0.5) {
+            isStalemate = true;
+            winner = roll < 0.5 ? 'attacker' : 'defender';
+            loser = winner === 'attacker' ? 'defender' : 'attacker';
         }
-        else if (ratio >= 1) {
-            winner = 'attacker';
-            loser = 'defender';
-            if (ratio >= C.victory.decisiveRatioThreshold) {
+        else {
+            winner = roll < winProb ? 'attacker' : 'defender';
+            loser = winner === 'attacker' ? 'defender' : 'attacker';
+        }
+        const winnerPower = winner === 'attacker' ? atkPower.effectivePower : defPower.effectivePower;
+        const loserPower = loser === 'attacker' ? atkPower.effectivePower : defPower.effectivePower;
+        const CC = C.casualties;
+        const isCloseBattle = Math.abs(winProb - 0.5) < CC.closeBattleThreshold;
+        const { winnerRate: wBase, loserRate: lBase } = (0, CombatPower_1.computeCasualtyRates)(winnerPower, loserPower, rng);
+        let winnerCasRate = wBase;
+        let loserCasRate = lBase;
+        if (isCloseBattle) {
+            winnerCasRate = Math.min(CC.winnerMaxRate, winnerCasRate + CC.closeBattleExtraWinner);
+            loserCasRate = Math.min(CC.loserMaxRate, loserCasRate + CC.closeBattleExtraLoser);
+        }
+        winnerCasRate = Math.max(CC.winnerMinRate, Math.min(CC.winnerMaxRate, winnerCasRate));
+        loserCasRate = Math.max(CC.loserMinRate, Math.min(CC.loserMaxRate, loserCasRate));
+        const atkCasRate = winner === 'attacker' ? winnerCasRate : loserCasRate;
+        const defCasRate = winner === 'defender' ? winnerCasRate : loserCasRate;
+        const atkCas = splitCasualties(atkInit, atkCasRate);
+        const defCas = splitCasualties(defInit, defCasRate);
+        const atkRemaining = {
+            soldiers: Math.max(0, atkInit.soldiers - atkCas.soldiers),
+            knights: Math.max(0, atkInit.knights - atkCas.knights),
+            siegeEngines: Math.max(0, atkInit.siegeEngines - atkCas.siegeEngines),
+        };
+        const defRemainingUnits = {
+            soldiers: Math.max(0, defInit.soldiers - defCas.soldiers),
+            knights: Math.max(0, defInit.knights - defCas.knights),
+            siegeEngines: Math.max(0, defInit.siegeEngines - defCas.siegeEngines),
+        };
+        const garrisonLeft = Math.max(0, (defInit.garrison ?? 0) - (defCas.garrison ?? 0));
+        const pyrrhicRate = winner === 'attacker' ? atkCas.casualtyRate : defCas.casualtyRate;
+        const isPyrrhic = pyrrhicRate >= C.victory.pyrrhicWinnerCasualtyThreshold;
+        const V = C.victory;
+        let outcomeType;
+        if (isStalemate) {
+            outcomeType = 'stalemate';
+            emit('resolution', 'phase_end', 'both', 'Neither side can gain the upper hand; stalemate.', 0);
+        }
+        else if (winner === 'attacker') {
+            if (isPyrrhic)
+                outcomeType = 'attacker_pyrrhic_victory';
+            else if (relativeAdvantage >= V.decisiveWinnerMinAdvantage)
                 outcomeType = 'attacker_decisive_victory';
-                addEvent('resolution', 'rout', 'defender', 'The defenders break and flee the field.', 25);
-            }
-            else if (ratio >= C.victory.narrowRatioThreshold) {
+            else if (relativeAdvantage <= V.narrowWinnerMaxAdvantage)
                 outcomeType = 'attacker_narrow_victory';
-                addEvent('resolution', 'phase_end', 'both', 'The attackers carry the field after a hard fight.', 10);
+            else
+                outcomeType = 'attacker_narrow_victory';
+            if (outcomeType === 'attacker_decisive_victory') {
+                emit('resolution', 'rout', 'defender', 'The defenders break and flee the field.', 25);
+            }
+            else if (outcomeType === 'attacker_pyrrhic_victory') {
+                emit('resolution', 'phase_end', 'both', 'Attackers win at devastating cost.', 5);
             }
             else {
-                outcomeType = 'mutual_heavy_losses';
-                addEvent('resolution', 'phase_end', 'both', 'Both forces are spent; the attackers hold the field barely.', 0);
+                emit('resolution', 'phase_end', 'both', 'The attackers carry the field after a hard fight.', 10);
             }
         }
         else {
-            winner = 'defender';
-            loser = 'attacker';
-            const invRatio = 1 / ratio;
-            if (invRatio >= C.victory.decisiveRatioThreshold) {
+            if (isPyrrhic)
+                outcomeType = 'defender_pyrrhic_victory';
+            else if (relativeAdvantage >= V.decisiveWinnerMinAdvantage)
                 outcomeType = 'defender_decisive_victory';
-                addEvent('resolution', 'rout', 'attacker', 'The attackers are shattered and driven from the field.', -25);
-            }
-            else if (invRatio >= C.victory.narrowRatioThreshold) {
+            else if (relativeAdvantage <= V.narrowWinnerMaxAdvantage)
                 outcomeType = 'defender_narrow_victory';
-                addEvent('resolution', 'heroic_stand', 'defender', 'The defenders stand firm and repel the assault.', 15);
+            else
+                outcomeType = 'defender_narrow_victory';
+            if (outcomeType === 'defender_decisive_victory') {
+                emit('resolution', 'rout', 'attacker', 'The attackers are shattered and driven off.', -25);
+            }
+            else if (outcomeType === 'defender_pyrrhic_victory') {
+                emit('resolution', 'phase_end', 'both', 'Defenders hold but suffer crippling losses.', -5);
             }
             else {
-                outcomeType = 'mutual_heavy_losses';
-                addEvent('resolution', 'phase_end', 'both', 'Both sides bleed each other white; the attackers fall back.', 0);
+                emit('resolution', 'heroic_stand', 'defender', 'The defenders stand firm and repel the assault.', 15);
             }
         }
-        const { atkCasualties, defCasualties, atkRemaining, defRemaining, atkTroopBreakdown, defTroopBreakdown, pyrrhicCheck } = this.computeCasualties(outcomeType, ratio, battleIntensity, input, attackerTroops, totalDefenderUnits, garrisonTroops, battleRNG);
-        if (pyrrhicCheck && outcomeType === 'attacker_narrow_victory')
-            outcomeType = 'attacker_pyrrhic_victory';
-        if (pyrrhicCheck && outcomeType === 'defender_narrow_victory')
-            outcomeType = 'defender_pyrrhic_victory';
-        if (winner === 'attacker') {
-            const neededAdv = input.territory.isCapital
-                ? C.victory.captureCapitalRequirement
-                : C.victory.captureRequiredAdvantage;
-            if (ratio >= neededAdv && atkRemaining.soldiers + atkRemaining.knights > 50) {
+        let territoryOutcome;
+        let defenderSurrendered = false;
+        const neededAdv = input.territory.isCapital
+            ? V.captureCapitalRequiredWinnerAdvantage
+            : V.captureRequiredWinnerAdvantage;
+        const minRemain = V.captureMinAttackerRemainingRatio;
+        const atkRemCount = atkRemaining.soldiers + atkRemaining.knights;
+        const atkInitCount = atkInit.soldiers + atkInit.knights;
+        if (outcomeType === 'stalemate') {
+            territoryOutcome = 'contested';
+        }
+        else if (winner === 'attacker') {
+            const attackerHasEnough = atkInitCount === 0 ? false : (atkRemCount / Math.max(1, atkInitCount)) >= minRemain;
+            if (relativeAdvantage >= neededAdv && attackerHasEnough) {
                 territoryOutcome = 'captured';
-                addEvent('resolution', 'breach', 'attacker', `${input.territory.name} falls to the attackers.`, 30);
-                if (garrisonTroops > 0 && defCasualties.garrison !== undefined && defCasualties.garrison >= (input.defenderGarrison ?? 0) * 0.9) {
+                emit('resolution', 'breach', 'attacker', `${input.territory.name} falls to the attackers.`, 30);
+                const totalDefInit = (defInit.garrison ?? 0) + defInit.soldiers + defInit.knights;
+                const totalDefCas = defCas.total;
+                if (totalDefInit > 0 && totalDefCas / totalDefInit >= 0.9) {
                     defenderSurrendered = true;
-                    addEvent('resolution', 'surrender', 'defender', 'The remaining garrison surrenders.', 10);
+                    emit('resolution', 'surrender', 'defender', 'The remaining garrison surrenders.', 10);
                 }
             }
             else {
                 territoryOutcome = 'contested';
-                addEvent('resolution', 'phase_end', 'both', `The attackers win the field but cannot secure ${input.territory.name}.`, 5);
+                emit('resolution', 'phase_end', 'both', `Attackers win the field but cannot secure ${input.territory.name}.`, 5);
             }
         }
-        else if (winner === 'defender') {
+        else {
             territoryOutcome = 'unchanged';
         }
-        else {
-            territoryOutcome = 'contested';
-        }
-        const attackerRouted = outcomeType === 'defender_decisive_victory' || outcomeType === 'defender_pyrrhic_victory';
-        const defenderRouted = outcomeType === 'attacker_decisive_victory' || outcomeType === 'attacker_pyrrhic_victory';
-        const attackerRetreated = winner === 'defender';
+        const attackerRouted = outcomeType === 'defender_decisive_victory';
+        const defenderRouted = outcomeType === 'attacker_decisive_victory';
+        const attackerRetreated = winner === 'defender' && !isStalemate;
         const defenderRetreated = territoryOutcome === 'captured' && !defenderSurrendered;
-        const atkSurvivorsPct = attackerRetreated
-            ? Math.min(0.95, C.retreat.baseSurvivalRate
-                + ((input.attackerArmies[0]?.morale ?? 50) - 50) * C.retreat.perMoraleSurvival
-                + (attackerTroops.knights / Math.max(1, attackerTroops.soldiers + attackerTroops.knights)) * C.retreat.cavalryBoostRetreat
-                + (ratio < C.retreat.criticalRetreatThreshold ? -C.retreat.enemyCloseRetreatMalus : 0))
+        const atkSurvPct = attackerRetreated
+            ? retreatSurvival(input.attackerArmies[0], C)
             : undefined;
-        const defSurvivorsPct = defenderRetreated
-            ? input.territory.terrain === 'fortress' || input.territory.fortification >= 4
+        const defSurvPct = defenderRetreated
+            ? (input.territory.terrain === 'fortress' || (input.territory.fortification ?? 0) >= 4
                 ? C.retreat.fortressGarrisonRetreatSurvival
-                : C.retreat.baseSurvivalRate + 0.15
+                : C.retreat.baseSurvivalRate + 0.15)
             : undefined;
-        const atkMoraleDelta = this.computeMoraleChange(winner, 'attacker', outcomeType, battleIntensity);
-        const defMoraleDelta = this.computeMoraleChange(winner, 'defender', outcomeType, battleIntensity);
+        const atkMorale = computeMoraleDelta(isStalemate ? 'draw' : winner, 'attacker', outcomeType, C);
+        const defMorale = computeMoraleDelta(isStalemate ? 'draw' : winner, 'defender', outcomeType, C);
         const attackerBreakdown = {
             side: 'attacker',
             factionId: input.attackerFactionId,
-            factionName: input.attackerFactionName ?? input.attackerFactionId,
-            baseStrength: atkBase,
-            unitBreakdown: { soldiers: attackerTroops.soldiers, knights: attackerTroops.knights, siegeEngines: attackerTroops.siegeEngines },
-            factors: atkFactors,
-            effectiveStrength: Math.round(finalAtk),
-            initialTroops: attackerTroops.soldiers + attackerTroops.knights,
-            remainingTroops: Math.max(0, atkRemaining.soldiers + atkRemaining.knights),
-            casualties: {
-                soldiers: atkCasualties.soldiers,
-                knights: atkCasualties.knights,
-                siegeEngines: atkCasualties.siegeEngines,
-                total: atkCasualties.soldiers + atkCasualties.knights + atkCasualties.siegeEngines,
-                casualtyRate: Math.round(((atkCasualties.soldiers + atkCasualties.knights) / Math.max(1, attackerTroops.soldiers + attackerTroops.knights)) * 1000) / 1000,
-            },
-            moraleChange: atkMoraleDelta,
+            factionName: atkName,
+            power: atkPower,
+            effectivePower: Math.round(atkPower.effectivePower),
+            unitBreakdown: { ...atkInit },
+            initialTroops: atkInit.soldiers + atkInit.knights,
+            remainingTroops: atkRemaining.soldiers + atkRemaining.knights,
+            remaining: atkRemaining,
+            casualties: { ...atkCas, total: atkCas.total, casualtyRate: round3(atkCas.casualtyRate) },
+            moraleChange: atkMorale,
             routed: attackerRouted,
             retreated: attackerRetreated,
-            retreatSurvivorsPct: atkSurvivorsPct,
+            retreatSurvivorsPct: atkSurvPct,
         };
         const defenderBreakdown = {
             side: 'defender',
             factionId: input.defenderFactionId,
-            factionName: input.defenderFactionName ?? input.defenderFactionId,
-            baseStrength: defBase,
-            unitBreakdown: { soldiers: totalDefenderUnits.soldiers, knights: totalDefenderUnits.knights, siegeEngines: totalDefenderUnits.siegeEngines, garrison: garrisonTroops },
-            factors: defFactors,
-            effectiveStrength: Math.round(finalDef),
-            initialTroops: totalDefenderUnits.soldiers + totalDefenderUnits.knights,
-            remainingTroops: Math.max(0, defRemaining.soldiers + defRemaining.knights),
+            factionName: defName,
+            power: defPower,
+            effectivePower: Math.round(defPower.effectivePower),
+            unitBreakdown: { ...defInit, garrison: defInit.garrison ?? 0 },
+            initialTroops: defInit.soldiers + defInit.knights + (defInit.garrison ?? 0),
+            remainingTroops: defRemainingUnits.soldiers + defRemainingUnits.knights + garrisonLeft,
+            remaining: { ...defRemainingUnits, garrison: garrisonLeft },
             casualties: {
-                soldiers: defCasualties.soldiers,
-                knights: defCasualties.knights,
-                siegeEngines: defCasualties.siegeEngines,
-                garrison: defCasualties.garrison,
-                total: defCasualties.soldiers + defCasualties.knights + defCasualties.siegeEngines + (defCasualties.garrison ?? 0),
-                casualtyRate: Math.round(((defCasualties.soldiers + defCasualties.knights + (defCasualties.garrison ?? 0)) / Math.max(1, totalDefenderUnits.soldiers + totalDefenderUnits.knights)) * 1000) / 1000,
+                ...defCas,
+                total: defCas.total,
+                casualtyRate: round3(defCas.casualtyRate),
             },
-            moraleChange: defMoraleDelta,
+            moraleChange: defMorale,
             routed: defenderRouted,
             retreated: defenderRetreated,
-            retreatSurvivorsPct: defSurvivorsPct,
+            retreatSurvivorsPct: defSurvPct,
         };
-        const readableLog = this.buildReadableLog(input, { attacker: attackerBreakdown, defender: defenderBreakdown }, outcomeType, territoryOutcome, ratio, margin, battleIntensity, events);
+        const calculation = {
+            attacker: {
+                rawTroops: atkPower.rawTroops,
+                quality: atkPower.quality,
+                morale: atkPower.morale,
+                moraleLabel: atkPower.moraleLabel,
+                effectivePower: atkPower.effectivePower,
+            },
+            defender: {
+                rawTroops: defPower.rawTroops,
+                quality: defPower.quality,
+                morale: defPower.morale,
+                moraleLabel: defPower.moraleLabel,
+                defenseBonus: defPower.defenseBonus,
+                defenseLabel: defPower.defenseLabel,
+                effectivePower: defPower.effectivePower,
+            },
+            powerRatio: round3(powerRatio),
+            attackerWinProbability: round3(winProb),
+            randomRoll: round3(roll),
+            winner,
+            attackerCasualties: { count: atkCas.total, rate: round3(atkCas.casualtyRate) },
+            defenderCasualties: { count: defCas.total, rate: round3(defCas.casualtyRate) },
+            attackerRemaining: attackerBreakdown.remainingTroops,
+            defenderRemaining: defenderBreakdown.remainingTroops,
+        };
+        const readableLog = this.buildReadableLog(input, attackerBreakdown, defenderBreakdown, outcomeType, territoryOutcome, winProb, powerRatio, roll, relativeAdvantage, events, calculation);
         const summary = this.buildSummary(input, outcomeType, territoryOutcome, attackerBreakdown, defenderBreakdown);
-        const result = {
+        const margin = (atkPower.effectivePower - defPower.effectivePower) /
+            Math.max(0.0001, (atkPower.effectivePower + defPower.effectivePower) / 2);
+        return {
             battleId,
             turn: input.turn,
             territoryId: input.territory.id,
             territoryName: input.territory.name,
             seedUsed: input.seed,
-            winner,
-            loser,
+            winner: isStalemate ? 'draw' : winner,
+            loser: isStalemate ? 'draw' : loser,
             outcomeType,
-            battleIntensity: Math.round(battleIntensity * 1000) / 1000,
+            attackerWinProbability: round3(winProb),
+            randomRoll: round3(roll),
+            effectivePowerRatio: round3(powerRatio),
+            battleIntensity: round3((atkCas.casualtyRate + defCas.casualtyRate) / 2),
             attacker: attackerBreakdown,
             defender: defenderBreakdown,
             territoryOutcome,
             defenderSurrendered,
             events,
-            battlePhases: phases,
-            effectiveRatio: Math.round(ratio * 1000) / 1000,
-            marginOfVictory: Math.round(margin * 1000) / 1000,
+            battlePhases: [],
+            effectiveRatio: round3(powerRatio),
+            marginOfVictory: round3(margin),
             summary,
             readableLog,
-        };
-        return result;
-    }
-    sumArmies(armies) {
-        return armies.reduce((acc, a) => ({
-            soldiers: acc.soldiers + Math.max(0, a.soldiers),
-            knights: acc.knights + Math.max(0, a.knights),
-            siegeEngines: acc.siegeEngines + Math.max(0, a.siegeEngines),
-        }), { soldiers: 0, knights: 0, siegeEngines: 0 });
-    }
-    calculateBaseStrength(armies, garrison, side) {
-        const troops = this.sumArmies(armies);
-        const factors = [];
-        const soldierStr = troops.soldiers * C.baseStrength.soldier;
-        const knightStr = troops.knights * C.baseStrength.knight;
-        const siegeStr = troops.siegeEngines * C.baseStrength.siegeEngine;
-        let garrisonStr = 0;
-        if (garrison && garrison > 0) {
-            garrisonStr = garrison * C.baseStrength.garrison;
-            if (side === 'defender')
-                garrisonStr *= C.unitType.garrisonBonusWhenDefending;
-        }
-        factors.push({ factor: 'Infantry', category: 'unit', contribution: soldierStr, description: `${troops.soldiers} soldiers × ${C.baseStrength.soldier}` });
-        if (troops.knights > 0)
-            factors.push({ factor: 'Cavalry', category: 'unit', contribution: knightStr, description: `${troops.knights} knights × ${C.baseStrength.knight}` });
-        if (troops.siegeEngines > 0)
-            factors.push({ factor: 'Siege', category: 'unit', contribution: siegeStr, description: `${troops.siegeEngines} siege engines × ${C.baseStrength.siegeEngine}` });
-        if (garrison && garrison > 0)
-            factors.push({
-                factor: 'Garrison', category: 'unit',
-                contribution: garrisonStr,
-                description: `${garrison} garrison${side === 'defender' ? ' (defensive bonus)' : ''}`,
-            });
-        const totalBase = soldierStr + knightStr + siegeStr + garrisonStr;
-        factors.unshift({ factor: 'Total base strength', category: 'base', contribution: totalBase, description: 'Sum of all unit strengths' });
-        return { baseStrength: totalBase, factors };
-    }
-    calculateEffectiveStrength(baseStrength, side, input, units, rng, existingFactors) {
-        const factors = [...existingFactors];
-        let eff = baseStrength;
-        const terrain = input.territory.terrain;
-        const terrainMod = side === 'attacker'
-            ? C.terrain.attackerModifier[terrain] ?? 1
-            : C.terrain.defenderModifier[terrain] ?? 1;
-        const terrainContrib = Math.round((terrainMod - 1) * baseStrength);
-        eff *= terrainMod;
-        factors.push({
-            factor: `Terrain: ${balance_1.TERRAIN_NAMES[terrain] ?? terrain}`,
-            category: 'terrain',
-            contribution: terrainContrib,
-            description: side === 'attacker'
-                ? `Attacker terrain modifier ×${terrainMod.toFixed(2)}`
-                : `Defender terrain modifier ×${terrainMod.toFixed(2)}`,
-        });
-        const fortLevel = Math.min(C.fortification.maxLevel, input.territory.fortification);
-        if (fortLevel > 0 && side === 'defender') {
-            const fortMult = 1 + fortLevel * C.fortification.perLevelStrengthBonus;
-            const capitalMult = input.territory.isCapital ? C.fortification.capitalBonus : 1;
-            const combined = fortMult * capitalMult;
-            const fortContrib = Math.round((combined - 1) * baseStrength);
-            eff *= combined;
-            const structName = C.fortification.structureNames[String(fortLevel)] ?? `L${fortLevel}`;
-            factors.push({
-                factor: `Fortification: ${structName}`,
-                category: 'fortification',
-                contribution: fortContrib,
-                description: input.territory.isCapital
-                    ? `${structName} (L${fortLevel}) ×${fortMult.toFixed(2)} + Capital defense ×${capitalMult.toFixed(2)}`
-                    : `${structName} (L${fortLevel}) ×${fortMult.toFixed(2)}`,
-            });
-        }
-        if (fortLevel >= 3 && side === 'attacker' && units.siegeEngines < C.siege.minSiegeNeededForFortress) {
-            const malus = C.siege.noSiegeFortressMalus;
-            const contrib = Math.round((malus - 1) * baseStrength);
-            eff *= malus;
-            factors.push({
-                factor: 'Lacking sufficient siege engines',
-                category: 'fortification',
-                contribution: contrib,
-                description: `Against L${fortLevel} defenses, ${units.siegeEngines} siege engines < ${C.siege.minSiegeNeededForFortress} needed ×${malus.toFixed(2)}`,
-            });
-        }
-        else if (units.siegeEngines > 0 && side === 'attacker' && fortLevel > 0) {
-            const siegeValue = Math.min(1, (units.siegeEngines * C.siege.engineVsFortificationMultiplier) / (fortLevel * C.fortification.perLevelSiegeNeed));
-            const siegeMult = 1 + siegeValue * 0.18;
-            const contrib = Math.round((siegeMult - 1) * baseStrength);
-            eff *= siegeMult;
-            factors.push({
-                factor: 'Siege engines in action',
-                category: 'unit',
-                contribution: contrib,
-                description: `${units.siegeEngines} engines vs L${fortLevel} walls ×${siegeMult.toFixed(2)}`,
-            });
-        }
-        const densityTerrainSet = new Set(['forest', 'mountain', 'fortress', 'river']);
-        const openTerrainSet = new Set(['plains', 'desert', 'coastal']);
-        if (units.knights > 0) {
-            if (openTerrainSet.has(terrain) && side === 'attacker') {
-                const cavMult = C.unitType.knightVsInfantryOpenTerrainBonus;
-                const cavPart = units.knights * C.baseStrength.knight;
-                const contrib = Math.round(cavPart * (cavMult - 1));
-                eff += contrib;
-                factors.push({ factor: 'Cavalry charge (open terrain)', category: 'terrain', contribution: contrib, description: `Open ${balance_1.TERRAIN_NAMES[terrain]} favors knights ×${cavMult.toFixed(2)}` });
-            }
-            else if (densityTerrainSet.has(terrain) && side === 'attacker') {
-                const cavMult = C.unitType.knightVsInfantryDenseTerrainMalus;
-                const cavPart = units.knights * C.baseStrength.knight;
-                const contrib = Math.round(cavPart * (cavMult - 1));
-                eff += contrib;
-                factors.push({ factor: 'Cavalry hindered (rough terrain)', category: 'terrain', contribution: contrib, description: `${balance_1.TERRAIN_NAMES[terrain]} disrupts cavalry ×${cavMult.toFixed(2)}` });
-            }
-        }
-        const allArmies = side === 'attacker' ? input.attackerArmies : input.defenderArmies ?? [];
-        if (allArmies.length > 0) {
-            const morale = allArmies.reduce((s, a) => s + a.morale, 0) / allArmies.length;
-            if (morale > 50) {
-                const bonus = 1 + ((morale - 50) / 10) * C.morale.highMoraleBonusPer10;
-                const contrib = Math.round((bonus - 1) * baseStrength);
-                eff *= bonus;
-                factors.push({ factor: `High morale (${morale.toFixed(0)})`, category: 'morale', contribution: contrib, description: `Confident troops fight harder ×${bonus.toFixed(2)}` });
-            }
-            else if (morale < 50) {
-                const penalty = 1 - ((50 - morale) / 10) * C.morale.lowMoralePenaltyPer10;
-                const contrib = Math.round((penalty - 1) * baseStrength);
-                eff *= penalty;
-                factors.push({ factor: `Low morale (${morale.toFixed(0)})`, category: 'morale', contribution: contrib, description: `Shaken troops underperform ×${penalty.toFixed(2)}` });
-            }
-            const supply = allArmies.reduce((s, a) => s + a.supply, 0) / allArmies.length;
-            if (supply < 60) {
-                const malus = 1 - ((60 - supply) / 10) * C.supply.lowSupplyPenaltyPer10;
-                const contrib = Math.round((malus - 1) * baseStrength);
-                eff *= malus;
-                factors.push({ factor: `Poor supply (${supply.toFixed(0)})`, category: 'morale', contribution: contrib, description: `Hungry troops fight worse ×${malus.toFixed(2)}` });
-            }
-        }
-        if (side === 'attacker' && input.attackerAggression !== undefined) {
-            const aggr = input.attackerAggression;
-            const mult = 1 + (aggr - 0.5) * 0.3;
-            const contrib = Math.round((mult - 1) * baseStrength);
-            if (Math.abs(contrib) > 0.5) {
-                eff *= mult;
-                factors.push({ factor: `Warlord aggression (${(aggr * 100).toFixed(0)}%)`, category: 'strategic', contribution: contrib, description: `Aggressive leadership ×${mult.toFixed(2)}` });
-            }
-        }
-        if (side === 'defender' && input.defenderDefensiveness !== undefined) {
-            const def = input.defenderDefensiveness;
-            const mult = 1 + (def - 0.5) * 0.3;
-            const contrib = Math.round((mult - 1) * baseStrength);
-            if (Math.abs(contrib) > 0.5) {
-                eff *= mult;
-                factors.push({ factor: `Warlord defensiveness (${(def * 100).toFixed(0)}%)`, category: 'strategic', contribution: contrib, description: `Cautious leadership ×${mult.toFixed(2)}` });
-            }
-        }
-        if (side === 'attacker' && input.strategicAttackerBonus) {
-            eff += input.strategicAttackerBonus;
-            factors.push({ factor: 'Strategic attacker bonus', category: 'strategic', contribution: input.strategicAttackerBonus, description: 'Pre-battle positional advantage' });
-        }
-        if (side === 'defender' && input.strategicDefenderBonus) {
-            eff += input.strategicDefenderBonus;
-            factors.push({ factor: 'Strategic defender bonus', category: 'strategic', contribution: input.strategicDefenderBonus, description: 'Prepared defensive positions' });
-        }
-        if (side === 'attacker' && input.additionalAttackerModifiers) {
-            eff += input.additionalAttackerModifiers;
-            factors.push({ factor: 'External modifiers', category: 'strategic', contribution: input.additionalAttackerModifiers, description: 'Simulation-specific modifiers' });
-        }
-        if (side === 'defender' && input.additionalDefenderModifiers) {
-            eff += input.additionalDefenderModifiers;
-            factors.push({ factor: 'External modifiers', category: 'strategic', contribution: input.additionalDefenderModifiers, description: 'Simulation-specific modifiers' });
-        }
-        const rand = (rng.next() - 0.5) * 2 * C.randomness.range;
-        const randMult = 1 + rand;
-        const randContrib = Math.round(rand * baseStrength);
-        eff *= randMult;
-        factors.push({
-            factor: 'Fortunes of war',
-            category: 'random',
-            contribution: randContrib,
-            description: `Controlled randomness ×${randMult.toFixed(2)} (${rand >= 0 ? '+' : ''}${(rand * 100).toFixed(1)}%)`,
-        });
-        eff = Math.max(0.001, eff);
-        return { effectiveStrength: eff, factors };
-    }
-    rollPhaseEvents(phaseName, phaseIdx, phaseAdv, input, rng, emit) {
-        const advFavorsAttacker = phaseAdv > 0;
-        if (rng.next() < C.battleEvents.flankChance) {
-            const side = advFavorsAttacker ? 'attacker' : 'defender';
-            emit(phaseName, 'flank', side, side === 'attacker' ? 'Attacking cavalry flanks the defender lines.' : 'Defender sorties flank the besiegers.', (side === 'attacker' ? 1 : -1) * 12);
-        }
-        if (phaseIdx === 0 && rng.next() < C.battleEvents.ambushChance) {
-            const side = advFavorsAttacker ? 'defender' : 'attacker';
-            emit(phaseName, 'ambush', side, side === 'attacker' ? 'The attackers ambush advancing defenders.' : 'The defenders spring an ambush.', (side === 'attacker' ? 1 : -1) * 18);
-        }
-        if (phaseIdx >= 1) {
-            const siegeCount = input.attackerArmies.reduce((s, a) => s + a.siegeEngines, 0);
-            const breachChance = siegeCount * C.battleEvents.breachChancePerSiege;
-            if (input.territory.fortification >= 2 && rng.next() < breachChance) {
-                emit(phaseName, 'breach', 'attacker', `Siege engines breach the walls of ${input.territory.name}.`, 20);
-            }
-            if (rng.next() < C.battleEvents.rallyChance * ((!advFavorsAttacker ? 1 : 0.2))) {
-                emit(phaseName, 'rally', 'defender', 'The defenders rally behind their banners.', 10);
-            }
-        }
-        if (phaseIdx === C.phases.count - 1) {
-            if (rng.next() < C.battleEvents.heroicStandChance) {
-                emit(phaseName, 'heroic_stand', 'defender', 'A heroic stand by the defenders stiffens resistance.', 15);
-            }
-            if (rng.next() < C.battleEvents.criticalHitChance) {
-                const side = advFavorsAttacker ? 'attacker' : 'defender';
-                emit(phaseName, 'critical_hit', side, side === 'attacker' ? 'A critical blow shatters the defender center.' : 'Defenders land a crushing counterblow.', (side === 'attacker' ? 1 : -1) * 16);
-            }
-        }
-    }
-    describePhase(name, adv, atkMod, defMod) {
-        const who = adv > 0.05 ? 'Attackers gain the edge' : adv < -0.05 ? 'Defenders gain the edge' : 'Both sides are evenly matched';
-        return `${who} in this phase (atk luck ×${atkMod.toFixed(2)}, def luck ×${defMod.toFixed(2)}).`;
-    }
-    computeCasualties(outcomeType, ratio, intensity, input, atkInit, defInit, garrison, rng) {
-        const atkWins = outcomeType.startsWith('attacker_') || outcomeType === 'mutual_heavy_losses';
-        const defWins = outcomeType.startsWith('defender_') || outcomeType === 'mutual_heavy_losses';
-        const attackerIsWinner = outcomeType.startsWith('attacker_');
-        const defenderIsWinner = outcomeType.startsWith('defender_');
-        let baseAtkCasRate = C.casualties.baseRate * intensity * C.casualties.intensityMultiplier;
-        let baseDefCasRate = C.casualties.baseRate * intensity * C.casualties.intensityMultiplier;
-        const close = Math.abs(ratio - 1) < 0.3;
-        if (close) {
-            baseAtkCasRate += C.casualties.closeBattleExtraCasualties;
-            baseDefCasRate += C.casualties.closeBattleExtraCasualties;
-        }
-        if (attackerIsWinner) {
-            baseAtkCasRate *= C.casualties.winnerCasualtyMultiplier;
-            baseDefCasRate *= C.casualties.loserCasualtyMultiplier;
-            if (outcomeType === 'attacker_decisive_victory')
-                baseDefCasRate *= 1.2;
-        }
-        if (defenderIsWinner) {
-            baseDefCasRate *= C.casualties.winnerCasualtyMultiplier;
-            baseAtkCasRate *= C.casualties.loserCasualtyMultiplier;
-            if (outcomeType === 'defender_decisive_victory')
-                baseAtkCasRate *= C.casualties.routCasualtyMultiplier * 0.3;
-        }
-        if (outcomeType === 'mutual_heavy_losses') {
-            baseAtkCasRate *= 1.2;
-            baseDefCasRate *= 1.2;
-        }
-        const fortLvl = Math.min(C.fortification.maxLevel, input.territory.fortification);
-        baseDefCasRate *= Math.max(0.15, 1 - fortLvl * C.casualties.fortificationDefenderCasualtyReduction);
-        baseAtkCasRate = Math.max(C.casualties.minCasualtyRate, Math.min(C.casualties.maxCasualtyRate, baseAtkCasRate));
-        baseDefCasRate = Math.max(C.casualties.minCasualtyRate, Math.min(C.casualties.maxCasualtyRate, baseDefCasRate));
-        baseAtkCasRate += (rng.next() - 0.5) * 0.04;
-        baseDefCasRate += (rng.next() - 0.5) * 0.04;
-        const splitCas = (totalRate, init) => {
-            const soldierCas = Math.min(init.soldiers, Math.round(init.soldiers * totalRate));
-            const knightCas = Math.min(init.knights, Math.round(init.knights * totalRate * 1.2));
-            const siegeCas = Math.min(init.siegeEngines, Math.round(init.siegeEngines * totalRate * (attackerIsWinner ? 0.3 : 1.3)));
-            return {
-                soldiers: soldierCas,
-                knights: knightCas,
-                siegeEngines: siegeCas,
-                totalRate: (soldierCas + knightCas) / Math.max(1, init.soldiers + init.knights),
-            };
-        };
-        const atk = splitCas(baseAtkCasRate, atkInit);
-        const def = splitCas(baseDefCasRate, defInit);
-        const garrisonCas = Math.min(garrison, Math.round(garrison * baseDefCasRate * (defenderIsWinner ? 0.9 : 1.1)));
-        const atkRemaining = {
-            soldiers: atkInit.soldiers - atk.soldiers,
-            knights: atkInit.knights - atk.knights,
-            siegeEngines: atkInit.siegeEngines - atk.siegeEngines,
-        };
-        const defRemaining = {
-            soldiers: defInit.soldiers - def.soldiers,
-            knights: defInit.knights - def.knights,
-            siegeEngines: defInit.siegeEngines - def.siegeEngines,
-        };
-        const winnerCasRate = attackerIsWinner ? atk.totalRate : defenderIsWinner ? def.totalRate : Math.max(atk.totalRate, def.totalRate);
-        const pyrrhicCheck = (outcomeType === 'attacker_narrow_victory' || outcomeType === 'defender_narrow_victory') &&
-            winnerCasRate >= C.victory.pyrrhicWinnerCasualtyRate;
-        void atkWins;
-        void defWins;
-        return {
-            atkCasualties: { soldiers: atk.soldiers, knights: atk.knights, siegeEngines: atk.siegeEngines },
-            defCasualties: { soldiers: def.soldiers, knights: def.knights, siegeEngines: def.siegeEngines, garrison: garrisonCas },
-            atkRemaining,
-            defRemaining,
-            atkTroopBreakdown: atk,
-            defTroopBreakdown: def,
-            pyrrhicCheck,
+            calculation,
         };
     }
-    computeMoraleChange(winner, side, outcome, intensity) {
-        let base = 0;
-        const win = winner === side;
-        if (outcome === 'stalemate')
-            base = 0;
-        else if (win) {
-            if (outcome.includes('decisive'))
-                base = 18;
-            else if (outcome.includes('pyrrhic'))
-                base = 2;
-            else
-                base = 10;
+    formatResult(result, includeBreakdown = true) {
+        const out = [];
+        out.push('══════════════════════════════════════════════════════════════');
+        out.push(` BATTLE REPORT  ·  ${result.territoryName.toUpperCase()}`);
+        out.push(` ${result.attacker.factionName} → ${result.defender.factionName}`
+            + `   |   Turn ${result.turn}   |   Seed ${result.seedUsed}`);
+        out.push('══════════════════════════════════════════════════════════════');
+        if (includeBreakdown) {
+            out.push(...result.readableLog);
         }
-        else if (winner === 'draw')
-            base = 0;
         else {
-            if (outcome.includes('decisive'))
-                base = -22;
-            else if (outcome.includes('pyrrhic'))
-                base = -6;
-            else
-                base = -12;
+            const atkCas = result.attacker.casualties.total;
+            const defCas = result.defender.casualties.total;
+            const atkRem = result.attacker.remainingTroops;
+            const defRem = result.defender.remainingTroops;
+            const battleType = result.outcomeType.replace(/_/g, ' ')
+                .replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+            out.push(`Result: ${result.winner === 'draw' ? 'STALEMATE' : result.winner === 'attacker' ? 'ATTACKER VICTORY' : 'DEFENDER VICTORY'} (${battleType})`);
+            out.push('');
+            out.push(`Attacker: ${result.attacker.factionName}`);
+            out.push(`  Casualties: ${atkCas}`);
+            out.push(`  Remaining:  ${atkRem}`);
+            out.push('');
+            out.push(`Defender: ${result.defender.factionName}`);
+            out.push(`  Casualties: ${defCas}`);
+            out.push(`  Remaining:  ${defRem}`);
+            out.push('');
+            out.push(`Territory: ${result.territoryOutcome.toUpperCase().replace(/_/g, ' ')}`);
         }
-        return Math.round(base * (0.6 + intensity));
+        out.push('');
+        out.push(`Summary: ${result.summary}`);
+        out.push('══════════════════════════════════════════════════════════════');
+        return out.join('\n');
     }
     buildSummary(input, outcome, territory, atk, def) {
         const atkName = input.attackerFactionName ?? input.attackerFactionId;
         const defName = input.defenderFactionName ?? input.defenderFactionId;
-        const outcomeLabels = {
+        const labels = {
             attacker_decisive_victory: `${atkName} wins a decisive victory`,
             attacker_narrow_victory: `${atkName} wins a narrow victory`,
             attacker_pyrrhic_victory: `${atkName} wins a pyrrhic victory`,
@@ -583,112 +343,136 @@ class BattleEngine {
             unchanged: `Territory remains with ${defName}.`,
             captured: `${input.territory.name} is captured by ${atkName}.`,
             contested: `${input.territory.name} is contested but not yet captured.`,
-            retreat_required: `The attackers are forced to retreat.`,
-            surrendered: `The garrison surrenders.`,
         };
-        return `${outcomeLabels[outcome]} at ${input.territory.name}. ${terrLabels[territory]} Atk losses: ${atk.casualties.total}; Def losses: ${def.casualties.total}.`;
+        return `${labels[outcome]} at ${input.territory.name}. ${terrLabels[territory]} Atk losses: ${atk.casualties.total}; Def losses: ${def.casualties.total}.`;
     }
-    buildReadableLog(input, sides, outcomeType, territoryOutcome, ratio, margin, battleIntensity, events) {
-        const atkName = input.attackerFactionName ?? input.attackerFactionId;
-        const defName = input.defenderFactionName ?? input.defenderFactionId;
-        const lines = [];
-        lines.push(`=== BATTLE at ${input.territory.name.toUpperCase()} ===`);
-        lines.push(`${atkName} (attacker) vs ${defName} (defender)`);
-        lines.push(`Terrain: ${balance_1.TERRAIN_NAMES[input.territory.terrain] ?? input.territory.terrain}  |  Fortification: ${C.fortification.structureNames[String(input.territory.fortification)]} (L${input.territory.fortification})${input.territory.isCapital ? ' ★ CAPITAL' : ''}`);
-        lines.push('');
-        lines.push(this.formatSideBreakdown('ATTACKER  EFFECTIVE STRENGTH', sides.attacker));
-        lines.push('');
-        lines.push(this.formatSideBreakdown('DEFENDER  EFFECTIVE STRENGTH', sides.defender));
-        lines.push('');
-        lines.push(`Effective strength ratio: ${ratio.toFixed(2)}:1  |  Margin: ${(margin >= 0 ? '+' : '')}${(margin * 100).toFixed(1)}%`);
-        lines.push(`Battle intensity: ${(sides.attacker.casualties.casualtyRate + sides.defender.casualties.casualtyRate).toFixed(2)} (composite ${(battleIntensity * 100).toFixed(0)}%)`);
-        lines.push('');
-        lines.push('OUTCOME:');
-        const headline = this.describeOutcomeHeadline(outcomeType, atkName, defName);
-        lines.push(`  ${headline}`);
-        lines.push(`  Attacker casualties: ${sides.attacker.casualties.soldiers} soldiers, ${sides.attacker.casualties.knights} knights, ${sides.attacker.casualties.siegeEngines} siege  (total: ${sides.attacker.casualties.total})`);
-        lines.push(`  Defender casualties: ${sides.defender.casualties.soldiers} soldiers, ${sides.defender.casualties.knights} knights, ${sides.defender.casualties.siegeEngines} siege${sides.defender.casualties.garrison ? `, ${sides.defender.casualties.garrison} garrison` : ''}  (total: ${sides.defender.casualties.total})`);
-        lines.push(`  Attacker remaining: ${Math.max(0, sides.attacker.remainingTroops)}  |  Defender remaining: ${Math.max(0, sides.defender.remainingTroops)}${sides.defender.unitBreakdown.garrison ? ` (+${Math.max(0, (sides.defender.unitBreakdown.garrison ?? 0) - (sides.defender.casualties.garrison ?? 0))} garrison)` : ''}`);
-        lines.push(`  Territory: ${territoryOutcome.replace(/_/g, ' ').toUpperCase()}`);
-        if (sides.attacker.retreated)
-            lines.push(`  Attacker retreats (≈${Math.round((sides.attacker.retreatSurvivorsPct ?? 0) * 100)}% of survivors escape).`);
-        if (sides.defender.retreated)
-            lines.push(`  Defender retreats (≈${Math.round((sides.defender.retreatSurvivorsPct ?? 0) * 100)}% of survivors escape).`);
-        lines.push('');
-        lines.push('BATTLE EVENTS:');
+    buildReadableLog(input, atk, def, outcomeType, territoryOutcome, winProb, powerRatio, roll, relativeAdvantage, events, calc) {
+        const atkName = atk.factionName;
+        const defName = def.factionName;
+        const L = [];
+        L.push(`=== BATTLE at ${input.territory.name.toUpperCase()} ===`);
+        L.push(`${atkName} (attacker) vs ${defName} (defender)`);
+        const terrName = balance_1.TERRAIN_NAMES[input.territory.terrain] ?? input.territory.terrain;
+        const fortStr = balance_1.BALANCE.combat.fortificationPerLevelBonus;
+        L.push(`Terrain: ${terrName}  |  Fortification: L${input.territory.fortification}`
+            + `${input.territory.isCapital ? ' ★ CAPITAL (×' + balance_1.BALANCE.combat.capitalBonus.toFixed(2) + ')' : ''}`);
+        L.push('');
+        L.push('── ATTACKER POWER CALCULATION ──');
+        L.push(`  Raw troops:     ${calc.attacker.rawTroops}`);
+        L.push(`  Quality:        ×${calc.attacker.quality.toFixed(2)}`);
+        L.push(`  Morale:         ×${calc.attacker.morale.toFixed(2)}  (${calc.attacker.moraleLabel})`);
+        L.push(`  → EFFECTIVE POWER: ${Math.round(calc.attacker.effectivePower).toLocaleString()}`);
+        L.push('');
+        L.push('── DEFENDER POWER CALCULATION ──');
+        L.push(`  Raw troops:     ${calc.defender.rawTroops}`);
+        L.push(`  Quality:        ×${calc.defender.quality.toFixed(2)}`);
+        L.push(`  Morale:         ×${calc.defender.morale.toFixed(2)}  (${calc.defender.moraleLabel})`);
+        L.push(`  Defense bonus:  ×${calc.defender.defenseBonus.toFixed(2)}  (${calc.defender.defenseLabel})`);
+        L.push(`  → EFFECTIVE POWER: ${Math.round(calc.defender.effectivePower).toLocaleString()}`);
+        L.push('');
+        L.push('── WIN PROBABILITY ──');
+        L.push(`  Power ratio (A:D): ${powerRatio.toFixed(3)} : 1`);
+        L.push(`  Attacker win probability: ${(winProb * 100).toFixed(1)}%`);
+        L.push(`  Random roll: ${roll.toFixed(3)}  (need < ${winProb.toFixed(3)} for attacker win)`);
+        L.push(`  → ${calc.winner.toUpperCase()} WINS  (relative advantage ${(relativeAdvantage * 100).toFixed(1)}%)`);
+        L.push('');
+        L.push('── CASUALTIES ──');
+        L.push(`  Attacker: ${calc.attackerCasualties.count.toLocaleString()} of ${calc.attacker.rawTroops.toLocaleString()}` +
+            `  (${(calc.attackerCasualties.rate * 100).toFixed(1)}%)  →  Remaining: ${calc.attackerRemaining.toLocaleString()}`);
+        L.push(`  Defender: ${calc.defenderCasualties.count.toLocaleString()} of ${calc.defender.rawTroops.toLocaleString()}` +
+            `  (${(calc.defenderCasualties.rate * 100).toFixed(1)}%)  →  Remaining: ${calc.defenderRemaining.toLocaleString()}`);
+        L.push('');
+        L.push('OUTCOME:');
+        L.push(`  ${describeOutcome(outcomeType, atkName, defName)}`);
+        L.push(`  Territory: ${territoryOutcome.replace(/_/g, ' ').toUpperCase()}`);
+        if (atk.retreated)
+            L.push(`  Attacker retreats (≈${Math.round((atk.retreatSurvivorsPct ?? 0) * 100)}% of survivors escape).`);
+        if (def.retreated)
+            L.push(`  Defender retreats (≈${Math.round((def.retreatSurvivorsPct ?? 0) * 100)}% of survivors escape).`);
+        L.push('');
+        L.push('BATTLE EVENTS:');
         const notable = events.filter((e) => e.type !== 'phase_start');
         if (notable.length === 0)
-            lines.push('  (no notable events)');
+            L.push('  (no notable events)');
         for (const e of notable.slice(0, 12)) {
-            const sideTag = e.side === 'both' ? '·' : e.side === 'attacker' ? '▲' : '▼';
-            lines.push(`  [${e.phase}] ${sideTag} ${e.message}`);
+            const tag = e.side === 'both' ? '·' : e.side === 'attacker' ? '▲' : '▼';
+            L.push(`  [${e.phase}] ${tag} ${e.message}`);
         }
-        return lines;
-    }
-    formatSideBreakdown(header, side) {
-        const pad = (n, w = 7) => (n >= 0 ? '+' : '') + Math.round(n).toString().padStart(w, ' ');
-        const lines = [];
-        lines.push(`${header}`);
-        lines.push(`  Base:  ${Math.round(side.baseStrength).toString().padStart(8, ' ')}`);
-        const contribLines = [];
-        for (const f of side.factors) {
-            if (f.factor === 'Total base strength')
-                continue;
-            const tag = `[${f.category.substring(0, 3)}]`;
-            contribLines.push(`  ${tag} ${f.factor.padEnd(32, ' ')} ${pad(f.contribution)}  ${f.description}`);
-        }
-        lines.push(...contribLines);
-        lines.push(`  TOTAL: ${Math.round(side.effectiveStrength).toString().padStart(8, ' ')}`);
-        return lines.join('\n');
-    }
-    describeOutcomeHeadline(type, atkName, defName) {
-        switch (type) {
-            case 'attacker_decisive_victory': return `ATTACKER DECISIVE VICTORY — ${atkName} overwhelms ${defName}.`;
-            case 'attacker_narrow_victory': return `ATTACKER NARROW VICTORY — ${atkName} edges out ${defName}.`;
-            case 'attacker_pyrrhic_victory': return `ATTACKER PYRRHIC VICTORY — ${atkName} wins at terrible cost.`;
-            case 'defender_decisive_victory': return `DEFENDER DECISIVE VICTORY — ${defName} crushes ${atkName}.`;
-            case 'defender_narrow_victory': return `DEFENDER NARROW VICTORY — ${defName} repels ${atkName}.`;
-            case 'defender_pyrrhic_victory': return `DEFENDER PYRRHIC VICTORY — ${defName} holds but is gutted.`;
-            case 'mutual_heavy_losses': return `MUTUAL HEAVY LOSSES — both armies bleed out, no clear victor.`;
-            case 'stalemate': return `STALEMATE — neither side can break through.`;
-        }
-    }
-    formatResult(result, includeBreakdown = true) {
-        const atkName = result.attacker.factionName;
-        const defName = result.defender.factionName;
-        const outLines = [];
-        outLines.push('══════════════════════════════════════════════════════════════');
-        outLines.push(` BATTLE REPORT  ·  ${result.territoryName.toUpperCase()}`);
-        outLines.push(` ${atkName} → ${defName}   |   Turn ${result.turn}   |   Seed ${result.seedUsed}`);
-        outLines.push('══════════════════════════════════════════════════════════════');
-        if (includeBreakdown) {
-            outLines.push(...result.readableLog);
-        }
-        else {
-            const atkCas = result.attacker.casualties.total;
-            const defCas = result.defender.casualties.total;
-            const atkRem = result.attacker.remainingTroops;
-            const defRem = result.defender.remainingTroops;
-            const battleType = result.outcomeType.replace(/_/g, ' ').replace(/(^|\s)\S/g, (c) => c.toUpperCase());
-            outLines.push(`Result: ${result.winner === 'draw' ? 'STALEMATE' : result.winner === 'attacker' ? 'ATTACKER VICTORY' : 'DEFENDER VICTORY'} (${battleType})`);
-            outLines.push('');
-            outLines.push(`Attacker: ${atkName}`);
-            outLines.push(`  Casualties: ${atkCas}`);
-            outLines.push(`  Remaining:  ${atkRem}`);
-            outLines.push('');
-            outLines.push(`Defender: ${defName}`);
-            outLines.push(`  Casualties: ${defCas}`);
-            outLines.push(`  Remaining:  ${defRem}${result.defender.unitBreakdown.garrison ? ` (garrison: ${Math.max(0, (result.defender.unitBreakdown.garrison ?? 0) - (result.defender.casualties.garrison ?? 0))})` : ''}`);
-            outLines.push('');
-            outLines.push(`Territory: ${result.territoryOutcome.toUpperCase().replace(/_/g, ' ')}`);
-            if (result.attacker.retreated)
-                outLines.push('Attacker: RETREAT REQUIRED');
-        }
-        outLines.push('');
-        outLines.push(`Summary: ${result.summary}`);
-        outLines.push('══════════════════════════════════════════════════════════════');
-        return outLines.join('\n');
+        return L;
     }
 }
 exports.BattleEngine = BattleEngine;
+function splitCasualties(init, rate) {
+    const soldiers = Math.min(init.soldiers, Math.round(init.soldiers * rate));
+    const knights = Math.min(init.knights, Math.round(init.knights * rate));
+    const siegeEngines = Math.min(init.siegeEngines, Math.round(init.siegeEngines * rate));
+    const garrison = init.garrison !== undefined
+        ? Math.min(init.garrison, Math.round(init.garrison * rate))
+        : undefined;
+    const totalTroops = init.soldiers + init.knights + (init.garrison ?? 0);
+    const totalCas = soldiers + knights + (garrison ?? 0);
+    const actualRate = totalTroops === 0 ? 0 : totalCas / totalTroops;
+    return { soldiers, knights, siegeEngines, garrison, total: soldiers + knights + siegeEngines + (garrison ?? 0), casualtyRate: actualRate };
+}
+function computeMoraleDelta(winner, side, outcome, C) {
+    const M = C.moraleDelta;
+    if (outcome === 'stalemate')
+        return M.draw;
+    const won = winner === side;
+    if (won) {
+        switch (outcome) {
+            case 'attacker_decisive_victory':
+            case 'defender_decisive_victory':
+                return M.decisiveWin;
+            case 'attacker_narrow_victory':
+            case 'defender_narrow_victory':
+                return M.normalWin;
+            case 'attacker_pyrrhic_victory':
+            case 'defender_pyrrhic_victory':
+                return M.pyrrhicWin;
+            default: return M.narrowWin;
+        }
+    }
+    else {
+        switch (outcome) {
+            case 'attacker_decisive_victory':
+            case 'defender_decisive_victory':
+                return M.decisiveLoss;
+            case 'attacker_narrow_victory':
+            case 'defender_narrow_victory':
+                return M.normalLoss;
+            case 'attacker_pyrrhic_victory':
+            case 'defender_pyrrhic_victory':
+                return M.pyrrhicLoss;
+            default: return M.narrowLoss;
+        }
+    }
+}
+function retreatSurvival(army, C) {
+    if (!army)
+        return C.retreat.baseSurvivalRate;
+    const cavBoost = (army.knights || 0) > 0
+        ? C.retreat.cavalryBoostRetreat *
+            Math.min(1, (army.knights || 0) / Math.max(1, (army.soldiers || 0) + (army.knights || 0)))
+        : 0;
+    const pct = C.retreat.baseSurvivalRate
+        + (((army.morale ?? 75) - 50) * C.retreat.perMoraleSurvival)
+        + cavBoost;
+    return Math.max(0.05, Math.min(0.95, pct));
+}
+function round3(x) {
+    return Math.round(x * 1000) / 1000;
+}
+function describeOutcome(type, atkName, defName) {
+    switch (type) {
+        case 'attacker_decisive_victory': return `ATTACKER DECISIVE VICTORY — ${atkName} overwhelms ${defName}.`;
+        case 'attacker_narrow_victory': return `ATTACKER NARROW VICTORY — ${atkName} edges out ${defName}.`;
+        case 'attacker_pyrrhic_victory': return `ATTACKER PYRRHIC VICTORY — ${atkName} wins at terrible cost.`;
+        case 'defender_decisive_victory': return `DEFENDER DECISIVE VICTORY — ${defName} crushes ${atkName}.`;
+        case 'defender_narrow_victory': return `DEFENDER NARROW VICTORY — ${defName} repels ${atkName}.`;
+        case 'defender_pyrrhic_victory': return `DEFENDER PYRRHIC VICTORY — ${defName} holds but is gutted.`;
+        case 'mutual_heavy_losses': return `MUTUAL HEAVY LOSSES — no clear victor.`;
+        case 'stalemate': return `STALEMATE — neither side can break through.`;
+    }
+}
 //# sourceMappingURL=BattleEngine.js.map

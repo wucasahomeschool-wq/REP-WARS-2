@@ -1,5 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.buildLabInput = buildLabInput;
+exports.runBattleLabSingle = runBattleLabSingle;
+exports.runBattleLabBatch = runBattleLabBatch;
+exports.formatBatchStats = formatBatchStats;
 exports.runBattleTestSuite = runBattleTestSuite;
 exports.runSeededReproducibilityTest = runSeededReproducibilityTest;
 exports.runStatisticalSample = runStatisticalSample;
@@ -25,6 +29,103 @@ function makeTerritory(id, name, terrain, owner, fortification = 0, garrison = 0
         isKnown: true,
         scoutedTurnsAgo: 0,
     };
+}
+function buildLabInput(params, seed = 42) {
+    const atk = makeArmy('lab_atk', 'LAB_ATK', 'lab_terr', params.attackerTroops, params.attackerKnights ?? 0, params.attackerSiege ?? 0, params.attackerMorale, 80);
+    const defFieldTroops = params.defenderTroops;
+    const defField = defFieldTroops > 0
+        ? [makeArmy('lab_def', 'LAB_DEF', 'lab_terr', defFieldTroops, params.defenderKnights ?? 0, params.defenderSiege ?? 0, params.defenderMorale, 80)]
+        : [];
+    const terr = makeTerritory('lab_terr', 'Lab Grounds', params.terrain, 'LAB_DEF', params.fortification ?? 0, params.defenderGarrison ?? 0, params.isCapital ?? false);
+    const input = {
+        turn: 1,
+        seed,
+        attackerFactionId: 'LAB_ATK',
+        attackerFactionName: 'Lab Attacker',
+        defenderFactionId: 'LAB_DEF',
+        defenderFactionName: 'Lab Defender',
+        attackerArmies: [atk],
+        defenderArmies: defField,
+        defenderGarrison: params.defenderGarrison ?? 0,
+        territory: terr,
+        attackerQuality: params.attackerQuality,
+        defenderQuality: params.defenderQuality,
+    };
+    return input;
+}
+function runBattleLabSingle(params, seed = 42) {
+    const engine = new BattleEngine_1.BattleEngine();
+    const input = buildLabInput(params, seed);
+    const result = engine.resolve(input);
+    return { result, formatted: engine.formatResult(result, true) };
+}
+function runBattleLabBatch(params, runs = 1000, seedBase = 100000) {
+    const engine = new BattleEngine_1.BattleEngine();
+    let a = 0, d = 0, dr = 0;
+    let casA = 0, casD = 0;
+    let casARate = 0, casDRate = 0;
+    let remainA = 0, remainD = 0;
+    const outcomes = {};
+    for (let i = 0; i < runs; i++) {
+        const seed = seedBase + i;
+        const input = buildLabInput(params, seed);
+        const r = engine.resolve(input);
+        if (r.winner === 'attacker')
+            a++;
+        else if (r.winner === 'defender')
+            d++;
+        else
+            dr++;
+        outcomes[r.outcomeType] = (outcomes[r.outcomeType] ?? 0) + 1;
+        casA += r.attacker.casualties.total;
+        casD += r.defender.casualties.total;
+        casARate += r.attacker.casualties.casualtyRate;
+        casDRate += r.defender.casualties.casualtyRate;
+        remainA += r.attacker.remainingTroops;
+        remainD += r.defender.remainingTroops;
+    }
+    return {
+        runs,
+        attackerWins: a,
+        defenderWins: d,
+        draws: dr,
+        attackerWinRate: a / runs,
+        defenderWinRate: d / runs,
+        drawRate: dr / runs,
+        avgAttackerCasualties: casA / runs,
+        avgDefenderCasualties: casD / runs,
+        avgAttackerCasRate: casARate / runs,
+        avgDefenderCasRate: casDRate / runs,
+        avgRemainingAttacker: remainA / runs,
+        avgRemainingDefender: remainD / runs,
+        outcomes,
+    };
+}
+function formatBatchStats(label, stats) {
+    const out = [];
+    out.push('═'.repeat(62));
+    out.push(` BATCH SIMULATION  ·  ${label}  ·  n=${stats.runs}`);
+    out.push('─'.repeat(62));
+    out.push(` Attacker win rate:  ${(stats.attackerWinRate * 100).toFixed(2)}%  (${stats.attackerWins}/${stats.runs})`);
+    out.push(` Defender win rate:  ${(stats.defenderWinRate * 100).toFixed(2)}%  (${stats.defenderWins}/${stats.runs})`);
+    if (stats.draws > 0) {
+        out.push(` Draw/stalemate:     ${(stats.drawRate * 100).toFixed(2)}%  (${stats.draws}/${stats.runs})`);
+    }
+    out.push('');
+    out.push(` Avg attacker casualties: ${Math.round(stats.avgAttackerCasualties).toLocaleString()}  (${(stats.avgAttackerCasRate * 100).toFixed(2)}%)`);
+    out.push(` Avg defender casualties: ${Math.round(stats.avgDefenderCasualties).toLocaleString()}  (${(stats.avgDefenderCasRate * 100).toFixed(2)}%)`);
+    out.push(` Avg remaining attacker:  ${Math.round(stats.avgRemainingAttacker).toLocaleString()}`);
+    out.push(` Avg remaining defender:  ${Math.round(stats.avgRemainingDefender).toLocaleString()}`);
+    out.push('');
+    out.push(' Outcome distribution:');
+    const entries = Object.entries(stats.outcomes).sort((x, y) => y[1] - x[1]);
+    for (const [k, v] of entries) {
+        const pct = ((v / stats.runs) * 100).toFixed(1).padStart(6, ' ');
+        const prettyName = k.replace(/_/g, ' ').replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+        out.push(`   ${prettyName.padEnd(32, ' ')} ${v.toString().padStart(5, ' ')}  ${pct}%`);
+    }
+    out.push('═'.repeat(62));
+    return out.join('\n');
 }
 const SCENARIOS = [
     {
@@ -62,7 +163,7 @@ const SCENARIOS = [
     {
         name: '3a. Similar armies - Plains (open terrain favors attacker)',
         description: 'Two balanced armies clash on the plains.',
-        expectedNotes: 'Plains negate defender terrain advantage.',
+        expectedNotes: 'Plains negate defender terrain advantage → ~50/50 expected.',
         buildInput: (seed) => ({
             turn: 10,
             seed,
@@ -96,7 +197,7 @@ const SCENARIOS = [
     {
         name: '4. Fortress helps defender hold out',
         description: 'Attacker is numerically superior but defender has L5 Citadel + capital bonus.',
-        expectedNotes: 'Expected: Fortress should tip a 2:1 attacker advantage into defender win or narrow attacker pyrrhic.',
+        expectedNotes: 'Defender terrain+fort+capital should close a ~2:1 attacker advantage.',
         buildInput: (seed) => ({
             turn: 14,
             seed,
@@ -113,7 +214,7 @@ const SCENARIOS = [
     {
         name: '5. Narrow attacker victory',
         description: 'Balanced edge to attacker; fortification near L2 blunts them slightly.',
-        expectedNotes: 'Expected: Close ratio → attacker_narrow_victory.',
+        expectedNotes: 'Expected: Close ratio → attacker_narrow_victory most common.',
         buildInput: (seed) => ({
             turn: 18,
             seed,
@@ -147,7 +248,7 @@ const SCENARIOS = [
     {
         name: '7. Pyrrhic victory',
         description: 'Extremely close, bloody battle on open terrain. Winner takes crippling losses.',
-        expectedNotes: 'Expected: Narrow victory with winner cas rate ≥ 33% triggers pyrrhic flag.',
+        expectedNotes: 'Expected: Close battle with winner cas rate ≥ 30% triggers pyrrhic flag.',
         buildInput: (seed) => ({
             turn: 23,
             seed,
@@ -164,7 +265,7 @@ const SCENARIOS = [
     {
         name: '8. Failed attack — retreating survivors',
         description: 'Attackers lose decisively; engine computes retreat survival %.',
-        expectedNotes: 'Expected: Attacker routed but retreatSurvivorsPct set so simulation can withdraw remnant.',
+        expectedNotes: 'Expected: Attacker routed; retreatSurvivorsPct set for simulation withdrawal.',
         buildInput: (seed) => ({
             turn: 27,
             seed,
@@ -251,7 +352,7 @@ function formatTestSuite(reports) {
     const out = [];
     out.push('╔══════════════════════════════════════════════════════════════╗');
     out.push('║           REP WARS  ·  BATTLE RESOLUTION ENGINE             ║');
-    out.push('║            Second Milestone  ·  Battle Test Suite           ║');
+    out.push('║            Battle Lab  ·  Scenario Test Suite               ║');
     out.push('╚══════════════════════════════════════════════════════════════╝');
     out.push('');
     out.push(`Scenarios run: ${reports.length}`);
