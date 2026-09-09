@@ -1,4 +1,4 @@
-import { FactionId, TerritoryId, Resources, Territory, WarlordSnapshot } from '../types';
+import { FactionId, TerritoryId, Resources, Territory, WarlordSnapshot, Army, ArmyId } from '../types';
 import { BALANCE } from '../constants/balance';
 import { SeededRNG } from '../utils/SeededRNG';
 import {
@@ -8,7 +8,7 @@ import {
   severityAtLeast,
 } from './EventModel';
 import { buildConditionContext, candidateTerritoriesForEvents, WorldHelperImpl } from './EventTriggers';
-import { EVENT_REGISTRY, EVENT_LIST, getEventById, evaluateAllTriggersForTerritory } from './EventDefinitions';
+import { EVENT_REGISTRY, getEventByTypeId, evaluateAllTriggersForTerritory } from './EventDefinitions';
 
 const BW = BALANCE.events.world;
 const BDEF = BALANCE.events.defaultEventDuration;
@@ -52,17 +52,95 @@ function cloneMap<K, V extends any>(m: Map<K, V>, cloneFn: (v: V) => V): Map<K, 
   return out;
 }
 
+function cloneArmy(a: Army): Army {
+  return {
+    ...a,
+    movement: a.movement ? { ...a.movement } : a.movement === null ? null : undefined,
+    attackIntent: a.attackIntent ? { ...a.attackIntent } : a.attackIntent === null ? null : undefined,
+  };
+}
+
+function cloneConsequenceDelta(c: ConsequenceDelta): ConsequenceDelta {
+  return {
+    ...c,
+    delta: {
+      ...c.delta,
+      resources: c.delta.resources ? { ...c.delta.resources } : undefined,
+      resourceOutputPct: c.delta.resourceOutputPct ? { ...c.delta.resourceOutputPct } : undefined,
+      relationshipDeltaOpinion: c.delta.relationshipDeltaOpinion
+        ? { ...c.delta.relationshipDeltaOpinion }
+        : undefined,
+    },
+  };
+}
+
+/**
+ * `simulate()`/`resolveChoice()` are meant to compute a NEW world step
+ * without mutating the caller's input (that's why territories/factions go
+ * through `cloneMap` above before anything touches them). `ActiveEvent`
+ * objects were the one exception: the code below mutates `chainDelays[].
+ * delayRemaining`, `status`, `choicesPending`, `choiceTaken`,
+ * `chainSuppressed`, and `expiresTurn`/`durationTurns` directly on whatever
+ * object reference it was handed, while only shallow-copying the
+ * *array* (`[...input.activeEvents]`). That silently corrupted the
+ * caller's original `ActiveEvent` objects (e.g. the orchestrator's
+ * `state.activeEvents`) even before the caller decided whether to commit
+ * the returned `newActiveEvents`/`updatedActive`. Cloning each event (and
+ * its mutable nested arrays/objects) before mutation fixes that without
+ * changing any computed output.
+ */
+function cloneActiveEvent(e: ActiveEvent): ActiveEvent {
+  return {
+    ...e,
+    causes: [...(e.causes ?? [])],
+    consequences: (e.consequences ?? []).map(cloneConsequenceDelta),
+    chainDelays: (e.chainDelays ?? []).map((cd) => ({ ...cd })),
+    choicesPending: (e.choicesPending ?? []).map((c) => ({
+      ...c,
+      cost: c.cost ? { ...c.cost } : undefined,
+    })),
+    choiceTaken: e.choiceTaken
+      ? {
+          ...e.choiceTaken,
+          consequences: (e.choiceTaken.consequences ?? []).map(cloneConsequenceDelta),
+        }
+      : undefined,
+  };
+}
+
+/**
+ * Resolve an `ActiveEvent.typeId` (`'drought'`) or a definition id
+ * (`'evt_drought'`) to its definition. Returns undefined for unknown
+ * types — never substitutes another event.
+ */
+function lookupEventDefinition(typeOrDefId: string): EventDefinition | undefined {
+  return getEventByTypeId(typeOrDefId);
+}
+
+/**
+ * Deterministic IDs derived from the simulation seed + turn + a per-call
+ * counter. Must NOT consume the event-selection RNG (that would change
+ * which events fire). Must NOT use Date.now()/Math.random().
+ */
+function makeDeterministicIdFactory(seed: number, turn: number): (prefix: string) => string {
+  let n = 0;
+  return (prefix: string) => `${prefix}_${(seed >>> 0).toString(36)}_${turn}_${(n++).toString(36)}`;
+}
+
 export class ConsequenceApplier {
   territories: Map<TerritoryId, Territory>;
   factions: Map<FactionId, WarlordSnapshot>;
+  armies?: Map<ArmyId, Army>;
   applied: string[];
 
   constructor(
     territories: Map<TerritoryId, Territory>,
     factions: Map<FactionId, WarlordSnapshot>,
+    armies?: Map<ArmyId, Army>,
   ) {
     this.territories = cloneMap(territories, cloneTerritory);
     this.factions = cloneMap(factions, cloneWarlordSnapshot);
+    this.armies = armies ? cloneMap(armies, cloneArmy) : undefined;
     this.applied = [];
   }
 
@@ -75,6 +153,9 @@ export class ConsequenceApplier {
         if (d.populationDeltaAbs) t.population = Math.max(0, t.population + d.populationDeltaAbs);
         if (d.populationDeltaPct) t.population = Math.max(0, Math.round(t.population * (1 + d.populationDeltaPct)));
         if (d.garrisonDeltaAbs) t.garrison = Math.max(0, t.garrison + d.garrisonDeltaAbs);
+        // Territory-local production: apply ONLY to this territory's
+        // resourceOutput. Applying the same % to faction.resourceIncome
+        // would boost empire-wide income from a local event (wrong scope).
         if (d.resourceOutputPct) {
           const newOut: Partial<Resources> = { ...t.resourceOutput };
           for (const k of Object.keys(d.resourceOutputPct) as (keyof Resources)[]) {
@@ -102,7 +183,9 @@ export class ConsequenceApplier {
             f.resources[k] = Math.max(0, (f.resources[k] ?? 0) + (d.resources[k] ?? 0));
           }
         }
-        if (d.resourceOutputPct) {
+        // Faction-wide income % only when this consequence is not already
+        // a territory-local resourceOutputPct (see territory branch above).
+        if (d.resourceOutputPct && !c.territoryId) {
           const newIncome: Partial<Resources> = { ...f.resourceIncome };
           for (const k of Object.keys(d.resourceOutputPct) as (keyof Resources)[]) {
             const oldVal = f.resourceIncome?.[k] ?? 0;
@@ -111,9 +194,12 @@ export class ConsequenceApplier {
           }
           f.resourceIncome = newIncome;
         }
-        if (d.moraleDeltaArmy) {
-          // We don't have army iteration here; apply to snapshot stability as proxy for now.
-          // Real army morale would need to be handled by the orchestrator.
+        if (d.moraleDeltaArmy && this.armies) {
+          for (const army of this.armies.values()) {
+            if (army.owner === factionId) {
+              army.morale = Math.max(0, Math.min(100, army.morale + d.moraleDeltaArmy));
+            }
+          }
         }
         if (d.relationshipDeltaOpinion) {
           const rel = f.diplomacy.get(d.relationshipDeltaOpinion.target);
@@ -154,18 +240,13 @@ export class ConsequenceApplier {
   }
 }
 
-function makeInstanceCounter(): () => string {
-  let n = 0;
-  return () => `inst_${Date.now().toString(36)}_${(n++).toString(36)}`;
-}
-
 export class WorldSimulator {
   private applier: ConsequenceApplier | null = null;
 
   simulate(input: WorldStepInput): WorldStepOutput {
     const turn = input.turn;
     const rng = new SeededRNG(input.seed ^ BW.rngSalt);
-    const newActiveEvents: ActiveEvent[] = [...input.activeEvents];
+    const newActiveEvents: ActiveEvent[] = input.activeEvents.map(cloneActiveEvent);
     const newEventHistory: HistoryEntry[] = [...input.eventHistory];
     const triggeredEvents: TriggeredEvent[] = [];
     const perTurnConsequences: ConsequenceDelta[] = [];
@@ -176,28 +257,16 @@ export class WorldSimulator {
     const terr = cloneMap(input.territories, cloneTerritory);
     const facts = cloneMap(input.factions, cloneWarlordSnapshot);
 
-    this.applier = new ConsequenceApplier(terr, facts);
+    this.applier = new ConsequenceApplier(terr, facts, input.armies);
 
-    const nextInstanceId = makeInstanceCounter();
+    const nextId = makeDeterministicIdFactory(input.seed, turn);
 
     // ────────────────────────────────────────────
     // PHASE 1: Apply per-turn effects of active events + decrement chains
     // ────────────────────────────────────────────
     for (const ev of newActiveEvents) {
       if (ev.status !== 'active') continue;
-      const def = getEventById(ev.typeId === 'drought' ? 'evt_drought'
-        : ev.typeId === 'flood' ? 'evt_flood'
-        : ev.typeId === 'storm' ? 'evt_storm'
-        : ev.typeId === 'harsh_winter' ? 'evt_harsh_winter'
-        : ev.typeId === 'resource_discovery' ? 'evt_resource_discovery'
-        : ev.typeId === 'food_shortage' ? 'evt_food_shortage'
-        : ev.typeId === 'famine' ? 'evt_famine'
-        : ev.typeId === 'prosperity' ? 'evt_prosperity'
-        : ev.typeId === 'trade_boom' ? 'evt_trade_boom'
-        : ev.typeId === 'unrest' ? 'evt_unrest'
-        : ev.typeId === 'rebellion' ? 'evt_rebellion'
-        : ev.typeId === 'border_tension' ? 'evt_border_tension'
-        : '') || EVENT_LIST[0];
+      const def = lookupEventDefinition(ev.typeId);
 
       // Pending choices remain unresolved (player must resolve before turn end in real game)
       if (ev.choicesPending.length > 0) {
@@ -209,15 +278,16 @@ export class WorldSimulator {
         });
       }
 
-      // Per-turn consequences
-      if (def.perTurn) {
+      // Per-turn consequences — skip silently if the type is unknown rather
+      // than substituting an unrelated event definition.
+      if (def?.perTurn) {
         const ctx = this._buildCtx(turn, ev.territoryId, ev.factionId, terr, facts, newActiveEvents, rng.fork(1000 + turn * 31));
         const cs = def.perTurn(ctx, ev.severity, ev);
         for (const c of cs) perTurnConsequences.push(c);
         const applied = this.applier.applyMany(cs);
         for (const a of applied) {
           newEventHistory.push({
-            id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            id: nextId('hist'),
             turn,
             typeId: ev.typeId,
             kind: 'perTurn',
@@ -271,7 +341,7 @@ export class WorldSimulator {
       const choices: ImperialChoice[] = def.choices ? def.choices(ctx, severity) : [];
       const worldSnapshot = { territories: terr };
       const inst: ActiveEvent = {
-        instanceId: nextInstanceId(),
+        instanceId: nextId('inst'),
         typeId: def.typeId,
         category: def.category,
         title: def.titleTemplate(severity, ch.territoryId, worldSnapshot),
@@ -304,7 +374,7 @@ export class WorldSimulator {
       });
       summary.push(`[CHAIN] ${inst.title}`);
       newEventHistory.push({
-        id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        id: nextId('hist'),
         turn,
         typeId: def.typeId,
         kind: 'chain',
@@ -364,7 +434,7 @@ export class WorldSimulator {
       const choices: ImperialChoice[] = def.choices ? def.choices(ctx, severity) : [];
       const worldSnapshot = { territories: terr };
       const inst: ActiveEvent = {
-        instanceId: nextInstanceId(),
+        instanceId: nextId('inst'),
         typeId: def.typeId,
         category: def.category,
         title: def.titleTemplate(severity, tid, worldSnapshot),
@@ -398,7 +468,7 @@ export class WorldSimulator {
       triggeredEvents.push(triggeredNow[triggeredNow.length - 1]);
       summary.push(`[EVENT] ${inst.title}`);
       newEventHistory.push({
-        id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        id: nextId('hist'),
         turn,
         typeId: def.typeId,
         kind: 'trigger',
@@ -429,7 +499,7 @@ export class WorldSimulator {
         expiredEvents.push(ev);
         summary.push(`[EXPIRED] ${ev.title}`);
         newEventHistory.push({
-          id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          id: nextId('hist'),
           turn,
           typeId: ev.typeId,
           kind: 'expire',
@@ -452,6 +522,7 @@ export class WorldSimulator {
       summary,
       mutatedTerritories: this.applier.territories,
       mutatedFactions: this.applier.factions,
+      mutatedArmies: this.applier.armies,
     };
   }
 
@@ -491,6 +562,7 @@ export class WorldSimulator {
     updatedHistory: HistoryEntry[];
     mutatedTerritories: Map<TerritoryId, Territory>;
     mutatedFactions: Map<FactionId, WarlordSnapshot>;
+    mutatedArmies?: Map<ArmyId, Army>;
     messages: string[];
     paidCost: Partial<Resources> | undefined;
     choiceTakenMessage: string;
@@ -498,60 +570,55 @@ export class WorldSimulator {
     const rng = new SeededRNG(input.seed ^ BW.rngSalt ^ input.activeEventInstanceId.length);
     const terr = cloneMap(input.territories, cloneTerritory);
     const facts = cloneMap(input.factions, cloneWarlordSnapshot);
-    const applier = new ConsequenceApplier(terr, facts);
-    const activeEvents = [...input.activeEvents];
+    const applier = new ConsequenceApplier(terr, facts, input.armies);
+    const activeEvents = input.activeEvents.map(cloneActiveEvent);
     const newHistory = [...input.eventHistory];
-    const messages: string[] = [];
+    const nextId = makeDeterministicIdFactory(input.seed, input.turn);
+
+    const abort = (messages: string[]) => ({
+      updatedActive: activeEvents,
+      updatedHistory: newHistory,
+      mutatedTerritories: terr,
+      mutatedFactions: facts,
+      mutatedArmies: applier.armies,
+      messages,
+      paidCost: undefined as Partial<Resources> | undefined,
+      choiceTakenMessage: '',
+    });
 
     const ev = activeEvents.find(e => e.instanceId === input.activeEventInstanceId);
-    if (!ev) return {
-      updatedActive: activeEvents,
-      updatedHistory: newHistory,
-      mutatedTerritories: terr,
-      mutatedFactions: facts,
-      messages: ['Event not found'],
-      paidCost: undefined,
-      choiceTakenMessage: '',
-    };
+    if (!ev) return abort(['Event not found']);
 
-    const def = getEventById(ev.typeId === 'drought' ? 'evt_drought'
-      : ev.typeId === 'flood' ? 'evt_flood'
-      : ev.typeId === 'storm' ? 'evt_storm'
-      : ev.typeId === 'harsh_winter' ? 'evt_harsh_winter'
-      : ev.typeId === 'resource_discovery' ? 'evt_resource_discovery'
-      : ev.typeId === 'food_shortage' ? 'evt_food_shortage'
-      : ev.typeId === 'famine' ? 'evt_famine'
-      : ev.typeId === 'prosperity' ? 'evt_prosperity'
-      : ev.typeId === 'trade_boom' ? 'evt_trade_boom'
-      : ev.typeId === 'unrest' ? 'evt_unrest'
-      : ev.typeId === 'rebellion' ? 'evt_rebellion'
-      : ev.typeId === 'border_tension' ? 'evt_border_tension'
-      : '');
+    if (ev.status !== 'active') {
+      return abort(['Event is not active']);
+    }
+    if (ev.choiceTaken) {
+      return abort(['Event already resolved']);
+    }
+
+    const def = lookupEventDefinition(ev.typeId);
     const choice = ev.choicesPending.find(c => c.id === input.choiceId);
-    if (!def || !choice) return {
-      updatedActive: activeEvents,
-      updatedHistory: newHistory,
-      mutatedTerritories: terr,
-      mutatedFactions: facts,
-      messages: ['Invalid choice or unknown definition'],
-      paidCost: undefined,
-      choiceTakenMessage: '',
-    };
+    if (!def) return abort(['Unknown event type']);
+    if (!choice) return abort(['Invalid choice or unknown definition']);
 
     const factionId = ev.factionId ?? (ev.territoryId ? terr.get(ev.territoryId)?.owner ?? null : null);
+    const hasCost = !!choice.cost && (Object.keys(choice.cost) as (keyof Resources)[]).some(k => (choice.cost![k] ?? 0) > 0);
+    if (hasCost) {
+      if (!factionId) return abort(['Cannot pay choice cost: no faction']);
+      if (!applier.canAfford(choice.cost, factionId)) {
+        return abort([`Cannot afford cost: ${JSON.stringify(choice.cost)}`]);
+      }
+    }
+
     let paidCost: Partial<Resources> | undefined = undefined;
     let choiceTakenMessage = '';
     let consequences: ConsequenceDelta[] = [];
     let suppressChains = false;
     let shortenDurationBy = 0;
 
-    if (factionId) {
-      if (applier.canAfford(choice.cost, factionId)) {
-        applier.payCost(choice.cost, factionId);
-        paidCost = choice.cost;
-      } else {
-        messages.push(`Cannot afford cost: ${JSON.stringify(choice.cost)}`);
-      }
+    if (hasCost && factionId) {
+      applier.payCost(choice.cost, factionId);
+      paidCost = choice.cost;
     }
 
     if (def.resolveChoice) {
@@ -566,7 +633,7 @@ export class WorldSimulator {
     }
 
     const applied = applier.applyMany(consequences);
-    messages.push(choiceTakenMessage, ...applied);
+    const messages = [choiceTakenMessage, ...applied];
     ev.choiceTaken = { id: input.choiceId, turn: input.turn, message: choiceTakenMessage, consequences };
     ev.choicesPending = [];
     if (suppressChains) ev.chainSuppressed = true;
@@ -576,7 +643,7 @@ export class WorldSimulator {
     }
 
     newHistory.push({
-      id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: nextId('hist'),
       turn: input.turn,
       typeId: ev.typeId,
       kind: 'choice',
@@ -593,6 +660,7 @@ export class WorldSimulator {
       updatedHistory: newHistory,
       mutatedTerritories: applier.territories,
       mutatedFactions: applier.factions,
+      mutatedArmies: applier.armies,
       messages,
       paidCost,
       choiceTakenMessage,

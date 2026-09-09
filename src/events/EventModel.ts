@@ -1,4 +1,4 @@
-import { FactionId, TerritoryId, Resources, Territory, WarlordSnapshot } from '../types';
+import { FactionId, TerritoryId, Resources, Territory, WarlordSnapshot, Army, ArmyId } from '../types';
 import { BALANCE } from '../constants/balance';
 import { SeededRNG } from '../utils/SeededRNG';
 
@@ -166,8 +166,20 @@ export interface WorldStepInput {
   turn: number;
   territories: Map<TerritoryId, Territory>;
   factions: Map<FactionId, WarlordSnapshot>;
+  /**
+   * Optional. When provided, `moraleDeltaArmy` consequences are applied to
+   * matching `Army.morale` instead of being discarded. Callers that omit
+   * this (the historical WorldStepInput shape) leave army morale unchanged.
+   * See docs/EVENT_ENGINE_CORRECTNESS.md.
+   */
+  armies?: Map<ArmyId, Army>;
   activeEvents: ActiveEvent[];
   eventHistory: HistoryEntry[];
+  /**
+   * Caller metadata only (which faction is the local player, if any).
+   * WorldSimulator does not branch event rules on this field — consequences
+   * apply to whichever faction owns the affected territory.
+   */
   playerFactionId?: FactionId | null;
   seed: number;
 }
@@ -187,6 +199,7 @@ export interface WorldStepOutput {
   summary: string[];
   mutatedTerritories: Map<TerritoryId, Territory>;
   mutatedFactions: Map<FactionId, WarlordSnapshot>;
+  mutatedArmies?: Map<ArmyId, Army>;
 }
 
 export type EventConditionFn = (ctx: ConditionContext) => TriggerScore;

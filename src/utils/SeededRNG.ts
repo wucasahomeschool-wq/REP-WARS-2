@@ -22,7 +22,8 @@ export class SeededRNG {
     s ^= s >>> 17;
     s ^= s << 5;
     this.state = s >>> 0;
-    return this.state / 0xffffffff;
+    // 2^32 so the xorshift uint32 never normalizes to 1.0 ([0, 1)).
+    return this.state / 0x100000000;
   }
 
   nextInt(min: number, max: number): number {

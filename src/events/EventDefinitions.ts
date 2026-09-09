@@ -786,6 +786,21 @@ export function getEventById(id: string): EventDefinition | undefined {
   return EVENT_REGISTRY[id];
 }
 
+/**
+ * Lookup by the short `typeId` stored on `ActiveEvent` (`'drought'`, not
+ * `'evt_drought'`). Returns `undefined` for unknown types — callers must
+ * NOT substitute another event. See docs/EVENT_ENGINE_CORRECTNESS.md.
+ */
+const EVENT_BY_TYPE_ID: Record<string, EventDefinition> = {};
+for (const def of EVENT_LIST) {
+  EVENT_BY_TYPE_ID[def.typeId] = def;
+}
+
+export function getEventByTypeId(typeId: string): EventDefinition | undefined {
+  if (!typeId) return undefined;
+  return EVENT_BY_TYPE_ID[typeId] ?? EVENT_REGISTRY[typeId];
+}
+
 type TriggerInfo = { eventId: string; weight: number; severityHint?: EventSeverity; reasons: string[] };
 
 export function evaluateAllTriggersForTerritory(ctx: ConditionContext): TriggerInfo[] {

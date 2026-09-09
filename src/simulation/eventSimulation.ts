@@ -146,6 +146,7 @@ function scenario_1_StableEmpire(seed: number) {
       turn: st.turn,
       territories: st.gameState.territories,
       factions: st.gameState.factions,
+      armies: st.gameState.armies,
       activeEvents: st.activeEvents,
       eventHistory: st.eventHistory,
       playerFactionId: st.playerFactionId,
@@ -156,6 +157,7 @@ function scenario_1_StableEmpire(seed: number) {
     // Apply
     st.gameState.territories = out.mutatedTerritories;
     st.gameState.factions = out.mutatedFactions;
+    if (out.mutatedArmies) st.gameState.armies = out.mutatedArmies;
     st.activeEvents = out.newActiveEvents;
     st.eventHistory = out.newEventHistory;
     reportFactionStatus(st);
@@ -186,6 +188,7 @@ function scenario_2_ForceDrought() {
       turn: st.turn,
       territories: st.gameState.territories,
       factions: st.gameState.factions,
+      armies: st.gameState.armies,
       activeEvents: st.activeEvents,
       eventHistory: st.eventHistory,
       playerFactionId: st.playerFactionId,
@@ -202,6 +205,7 @@ function scenario_2_ForceDrought() {
       });
       Object.assign(st.gameState.territories, res.mutatedTerritories);
       Object.assign(st.gameState.factions, res.mutatedFactions);
+      if (res.mutatedArmies) st.gameState.armies = res.mutatedArmies;
       Object.assign(st.activeEvents, res.updatedActive);
       Object.assign(st.eventHistory, res.updatedHistory);
       console.log(`  ☛ [DECISION] ${dec.active.title}: Import food  →  ${res.choiceTakenMessage}`);
@@ -209,6 +213,7 @@ function scenario_2_ForceDrought() {
     if (out.newActiveEvents.length > 0 || Object.keys(out).length > 0) {
       st.gameState.territories = out.mutatedTerritories;
       st.gameState.factions = out.mutatedFactions;
+      if (out.mutatedArmies) st.gameState.armies = out.mutatedArmies;
       st.activeEvents = out.newActiveEvents;
       st.eventHistory = out.newEventHistory;
     }
@@ -242,6 +247,7 @@ function scenario_3_DroughtChainInterrupted() {
       turn: st.turn,
       territories: st.gameState.territories,
       factions: st.gameState.factions,
+      armies: st.gameState.armies,
       activeEvents: st.activeEvents,
       eventHistory: st.eventHistory,
       playerFactionId: st.playerFactionId,
@@ -251,6 +257,7 @@ function scenario_3_DroughtChainInterrupted() {
     if (out.summary.length > 0) printTurnOutput(st, out);
     st.gameState.territories = out.mutatedTerritories;
     st.gameState.factions = out.mutatedFactions;
+    if (out.mutatedArmies) st.gameState.armies = out.mutatedArmies;
     st.activeEvents = out.newActiveEvents;
     st.eventHistory = out.newEventHistory;
     // Check for pending food shortage decisions
@@ -265,6 +272,7 @@ function scenario_3_DroughtChainInterrupted() {
       });
       Object.assign(st.gameState.territories, res.mutatedTerritories);
       Object.assign(st.gameState.factions, res.mutatedFactions);
+      if (res.mutatedArmies) st.gameState.armies = res.mutatedArmies;
       Object.assign(st.activeEvents, res.updatedActive);
       Object.assign(st.eventHistory, res.updatedHistory);
       console.log(`  Result: ${res.choiceTakenMessage}`);
@@ -314,6 +322,7 @@ function scenario_4_UnrestToRebellion() {
       turn: st.turn,
       territories: st.gameState.territories,
       factions: st.gameState.factions,
+      armies: st.gameState.armies,
       activeEvents: st.activeEvents,
       eventHistory: st.eventHistory,
       playerFactionId: st.playerFactionId,
@@ -323,6 +332,7 @@ function scenario_4_UnrestToRebellion() {
     if (out.summary.length > 0) printTurnOutput(st, out);
     st.gameState.territories = out.mutatedTerritories;
     st.gameState.factions = out.mutatedFactions;
+    if (out.mutatedArmies) st.gameState.armies = out.mutatedArmies;
     st.activeEvents = out.newActiveEvents;
     st.eventHistory = out.newEventHistory;
     // "Ignore" all decisions — this is poor management
@@ -357,6 +367,7 @@ function scenario_5_EventExpires(seed: number) {
       turn: st.turn,
       territories: st.gameState.territories,
       factions: st.gameState.factions,
+      armies: st.gameState.armies,
       activeEvents: st.activeEvents,
       eventHistory: st.eventHistory,
       playerFactionId: st.playerFactionId,
@@ -371,6 +382,7 @@ function scenario_5_EventExpires(seed: number) {
     }
     st.gameState.territories = out.mutatedTerritories;
     st.gameState.factions = out.mutatedFactions;
+    if (out.mutatedArmies) st.gameState.armies = out.mutatedArmies;
     st.activeEvents = out.newActiveEvents;
     st.eventHistory = out.newEventHistory;
     // Resolve any pending choices with default actions
@@ -403,6 +415,7 @@ function scenario_6_MultipleSimultaneousEvents() {
       turn: st.turn,
       territories: st.gameState.territories,
       factions: st.gameState.factions,
+      armies: st.gameState.armies,
       activeEvents: st.activeEvents,
       eventHistory: st.eventHistory,
       playerFactionId: st.playerFactionId,
@@ -419,6 +432,7 @@ function scenario_6_MultipleSimultaneousEvents() {
     if (activeInFaction.length >= 2) console.log(`\n${activeInFaction.length} concurrent active events in Merchant Republic this turn!`);
     st.gameState.territories = out.mutatedTerritories;
     st.gameState.factions = out.mutatedFactions;
+    if (out.mutatedArmies) st.gameState.armies = out.mutatedArmies;
     st.activeEvents = out.newActiveEvents;
     st.eventHistory = out.newEventHistory;
     for (const d of out.unresolvedDecisions) {
@@ -451,6 +465,7 @@ function scenario_7_PositiveEvents(seed: number) {
       turn: st.turn,
       territories: st.gameState.territories,
       factions: st.gameState.factions,
+      armies: st.gameState.armies,
       activeEvents: st.activeEvents,
       eventHistory: st.eventHistory,
       playerFactionId: st.playerFactionId,
@@ -464,6 +479,7 @@ function scenario_7_PositiveEvents(seed: number) {
     positives += positive.length;
     st.gameState.territories = out.mutatedTerritories;
     st.gameState.factions = out.mutatedFactions;
+    if (out.mutatedArmies) st.gameState.armies = out.mutatedArmies;
     st.activeEvents = out.newActiveEvents;
     st.eventHistory = out.newEventHistory;
     for (const d of out.unresolvedDecisions) {
@@ -494,6 +510,7 @@ function scenario_8_DeterministicReproducibility() {
         turn: st.turn,
         territories: st.gameState.territories,
         factions: st.gameState.factions,
+        armies: st.gameState.armies,
         activeEvents: st.activeEvents,
         eventHistory: st.eventHistory,
         playerFactionId: st.playerFactionId,
@@ -503,6 +520,7 @@ function scenario_8_DeterministicReproducibility() {
       for (const e of out.triggeredEvents) events.push(`T${st.turn}:${e.definition.typeId}:${e.territoryId}:${e.severity}`);
       st.gameState.territories = out.mutatedTerritories;
       st.gameState.factions = out.mutatedFactions;
+      if (out.mutatedArmies) st.gameState.armies = out.mutatedArmies;
       st.activeEvents = out.newActiveEvents;
       st.eventHistory = out.newEventHistory;
       for (const d of out.unresolvedDecisions) {
@@ -557,6 +575,7 @@ function scenario_9_HistoryRecording() {
       turn: st.turn,
       territories: st.gameState.territories,
       factions: st.gameState.factions,
+      armies: st.gameState.armies,
       activeEvents: st.activeEvents,
       eventHistory: st.eventHistory,
       playerFactionId: st.playerFactionId,
@@ -565,6 +584,7 @@ function scenario_9_HistoryRecording() {
     const out = sim.simulate(input);
     st.gameState.territories = out.mutatedTerritories;
     st.gameState.factions = out.mutatedFactions;
+    if (out.mutatedArmies) st.gameState.armies = out.mutatedArmies;
     st.activeEvents = out.newActiveEvents;
     st.eventHistory = out.newEventHistory;
     for (const d of out.unresolvedDecisions) {
@@ -654,9 +674,13 @@ function main() {
 
   hr();
   console.log('\n🏁  ALL 10 SCENARIOS COMPLETED WITHOUT CRASH\n');
-  console.log(`Deterministic reproducibility: ${det ? 'PASSED' : 'FLAGGED FOR REVIEW'}`);
+  console.log(`Deterministic reproducibility: ${det ? 'PASSED' : 'FAILED'}`);
   console.log('\nTo run this demo again:  npm run build && node dist/simulation/eventSimulation.js');
   console.log('or with ts-node:         npx ts-node src/simulation/eventSimulation.ts');
+  if (!det) {
+    console.error('Event engine failed the seeded reproducibility assertion.');
+    process.exit(1);
+  }
 }
 
 if (require.main === module) {

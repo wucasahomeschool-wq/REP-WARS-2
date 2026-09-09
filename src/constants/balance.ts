@@ -1,3 +1,5 @@
+import { ActionType, TerrainType } from '../types';
+
 export const BALANCE = {
   scoring: {
     baseScores: {
@@ -15,6 +17,15 @@ export const BALANCE = {
       RETREAT: 15,
       WAIT: 5,
     },
+    /**
+     * AI RUNTIME INTEGRATION PASS. Flat penalty applied to an ATTACK
+     * target only reachable via a one-hop staging march (Phase 15), not
+     * an army already in position. Keeps a slower two-step attack from
+     * outscoring an equally-strong immediate attack elsewhere, without
+     * disqualifying it outright — the AI should still prefer a good
+     * staged attack over a bad immediate one.
+     */
+    stagingAttackPenalty: 12,
     maxFactorWeight: 30,
     randomnessRange: 0.15,
     tiebreakerRandomness: 0.05,
@@ -52,10 +63,37 @@ export const BALANCE = {
     capitalThreatMultiplier: 2.5,
     borderTerritoryBonus: 10,
     populationValuePerThousand: 2,
+    /**
+     * ENGINE EXECUTION CONSISTENCY PASS: this is the single authoritative
+     * cost of one BUILD/fortify action's `gold`/`stone` requirement. It
+     * used to exist here unused while both `ActionScorer.scoreBuild()`'s
+     * affordability check and `src/simulation/cli.ts`'s BUILD execution
+     * independently hardcoded the same values (gold >= 100, stone >= 50)
+     * as inline literals — a coincidental, not structural, agreement.
+     * Both now read `gold`/`stone` from here instead. See
+     * docs/ENGINE_EXECUTION_CONSISTENCY.md, "Balance/cost consistency".
+     *
+     * NOTE: `iron` below is NOT currently charged by either caller (never
+     * was, in either the scorer's check or the CLI's execution) — left in
+     * place since removing/repricing values wasn't asked for here, but do
+     * not assume it is actually deducted anywhere yet.
+     */
     fortificationCostPerLevel: {
       gold: 100,
       stone: 50,
       iron: 20,
+    },
+    /**
+     * Existing SAMPLE_MAP / CLI EXPAND claim rules, centralized so the
+     * Orchestrator and cli.ts cannot drift. Not a new expansion mechanic.
+     */
+    expansionClaim: {
+      goldCost: 100,
+      garrisonBuffer: 100,
+      successLocalPowerRatio: 1.5,
+      garrisonReduction: 30,
+      minGarrisonAfter: 50,
+      neighborOpinionHit: 5,
     },
   },
   diplomacy: {
@@ -82,9 +120,33 @@ export const BALANCE = {
     resourceScarcityMultiplier: 1.5,
     buildEconomyThreshold: 0.3,
     tradeSurplusThreshold: 0.5,
+    // NOTE: `reinforcementCostPerSoldier` below is currently unused by any
+    // engine — nothing in src/ scales reinforcement cost per soldier. It
+    // predates (and was never wired up to) the actual REINFORCE action,
+    // which grants a flat +100 garrison for a flat cost. Left in place
+    // rather than deleted since removing balance values wasn't asked for
+    // here, but do not treat it as authoritative for REINFORCE costing —
+    // `reinforcementCost` immediately below is the one actual callers use.
     reinforcementCostPerSoldier: {
       gold: 5,
       food: 3,
+    },
+    /**
+     * AI DECISION CORRECTNESS PASS: this is the single authoritative cost
+     * of a REINFORCE action (flat cost for a flat +100 garrison gain). It
+     * used to only exist as inline literals inside
+     * `src/simulation/cli.ts`'s `simulateDecisionOutcomes()` (250 gold, 150
+     * food), while `ActionScorer.scoreReinforce()` independently checked
+     * against unrelated hardcoded thresholds (gold > 500, food > 300) that
+     * did not match. Both now read from here, so AI scoring and execution
+     * can never silently disagree about what REINFORCE costs. The values
+     * themselves are unchanged (not rebalanced) — only moved to one place.
+     * See docs/AI_DECISION_CORRECTNESS.md, "Reinforcement affordability".
+     */
+    reinforcementCost: {
+      gold: 250,
+      food: 150,
+      garrisonGain: 100,
     },
   },
   personality: {
@@ -107,6 +169,19 @@ export const BALANCE = {
     goalMisalignmentPenalty: 15,
     progressBonusFactor: 0.3,
   },
+  /**
+   * Ambition scoring (AI COMMITMENT & AMBITION PASS).
+   * At `defaultValue`, extra ambition contributions are exactly 0 so
+   * existing action scores are unchanged. Ambition is not a personality
+   * trait and does not replace the six personality presets.
+   */
+  ambition: {
+    defaultValue: 0.5,
+    /** Extra = (existing goal-alignment contribution) * (ambition - default) * scale. */
+    goalPersistenceScale: 1.0,
+    /** Extra on EXPAND/ATTACK/DECLARE_WAR = (ambition - default) * weight, skipped under immediate threat. */
+    strategicPushWeight: 8,
+  },
   risk: {
     unacceptableRisk: 0.7,
     highRisk: 0.5,
@@ -118,6 +193,80 @@ export const BALANCE = {
     defaultTurns: 30,
     defaultSeed: 42,
     warlordDecisionDelayMs: 0,
+  },
+
+  /**
+   * Continuous world simulation (Phase 13). These values coordinate
+   * `ContinuousWorldEngine`; they are not wall-clock timers and must not
+   * be read as player-facing wait times.
+   */
+  world: {
+    /**
+     * TEMPORARY tick→turn adapter. `WorldSimulator` is still turn-based.
+     * Every `ticksPerEventTurn` world ticks, `GameState.turn` increments
+     * by 1 and `WorldSimulator.simulate()` runs once. Currently `1`
+     * (one world tick = one event turn). This is an adapter, not a
+     * globally turn-based game for player commands.
+     */
+    ticksPerEventTurn: 1,
+    defaultElapsedTicks: 1,
+    maxElapsedTicksPerAdvance: 64,
+    /**
+     * After an AI decision or commitment resolution at tick T, that
+     * faction is not eligible for `AI_DECIDE` until
+     * `worldTick >= T + reassessmentIntervalTicks`. Prevents
+     * ATTACK→ATTACK spam just because the sim steps frequently.
+     */
+    reassessmentIntervalTicks: 2,
+    /** Fallback when an action is missing from `commitmentDurationTicks`. */
+    defaultCommitmentDurationTicks: 0,
+    /**
+     * Commitment *decision* durations in world ticks (not army travel).
+     * MOVE/RETREAT are 0 so resolve starts the march the same tick;
+     * actual travel uses `BALANCE.movement` via `calculateMovementDuration`.
+     */
+    commitmentDurationTicks: {
+      ATTACK: 0,
+      BUILD: 0,
+      REINFORCE: 0,
+      EXPAND: 0,
+      SCOUT: 0,
+      NEGOTIATE: 0,
+      DECLARE_WAR: 0,
+      TRADE: 0,
+      OFFER_PEACE: 0,
+      WAIT: 1,
+      DEFEND: 1,
+      MOVE: 0,
+      RETREAT: 0,
+    } as Record<ActionType, number>,
+    /**
+     * Infrastructure only — not applied this phase. Future online/offline
+     * catch-up would scale how many ticks are requested, not punish the
+     * player for being away.
+     */
+    onlineSimulationRate: 1,
+    offlineSimulationRate: 1,
+  },
+
+  /**
+   * Adjacent-only army travel (Phase 14). World ticks, not wall-clock.
+   * No multi-hop pathfinding. Destination terrain uses existing
+   * `Territory.terrain`.
+   */
+  movement: {
+    adjacentBaseTicks: 2,
+    minTicks: 1,
+    destinationTerrainTicks: {
+      plains: 0,
+      coastal: 0,
+      forest: 1,
+      hills: 1,
+      desert: 1,
+      river: 1,
+      fortress: 1,
+      mountain: 2,
+    } as Record<TerrainType, number>,
   },
 
   combat: {
@@ -187,12 +336,16 @@ export const BALANCE = {
       captureCapitalRequiredWinnerAdvantage: 0.25,
       captureMinAttackerRemainingRatio: 0.05,
     },
-    retreat: {
-      baseSurvivalRate: 0.55,
-      perMoraleSurvival: 0.003,
-      cavalryBoostRetreat: 0.15,
-      fortressGarrisonRetreatSurvival: 0.85,
-    },
+    // NOTE: there is no `retreat` config here on purpose. Rep Wars armies do
+    // not retreat — the losing side of a battle is eliminated outright (see
+    // `BattleEngine.resolve()` / docs/BATTLE_ENGINE_CORRECTNESS.md). A
+    // `combat.retreat` block (baseSurvivalRate/perMoraleSurvival/etc.) used
+    // to exist here and fed a `retreatSurvival()` helper that computed a
+    // "% of survivors that escape" for the losing side — both were removed
+    // as dead-under-the-current-rules code. This is unrelated to the
+    // separate, still-supported `RETREAT` strategic action (pre-battle army
+    // repositioning in `ActionScorer`/`GoalSystem`), which this pass does
+    // not touch.
     moraleDelta: {
       narrowWin: 6,
       normalWin: 10,

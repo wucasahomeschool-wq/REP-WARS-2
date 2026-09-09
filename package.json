@@ -9,9 +9,12 @@
     "simulate": "npm run build && node dist/simulation/cli.js",
     "battles": "npm run build && node dist/simulation/cli.js --battles",
     "map": "npm run build && node dist/simulation/cli.js --map",
+    "events": "npm run build && node dist/simulation/eventSimulation.js",
     "dev": "ts-node src/simulation/cli.ts",
     "dev-battles": "ts-node src/simulation/cli.ts --battles",
-    "dev-map": "ts-node src/simulation/cli.ts --map"
+    "dev-map": "ts-node src/simulation/cli.ts --map",
+    "dev-events": "ts-node src/simulation/eventSimulation.ts",
+    "test": "ts-node --project tsconfig.tests.json --transpile-only tests/run.ts"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

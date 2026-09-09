@@ -1,5 +1,6 @@
 import { BALANCE, TERRAIN_NAMES } from '../constants/balance';
 import { SeededRNG } from '../utils/SeededRNG';
+import { BattleEventType, BattleOutcomeType, BattleSide, TerritoryOutcome } from '../types';
 import {
   ArmyLike,
   CombatPowerBreakdown,
@@ -12,6 +13,17 @@ import {
   sumUnits,
 } from './CombatPower';
 
+/**
+ * Battle-specific input DTO. Deliberately NOT the canonical `Army`/`Territory`
+ * types (see `../types`) — this is what BattleEngine actually needs to
+ * resolve combat, expressed via the minimal `ArmyLike`/`TerritoryLike`
+ * shapes from `./CombatPower`. A real `Army`/`Territory` object satisfies
+ * these structurally, so callers can pass canonical entities straight in
+ * without an adapter step.
+ *
+ * Participant-agnostic: there is no player vs AI field. PLAYER→AI, AI→PLAYER,
+ * and AI→AI battles use this same input and `BattleEngine.resolve()`.
+ */
 export interface BattleInput {
   turn: number;
   seed: number;
@@ -41,30 +53,58 @@ export interface BattleInput {
   defenderQuality?: number;
 }
 
+/**
+ * Casualty accounting for one side.
+ *
+ * IMPORTANT — siege engines are tracked SEPARATELY from "troops":
+ *  - `soldiers` / `knights` / `garrison`: per-category casualty counts.
+ *  - `siegeEngines`: siege-engine casualties, kept out of `total`/
+ *    `casualtyRate` on purpose (see below).
+ *  - `total` / `casualtyRate`: TROOP casualties only (soldiers + knights +
+ *    garrison). These are the aggregate counterparts of
+ *    `BattleSideBreakdown.initialTroops`/`remainingTroops`, which are also
+ *    troop-only — so `remainingTroops + total === initialTroops` always
+ *    holds. Siege engines are intentionally excluded so `total` doesn't mix
+ *    two differently-scaled unit categories into one number (previously,
+ *    a battle with 10 soldiers + 100 siege engines could report
+ *    `total: 37` against `initialTroops: 10`, i.e. more "casualties" than
+ *    troops that ever existed — that bug is what this shape fixes).
+ *  - `siegeCasualtyRate`: siege engines destroyed / initial siege engines
+ *    (0 if the side had none), the siege-only counterpart of `casualtyRate`.
+ */
 export interface CasualtyBreakdown {
   soldiers: number;
   knights: number;
   siegeEngines: number;
   garrison?: number;
+  /** Troop casualties only (soldiers + knights + garrison) — excludes siegeEngines. */
   total: number;
+  /** Troop casualty rate only (total / initialTroops) — excludes siegeEngines. */
   casualtyRate: number;
+  /** Siege-engine casualty rate (siegeEngines / initial siege engines), tracked separately from troop casualtyRate. */
+  siegeCasualtyRate: number;
 }
 
 export interface BattleSideBreakdown {
-  side: 'attacker' | 'defender';
+  side: BattleSide;
   factionId: string;
   factionName: string;
   power: CombatPowerBreakdown;
   effectivePower: number;
   unitBreakdown: UnitBreakdown;
+  /** Initial troop count (soldiers + knights [+ garrison for defender]). Deliberately excludes siege engines — see `initialSiegeEngines`. */
   initialTroops: number;
+  /** Remaining troop count after casualties. Under the no-retreat rule, this is 0 for the losing side (see `BattleResult`/docs/BATTLE_ENGINE_CORRECTNESS.md). */
   remainingTroops: number;
+  /** Initial siege engine count, tracked separately from `initialTroops`. */
+  initialSiegeEngines: number;
+  /** Remaining siege engines after casualties. 0 for the losing side under the no-retreat rule. */
+  remainingSiegeEngines: number;
   remaining: UnitBreakdown;
   casualties: CasualtyBreakdown;
   moraleChange: number;
+  /** True for the losing side of a decisive victory. Narrative-only flavor flag; does not imply any surviving remnant — see `remainingTroops`. */
   routed: boolean;
-  retreated: boolean;
-  retreatSurvivorsPct?: number;
 }
 
 export interface BattleResult {
@@ -73,24 +113,25 @@ export interface BattleResult {
   territoryId: string;
   territoryName: string;
   seedUsed: number;
-  winner: 'attacker' | 'defender' | 'draw';
-  loser: 'attacker' | 'defender' | 'draw';
-  outcomeType:
-    | 'attacker_decisive_victory'
-    | 'attacker_narrow_victory'
-    | 'attacker_pyrrhic_victory'
-    | 'defender_decisive_victory'
-    | 'defender_narrow_victory'
-    | 'defender_pyrrhic_victory'
-    | 'mutual_heavy_losses'
-    | 'stalemate';
+  winner: BattleSide | 'draw';
+  loser: BattleSide | 'draw';
+  outcomeType: BattleOutcomeType;
   attackerWinProbability: number;
   randomRoll: number;
   effectivePowerRatio: number;
   battleIntensity: number;
   attacker: BattleSideBreakdown;
   defender: BattleSideBreakdown;
-  territoryOutcome: 'unchanged' | 'captured' | 'contested' | 'retreat_required' | 'surrendered';
+  territoryOutcome: TerritoryOutcome;
+  /**
+   * True when the territory was captured (i.e. `territoryOutcome ===
+   * 'captured'`). Under the no-retreat rule the defender is always fully
+   * eliminated when captured, so this is now a narrative-only alias for
+   * that fact rather than an independently-computed threshold — kept as
+   * its own field for API stability and because `formatResult`/callers key
+   * off it for "surrender" flavor text, but it never contradicts
+   * `territoryOutcome`.
+   */
   defenderSurrendered: boolean;
   events: BattleEvent[];
   battlePhases: {
@@ -136,8 +177,8 @@ export interface BattleEvent {
   id: string;
   turn: number;
   phase: string;
-  type: string;
-  side: 'attacker' | 'defender' | 'both';
+  type: BattleEventType;
+  side: BattleSide | 'both';
   message: string;
   impact: number;
 }
@@ -147,6 +188,7 @@ export interface BattleValidation {
   errors: string[];
 }
 
+/** Sole authority for combat math. Does not know or care which faction is the player. */
 export class BattleEngine {
   validate(input: BattleInput): BattleValidation {
     const errors: string[] = [];
@@ -181,7 +223,7 @@ export class BattleEngine {
 
     const events: BattleEvent[] = [];
     let evId = 0;
-    const emit = (phase: string, type: string, side: 'attacker' | 'defender' | 'both', message: string, impact: number = 0) => {
+    const emit = (phase: string, type: BattleEventType, side: BattleSide | 'both', message: string, impact: number = 0) => {
       events.push({
         id: `evt_${battleId}_${evId++}`,
         turn: input.turn,
@@ -251,8 +293,18 @@ export class BattleEngine {
     winnerCasRate = Math.max(CC.winnerMinRate, Math.min(CC.winnerMaxRate, winnerCasRate));
     loserCasRate = Math.max(CC.loserMinRate, Math.min(CC.loserMaxRate, loserCasRate));
 
-    const atkCasRate = winner === 'attacker' ? winnerCasRate : loserCasRate;
-    const defCasRate = winner === 'defender' ? winnerCasRate : loserCasRate;
+    // NO-RETREAT RULE: the side that loses the battle is eliminated outright
+    // (casualty rate 1.0, every unit category — troops, siege, garrison)
+    // rather than retreating with survivors. This only applies when there
+    // is an actual winner/loser. The `isStalemate` branch above is a
+    // near-unreachable exact-tie edge case with no "loser" by definition —
+    // it keeps the original graduated winner/loser rate split unchanged.
+    const atkCasRate = isStalemate
+      ? (winner === 'attacker' ? winnerCasRate : loserCasRate)
+      : (winner === 'attacker' ? winnerCasRate : 1);
+    const defCasRate = isStalemate
+      ? (winner === 'defender' ? winnerCasRate : loserCasRate)
+      : (winner === 'defender' ? winnerCasRate : 1);
 
     const atkCas = splitCasualties(atkInit, atkCasRate);
     const defCas = splitCasualties(defInit, defCasRate);
@@ -279,28 +331,33 @@ export class BattleEngine {
       emit('resolution', 'phase_end', 'both',
         'Neither side can gain the upper hand; stalemate.', 0);
     } else if (winner === 'attacker') {
+      // NOTE: the narrow-victory branch below is reached both when
+      // `relativeAdvantage` is small (<= narrowWinnerMaxAdvantage) AND as
+      // the fallback for the "moderate" range between narrow and decisive
+      // thresholds — there is no distinct label for that middle range in
+      // `BattleOutcomeType`, so both collapse to "narrow" (unchanged from
+      // the original resolver; the two branches always produced the same
+      // value, so this is a no-op cleanup, not a behavior change).
       if (isPyrrhic) outcomeType = 'attacker_pyrrhic_victory';
       else if (relativeAdvantage >= V.decisiveWinnerMinAdvantage) outcomeType = 'attacker_decisive_victory';
-      else if (relativeAdvantage <= V.narrowWinnerMaxAdvantage) outcomeType = 'attacker_narrow_victory';
       else outcomeType = 'attacker_narrow_victory';
       if (outcomeType === 'attacker_decisive_victory') {
-        emit('resolution', 'rout', 'defender', 'The defenders break and flee the field.', 25);
+        emit('resolution', 'rout', 'defender', 'The defenders are routed and annihilated — no retreat.', 25);
       } else if (outcomeType === 'attacker_pyrrhic_victory') {
-        emit('resolution', 'phase_end', 'both', 'Attackers win at devastating cost.', 5);
+        emit('resolution', 'phase_end', 'both', 'Attackers win at devastating cost; the defending force is wiped out.', 5);
       } else {
-        emit('resolution', 'phase_end', 'both', 'The attackers carry the field after a hard fight.', 10);
+        emit('resolution', 'phase_end', 'both', 'The attackers carry the field after a hard fight; the defending force is destroyed.', 10);
       }
     } else {
       if (isPyrrhic) outcomeType = 'defender_pyrrhic_victory';
       else if (relativeAdvantage >= V.decisiveWinnerMinAdvantage) outcomeType = 'defender_decisive_victory';
-      else if (relativeAdvantage <= V.narrowWinnerMaxAdvantage) outcomeType = 'defender_narrow_victory';
       else outcomeType = 'defender_narrow_victory';
       if (outcomeType === 'defender_decisive_victory') {
-        emit('resolution', 'rout', 'attacker', 'The attackers are shattered and driven off.', -25);
+        emit('resolution', 'rout', 'attacker', 'The attacking army is shattered and destroyed — no retreat.', -25);
       } else if (outcomeType === 'defender_pyrrhic_victory') {
-        emit('resolution', 'phase_end', 'both', 'Defenders hold but suffer crippling losses.', -5);
+        emit('resolution', 'phase_end', 'both', 'Defenders hold but suffer crippling losses; the attacking force is destroyed.', -5);
       } else {
-        emit('resolution', 'heroic_stand', 'defender', 'The defenders stand firm and repel the assault.', 15);
+        emit('resolution', 'heroic_stand', 'defender', 'The defenders stand firm and repel the assault; the attacking force is destroyed.', 15);
       }
     }
 
@@ -320,12 +377,16 @@ export class BattleEngine {
       if (relativeAdvantage >= neededAdv && attackerHasEnough) {
         territoryOutcome = 'captured';
         emit('resolution', 'breach', 'attacker', `${input.territory.name} falls to the attackers.`, 30);
-        const totalDefInit = (defInit.garrison ?? 0) + defInit.soldiers + defInit.knights;
-        const totalDefCas = defCas.total;
-        if (totalDefInit > 0 && totalDefCas / totalDefInit >= 0.9) {
-          defenderSurrendered = true;
-          emit('resolution', 'surrender', 'defender', 'The remaining garrison surrenders.', 10);
-        }
+        // Under the no-retreat rule the defender (loser) is always fully
+        // eliminated — see `defCasRate` above, forced to 1.0 whenever
+        // attacker wins. So "did the garrison collapse" is no longer an
+        // independent probabilistic threshold (it used to check
+        // `totalDefCas / totalDefInit >= 0.9`, which is now trivially
+        // always true); it's a direct alias for "territory captured".
+        // Kept as its own field/event for API stability and narrative
+        // flavor — it never contradicts `territoryOutcome`.
+        defenderSurrendered = true;
+        emit('resolution', 'surrender', 'defender', 'The defending garrison is captured; resistance ends.', 10);
       } else {
         territoryOutcome = 'contested';
         emit('resolution', 'phase_end', 'both',
@@ -335,19 +396,14 @@ export class BattleEngine {
       territoryOutcome = 'unchanged';
     }
 
+    // `routed` is a narrative flavor flag for the losing side of a decisive
+    // victory. It does NOT imply any surviving remnant — under the
+    // no-retreat rule the loser's `remainingTroops`/`remainingSiegeEngines`
+    // are 0 regardless of whether the loss was decisive, narrow, or
+    // pyrrhic (see `atkCasRate`/`defCasRate` above). There is no
+    // corresponding "retreated" concept anymore: armies do not retreat.
     const attackerRouted = outcomeType === 'defender_decisive_victory';
     const defenderRouted = outcomeType === 'attacker_decisive_victory';
-    const attackerRetreated = winner === 'defender' && !isStalemate;
-    const defenderRetreated = territoryOutcome === 'captured' && !defenderSurrendered;
-
-    const atkSurvPct = attackerRetreated
-      ? retreatSurvival(input.attackerArmies[0], C)
-      : undefined;
-    const defSurvPct = defenderRetreated
-      ? (input.territory.terrain === 'fortress' || (input.territory.fortification ?? 0) >= 4
-        ? C.retreat.fortressGarrisonRetreatSurvival
-        : C.retreat.baseSurvivalRate + 0.15)
-      : undefined;
 
     const atkMorale = computeMoraleDelta(isStalemate ? 'draw' : winner, 'attacker', outcomeType, C);
     const defMorale = computeMoraleDelta(isStalemate ? 'draw' : winner, 'defender', outcomeType, C);
@@ -361,12 +417,17 @@ export class BattleEngine {
       unitBreakdown: { ...atkInit },
       initialTroops: atkInit.soldiers + atkInit.knights,
       remainingTroops: atkRemaining.soldiers + atkRemaining.knights,
+      initialSiegeEngines: atkInit.siegeEngines,
+      remainingSiegeEngines: atkRemaining.siegeEngines,
       remaining: atkRemaining,
-      casualties: { ...atkCas, total: atkCas.total, casualtyRate: round3(atkCas.casualtyRate) },
+      casualties: {
+        ...atkCas,
+        total: atkCas.total,
+        casualtyRate: round3(atkCas.casualtyRate),
+        siegeCasualtyRate: round3(atkCas.siegeCasualtyRate),
+      },
       moraleChange: atkMorale,
       routed: attackerRouted,
-      retreated: attackerRetreated,
-      retreatSurvivorsPct: atkSurvPct,
     };
 
     const defenderBreakdown: BattleSideBreakdown = {
@@ -378,16 +439,17 @@ export class BattleEngine {
       unitBreakdown: { ...defInit, garrison: defInit.garrison ?? 0 },
       initialTroops: defInit.soldiers + defInit.knights + (defInit.garrison ?? 0),
       remainingTroops: defRemainingUnits.soldiers + defRemainingUnits.knights + garrisonLeft,
+      initialSiegeEngines: defInit.siegeEngines,
+      remainingSiegeEngines: defRemainingUnits.siegeEngines,
       remaining: { ...defRemainingUnits, garrison: garrisonLeft },
       casualties: {
         ...defCas,
         total: defCas.total,
         casualtyRate: round3(defCas.casualtyRate),
+        siegeCasualtyRate: round3(defCas.siegeCasualtyRate),
       },
       moraleChange: defMorale,
       routed: defenderRouted,
-      retreated: defenderRetreated,
-      retreatSurvivorsPct: defSurvPct,
     };
 
     const calculation: BattleCalculation = {
@@ -502,7 +564,6 @@ export class BattleEngine {
       defender_decisive_victory: `${defName} wins a decisive defensive victory`,
       defender_narrow_victory: `${defName} narrowly repels the attack`,
       defender_pyrrhic_victory: `${defName} holds on by a thread (pyrrhic defense)`,
-      mutual_heavy_losses: `Both armies suffer heavy losses with no clear winner`,
       stalemate: `The battle ends in stalemate`,
     };
     const terrLabels: Record<string, string> = {
@@ -560,12 +621,22 @@ export class BattleEngine {
       `  (${(calc.attackerCasualties.rate * 100).toFixed(1)}%)  →  Remaining: ${calc.attackerRemaining.toLocaleString()}`);
     L.push(`  Defender: ${calc.defenderCasualties.count.toLocaleString()} of ${calc.defender.rawTroops.toLocaleString()}` +
       `  (${(calc.defenderCasualties.rate * 100).toFixed(1)}%)  →  Remaining: ${calc.defenderRemaining.toLocaleString()}`);
+    if (atk.initialSiegeEngines > 0 || def.initialSiegeEngines > 0) {
+      // Siege engines are tracked separately from the troop casualties
+      // above — see `CasualtyBreakdown` doc comment.
+      L.push(`  Siege engines — Attacker: ${(atk.initialSiegeEngines - atk.remainingSiegeEngines).toLocaleString()} of ${atk.initialSiegeEngines.toLocaleString()} lost` +
+        `;  Defender: ${(def.initialSiegeEngines - def.remainingSiegeEngines).toLocaleString()} of ${def.initialSiegeEngines.toLocaleString()} lost`);
+    }
     L.push('');
     L.push('OUTCOME:');
     L.push(`  ${describeOutcome(outcomeType, atkName, defName)}`);
     L.push(`  Territory: ${territoryOutcome.replace(/_/g, ' ').toUpperCase()}`);
-    if (atk.retreated) L.push(`  Attacker retreats (≈${Math.round((atk.retreatSurvivorsPct ?? 0) * 100)}% of survivors escape).`);
-    if (def.retreated) L.push(`  Defender retreats (≈${Math.round((def.retreatSurvivorsPct ?? 0) * 100)}% of survivors escape).`);
+    // NO-RETREAT RULE: the losing side is eliminated, not withdrawn. There
+    // is no "loser" (and thus nothing to eliminate) in the stalemate case.
+    if (outcomeType !== 'stalemate') {
+      const loserName = calc.winner === 'attacker' ? defName : atkName;
+      L.push(`  ${loserName}'s forces are eliminated — Rep Wars armies do not retreat.`);
+    }
     L.push('');
     L.push('BATTLE EVENTS:');
     const notable = events.filter((e) => e.type !== 'phase_start');
@@ -578,24 +649,22 @@ export class BattleEngine {
   }
 }
 
-function splitCasualties(init: UnitBreakdown, rate: number): {
-  soldiers: number;
-  knights: number;
-  siegeEngines: number;
-  garrison?: number;
-  total: number;
-  casualtyRate: number;
-} {
+function splitCasualties(init: UnitBreakdown, rate: number): CasualtyBreakdown {
   const soldiers = Math.min(init.soldiers, Math.round(init.soldiers * rate));
   const knights = Math.min(init.knights, Math.round(init.knights * rate));
   const siegeEngines = Math.min(init.siegeEngines, Math.round(init.siegeEngines * rate));
   const garrison = init.garrison !== undefined
     ? Math.min(init.garrison, Math.round(init.garrison * rate))
     : undefined;
+  // `total`/`casualtyRate` are TROOP-ONLY (soldiers + knights + garrison) —
+  // siege engines are intentionally excluded and reported separately via
+  // `siegeEngines`/`siegeCasualtyRate` instead of being mixed into the same
+  // aggregate. See `CasualtyBreakdown` doc comment for why.
   const totalTroops = init.soldiers + init.knights + (init.garrison ?? 0);
-  const totalCas = soldiers + knights + (garrison ?? 0);
-  const actualRate = totalTroops === 0 ? 0 : totalCas / totalTroops;
-  return { soldiers, knights, siegeEngines, garrison, total: soldiers + knights + siegeEngines + (garrison ?? 0), casualtyRate: actualRate };
+  const totalTroopCas = soldiers + knights + (garrison ?? 0);
+  const casualtyRate = totalTroops === 0 ? 0 : totalTroopCas / totalTroops;
+  const siegeCasualtyRate = init.siegeEngines === 0 ? 0 : siegeEngines / init.siegeEngines;
+  return { soldiers, knights, siegeEngines, garrison, total: totalTroopCas, casualtyRate, siegeCasualtyRate };
 }
 
 function computeMoraleDelta(
@@ -636,21 +705,6 @@ function computeMoraleDelta(
   }
 }
 
-function retreatSurvival(
-  army: ArmyLike | undefined,
-  C: typeof BALANCE.combat,
-): number {
-  if (!army) return C.retreat.baseSurvivalRate;
-  const cavBoost = (army.knights || 0) > 0
-    ? C.retreat.cavalryBoostRetreat *
-      Math.min(1, (army.knights || 0) / Math.max(1, (army.soldiers || 0) + (army.knights || 0)))
-    : 0;
-  const pct = C.retreat.baseSurvivalRate
-    + (((army.morale ?? 75) - 50) * C.retreat.perMoraleSurvival)
-    + cavBoost;
-  return Math.max(0.05, Math.min(0.95, pct));
-}
-
 function round3(x: number): number {
   return Math.round(x * 1000) / 1000;
 }
@@ -667,7 +721,6 @@ function describeOutcome(
     case 'defender_decisive_victory': return `DEFENDER DECISIVE VICTORY — ${defName} crushes ${atkName}.`;
     case 'defender_narrow_victory': return `DEFENDER NARROW VICTORY — ${defName} repels ${atkName}.`;
     case 'defender_pyrrhic_victory': return `DEFENDER PYRRHIC VICTORY — ${defName} holds but is gutted.`;
-    case 'mutual_heavy_losses': return `MUTUAL HEAVY LOSSES — no clear victor.`;
     case 'stalemate': return `STALEMATE — neither side can break through.`;
   }
 }

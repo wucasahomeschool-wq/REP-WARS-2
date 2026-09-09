@@ -15,6 +15,8 @@ import { MemorySystem } from '../memory/MemorySystem';
 import { GoalSystem } from '../goals/GoalSystem';
 import { SeededRNG } from '../utils/SeededRNG';
 import { computeMilitaryAdvantageRatio } from '../battle/CombatPower';
+import { getAttackFeasibility, isMoveDestinationFeasible } from '../engine/feasibility';
+import { armyHasActiveStrategicOperation } from '../army/strategicAttack';
 
 const {
   scoring: S,
@@ -40,21 +42,52 @@ export class ScoringHelpers {
     return mobile + garrisons;
   }
 
+  /**
+   * NOTE (AI DECISION CORRECTNESS PASS): this helper is currently unused by
+   * `ActionScorer` (no scoring path calls it) and has never been wired up
+   * to an armies map, so — like the old `estimateMilitaryAdvantage` below —
+   * it cannot see any defending field army, only `t.garrison`. It is also
+   * missing an actual `garrisonOnly` branch (`troops` was `garrisonOnly ?
+   * t.garrison : t.garrison`, i.e. always the garrison either way). Left
+   * in place for API compatibility (it is re-exported via `ScoringHelpers`)
+   * but documented rather than "fixed" blind, since no current caller and
+   * no test exercises a specific intended behavior for it. Do not treat
+   * this as a model for new local-defense calculations — see
+   * `computeLocalHostilePower` and `estimateMilitaryAdvantage` for the
+   * corrected pattern that actually consults field armies.
+   */
   static computeTerritoryMilitaryDefense(t: Territory, garrisonOnly: boolean = false): number {
     const terrainBonus = 1 + (M.defenderTerrainBonus[t.terrain] || 0);
     const fortBonus = 1 + t.fortification * M.defenderFortificationBonus;
     const troops = garrisonOnly ? t.garrison : t.garrison;
-    const defendingArmies: Army[] = [];
-    void defendingArmies;
     return troops * M.soldierValue * terrainBonus * fortBonus;
   }
 
+  /**
+   * AI DECISION CORRECTNESS PASS — bug fix: this used to hard-code
+   * `defendingArmies = []` and ignore the `allArmies` parameter entirely
+   * (it was even named `_allArmies` to silence the unused-parameter
+   * warning). That meant `scoreAttack()` always evaluated an attack as if
+   * the target territory had NO field army defending it — only its
+   * `garrison` counted — so a heavily-defended target with a large enemy
+   * army stationed on it could be scored as an easy attack.
+   *
+   * Fix: derive the defending armies from the existing `allArmies` state
+   * (already passed in — this needed no new state) by taking every army
+   * whose `location` is the target territory. This mirrors how
+   * `BattleEngine`/`CombatPower.computeDefenderPower` already combine
+   * garrison + stationed field armies; the AI now estimates advantage
+   * against the same forces that would actually defend if a real battle
+   * were resolved. See docs/AI_DECISION_CORRECTNESS.md.
+   */
   static estimateMilitaryAdvantage(
     attackerArmies: Army[],
     defenderTerritory: Territory,
-    _allArmies: Map<string, Army>,
+    allArmies: Map<string, Army>,
   ): { advantage: number; ratio: number; risk: number } {
-    const defendingArmies: Army[] = [];
+    const defendingArmies: Army[] = Array.from(allArmies.values()).filter(
+      (a) => a.location === defenderTerritory.id,
+    );
     const { ratio, advantageScore, risk } = computeMilitaryAdvantageRatio(
       attackerArmies,
       defendingArmies,
@@ -62,6 +95,116 @@ export class ScoringHelpers {
       defenderTerritory,
     );
     return { advantage: advantageScore, ratio, risk };
+  }
+
+  /**
+   * AI DECISION CORRECTNESS PASS — local threat helper.
+   *
+   * Returns a simple, explainable "how much military force is actually
+   * sitting at/around this specific hostile territory" figure: garrison
+   * power of that one territory plus the power of any field armies
+   * currently located there. Deliberately does NOT use the owning
+   * faction's empire-wide `totalMilitaryPower` — a faction can be huge
+   * overall while having nothing stationed near a given border, and that
+   * should not read as a local threat (see docs/AI_DECISION_CORRECTNESS.md,
+   * "Local threat calculation").
+   */
+  static computeLocalHostilePower(hostileTerritory: Territory, allArmies: Map<string, Army>): number {
+    const garrisonPower = hostileTerritory.garrison * M.soldierValue;
+    let fieldArmyPower = 0;
+    for (const army of allArmies.values()) {
+      if (army.location === hostileTerritory.id) {
+        fieldArmyPower += ScoringHelpers.computeArmyPower(army);
+      }
+    }
+    return garrisonPower + fieldArmyPower;
+  }
+
+  /**
+   * True when any owned territory (especially a capital) faces local hostile
+   * force that outmatches the troops actually standing there. Used to
+   * suppress offensive ambition bonuses so high ambition cannot ignore an
+   * immediate survival threat. Local only — empire-wide power is ignored.
+   */
+  static factionUnderImmediateThreat(ctx: ActionContext): boolean {
+    for (const myTerr of ctx.myTerritories) {
+      let hostilePower = 0;
+      for (const nId of myTerr.neighboring) {
+        const n = ctx.allTerritories.get(nId);
+        if (!n?.owner || n.owner === ctx.self.id)
+          continue;
+        const rel = ctx.self.diplomacy.get(n.owner);
+        const hostile = rel?.state === 'at_war' || rel?.state === 'hostile' || (rel?.opinion ?? 0) < -30;
+        if (!hostile)
+          continue;
+        hostilePower += ScoringHelpers.computeLocalHostilePower(n, ctx.allArmies);
+      }
+      let mine = myTerr.garrison * M.soldierValue;
+      for (const a of ctx.myArmies) {
+        if (a.location === myTerr.id)
+          mine += ScoringHelpers.computeArmyPower(a);
+      }
+      if (hostilePower > mine * 1.5)
+        return true;
+      if (myTerr.isCapital && hostilePower > mine)
+        return true;
+    }
+    return false;
+  }
+
+  /**
+   * ENGINE EXECUTION CONSISTENCY PASS — shared "which of my armies are
+   * physically positioned to act against this territory" helper.
+   *
+   * Used by BOTH `scoreAttack`/`scoreExpand` (below) AND
+   * `src/simulation/cli.ts`'s ATTACK/EXPAND execution, so the AI's
+   * decision and the harness's execution can never silently disagree
+   * about which armies count as "locally available" for a given target.
+   * No strength/eligibility filtering here — that is action-specific
+   * (e.g. `scoreAttack` additionally requires >100 soldiers+knights before
+   * treating an army as attack-worthy; `scoreExpand` does not).
+   */
+  static armiesBorderingTerritory(
+    myArmies: Army[],
+    allTerritories: Map<string, Territory>,
+    targetTerritoryId: string,
+  ): Army[] {
+    return myArmies.filter((a) => {
+      const armyTerr = allTerritories.get(a.location);
+      return armyTerr?.neighboring.includes(targetTerritoryId) ?? false;
+    });
+  }
+
+  /**
+   * ENGINE EXECUTION CONSISTENCY PASS — shared "local/usable military
+   * strength against an unclaimed target" helper, extracted from
+   * `scoreExpand` (AI DECISION CORRECTNESS PASS) so
+   * `src/simulation/cli.ts`'s EXPAND execution can use the exact same
+   * formula instead of the empire-wide `totalMilitaryPower` it used
+   * before. See docs/ENGINE_EXECUTION_CONSISTENCY.md and
+   * docs/AI_DECISION_CORRECTNESS.md ("Expansion strength evaluation").
+   *
+   * = power of my armies stationed in a territory bordering the target
+   * + garrison power of my own territories bordering the target.
+   * Deliberately excludes anything not adjacent to the target. Phase 14
+   * adjacent-hop movement does not make distant armies usable here;
+   * scoring does not invent a second travel model.
+   */
+  static computeLocalUsableMilitaryPower(
+    selfId: FactionId,
+    myArmies: Army[],
+    allTerritories: Map<string, Territory>,
+    targetTerritoryId: string,
+  ): number {
+    const target = allTerritories.get(targetTerritoryId);
+    if (!target) return 0;
+    const localArmies = ScoringHelpers.armiesBorderingTerritory(myArmies, allTerritories, targetTerritoryId);
+    const localArmyPower = localArmies.reduce((s, a) => s + ScoringHelpers.computeArmyPower(a), 0);
+    const localBorderingOwned = target.neighboring
+      .map((id) => allTerritories.get(id))
+      .filter((t): t is Territory => !!t && t.owner === selfId);
+    const localGarrisonPower = localBorderingOwned.reduce((s, t) => s + t.garrison * M.soldierValue, 0);
+    return localArmyPower + localGarrisonPower;
   }
 
   static evaluateTerritoryValue(t: Territory): number {
@@ -85,6 +228,18 @@ export class ScoringHelpers {
     );
   }
 
+  /**
+   * NOTE (AI DECISION CORRECTNESS PASS): this helper is currently unused by
+   * `ActionScorer.scoreDefend()` — that method has its own inline border
+   * threat calculation, now driven by `computeLocalHostilePower` (see
+   * below/docs/AI_DECISION_CORRECTNESS.md). `evaluateThreat` here also
+   * mixes a per-border-territory term with `targetFaction.totalMilitaryPower
+   * / self.totalMilitaryPower` (empire-wide power), which has the same
+   * "distant army counted as local" issue called out for expansion scoring.
+   * Left as-is (not called, so not currently causing bad decisions) but
+   * documented rather than silently relied upon; do not wire this into new
+   * scoring without addressing the empire-wide term first.
+   */
   static evaluateThreat(
     targetFaction: WarlordSnapshot,
     self: WarlordSnapshot,
@@ -183,7 +338,48 @@ export class ActionScorer {
       const scored = this.scoreAction(action, input);
       results.push(...scored);
     }
+    this.applyAmbitionModifiers(results, input);
     return results.sort((a, b) => b.score - a.score);
+  }
+
+  /**
+   * Ambition layers on top of existing goal alignment and personality.
+   * At `BALANCE.ambition.defaultValue` (0.5) every extra is 0.
+   * Under immediate local threat, offensive ambition bonuses on
+   * EXPAND/DECLARE_WAR (and the strategic-push bonus on ATTACK) are skipped.
+   */
+  private applyAmbitionModifiers(results: ScoredAction[], input: ScorerInput): void {
+    const ambition = input.ctx.self.ambition;
+    const delta = ambition - BALANCE.ambition.defaultValue;
+    const threatened = ScoringHelpers.factionUnderImmediateThreat(input.ctx);
+    for (const scored of results) {
+      const goalFactor = scored.factorBreakdown.find((f) => f.factor === 'Goal alignment');
+      const goalContribution = goalFactor?.contribution ?? 0;
+      const skipGoalAmp = threatened && (scored.action === 'EXPAND' || scored.action === 'DECLARE_WAR');
+      const ambitionGoal = (!skipGoalAmp && goalContribution !== 0)
+        ? goalContribution * delta * BALANCE.ambition.goalPersistenceScale
+        : 0;
+      const offensivePush = scored.action === 'EXPAND' || scored.action === 'ATTACK' || scored.action === 'DECLARE_WAR';
+      const strategicPush = (!threatened && offensivePush)
+        ? delta * BALANCE.ambition.strategicPushWeight
+        : 0;
+      const total = ambitionGoal + strategicPush;
+      if (total === 0)
+        continue;
+      scored.score += total;
+      if (ambitionGoal !== 0) {
+        scored.factorBreakdown.push({ factor: 'Ambition (goal persistence)', weight: 1, contribution: ambitionGoal });
+        if (Math.abs(ambitionGoal) > 0.5) {
+          scored.reasoning.push(delta > 0
+            ? 'high ambition persists toward goals'
+            : 'low ambition deprioritizes long-term goals');
+        }
+      }
+      if (strategicPush !== 0) {
+        scored.factorBreakdown.push({ factor: 'Ambition (strategic push)', weight: 1, contribution: strategicPush });
+      }
+      scored.score = Math.max(S.minReasonableScore, Math.min(S.maxScore, scored.score));
+    }
   }
 
   private scoreAction(action: ActionType, input: ScorerInput): ScoredAction[] {
@@ -229,7 +425,6 @@ export class ActionScorer {
   private scoreAttack(input: ScorerInput): ScoredAction[] {
     const { ctx, turn, rng, memory, goals } = input;
     const results: ScoredAction[] = [];
-    const myAvailableArmies = ctx.myArmies.filter((a) => a.soldiers + a.knights > 100);
     for (const targetTerr of ctx.enemyNeighbors) {
       const targetFactionId = targetTerr.owner;
       if (!targetFactionId) continue;
@@ -237,10 +432,27 @@ export class ActionScorer {
       let score = base;
       const targetOwner = ctx.allFactions.get(targetFactionId);
       if (!targetOwner) continue;
-      const attackingArmies = myAvailableArmies.filter((a) => {
-        const armyTerr = ctx.allTerritories.get(a.location);
-        return armyTerr?.neighboring.includes(targetTerr.id);
-      });
+      // AI RUNTIME INTEGRATION PASS — attack feasibility.
+      // Previously this only used `armiesBorderingTerritory` (armies
+      // already standing on a legal staging tile) and skipped the target
+      // entirely otherwise. That under-scored Phase 15's one-hop
+      // MOVE → ATTACK chain: a target only reachable by marching a
+      // faraway-but-eligible army onto a staging tile first was never
+      // scored as attackable at all, even though `startStrategicAttack`
+      // could execute exactly that plan. `getAttackFeasibility` now calls
+      // the SAME staging/immediate-army selection `startStrategicAttack`
+      // uses (`listImmediateAttackingArmies` / `selectDelayedAttackPlan`),
+      // so the scorer and the executor can never disagree about whether a
+      // target is reachable. `unreachable` still causes this target to be
+      // skipped — the AI should not score an impossible attack as though
+      // it were executable. See docs/AI_RUNTIME_INTEGRATION.md, "Attack
+      // feasibility".
+      const feasibility = getAttackFeasibility(ctx, targetTerr.id);
+      if (feasibility.feasibility === 'unreachable') continue;
+      const isStaging = feasibility.feasibility === 'staging';
+      const attackingArmies = isStaging
+        ? [ctx.allArmies.get(feasibility.stagingArmyId!)!].filter((a): a is Army => !!a)
+        : feasibility.immediateArmies;
       if (attackingArmies.length === 0) continue;
       const { advantage, ratio, risk } = ScoringHelpers.estimateMilitaryAdvantage(
         attackingArmies, targetTerr, ctx.allArmies,
@@ -288,6 +500,11 @@ export class ActionScorer {
           reasoning.push('target borders capital');
         }
       }
+      if (isStaging) {
+        score -= S.stagingAttackPenalty;
+        factors.push({ factor: 'Requires staging march', weight: 1, contribution: -S.stagingAttackPenalty });
+        reasoning.push('requires marching to a staging territory first');
+      }
       score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
       results.push({
         action: 'ATTACK', targetId: targetTerr.id, targetName: targetTerr.name,
@@ -303,6 +520,21 @@ export class ActionScorer {
     for (const myTerr of ctx.myTerritories) {
       let { base, factors, reasoning } = this.baseScored('DEFEND', input);
       let score = base;
+      // AI DECISION CORRECTNESS PASS — local threat scoring.
+      // Previously this was a flat "+15 per hostile neighbor" regardless of
+      // how much force (if any) that neighbor actually had. That could not
+      // distinguish a hostile neighbor with almost no military from one
+      // with a large army sitting right on the border. Now each hostile
+      // bordering territory contributes its own local strength (garrison +
+      // any field armies stationed there, via `computeLocalHostilePower`),
+      // scaled down by /10 so a "typical" starting garrison (~150, per
+      // SAMPLE_MAP) contributes ~15 — the same order of magnitude as the
+      // old flat constant — while a lightly-held border contributes little
+      // and a heavily-reinforced one contributes proportionally more. A
+      // faction's empire-wide military power is intentionally NOT used
+      // here: a hostile faction that is powerful overall but has nothing
+      // stationed near this particular border is not a local threat.
+      // See docs/AI_DECISION_CORRECTNESS.md, "Local threat calculation".
       let borderThreat = 0;
       for (const nId of myTerr.neighboring) {
         const n = ctx.allTerritories.get(nId);
@@ -311,7 +543,10 @@ export class ActionScorer {
           if (owner) {
             const rel = ctx.self.diplomacy.get(n.owner);
             const hostile = rel?.state === 'at_war' || rel?.state === 'hostile' || (rel?.opinion ?? 0) < -30;
-            if (hostile) borderThreat += 15;
+            if (hostile) {
+              const localPower = ScoringHelpers.computeLocalHostilePower(n, ctx.allArmies);
+              borderThreat += localPower / 10;
+            }
           }
         }
       }
@@ -354,8 +589,13 @@ export class ActionScorer {
     for (const myTerr of ctx.myTerritories) {
       let { base, factors, reasoning } = this.baseScored('REINFORCE', input);
       let score = base;
-      const goldOK = ctx.self.resources.gold > 500;
-      const foodOK = ctx.self.resources.food > 300;
+      // AI DECISION CORRECTNESS PASS: use the same reinforcement cost the
+      // CLI actually charges (`BALANCE.economy.reinforcementCost`) instead
+      // of the old unrelated hardcoded thresholds (gold > 500, food > 300)
+      // that didn't match the real 250 gold / 150 food cost. See
+      // docs/AI_DECISION_CORRECTNESS.md, "Reinforcement affordability".
+      const goldOK = ctx.self.resources.gold >= E.reinforcementCost.gold;
+      const foodOK = ctx.self.resources.food >= E.reinforcementCost.food;
       const canAfford = goldOK && foodOK;
       if (!canAfford) { score -= 30; factors.push({ factor: 'Resource constraints', weight: 1, contribution: -30 }); reasoning.push('insufficient resources'); }
       else { score += 5; factors.push({ factor: 'Resources available', weight: 1, contribution: 5 }); }
@@ -388,13 +628,41 @@ export class ActionScorer {
     for (const targetTerr of ctx.unownedNeighbors) {
       let { base, factors, reasoning } = this.baseScored('EXPAND', input);
       let score = base;
-      const myPower = ctx.self.totalMilitaryPower;
+      // AI DECISION CORRECTNESS PASS — expansion strength must be LOCAL.
+      // Previously this compared `ctx.self.totalMilitaryPower` (every army
+      // and every garrison the faction owns, anywhere on the map) against
+      // this one target's garrison. A faction with a huge army on a
+      // distant front would look like it could trivially seize an
+      // unclaimed territory on the opposite border, even though nothing it
+      // actually has nearby could act on that. There is no troop-movement
+      // model in this codebase, so "usable" strength is defined the same
+      // way `scoreAttack` already defines it: field armies stationed in a
+      // territory that borders the target, plus the garrisons of my own
+      // territories bordering the target (a garrison can plausibly push
+      // into adjacent unclaimed land). Armies/garrisons elsewhere are
+      // excluded — this is a known, documented simplification (see
+      // docs/AI_DECISION_CORRECTNESS.md, "Expansion strength evaluation")
+      // rather than a claim that distant forces could help.
+      //
+      // ENGINE EXECUTION CONSISTENCY PASS: this formula now lives in
+      // `ScoringHelpers.computeLocalUsableMilitaryPower` so
+      // `src/simulation/cli.ts`'s EXPAND execution (which previously used
+      // empire-wide `totalMilitaryPower`, inconsistent with this scorer)
+      // can call the exact same helper. See
+      // docs/ENGINE_EXECUTION_CONSISTENCY.md, "EXPAND consistency".
+      const myLocalPower = ScoringHelpers.computeLocalUsableMilitaryPower(
+        ctx.self.id, ctx.myArmies, ctx.allTerritories, targetTerr.id,
+      );
       const localOpposition = targetTerr.garrison * M.soldierValue;
-      const advantage = localOpposition === 0 ? 100 : Math.log2(myPower / localOpposition) * 25;
+      const advantage = localOpposition === 0
+        ? 100
+        : myLocalPower <= 0
+          ? -S.maxFactorWeight
+          : Math.log2(myLocalPower / localOpposition) * 25;
       score += Math.min(S.maxFactorWeight, advantage);
       factors.push({ factor: 'Expansion advantage', weight: 1, contribution: advantage });
       if (localOpposition === 0) reasoning.push('unclaimed territory, no opposition');
-      else if (myPower > localOpposition * 5) reasoning.push('weak opposition');
+      else if (myLocalPower > localOpposition * 5) reasoning.push('weak opposition');
       const terrValue = ScoringHelpers.evaluateTerritoryValue(targetTerr);
       score += terrValue * 0.7;
       factors.push({ factor: 'Territory value', weight: T.baseValueWeight, contribution: terrValue * 0.7 });
@@ -478,7 +746,12 @@ export class ActionScorer {
     const { ctx, turn, goals } = input;
     const results: ScoredAction[] = [];
     const res = ctx.self.resources;
-    const canAffordFortify = res.stone >= 50 && res.gold >= 100;
+    // ENGINE EXECUTION CONSISTENCY PASS: reads the same
+    // `BALANCE.territory.fortificationCostPerLevel` the CLI's BUILD
+    // execution charges (previously both sides hardcoded 100/50 as
+    // separate inline literals). See docs/ENGINE_EXECUTION_CONSISTENCY.md.
+    const canAffordFortify = res.stone >= T.fortificationCostPerLevel.stone
+      && res.gold >= T.fortificationCostPerLevel.gold;
     for (const myTerr of ctx.myTerritories) {
       let { base, factors, reasoning } = this.baseScored('BUILD', input);
       let score = base;
@@ -528,6 +801,17 @@ export class ActionScorer {
     let bestTarget: Territory | null = null;
     let bestMoveScore = -Infinity;
     for (const army of ctx.myArmies) {
+      // AI RUNTIME INTEGRATION PASS — MOVE feasibility.
+      // `executeMoveCommitment` only ever picks a stationary army with no
+      // conflicting attack intent (`!isArmyMoving(a)`); an army already
+      // moving or mid-strategic-attack cannot be reassigned to a fresh
+      // MOVE. Previously this loop considered every army in `ctx.myArmies`
+      // regardless of movement/attack-intent status, so the scorer could
+      // pick `bestTarget` based on an army that execution would then
+      // immediately reject with `NOT_ADJACENT` (because no OTHER army
+      // happened to be adjacent). See docs/AI_RUNTIME_INTEGRATION.md,
+      // "Move feasibility".
+      if (armyHasActiveStrategicOperation(army)) continue;
       const currentLoc = ctx.allTerritories.get(army.location);
       if (!currentLoc) continue;
       for (const nId of currentLoc.neighboring) {
@@ -558,6 +842,12 @@ export class ActionScorer {
       factors.push({ factor: 'Strategic relocation value', weight: 1, contribution: bestMoveScore });
       if (bestMoveScore > 30) reasoning.push('high-value repositioning');
     } else { score -= 15; }
+    const goalAlign = input.goals.evaluateActionAlignment({
+      actionType: 'MOVE', targetTerritory: bestTarget?.id ?? null,
+      self: ctx.self, currentTurn: input.turn, allTerritories: ctx.allTerritories,
+    });
+    score += goalAlign.scoreContribution;
+    factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
     score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
     return [{
       action: 'MOVE', targetId: bestTarget?.id ?? null, targetName: bestTarget?.name ?? null,
@@ -708,7 +998,6 @@ export class ActionScorer {
   private scoreTrade(input: ScorerInput): ScoredAction[] {
     const { ctx, turn, memory, goals } = input;
     const results: ScoredAction[] = [];
-    const { scarcity } = ScoringHelpers.evaluateResourceNeed(ctx.self.resources, ctx.self.resourceIncome);
     const mySurplus: Record<string, number> = {};
     for (const k of Object.keys(ctx.self.resources) as (keyof Resources)[]) {
       const inc = ctx.self.resourceIncome[k] ?? 0;
@@ -734,7 +1023,27 @@ export class ActionScorer {
           matchScore += mySurplus[k] * theirScarcity[k] * 30;
           hasMatch = true;
         }
-        if (theirScarcity[k] > 0.5 && scarcity[k] < 0.2) { matchScore += 20; hasMatch = true; }
+        // AI DECISION CORRECTNESS PASS — trade safety/surplus check.
+        // This used to be `theirScarcity[k] > 0.5 && scarcity[k] < 0.2`: a
+        // flat +20 bonus keyed only on "my own current need for k is low"
+        // (via `evaluateResourceNeed`'s months-of-supply-from-income
+        // figure), with no reference to `mySurplus[k]` — the dedicated
+        // surplus/safety-reserve figure computed just above — at all. That
+        // is exactly the "they need X and I don't need X" pattern this
+        // pass was told to fix: low current need is not the same thing as
+        // having a safe reserve to give away. (`scarcity[k] < 0.2` and
+        // `mySurplus[k]` truthy turn out to be equivalent under today's
+        // formula constants — both reduce to `resources[k] > 24 *
+        // income[k]` — so this was not visibly wrong in practice, but it
+        // relied on that coincidence between two independently-tunable
+        // constants rather than an explicit safety check, and gave the
+        // SAME flat +20 whether the AI's surplus was razor-thin or deep.)
+        // Fixed to require `mySurplus[k]` explicitly and to scale the
+        // bonus by its magnitude, the same way the branch above already
+        // scales by `mySurplus[k]`, so a thin surplus contributes little
+        // and a deep one contributes close to the old flat bonus. See
+        // docs/AI_DECISION_CORRECTNESS.md, "Trade safety evaluation".
+        if (theirScarcity[k] > 0.5 && mySurplus[k]) { matchScore += 20 * mySurplus[k]; hasMatch = true; }
       }
       score += matchScore;
       factors.push({ factor: 'Resource complementarity', weight: 1, contribution: matchScore });
@@ -769,8 +1078,15 @@ export class ActionScorer {
     return results.sort((a, b) => b.score - a.score).slice(0, 3);
   }
 
+  /**
+   * Strategic army repositioning off ground this faction does not own when
+   * locally outnumbered. This is NOT a battlefield retreat. BattleEngine
+   * eliminates defeated armies (no-retreat rule); this ActionType only
+   * scores pulling a field army back from a non-owned location before a
+   * fight is resolved. The CLI/Orchestrator still have to execute movement.
+   */
   private scoreRetreat(input: ScorerInput): ScoredAction[] {
-    const { ctx } = input;
+    const { ctx, turn, goals } = input;
     let { base, factors, reasoning } = this.baseScored('RETREAT', input);
     let score = base;
     let worstArmy: Army | null = null;
@@ -778,6 +1094,8 @@ export class ActionScorer {
     for (const army of ctx.myArmies) {
       const loc = ctx.allTerritories.get(army.location);
       if (!loc) continue;
+      // Only armies standing on non-owned territory are candidates.
+      // An army on home ground is not "retreating from battle."
       if (loc.owner === ctx.self.id) continue;
       let enemyNearby = 0;
       for (const nId of loc.neighboring) {
@@ -797,8 +1115,14 @@ export class ActionScorer {
     if (worstArmy && worstScore > 0) {
       score += worstScore;
       factors.push({ factor: 'Army endangered', weight: 1, contribution: worstScore });
-      reasoning.push('army at risk of being trapped');
+      reasoning.push('reposition army off non-owned ground (strategic, not battle retreat)');
     } else { score -= 15; }
+    const goalAlign = goals.evaluateActionAlignment({
+      actionType: 'RETREAT', targetTerritory: worstArmy?.location ?? null,
+      self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
+    });
+    score += goalAlign.scoreContribution;
+    factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
     score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
     return [{
       action: 'RETREAT',
@@ -830,6 +1154,12 @@ export class ActionScorer {
     if (ctx.self.personality.patience > 0.7) {
       score += 5; factors.push({ factor: 'Patient temperament', weight: 1, contribution: 5 });
     }
+    const goalAlign = input.goals.evaluateActionAlignment({
+      actionType: 'WAIT',
+      self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
+    });
+    score += goalAlign.scoreContribution;
+    factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
     score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
     return [{
       action: 'WAIT', targetId: null, targetName: null,

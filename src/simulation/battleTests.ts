@@ -52,7 +52,7 @@ function makeArmy(
   morale: number = 75,
   supply: number = 80,
 ) {
-  return { id, owner, location, soldiers, knights, siegeEngines, morale, supply };
+  return { id, owner, location, soldiers, knights, siegeEngines, morale, supply, movement: null, attackIntent: null };
 }
 
 function makeTerritory(
@@ -344,9 +344,9 @@ const SCENARIOS = [
     }),
   },
   {
-    name: '8. Failed attack — retreating survivors',
-    description: 'Attackers lose decisively; engine computes retreat survival %.',
-    expectedNotes: 'Expected: Attacker routed; retreatSurvivorsPct set for simulation withdrawal.',
+    name: '8. Failed attack — attacking army eliminated',
+    description: 'Attackers lose decisively against a larger, well-defended force. Under the no-retreat rule the losing army is eliminated, not withdrawn.',
+    expectedNotes: 'Expected: Attacker routed and eliminated (remainingTroops = 0, remainingSiegeEngines = 0); no retreat.',
     buildInput: (seed: number): BattleInput => ({
       turn: 27,
       seed,
