@@ -14,8 +14,16 @@ export type EngineId =
   | 'state';
 
 /**
- * Future player-only workout → game-delta conversion. Must NOT mutate
- * GameState; the Orchestrator would apply any returned result. Stub only.
+ * FUTURE GAME-REWARD CONVERSION STUB.
+ *
+ * This is not the Fitness Evidence API. `convertWorkout` uses a reps-only
+ * `sets` shape and must not receive FitnessEvidence. The intended pipeline is:
+ * CompletedWorkoutRecord → FitnessEvidenceEvaluator → FitnessEvidence →
+ * FitnessLevelEngine → PhysicalResult → convertGameReward (src/rewards) →
+ * GameRewardResult → applyGameReward (src/rewards/application).
+ * Must NOT mutate GameState here. `convertWorkout` is a legacy reps stub and
+ * must not receive FitnessEvidence, PhysicalResult, or GameRewardResult.
+ * Phase 17H application is not routed through this port.
  */
 export interface FitnessEnginePort {
   convertWorkout?(input: {
@@ -137,7 +145,7 @@ export class EngineRegistry {
         id: 'fitness',
         name: 'Player Fitness Level Detection Engine',
         status: this.fitness ? 'ready' : 'stub',
-        description: 'Relative workout difficulty (not implemented in this repo)',
+        description: 'Definition through PhysicalResult in src/fitness; GameRewardResult conversion in src/rewards; applyGameReward mutates canonical GameState. FitnessEnginePort.convertWorkout remains a legacy stub.',
       },
     ];
   }

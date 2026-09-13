@@ -31,9 +31,10 @@
  *  - Every field here must correspond to a concept that genuinely already
  *    exists elsewhere in the codebase (see the canonical types imported
  *    below). Nothing is invented just to fill out the conceptual hierarchy.
- *  - Concepts with no real implementation yet (cities, persistence) are
- *    called out as deferred in comments rather than stubbed with fake fields.
- *    Continuous simulation time is `worldTick` (Phase 13).
+ *  - Concepts with no real implementation yet (persistence) are called
+ *    out as deferred in comments rather than stubbed with fake fields.
+ *    Continuous simulation time is `worldTick` (Phase 13). Prototype 1
+ *    cities/economy live on this type (Phase 17J).
  *  - Do NOT import this file from `src/types/index.ts`. `EventModel` (for
  *    `ActiveEvent`/`HistoryEntry`) already imports FROM `../types`, so
  *    re-exporting this from the `types` barrel would create an import
@@ -44,8 +45,11 @@
  * diagram. See docs/CANONICAL_STATE_ARCHITECTURE.md for the phase-3 audit
  * this type originated from.
  */
-import { AICommitment, Army, ArmyId, FactionId, MapWorldState, PlayerVisibilityMap, Territory, TerritoryId, WarlordSnapshot } from './index';
+import { AICommitment, Army, ArmyId, FactionId, MapWorldState, PlayerVisibilityMap, Resources, Territory, TerritoryId, WarlordSnapshot } from './index';
 import { ActiveEvent, HistoryEntry } from '../events/EventModel';
+import { FitnessEstimate } from '../fitness/estimate/types';
+import { WorkoutSession } from '../fitness/session/types';
+import { GameRewardResult } from '../rewards/types';
 
 /**
  * Bumped only when the shape of `GameState` changes in a way a future
@@ -54,8 +58,200 @@ import { ActiveEvent, HistoryEntry } from '../events/EventModel';
  *
  * 3 = Phase 14 `Army.movement` (adjacent-hop logistics).
  * 4 = Phase 15 `Army.attackIntent` (MOVE → ATTACK staging).
+ * 5 = Phase 17H player reward application (`playerRewards`, `activeInvasions`).
+ * 6 = Phase 17I gameplay consumption (construction, fitness compact state,
+ *     pause, attacker cooldowns).
+ * 7 = Phase 17J economy / cities (territoryEconomy, cities, construction
+ *     lastProgressTick).
+ * 8 = Phase 17K invasion lifecycle (pending_response / defense_in_progress,
+ *     defense completion timeout).
  */
-export const GAME_STATE_SCHEMA_VERSION = 4;
+export const GAME_STATE_SCHEMA_VERSION = 8;
+
+export type InvasionId = string;
+
+/** Temporary construction-acceleration units. Not Troops, not buildings. */
+export interface PendingConstructionEffect {
+  applicationId: string;
+  sessionId: string;
+  workoutId: string;
+  playerId: string;
+  workerPower: number;
+  permanence: 'TEMPORARY_ACCELERATION';
+  appliedAtTick: number;
+  sourcePhysicalOutput: number;
+}
+
+/**
+ * One-time Golden Yield collection effect. Economy consumes this on a
+ * single successful COLLECT_RESOURCES; it is not a lasting multiplier.
+ */
+export interface PendingGoldenYieldEffect {
+  applicationId: string;
+  sessionId: string;
+  workoutId: string;
+  playerId: string;
+  multiplier: number;
+  effect: 'ONE_TIME_COLLECTION';
+  permanence: 'EPHEMERAL';
+  consumed: false;
+  appliedAtTick: number;
+  sourcePhysicalOutput: number;
+}
+
+/** Persistence-ready ledger entry so the same reward event cannot grant twice. */
+export interface AppliedRewardRecord {
+  applicationId: string;
+  sessionId: string;
+  kind: 'TROOPS' | 'EXTRA_CONSTRUCTION_WORKERS' | 'GOLDEN_YIELD' | 'DEFENSE_MOBILIZATION';
+  appliedAtTick: number;
+  /** JSON-safe snapshot of the original successful application result. */
+  result: Record<string, unknown>;
+}
+
+export interface PlayerRewardState {
+  /** Integer reserve. Unlimited storage in Prototype 1. Not deployed military. */
+  bankedTroops: number;
+  pendingConstructionEffects: PendingConstructionEffect[];
+  pendingGoldenYieldEffects: PendingGoldenYieldEffect[];
+  appliedRewards: AppliedRewardRecord[];
+}
+
+export interface DefenseMobilizationAttachment {
+  applicationId: string;
+  sessionId: string;
+  workoutId: string;
+  playerId: string;
+  defensePower: number;
+  attachedAtTick: number;
+  /** Authoritative workout-start tick for a future 30-minute response check. */
+  workoutStartedAtTick: number | null;
+  sourcePhysicalOutput: number;
+}
+
+/**
+ * Minimal active-invasion record. Not a battle result and not a timer engine.
+ * DEFENSE rewards attach here; they fail if no matching record exists.
+ */
+export type InvasionStatus = 'pending_response' | 'defense_in_progress';
+
+/**
+ * Open invasion record. Terminal invasions are removed from `activeInvasions`
+ * after exactly one resolution (undefended, timeout, abandon, or battle).
+ *
+ * Deadline convention: the deadline tick is the last valid tick.
+ * Expired iff `now > deadlineTick`.
+ */
+export interface ActiveInvasion {
+  id: InvasionId;
+  defenderFactionId: FactionId;
+  attackerFactionId: FactionId;
+  territoryId: TerritoryId;
+  startedAtTick: number;
+  notifiedAtTick: number;
+  responseDeadlineTick: number;
+  status: InvasionStatus;
+  defenseMobilization: DefenseMobilizationAttachment | null;
+  /** Set when a DEFENSE workout starts in time; completion may be later. */
+  defenseWorkoutStartedAtTick: number | null;
+  /** Inclusive last tick the in-progress defense may still complete. */
+  defenseCompletionDeadlineTick: number | null;
+  defenseSessionId: string | null;
+  attackingArmyIds: string[];
+  battleSeed: number | null;
+  commitmentId: string | null;
+}
+
+export type ConstructionId = string;
+export type ConstructionProjectType = 'FORTIFICATION';
+export type ConstructionProjectStatus = 'in_progress' | 'completed';
+export type CityId = string;
+export type CityBuildingType = 'FORTIFICATION';
+
+export interface CityBuilding {
+  type: CityBuildingType;
+  level: number;
+  completedAtTick: number;
+}
+
+/**
+ * Smallest useful city: one per owned territory. Buildings record completed
+ * timed construction. Live fortification level remains `Territory.fortification`.
+ */
+export interface City {
+  id: CityId;
+  territoryId: TerritoryId;
+  factionId: FactionId;
+  buildings: CityBuilding[];
+}
+
+/**
+ * Lazy territory production ledger. Uncollected yield is not the faction
+ * reserve (`WarlordSnapshot.resources`). Missing records do not backfill
+ * from world start.
+ */
+export interface TerritoryEconomy {
+  territoryId: TerritoryId;
+  lastAccrualTick: number;
+  uncollected: Resources;
+}
+
+export interface ConstructionProject {
+  id: ConstructionId;
+  factionId: FactionId;
+  territoryId: TerritoryId;
+  projectType: ConstructionProjectType;
+  startedAtTick: number;
+  /** Last worldTick at which remainingTicks was caught up. */
+  lastProgressTick: number;
+  durationTicks: number;
+  remainingTicks: number;
+  status: ConstructionProjectStatus;
+  completedAtTick: number | null;
+}
+
+export interface CompactWorkoutHistoryEntry {
+  sessionId: string;
+  completedAt: number;
+  completedAtTick: number;
+  purpose: string;
+}
+
+export interface StoredRewardApplicationContext {
+  playerId: string;
+  factionId?: string;
+  mode: 'banked' | 'live';
+  invasionId?: string;
+  constructionId?: string;
+  collectionTerritoryId?: string;
+  workoutStartedAtTick?: number | null;
+  rewardApplicationId?: string;
+}
+
+export interface PendingWorkoutReward {
+  sessionId: string;
+  reward: GameRewardResult;
+  context: StoredRewardApplicationContext;
+}
+
+export interface PlayerFitnessState {
+  estimate: FitnessEstimate | null;
+  lastWorkoutCompletedAtTick: number | null;
+  compactHistory: CompactWorkoutHistoryEntry[];
+  /** At most one in-progress session. Not a historical dump. */
+  activeSession: WorkoutSession | null;
+  pendingReward: PendingWorkoutReward | null;
+}
+
+export interface PlayerEmpirePause {
+  paused: boolean;
+  pausedAtTick: number | null;
+}
+
+export interface AttackerCooldown {
+  recoveryUntilTick: number | null;
+  continuationUntilTick: number | null;
+}
 
 export interface GameState {
   /** Schema/version marker for this shape. See `GAME_STATE_SCHEMA_VERSION`. */
@@ -165,10 +361,51 @@ export interface GameState {
   activeEvents: ActiveEvent[];
   eventHistory: HistoryEntry[];
 
+  /**
+   * Local-player reward application state (Phase 17H). Bound to
+   * `playerFactionId`, not a parallel GameState. Banked Troops live here
+   * and are intentionally NOT army/garrison/`totalMilitaryPower` units.
+   * Construction and Golden Yield are pending effects for future Cities /
+   * Economy engines — they are not buildings, resources, or permanent
+   * multipliers. Defense is never stored as generic banked power; it
+   * attaches to `activeInvasions` only.
+   */
+  playerRewards: PlayerRewardState;
+  /**
+   * Minimal invasion boundary for DEFENSE reward application. Empty until
+   * a future Invasion engine (or a test) inserts an `ActiveInvasion`.
+   * 17H does not create, resolve, or time-out invasions.
+   */
+  activeInvasions: Map<InvasionId, ActiveInvasion>;
+
+  /**
+   * Timed construction projects. Starting one spends resources and does
+   * not require a workout. Remaining time decreases with worldTick and
+   * with Extra Construction Workers. Prototype 1: one in-progress project
+   * per territory.
+   */
+  constructions: Map<ConstructionId, ConstructionProject>;
+  /**
+   * One city per owned territory. Not a population/happiness simulation.
+   * Fortification level stays on `Territory.fortification`.
+   */
+  cities: Map<CityId, City>;
+  /**
+   * Per-territory uncollected yield and last accrual tick. Faction
+   * `resources` remain the only stored reserve.
+   */
+  territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
+  /**
+   * Compact local-player fitness estimate and at most one active session.
+   * Not a competing GameState and not an unbounded session dump.
+   */
+  playerFitness: PlayerFitnessState;
+  /** Per-player empire pause. Other factions continue simulating. */
+  playerEmpirePause: PlayerEmpirePause;
+  /** Per-attacker recovery (≥48h) and failed-defense continuation delay. */
+  attackerCooldowns: Map<FactionId, AttackerCooldown>;
+
   // ---- deferred: not implemented in this repository yet ----
-  // Cities: no city system exists (territories are the smallest owned
-  // unit). Do not add a `cities` field until a real city system exists.
-  //
   // Persistence/version negotiation beyond `schemaVersion` itself
   // (migrations, save-file compatibility): not built — this pass only
   // adds the marker future persistence code would need.
@@ -180,4 +417,82 @@ export function emptyWorldClock(): {
   lastAiDecisionTick: Map<FactionId, number>;
 } {
   return { worldTick: 0, lastAiDecisionTick: new Map() };
+}
+
+export function emptyPlayerRewardState(): PlayerRewardState {
+  return {
+    bankedTroops: 0,
+    pendingConstructionEffects: [],
+    pendingGoldenYieldEffects: [],
+    appliedRewards: [],
+  };
+}
+
+export function emptyPlayerFitnessState(): PlayerFitnessState {
+  return {
+    estimate: null,
+    lastWorkoutCompletedAtTick: null,
+    compactHistory: [],
+    activeSession: null,
+    pendingReward: null,
+  };
+}
+
+export function emptyPlayerEmpirePause(): PlayerEmpirePause {
+  return { paused: false, pausedAtTick: null };
+}
+
+export function emptyRewardApplicationState(): {
+  playerRewards: PlayerRewardState;
+  activeInvasions: Map<InvasionId, ActiveInvasion>;
+  constructions: Map<ConstructionId, ConstructionProject>;
+  cities: Map<CityId, City>;
+  territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
+  playerFitness: PlayerFitnessState;
+  playerEmpirePause: PlayerEmpirePause;
+  attackerCooldowns: Map<FactionId, AttackerCooldown>;
+} {
+  return {
+    playerRewards: emptyPlayerRewardState(),
+    activeInvasions: new Map(),
+    constructions: new Map(),
+    cities: new Map(),
+    territoryEconomy: new Map(),
+    playerFitness: emptyPlayerFitnessState(),
+    playerEmpirePause: emptyPlayerEmpirePause(),
+    attackerCooldowns: new Map(),
+  };
+}
+
+/** Test/future-engine helper. Does not resolve battles or start workouts. */
+export function createActiveInvasion(input: {
+  id: InvasionId;
+  defenderFactionId: FactionId;
+  attackerFactionId: FactionId;
+  territoryId: TerritoryId;
+  startedAtTick: number;
+  notifiedAtTick: number;
+  responseDeadlineTick: number;
+  attackingArmyIds?: string[];
+  battleSeed?: number | null;
+  commitmentId?: string | null;
+  status?: InvasionStatus;
+}): ActiveInvasion {
+  return {
+    id: input.id,
+    defenderFactionId: input.defenderFactionId,
+    attackerFactionId: input.attackerFactionId,
+    territoryId: input.territoryId,
+    startedAtTick: input.startedAtTick,
+    notifiedAtTick: input.notifiedAtTick,
+    responseDeadlineTick: input.responseDeadlineTick,
+    status: input.status ?? 'pending_response',
+    defenseMobilization: null,
+    defenseWorkoutStartedAtTick: null,
+    defenseCompletionDeadlineTick: null,
+    defenseSessionId: null,
+    attackingArmyIds: [...(input.attackingArmyIds ?? [])],
+    battleSeed: input.battleSeed ?? null,
+    commitmentId: input.commitmentId ?? null,
+  };
 }

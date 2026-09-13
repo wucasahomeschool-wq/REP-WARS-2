@@ -1,6 +1,7 @@
 import { Army, ArmyId, FactionId, Territory, TerritoryId } from '../types';
 import { BattleResult } from '../battle/BattleEngine';
 import { GameState } from '../types/GameState';
+import { settleTerritoryOwnershipChange } from '../gameplay/economy/ownership';
 import { pushMemory } from './helpers';
 import { ArmyChange, StateChange, TerritoryChange } from './protocol';
 
@@ -76,6 +77,7 @@ function transferTerritory(
   const winner = state.factions.get(newOwner);
   if (winner && !winner.territories.includes(territory.id)) winner.territories.push(territory.id);
   territory.owner = newOwner;
+  settleTerritoryOwnershipChange(state, territory.id, newOwner);
   changes.push({
     entity: 'territory',
     id: territory.id,

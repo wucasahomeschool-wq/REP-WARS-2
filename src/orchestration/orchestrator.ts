@@ -10,6 +10,7 @@ import {
   READ_ONLY_HANDLERS,
 } from './handlers';
 import { CommandRequest, CommandResponse, HandlerResult } from './protocol';
+import { authorizeCommand } from './authorization';
 import { assertCommandImplemented, assertCommandKnown, validateRequiredParameters } from './router';
 import { runStateTransaction } from './transaction';
 
@@ -90,6 +91,7 @@ export class Orchestrator {
       const def = assertCommandKnown(req.commandId, getCommandDefinition(req.commandId));
       assertCommandImplemented(def);
       validateRequiredParameters(req, def);
+      authorizeCommand(this.state, req, def);
 
       const ctx: HandlerContext = {
         req,

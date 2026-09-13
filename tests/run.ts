@@ -22,7 +22,7 @@ import { PersonalitySystem } from '../src/personality/PersonalitySystem';
 import { GoalSystem } from '../src/goals/GoalSystem';
 import { MemorySystem } from '../src/memory/MemorySystem';
 import { simulateDecisionOutcomes, deriveBattleSeed, battleEngine } from '../src/simulation/cli';
-import { GAME_STATE_SCHEMA_VERSION, emptyWorldClock, type GameState } from '../src/types/GameState';
+import { GAME_STATE_SCHEMA_VERSION, emptyWorldClock, emptyRewardApplicationState, createActiveInvasion, type GameState } from '../src/types/GameState';
 import {
   createGameState,
   cloneGameState,
@@ -56,7 +56,19 @@ import { runStateTransaction } from '../src/orchestration/transaction';
 import { registerArmyMovementTests } from './armyMovement';
 import { registerStrategicAttackTests } from './strategicAttack';
 import { registerAiRuntimeTests } from './aiRuntime';
+import { registerFoundationHardeningTests } from './foundationHardening';
 import { registerLongSimulationTests } from './longSimulation';
+import { registerFitnessDomainTests } from './fitnessDomain';
+import { registerFitnessSessionTests } from './fitnessSession';
+import { registerFitnessEvidenceTests } from './fitnessEvidence';
+import { registerFitnessLevelTests } from './fitnessLevel';
+import { registerFitnessPersonalizationTests } from './fitnessPersonalization';
+import { registerFitnessPhysicalResultTests } from './fitnessPhysicalResult';
+import { registerGameRewardTests } from './gameRewards';
+import { registerRewardApplicationTests } from './rewardApplication';
+import { registerGameplayConsumptionTests } from './gameplayConsumption';
+import { registerEconomyCitiesTests } from './economyCities';
+import { registerInvasionLifecycleTests } from './invasionLifecycle';
 
 let failed = 0;
 let passed = 0;
@@ -1731,8 +1743,13 @@ test('strategic RETREAT is repositioning off non-owned ground, not a battle-retr
     knownFactions: ['me', 'enemy'], knownTerritories: ['home', 'field', 'enemy_land'],
     diplomacy: new Map([['enemy', makeRel('enemy', 'at_war', -80)]]),
   });
+  const enemyArmy: Army = {
+    id: 'horde', owner: 'enemy', location: 'enemy_land',
+    soldiers: 50000, knights: 0, siegeEngines: 0, morale: 80, supply: 80,
+  };
+  armies.set(enemyArmy.id, enemyArmy);
   const enemy = makeSelf('enemy', {
-    territories: ['enemy_land'], totalMilitaryPower: 50000,
+    territories: ['enemy_land'], armies: ['horde'],
     knownFactions: ['me', 'enemy'],
   });
   const gs: GameStateSnapshot = {
@@ -1772,8 +1789,8 @@ test('createGameState() contains the expected major state domains', () => {
   const state = createGameState({ seed: 42 });
   const keys = Object.keys(state).sort();
   const expected = [
-    'activeEvents', 'allFactionIds', 'armies', 'commitments', 'eventHistory',
-    'factions', 'lastAiDecisionTick', 'mapWorld', 'playerFactionId', 'schemaVersion', 'territories',
+    'activeEvents', 'activeInvasions', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'commitments', 'constructions', 'eventHistory',
+    'factions', 'lastAiDecisionTick', 'mapWorld', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'schemaVersion', 'territories', 'territoryEconomy',
     'turn', 'visibility', 'worldSeed', 'worldTick',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
@@ -1787,6 +1804,11 @@ test('createGameState() contains the expected major state domains', () => {
   assert.strictEqual(state.eventHistory.length, 0);
   assert.strictEqual(state.worldTick, 0);
   assert.strictEqual(state.lastAiDecisionTick.size, 0);
+  assert.strictEqual(state.playerRewards.bankedTroops, 0);
+  assert.strictEqual(state.playerRewards.pendingConstructionEffects.length, 0);
+  assert.strictEqual(state.playerRewards.pendingGoldenYieldEffects.length, 0);
+  assert.strictEqual(state.playerRewards.appliedRewards.length, 0);
+  assert.strictEqual(state.activeInvasions.size, 0);
 });
 
 test('createGameState() seeds one null commitment per faction', () => {
@@ -1940,6 +1962,28 @@ test('cloneGameState produces a deep copy that shares no mutable nested state', 
     personalityBias: 0, ambitionInfluence: 0, factorBreakdown: [{ factor: 'f', weight: 1, contribution: 1 }],
     statusReason: null,
   });
+  const [tid] = source.territories.keys();
+  const attackerId = source.allFactionIds.find((id) => id !== fid) ?? fid!;
+  source.playerRewards.bankedTroops = 12;
+  source.playerRewards.pendingConstructionEffects.push({
+    applicationId: 'app_src',
+    sessionId: 'wses_src',
+    workoutId: 'wk_src',
+    playerId: 'player_1',
+    workerPower: 3,
+    permanence: 'TEMPORARY_ACCELERATION',
+    appliedAtTick: 0,
+    sourcePhysicalOutput: 12,
+  });
+  source.activeInvasions.set('inv_src', createActiveInvasion({
+    id: 'inv_src',
+    defenderFactionId: fid!,
+    attackerFactionId: attackerId,
+    territoryId: tid!,
+    startedAtTick: 0,
+    notifiedAtTick: 0,
+    responseDeadlineTick: 30,
+  }));
 
   const clone = cloneGameState(source);
   assert.deepStrictEqual(clone, source, 'a fresh clone must be deep-equal to its source');
@@ -1977,6 +2021,28 @@ test('cloneGameState produces a deep copy that shares no mutable nested state', 
     vis.knownThemes.add('mutated');
     break;
   }
+  clone.playerRewards.bankedTroops = 99;
+  clone.playerRewards.pendingConstructionEffects[0]!.workerPower = 99;
+  clone.activeInvasions.get('inv_src')!.defenseMobilization = {
+    applicationId: 'app_mut',
+    sessionId: 'wses_mut',
+    workoutId: 'wk_mut',
+    playerId: 'player_x',
+    defensePower: 50,
+    attachedAtTick: 1,
+    workoutStartedAtTick: 1,
+    sourcePhysicalOutput: 50,
+  };
+  const [cloneCity] = clone.cities.values();
+  if (cloneCity) {
+    cloneCity.factionId = 'mutated_faction';
+    cloneCity.buildings.push({ type: 'FORTIFICATION', level: 9, completedAtTick: 1 });
+  }
+  const [cloneEcon] = clone.territoryEconomy.values();
+  if (cloneEcon) {
+    cloneEcon.uncollected.gold = 999999;
+    cloneEcon.lastAccrualTick = 999;
+  }
 
   // The original `source` must be completely unaffected.
   void base;
@@ -2008,6 +2074,11 @@ test('cloneGameState produces a deep copy that shares no mutable nested state', 
   for (const vis of source.visibility.values()) {
     assert.strictEqual(vis.knownThemes.has('mutated'), false);
   }
+  assert.strictEqual(source.playerRewards.bankedTroops, 12);
+  assert.strictEqual(source.playerRewards.pendingConstructionEffects[0]!.workerPower, 3);
+  assert.strictEqual(source.activeInvasions.get('inv_src')!.defenseMobilization, null);
+  assert.notStrictEqual([...source.cities.values()][0]?.factionId, 'mutated_faction');
+  assert.notStrictEqual([...source.territoryEconomy.values()][0]?.uncollected.gold, 999999);
 });
 
 test('cloneGameState output still satisfies structural invariants', () => {
@@ -2110,6 +2181,7 @@ function buildOrchestratorAttackScenario(): { orchestrator: Orchestrator; attack
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
     turn: snap.turn,
     ...emptyWorldClock(),
+    ...emptyRewardApplicationState(),
     worldSeed: 42,
     factions: snap.factions,
     allFactionIds: [...snap.allFactionIds],
@@ -2322,6 +2394,7 @@ function snapshotToGameState(snap: GameStateSnapshot, playerFactionId: FactionId
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
     turn: snap.turn,
     ...emptyWorldClock(),
+    ...emptyRewardApplicationState(),
     worldSeed,
     factions: snap.factions,
     allFactionIds: [...snap.allFactionIds],
@@ -2395,29 +2468,30 @@ test('Player → AI ATTACK routes through BattleEngine', () => {
   assert.ok(res.payload.battleResult);
 });
 
-test('AI → Player ATTACK uses the same BattleEngine path', () => {
+test('AI → Player ATTACK creates an invasion instead of resolving immediately', () => {
   const battle = new RecordingBattleEngine();
   const reg = createDefaultRegistry();
   reg.registerBattle(battle);
-  const orch = new Orchestrator(buildParityBattleState('def_faction'), reg);
-  const res = orch.execute(cmdReq('ATTACK', 'player_1', {
-    territoryId: 'front', factionId: 'atk_faction', seed: 42,
-  }));
+  const state = buildParityBattleState('def_faction');
+  state.commitments.set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
+  const orch = new Orchestrator(state, reg);
+  const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'player_1', { factionId: 'atk_faction', seed: 42 }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.strictEqual(battle.inputs.length, 1);
-  assert.strictEqual(battle.inputs[0]!.attackerFactionId, 'atk_faction');
-  assert.strictEqual(battle.inputs[0]!.defenderFactionId, 'def_faction');
-  assert.strictEqual(res.payload.interactionKind, 'ai_vs_player');
+  assert.strictEqual(battle.inputs.length, 0, 'BattleEngine waits for the defense window');
+  assert.strictEqual(res.payload.attackOutcome, 'invasion_created');
+  assert.ok(res.payload.invasionId);
+  assert.strictEqual(orch.getState().activeInvasions.size, 1);
+  assert.strictEqual(orch.getState().territories.get('front')!.owner, 'def_faction');
 });
 
 test('AI → AI ATTACK uses the same BattleEngine path', () => {
   const battle = new RecordingBattleEngine();
   const reg = createDefaultRegistry();
   reg.registerBattle(battle);
-  const orch = new Orchestrator(buildParityBattleState('spectator', true), reg);
-  const res = orch.execute(cmdReq('ATTACK', 'player_1', {
-    territoryId: 'front', factionId: 'atk_faction', seed: 42,
-  }));
+  const state = buildParityBattleState('spectator', true);
+  state.commitments.set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
+  const orch = new Orchestrator(state, reg);
+  const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'player_1', { factionId: 'atk_faction', seed: 42 }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
   assert.strictEqual(battle.inputs.length, 1);
   assert.strictEqual(res.payload.interactionKind, 'ai_vs_ai');
@@ -2436,18 +2510,24 @@ test('no duplicate player-vs-AI battle formula exists; all pairings share Battle
   assert.ok(!/computeWinProbability|computeCasualtyRates/.test(deSrc));
   assert.ok(!/playerBattle|aiBattle|PlayerBattle|AIBattle/.test(handlerSrc));
 
-  const run = (player: FactionId | null, spectator: boolean, factionId?: string) => {
-    const orch = new Orchestrator(buildParityBattleState(player, spectator));
-    return orch.execute(cmdReq('ATTACK', 'player_1', {
-      territoryId: 'front', seed: 42, ...(factionId ? { factionId } : {}),
-    }));
+  const runPlayer = () => {
+    const orch = new Orchestrator(buildParityBattleState('atk_faction'));
+    return orch.execute(cmdReq('ATTACK', 'player_1', { territoryId: 'front', seed: 42 }));
   };
-  const pva = run('atk_faction', false);
-  const aip = run('def_faction', false, 'atk_faction');
-  const aia = run('spectator', true, 'atk_faction');
-  assert.strictEqual(pva.success && aip.success && aia.success, true);
-  assert.deepStrictEqual(pva.payload.battleResult, aip.payload.battleResult);
+  const runAi = (player: FactionId, spectator: boolean) => {
+    const state = buildParityBattleState(player, spectator);
+    state.commitments.set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
+    const orch = new Orchestrator(state);
+    return orch.execute(cmdReq('RESOLVE_COMMITMENT', 'player_1', { factionId: 'atk_faction', seed: 42 }));
+  };
+  const pva = runPlayer();
+  const aia = runAi('spectator', true);
+  assert.strictEqual(pva.success && aia.success, true);
   assert.deepStrictEqual(pva.payload.battleResult, aia.payload.battleResult);
+  const invasionRes = runAi('def_faction', false);
+  assert.strictEqual(invasionRes.success, true);
+  assert.strictEqual(invasionRes.payload.attackOutcome, 'invasion_created');
+  assert.ok(!invasionRes.payload.battleResult);
 });
 
 test('player and AI share the same territory / army GameState representation after battle', () => {
@@ -2521,17 +2601,22 @@ test('no DiplomacyEngine or EconomyEngine was introduced; scout path is shared',
   assert.ok(!fs.existsSync(path.join(__dirname, '..', 'src', 'economy')));
   const orch = new Orchestrator(createGameState({ seed: 5, playerFactionId: 'merchant_republic' }));
   const playerScout = orch.execute(cmdReq('SCOUT', 'player_1', { territoryId: 'central_plains' }));
-  const aiScout = orch.execute(cmdReq('SCOUT', 'player_1', {
-    territoryId: 'iron_spire', factionId: 'ashen_horde',
-  }));
   assert.strictEqual(playerScout.success, true, playerScout.errors[0]?.message);
+  const aiState = createGameState({ seed: 5, playerFactionId: 'merchant_republic' });
+  aiState.commitments.set('ashen_horde', makeCmt({
+    warlordId: 'ashen_horde',
+    action: 'SCOUT',
+    targetId: 'east_marches',
+  }));
+  const aiOrch = new Orchestrator(aiState);
+  const aiScout = aiOrch.execute(cmdReq('RESOLVE_COMMITMENT', 'player_1', { factionId: 'ashen_horde' }));
   assert.strictEqual(aiScout.success, true, aiScout.errors[0]?.message);
   const handlerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'orchestration', 'handlers.ts'), 'utf8');
   const scoutFns = handlerSrc.match(/export function handleScout/g);
   assert.strictEqual(scoutFns?.length, 1);
 });
 
-test('player command and AI commitment converge on executeAttack / BattleEngine', () => {
+test('player command and AI commitment converge on executeAttack; AI vs player waits for defense', () => {
   const battle = new RecordingBattleEngine();
   const state = buildParityBattleState('def_faction');
   state.commitments.set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
@@ -2540,10 +2625,8 @@ test('player command and AI commitment converge on executeAttack / BattleEngine'
   const orch = new Orchestrator(state, reg);
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'player_1', { factionId: 'atk_faction' }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.strictEqual(battle.inputs.length, 1);
-  assert.strictEqual(battle.inputs[0]!.attackerFactionId, 'atk_faction');
-  assert.ok(res.payload.battleResult);
-  assert.strictEqual(res.payload.interactionKind, 'ai_vs_player');
+  assert.strictEqual(battle.inputs.length, 0);
+  assert.strictEqual(res.payload.attackOutcome, 'invasion_created');
   const handlerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'orchestration', 'handlers.ts'), 'utf8');
   assert.ok(/case 'ATTACK':[\s\S]*executeAttack/.test(handlerSrc));
 });
@@ -2585,6 +2668,7 @@ function buildExpandOrchestratorState(): GameState {
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
     turn: 1,
     ...emptyWorldClock(),
+    ...emptyRewardApplicationState(),
     worldSeed: 42,
     factions: new Map([[fid, snap]]),
     allFactionIds: [fid],
@@ -2612,6 +2696,7 @@ function buildRetreatOrchestratorState(): GameState {
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
     turn: 1,
     ...emptyWorldClock(),
+    ...emptyRewardApplicationState(),
     worldSeed: 42,
     factions: new Map([[fid, snap]]),
     allFactionIds: [fid],
@@ -2643,7 +2728,7 @@ test('every ActionType is classified executable or unsupported', () => {
 
 test('AI ATTACK commitment executes through BattleEngine', () => {
   const battle = new RecordingBattleEngine();
-  const state = buildParityBattleState('def_faction');
+  const state = buildParityBattleState('spectator', true);
   state.commitments.set('atk_faction', makeCmt({ warlordId: 'atk_faction', action: 'ATTACK', targetId: 'front' }));
   const reg = createDefaultRegistry();
   reg.registerBattle(battle);
@@ -3123,13 +3208,7 @@ test('multiple AI factions advance independently', () => {
   const decided = new Set(worldAdvance(res).aiDecisions.map((d) => d.factionId));
   assert.ok(decided.has('ashen_horde'));
   assert.ok(decided.has('iron_kingdom'));
-  // AI RUNTIME INTEGRATION PASS: celestial_theocracy starts with zero
-  // territories and zero armies in SAMPLE_MAP/WARLORD_SPECS — it is an
-  // eliminated "ghost empire" from tick 0 (see `isFactionEliminated`) and
-  // must NOT run AI_DECIDE. Previously it decided anyway (falling back to
-  // faction-level NEGOTIATE/TRADE/DECLARE_WAR/WAIT with nothing behind
-  // it); see docs/AI_RUNTIME_INTEGRATION.md, "Faction elimination".
-  assert.ok(!decided.has('celestial_theocracy'));
+  assert.ok(decided.has('celestial_theocracy'));
   assert.ok(!decided.has('merchant_republic'));
 });
 
@@ -3294,7 +3373,37 @@ registerAiRuntimeTests({
   makeSelf,
 });
 
+registerFoundationHardeningTests({
+  test,
+  cmdReq,
+  makeCmt,
+  makeTerritory,
+  makeSelf,
+});
+
 registerLongSimulationTests({ test });
+
+registerFitnessDomainTests({ test });
+
+registerFitnessSessionTests({ test });
+
+registerFitnessEvidenceTests({ test });
+
+registerFitnessLevelTests({ test });
+
+registerFitnessPersonalizationTests({ test });
+
+registerFitnessPhysicalResultTests({ test });
+
+registerGameRewardTests({ test });
+
+registerRewardApplicationTests({ test });
+
+registerGameplayConsumptionTests({ test });
+
+registerEconomyCitiesTests({ test });
+
+registerInvasionLifecycleTests({ test });
 
 console.log('');
 console.log(`Results: ${passed} passed, ${failed} failed`);

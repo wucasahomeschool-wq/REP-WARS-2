@@ -40,7 +40,7 @@ export const SAMPLE_MAP: MapTerritorySpec[] = [
   { id: 'icehold', name: 'Icehold', terrain: 'fortress', neighbors: ['frozen_peaks'], population: 12000, baseValue: 50, resourceOutput: { gold: 20, iron: 10 }, fortification: 5, garrison: 600, isCapital: false, owner: 'ashen_horde' },
   { id: 'east_marches', name: 'Eastern Marches', terrain: 'plains', neighbors: ['north_valley', 'central_plains', 'eastern_hills', 'emerald_forest'], population: 20000, baseValue: 28, resourceOutput: { food: 20, wood: 15 }, fortification: 1, garrison: 180, isCapital: false, owner: null },
   { id: 'emerald_forest', name: 'Emerald Forest', terrain: 'forest', neighbors: ['east_marches', 'eastern_hills', 'river_crossing', 'iron_kingdom_east'], population: 18000, baseValue: 35, resourceOutput: { wood: 40, food: 10 }, fortification: 1, garrison: 100, isCapital: false, owner: null },
-  { id: 'eastern_hills', name: 'Eastern Hills', terrain: 'forest', neighbors: ['east_marches', 'emerald_forest', 'iron_kingdom_east', 'golden_hills'], population: 15000, baseValue: 30, resourceOutput: { wood: 25, iron: 15 }, fortification: 1, garrison: 120, isCapital: false, owner: null },
+  { id: 'eastern_hills', name: 'Eastern Hills', terrain: 'forest', neighbors: ['east_marches', 'emerald_forest', 'iron_kingdom_east', 'golden_hills'], population: 15000, baseValue: 30, resourceOutput: { wood: 25, iron: 15 }, fortification: 1, garrison: 120, isCapital: false, owner: 'celestial_theocracy' },
   { id: 'central_plains', name: 'Central Plains', terrain: 'plains', neighbors: ['north_valley', 'east_marches', 'river_crossing', 'western_reach', 'south_steppes'], population: 40000, baseValue: 45, resourceOutput: { food: 50, gold: 20 }, fortification: 2, garrison: 300, isCapital: false, owner: null },
   { id: 'river_crossing', name: 'River Crossing', terrain: 'river', neighbors: ['emerald_forest', 'central_plains', 'western_reach', 'iron_spire', 'greenfields'], population: 22000, baseValue: 38, resourceOutput: { food: 30, wood: 10, gold: 15 }, fortification: 2, garrison: 200, isCapital: false, owner: null },
   { id: 'greenfields', name: 'Greenfields', terrain: 'plains', neighbors: ['river_crossing', 'iron_spire', 'south_coast', 'western_reach'], population: 30000, baseValue: 38, resourceOutput: { food: 40, gold: 18 }, fortification: 1, garrison: 160, isCapital: false, owner: null },
@@ -54,7 +54,7 @@ export const SAMPLE_MAP: MapTerritorySpec[] = [
   { id: 'south_coast', name: 'Southern Coast', terrain: 'coastal', neighbors: ['greenfields', 'iron_spire', 'deep_iron_mines', 'salt_marches', 'south_steppes', 'burning_desert', 'merchant_south'], population: 25000, baseValue: 33, resourceOutput: { food: 25, gold: 25, wood: 5 }, fortification: 1, garrison: 180, isCapital: false, owner: null },
   { id: 'merchant_south', name: 'Southern Tradespire', terrain: 'coastal', neighbors: ['salt_marches', 'south_coast'], population: 20000, baseValue: 40, resourceOutput: { gold: 45, food: 10 }, fortification: 2, garrison: 220, isCapital: false, owner: 'merchant_republic' },
   { id: 'burning_desert', name: 'Burning Desert', terrain: 'desert', neighbors: ['south_steppes', 'south_coast'], population: 6000, baseValue: 20, resourceOutput: { gold: 30, iron: 10 }, fortification: 0, garrison: 50, isCapital: false, owner: null },
-  { id: 'golden_hills', name: 'Golden Hills', terrain: 'plains', neighbors: ['eastern_hills'], population: 10000, baseValue: 35, resourceOutput: { gold: 40, food: 12 }, fortification: 0, garrison: 80, isCapital: false, owner: null },
+  { id: 'golden_hills', name: 'Golden Hills', terrain: 'plains', neighbors: ['eastern_hills'], population: 10000, baseValue: 35, resourceOutput: { gold: 40, food: 12 }, fortification: 2, garrison: 200, isCapital: true, owner: 'celestial_theocracy' },
 ];
 
 export const WARLORD_SPECS: WarlordSpec[] = [
@@ -108,8 +108,8 @@ export const WARLORD_SPECS: WarlordSpec[] = [
     name: 'Celestial Theocracy',
     personality: 'diplomatic',
     personalityVariant: 0.05,
-    startingTerritories: [],
-    startingArmy: { soldiers: 0, knights: 0, siege: 0 },
+    startingTerritories: ['golden_hills', 'eastern_hills'],
+    startingArmy: { soldiers: 1400, knights: 180, siege: 8 },
     startingResources: { gold: 3500, food: 3000, iron: 300, wood: 400, stone: 400 },
     startingIncome: { gold: 100, food: 100, iron: 20, wood: 40, stone: 30 },
     relationships: [
@@ -136,7 +136,7 @@ export class SimulationBuilder {
         id: spec.id,
         name: spec.name,
         terrain: spec.terrain,
-        neighboring: spec.neighbors,
+        neighboring: [...spec.neighbors],
         population: spec.population,
         baseValue: spec.baseValue,
         resourceOutput: { ...spec.resourceOutput },

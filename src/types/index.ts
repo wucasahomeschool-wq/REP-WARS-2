@@ -135,6 +135,10 @@ export interface StrategicAttackIntent {
     commitmentId: string | null;
     /** Frozen when the attack is issued so delayed battles do not depend on later EventEngine turns. */
     battleSeed: number;
+    /** When set, BattleEngine uses only this army (banked troop commitment). */
+    onlyArmyId?: string | null;
+    /** When set, delayed/immediate resolve waits for invasion defense. */
+    holdForInvasionId?: string | null;
 }
 export interface Territory {
     id: TerritoryId;
@@ -279,6 +283,19 @@ export interface GameStateSnapshot {
     territories: Map<TerritoryId, Territory>;
     armies: Map<ArmyId, Army>;
     allFactionIds: FactionId[];
+    /**
+     * Optional Phase 17I attack eligibility. Omitted in hand-built scorer
+     * snapshots (no extra restrictions). Populated from canonical GameState
+     * by `toDecisionEngineSnapshot`.
+     */
+    attackRestrictions?: {
+        playerFactionId: FactionId | null;
+        worldTick: number;
+        lastPlayerWorkoutCompletedAtTick: number | null;
+        playerPaused: boolean;
+        attackerRecoveryUntilTick: Map<FactionId, number>;
+        attackerContinuationUntilTick: Map<FactionId, number>;
+    };
 }
 export interface ScoredAction {
     action: ActionType;

@@ -229,14 +229,18 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
   });
 
   test('ContinuousWorldEngine never runs AI_DECIDE for an already-eliminated faction', () => {
-    const orch = new Orchestrator(createGameState({ seed: 5, playerFactionId: 'merchant_republic' }));
-    // celestial_theocracy starts with zero territories and zero armies in SAMPLE_MAP/WARLORD_SPECS.
-    assert.strictEqual(isFactionEliminated(orch.getState().factions.get('celestial_theocracy')!), true);
+    const state = createGameState({ seed: 5, playerFactionId: 'merchant_republic' });
+    const ghost = makeSelf('ghost_empire', { territories: [], armies: [] });
+    state.factions.set('ghost_empire', ghost);
+    state.allFactionIds.push('ghost_empire');
+    state.commitments.set('ghost_empire', null);
+    const orch = new Orchestrator(state);
+    assert.strictEqual(isFactionEliminated(orch.getState().factions.get('ghost_empire')!), true);
     const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 20 }));
     assert.strictEqual(res.success, true);
     const advance = res.payload.worldAdvance as WorldAdvanceResult;
-    assert.ok(!advance.aiDecisions.some((d) => d.factionId === 'celestial_theocracy'));
-    assert.strictEqual(orch.getState().commitments.get('celestial_theocracy'), null);
+    assert.ok(!advance.aiDecisions.some((d) => d.factionId === 'ghost_empire'));
+    assert.strictEqual(orch.getState().commitments.get('ghost_empire'), null);
   });
 
   console.log('Phase 16 — AI decision lastActions bookkeeping (WAIT anti-repetition wiring)');
@@ -353,6 +357,8 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     state.allFactionIds = [ME, ENEMY];
     state.territories = new Map([['home', home], ['target', target]]);
     state.armies = new Map([[a.id, a]]);
+    state.cities = new Map();
+    state.territoryEconomy = new Map();
     state.commitments = new Map([[ME, makeCmt({
       warlordId: ME, action: 'ATTACK', targetId: 'target', status: 'committed', originatingGoalId: 'goal_x',
     })], [ENEMY, null]]);

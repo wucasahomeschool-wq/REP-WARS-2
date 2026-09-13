@@ -4,6 +4,7 @@ import { Army, FactionId, GameStateSnapshot, RelationshipState, StrategicAttackI
 import { GameState } from '../types/GameState';
 import { applyBattleResultToGameState } from '../orchestration/applyBattle';
 import { OrchestrationError, ErrorCode, type OrchestrationErrorBody } from '../orchestration/errors';
+import { isOpenInvasion } from '../gameplay/invasion/deadlines';
 import {
   armiesInTerritory,
   classifyFactionInteraction,
@@ -37,6 +38,8 @@ export interface StrategicAttackParams {
   territoryId: TerritoryId;
   factionId: FactionId;
   commitmentId?: string | null;
+  /** Restrict the operation to this army (banked troop commitment). */
+  onlyArmyId?: string | null;
 }
 
 export interface DelayedAttackPlan {
@@ -386,13 +389,15 @@ export function startStrategicAttack(
     );
   }
 
-  const immediate = listImmediateAttackingArmies(state, attackerId, target.id);
+  const immediate = listImmediateAttackingArmies(state, attackerId, target.id)
+    .filter((a) => !params.onlyArmyId || a.id === params.onlyArmyId);
   if (immediate.length > 0) {
     return resolveStrategicBattle(state, host, target.id, attackerId, immediate);
   }
 
   const delayed = selectDelayedAttackPlan(state, attackerId, target.id);
-  if (!delayed) {
+  const delayedArmyOk = delayed && (!params.onlyArmyId || delayed.armyId === params.onlyArmyId);
+  if (!delayedArmyOk) {
     const busyOnStaging = sortedFactionArmies(state, attackerId).some((a) => (
       isEligibleAttackForce(a)
       && isLegalStagingTerritory(state, attackerId, a.location, target.id)
@@ -427,6 +432,7 @@ export function startStrategicAttack(
     status: 'pending_movement',
     commitmentId,
     battleSeed,
+    onlyArmyId: params.onlyArmyId ?? delayed.armyId,
   };
   army.attackIntent = intent;
   const armyChanges: ArmyChange[] = [
@@ -493,6 +499,12 @@ export function executeReadyStrategicAttack(
     army.movement = null;
     return failedReadyAttack(message, code);
   };
+  if (intent.holdForInvasionId) {
+    const invasion = state.activeInvasions.get(intent.holdForInvasionId);
+    if (invasion && isOpenInvasion(invasion)) {
+      return { ...emptyResult(), payload: { attackOutcome: 'awaiting_defense', skipped: true, invasionId: invasion.id, arrivalPending: true } };
+    }
+  }
   if (isArmyMoving(army)) {
     return fail(ErrorCode.ACTION_NOT_ALLOWED, 'Pending attack cannot resolve while the army is still moving');
   }
@@ -517,8 +529,10 @@ export function executeReadyStrategicAttack(
   }
   try {
     const attackers = listImmediateAttackingArmies(state, army.owner, intent.targetTerritoryId);
-    const withSelf = attackers.some((a) => a.id === army.id) ? attackers : [army, ...attackers];
-    return resolveStrategicBattle(state, host, intent.targetTerritoryId, army.owner, withSelf, intent.battleSeed);
+    const restricted = intent.onlyArmyId
+      ? (attackers.some((a) => a.id === intent.onlyArmyId) ? attackers.filter((a) => a.id === intent.onlyArmyId) : [army])
+      : (attackers.some((a) => a.id === army.id) ? attackers : [army, ...attackers]);
+    return resolveStrategicBattle(state, host, intent.targetTerritoryId, army.owner, restricted, intent.battleSeed);
   } catch (err) {
     clearAttackIntent(army);
     if (err instanceof OrchestrationError) {

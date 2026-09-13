@@ -2,7 +2,7 @@ import { BALANCE } from '../constants/balance';
 import { SeededRNG } from '../utils/SeededRNG';
 import { MemorySystem } from '../memory/MemorySystem';
 import { GoalSystem } from '../goals/GoalSystem';
-import { ActionScorer, ScorerInput } from '../scoring/ActionScorer';
+import { ActionScorer, ScorerInput, ScoringHelpers } from '../scoring/ActionScorer';
 import {
   WarlordSnapshot,
   GameStateSnapshot,
@@ -16,6 +16,27 @@ import {
   CommitmentStatus,
   ActionType,
 } from '../types';
+import { isAttackForbiddenOnSnapshot } from '../gameplay/invasion/eligibility';
+
+function withLiveMilitaryPower(snap: WarlordSnapshot, gameState: GameStateSnapshot): WarlordSnapshot {
+  const armies = snap.armies
+    .map((id) => gameState.armies.get(id))
+    .filter((a): a is Army => !!a);
+  const territories = snap.territories
+    .map((id) => gameState.territories.get(id))
+    .filter((t): t is Territory => !!t);
+  const power = ScoringHelpers.computeTotalMilitaryPower(armies, territories);
+  if (power === snap.totalMilitaryPower) return snap;
+  return { ...snap, totalMilitaryPower: power };
+}
+
+function liveFactionPowerMap(gameState: GameStateSnapshot): Map<FactionId, WarlordSnapshot> {
+  const out = new Map<FactionId, WarlordSnapshot>();
+  for (const [id, snap] of gameState.factions) {
+    out.set(id, withLiveMilitaryPower(snap, gameState));
+  }
+  return out;
+}
 
 export class WarlordState {
   snapshot: WarlordSnapshot;
@@ -40,11 +61,12 @@ export class WarlordState {
   static buildContext(self: WarlordSnapshot, gameState: GameStateSnapshot): ActionContext {
     const allTerritories = gameState.territories;
     const allArmies = gameState.armies;
-    const allFactions = gameState.factions;
-    const myTerritories = self.territories
+    const allFactions = liveFactionPowerMap(gameState);
+    const selfLive = allFactions.get(self.id) ?? withLiveMilitaryPower(self, gameState);
+    const myTerritories = selfLive.territories
       .map((id) => allTerritories.get(id))
       .filter((t): t is Territory => !!t);
-    const myArmies = self.armies
+    const myArmies = selfLive.armies
       .map((id) => allArmies.get(id))
       .filter((a): a is Army => !!a);
     const knownTerritories = self.knownTerritories
@@ -91,7 +113,7 @@ export class WarlordState {
         knownNeutrals.push(id);
     }
     return {
-      self,
+      self: selfLive,
       gameState,
       allTerritories,
       allArmies,
@@ -175,6 +197,9 @@ export function validateCommitmentTarget(
     if (action === 'ATTACK') {
       if (!t.owner || t.owner === warlordId)
         return { valid: false, reason: 'attack target is no longer a foreign-owned territory' };
+      if (isAttackForbiddenOnSnapshot(gameState, warlordId, t.owner)) {
+        return { valid: false, reason: 'attack target is protected, paused, or the attacker is on cooldown' };
+      }
     }
     if (action === 'EXPAND') {
       if (t.owner !== null)

@@ -10,9 +10,10 @@
  * `GameState` (see tests/run.ts, "createGameState determinism").
  */
 import { AICommitment, FactionId } from '../types';
-import { GameState, GAME_STATE_SCHEMA_VERSION, emptyWorldClock } from '../types/GameState';
+import { GameState, GAME_STATE_SCHEMA_VERSION, emptyWorldClock, emptyRewardApplicationState } from '../types/GameState';
 import { BALANCE } from '../constants/balance';
 import { MapTerritorySpec, SAMPLE_MAP, SimulationBuilder, WARLORD_SPECS, WarlordSpec } from '../simulation/SampleMap';
+import { seedEconomyAndCities } from '../gameplay/economy/seed';
 
 export interface CreateGameStateOptions {
   /** RNG seed. Defaults to `BALANCE.simulate.defaultSeed`, same as the CLI. */
@@ -37,6 +38,10 @@ export interface CreateGameStateOptions {
  *   for the sample scenario today.
  * - `commitments` starts as one `null` entry per faction id: no `decide()`
  *   call has happened yet.
+ * - `playerRewards` starts empty (0 banked Troops, no pending effects).
+ * - `activeInvasions` starts empty: 17H does not create invasions.
+ * - `cities`/`territoryEconomy` are seeded from SAMPLE_MAP ownership and
+ *   `resourceOutput` (Phase 17J). Uncollected yield starts at 0.
  */
 export function createGameState(options: CreateGameStateOptions = {}): GameState {
   const seed = options.seed ?? BALANCE.simulate.defaultSeed;
@@ -65,6 +70,8 @@ export function createGameState(options: CreateGameStateOptions = {}): GameState
     commitments,
     activeEvents: [],
     eventHistory: [],
+    ...emptyRewardApplicationState(),
   };
+  seedEconomyAndCities(state);
   return state;
 }

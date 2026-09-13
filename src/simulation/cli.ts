@@ -11,7 +11,7 @@ import { createGameState } from '../state/createGameState';
 import { checkGameStateInvariants } from '../state/gameStateInvariants';
 import { calculateMovementDuration } from '../army/movement';
 import { PersonalitySystem } from '../personality/PersonalitySystem';
-import { GAME_STATE_SCHEMA_VERSION, emptyWorldClock } from '../types/GameState';
+import { GAME_STATE_SCHEMA_VERSION, emptyWorldClock, emptyRewardApplicationState } from '../types/GameState';
 import * as readline from 'readline';
 
 /**
@@ -516,10 +516,10 @@ function simulateDecisionOutcomes(
             // that previously happened to match by coincidence, not
             // structure. See docs/ENGINE_EXECUTION_CONSISTENCY.md.
             const { gold: costG, stone: costS } = BALANCE.territory.fortificationCostPerLevel;
-            if (ws.snapshot.resources.gold >= costG) {
+            if (ws.snapshot.resources.gold >= costG && ws.snapshot.resources.stone >= costS && t.fortification < 5) {
               ws.snapshot.resources.gold -= costG;
-              ws.snapshot.resources.stone = Math.max(0, ws.snapshot.resources.stone - costS);
-              t.fortification = Math.min(5, t.fortification + 1);
+              ws.snapshot.resources.stone -= costS;
+              t.fortification += 1;
             }
           }
         }
@@ -873,6 +873,7 @@ async function runAttackChainDemo(opts: CliOpts): Promise<void> {
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
     turn: 1,
     ...emptyWorldClock(),
+    ...emptyRewardApplicationState(),
     worldSeed: opts.seed,
     factions: new Map([[atk, atkSnap], [def, defSnap]]),
     allFactionIds: [atk, def],

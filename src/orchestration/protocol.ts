@@ -23,7 +23,8 @@ export type CommandCategory =
   | 'ECONOMY'
   | 'DIPLOMACY'
   | 'WORLD'
-  | 'AI';
+  | 'AI'
+  | 'FITNESS';
 
 export type ParameterType = 'string' | 'number' | 'boolean' | 'string[]' | 'object';
 

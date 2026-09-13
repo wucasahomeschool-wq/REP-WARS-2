@@ -40,7 +40,7 @@ export interface LongSimulationStats {
   territoriesChangedOwner: number;
   /** Factions that transitioned from present to eliminated during this run. */
   newlyEliminated: FactionId[];
-  /** Factions already eliminated at tick 0 (e.g. SAMPLE_MAP's celestial_theocracy). */
+  /** Factions already eliminated at tick 0. */
   eliminatedAtStart: FactionId[];
   /** AI_DECIDE calls made for a faction already eliminated (should always be 0). */
   decisionsForEliminatedFactions: number;

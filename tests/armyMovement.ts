@@ -9,7 +9,7 @@ import { ErrorCode } from '../src/orchestration';
 import { Orchestrator } from '../src/orchestration/orchestrator';
 import { cloneGameState, checkGameStateInvariants, createGameState } from '../src/state';
 import { Army, Territory } from '../src/types';
-import { GAME_STATE_SCHEMA_VERSION, emptyWorldClock, type GameState } from '../src/types/GameState';
+import { GAME_STATE_SCHEMA_VERSION, emptyWorldClock, emptyRewardApplicationState, type GameState } from '../src/types/GameState';
 import type { CommandRequest } from '../src/orchestration';
 import type { AICommitment } from '../src/types';
 import type { WorldAdvanceResult } from '../src/world';
@@ -41,6 +41,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
       turn: 1,
       ...emptyWorldClock(),
+      ...emptyRewardApplicationState(),
       worldSeed: 42,
       factions: new Map([[MARCH_FID, snap]]),
       allFactionIds: [MARCH_FID],
@@ -268,6 +269,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
       turn: 1,
       ...emptyWorldClock(),
+      ...emptyRewardApplicationState(),
       worldSeed: 7,
       factions: new Map([[MARCH_FID, snap]]),
       allFactionIds: [MARCH_FID],
@@ -321,6 +323,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
       turn: 1,
       ...emptyWorldClock(),
+      ...emptyRewardApplicationState(),
       worldSeed: 3,
       factions: new Map([[MARCH_FID, snap]]),
       allFactionIds: [MARCH_FID],
@@ -380,6 +383,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
       turn: 1,
       ...emptyWorldClock(),
+      ...emptyRewardApplicationState(),
       worldSeed: 42,
       factions: new Map([[atk, atkSnap], [def, defSnap]]),
       allFactionIds: [atk, def],

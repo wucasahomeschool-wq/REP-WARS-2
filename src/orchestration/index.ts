@@ -18,4 +18,5 @@ export { mergeEventStepOntoGameState } from './applyEvents';
 export { serializePublicGameState, serializeVisibleWorld } from './publicView';
 export { classifyFactionInteraction } from './helpers';
 export type { InteractionKind } from './helpers';
+export { authorizeCommand, resolveViewerFactionId } from './authorization';
 export { EXECUTABLE_COMMITMENT_ACTIONS, UNSUPPORTED_COMMITMENT_ACTIONS, isExecutableCommitmentAction } from '../engine/executableActions';

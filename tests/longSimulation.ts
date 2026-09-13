@@ -3,6 +3,7 @@ import { runLongSimulation } from '../src/simulation/longRunHarness';
 import { checkGameStateInvariants } from '../src/state';
 import { isActiveCommitmentStatus } from '../src/engine/DecisionEngine';
 import { ActionType } from '../src/types';
+import { WARLORD_SPECS } from '../src/simulation/SampleMap';
 
 export interface LongSimulationTestApi {
   test: (name: string, fn: () => void) => void;
@@ -61,10 +62,21 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
   });
 
   test('a faction already eliminated at tick 0 never runs AI_DECIDE over 80 ticks', () => {
-    const result = runLongSimulation({ seed: 42, ticks: 80 });
-    assert.ok(result.eliminatedAtStart.includes('celestial_theocracy'), 'SAMPLE_MAP celestial_theocracy should start eliminated (0 territories, 0 armies)');
+    const ghostSpec = {
+      ...WARLORD_SPECS.find((s) => s.id === 'merchant_republic')!,
+      id: 'ghost_empire',
+      name: 'Ghost Empire',
+      startingTerritories: [] as string[],
+      startingArmy: { soldiers: 0, knights: 0, siege: 0 },
+    };
+    const result = runLongSimulation({
+      seed: 42,
+      ticks: 80,
+      warlordSpecs: [...WARLORD_SPECS, ghostSpec],
+    });
+    assert.ok(result.eliminatedAtStart.includes('ghost_empire'));
     assert.strictEqual(result.decisionsForEliminatedFactions, 0);
-    assert.ok(!result.actionCounts.has('celestial_theocracy'));
+    assert.ok(!result.actionCounts.has('ghost_empire'));
   });
 
   test('no orphan armies: every army in the final state belongs to an existing faction', () => {

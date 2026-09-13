@@ -37,6 +37,24 @@ export function toDecisionEngineSnapshot(state: GameState): GameStateSnapshot {
     territories: state.territories,
     armies: state.armies,
     allFactionIds: state.allFactionIds,
+    attackRestrictions: {
+      playerFactionId: state.playerFactionId,
+      worldTick: state.playerEmpirePause.paused && state.playerEmpirePause.pausedAtTick !== null
+        ? state.playerEmpirePause.pausedAtTick
+        : state.worldTick,
+      lastPlayerWorkoutCompletedAtTick: state.playerFitness.lastWorkoutCompletedAtTick,
+      playerPaused: state.playerEmpirePause.paused,
+      attackerRecoveryUntilTick: new Map(
+        [...state.attackerCooldowns.entries()]
+          .filter(([, c]) => c.recoveryUntilTick !== null)
+          .map(([id, c]) => [id, c.recoveryUntilTick as number]),
+      ),
+      attackerContinuationUntilTick: new Map(
+        [...state.attackerCooldowns.entries()]
+          .filter(([, c]) => c.continuationUntilTick !== null)
+          .map(([id, c]) => [id, c.continuationUntilTick as number]),
+      ),
+    },
   };
 }
 

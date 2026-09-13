@@ -21,10 +21,23 @@
  */
 import { Army, DiplomaticRelationship, FactionId, MapWorldState, PlayerVisibilityMap, Region, Resources, Territory, ThemeDefinition, Treaty, WarlordSnapshot } from '../types';
 import { ActiveEvent, ConsequenceDelta, HistoryEntry } from '../events/EventModel';
-import { GameState } from '../types/GameState';
+import {
+  ActiveInvasion,
+  AttackerCooldown,
+  City,
+  ConstructionProject,
+  DefenseMobilizationAttachment,
+  GameState,
+  PlayerFitnessState,
+  PlayerRewardState,
+  TerritoryEconomy,
+} from '../types/GameState';
 import { cloneCommitment } from '../engine/DecisionEngine';
 import { cloneArmyMovement } from '../army/movement';
 import { cloneAttackIntent } from '../army/strategicAttack';
+import { cloneFitnessEstimate } from '../fitness/estimate/clone';
+import { cloneWorkoutSession } from '../fitness/session/clone';
+import { cloneGameRewardResult } from '../rewards/validation';
 
 export function cloneMap<K, V>(m: Map<K, V>, cloneFn: (v: V) => V): Map<K, V> {
   const out = new Map<K, V>();
@@ -170,12 +183,84 @@ function cloneHistoryEntry(h: HistoryEntry): HistoryEntry {
   return h.detail ? { ...h, detail: { ...h.detail } } : { ...h };
 }
 
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function cloneDefenseMobilization(
+  attachment: DefenseMobilizationAttachment | null,
+): DefenseMobilizationAttachment | null {
+  return attachment ? { ...attachment } : null;
+}
+
+function cloneActiveInvasion(invasion: ActiveInvasion): ActiveInvasion {
+  return {
+    ...invasion,
+    attackingArmyIds: [...invasion.attackingArmyIds],
+    defenseMobilization: cloneDefenseMobilization(invasion.defenseMobilization),
+  };
+}
+
+function cloneConstruction(project: ConstructionProject): ConstructionProject {
+  return { ...project };
+}
+
+function cloneCity(city: City): City {
+  return {
+    ...city,
+    buildings: city.buildings.map((building) => ({ ...building })),
+  };
+}
+
+function cloneTerritoryEconomy(economy: TerritoryEconomy): TerritoryEconomy {
+  return {
+    territoryId: economy.territoryId,
+    lastAccrualTick: economy.lastAccrualTick,
+    uncollected: { ...economy.uncollected },
+  };
+}
+
+function clonePlayerFitness(fitness: PlayerFitnessState): PlayerFitnessState {
+  return {
+    estimate: fitness.estimate ? cloneFitnessEstimate(fitness.estimate) : null,
+    lastWorkoutCompletedAtTick: fitness.lastWorkoutCompletedAtTick,
+    compactHistory: fitness.compactHistory.map((entry) => ({ ...entry })),
+    activeSession: fitness.activeSession ? cloneWorkoutSession(fitness.activeSession) : null,
+    pendingReward: fitness.pendingReward
+      ? {
+        sessionId: fitness.pendingReward.sessionId,
+        reward: cloneGameRewardResult(fitness.pendingReward.reward),
+        context: { ...fitness.pendingReward.context },
+      }
+      : null,
+  };
+}
+
+function cloneCooldown(cooldown: AttackerCooldown): AttackerCooldown {
+  return { ...cooldown };
+}
+
+function clonePlayerRewardState(rewards: PlayerRewardState): PlayerRewardState {
+  return {
+    bankedTroops: rewards.bankedTroops,
+    pendingConstructionEffects: rewards.pendingConstructionEffects.map((effect) => ({ ...effect })),
+    pendingGoldenYieldEffects: rewards.pendingGoldenYieldEffects.map((effect) => ({ ...effect })),
+    appliedRewards: rewards.appliedRewards.map((record) => ({
+      applicationId: record.applicationId,
+      sessionId: record.sessionId,
+      kind: record.kind,
+      appliedAtTick: record.appliedAtTick,
+      result: cloneJson(record.result),
+    })),
+  };
+}
+
 /**
  * Deep-clones a `GameState` with no shared mutable nested references.
  * Every `Map`/`Set`/array/object nested field is rebuilt, including
  * `factions[].diplomacy`, `mapWorld.graphMeta`, `visibility[].visibility`,
- * `commitments`, and `activeEvents`. See tests/run.ts, "GameState clone
- * isolation".
+ * `commitments`, `activeEvents`, `playerRewards`, and `activeInvasions`.
+ * See tests/run.ts, "GameState clone isolation".
  */
 export function cloneGameState(state: GameState): GameState {
   return {
@@ -194,5 +279,13 @@ export function cloneGameState(state: GameState): GameState {
     commitments: cloneMap(state.commitments, (c) => (c ? cloneCommitment(c) : null)),
     activeEvents: state.activeEvents.map(cloneActiveEvent),
     eventHistory: state.eventHistory.map(cloneHistoryEntry),
+    playerRewards: clonePlayerRewardState(state.playerRewards),
+    activeInvasions: cloneMap(state.activeInvasions, cloneActiveInvasion),
+    constructions: cloneMap(state.constructions, cloneConstruction),
+    cities: cloneMap(state.cities, cloneCity),
+    territoryEconomy: cloneMap(state.territoryEconomy, cloneTerritoryEconomy),
+    playerFitness: clonePlayerFitness(state.playerFitness),
+    playerEmpirePause: { ...state.playerEmpirePause },
+    attackerCooldowns: cloneMap(state.attackerCooldowns, cloneCooldown),
   };
 }

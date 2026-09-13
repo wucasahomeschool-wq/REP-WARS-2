@@ -17,7 +17,7 @@ import { ErrorCode } from '../src/orchestration';
 import { Orchestrator } from '../src/orchestration/orchestrator';
 import { cloneGameState, checkGameStateInvariants, createGameState } from '../src/state';
 import { Army, Territory } from '../src/types';
-import { GAME_STATE_SCHEMA_VERSION, emptyWorldClock, type GameState } from '../src/types/GameState';
+import { GAME_STATE_SCHEMA_VERSION, emptyWorldClock, emptyRewardApplicationState, type GameState } from '../src/types/GameState';
 import type { CommandRequest } from '../src/orchestration';
 import type { AICommitment, WarlordSnapshot } from '../src/types';
 import type { WorldAdvanceResult } from '../src/world';
@@ -67,6 +67,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
       turn: 1,
       ...emptyWorldClock(),
+      ...emptyRewardApplicationState(),
       worldSeed: 42,
       factions: new Map([[ATK, atkSnap], [DEF, defSnap]]),
       allFactionIds: [ATK, DEF],
@@ -91,6 +92,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
       turn: 1,
       ...emptyWorldClock(),
+      ...emptyRewardApplicationState(),
       worldSeed: 42,
       factions: new Map([
         [ATK, makeSelf(ATK, { territories: ['home'], armies: ['atk_army'] })],
@@ -267,7 +269,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
 
   test('AI delayed ATTACK completes after arrival battle', () => {
     const state = buildChainState();
-    state.playerFactionId = DEF;
+    state.playerFactionId = null;
     state.commitments.set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
     const orch = new Orchestrator(state);
     orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: ATK, seed: 42 }));

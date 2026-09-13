@@ -14,12 +14,17 @@
 import { AICommitment, GameStateSnapshot } from '../types';
 import { GameState } from '../types/GameState';
 import { isActiveCommitmentStatus, validateCommitmentTarget } from '../engine/DecisionEngine';
+import { collectNeighborGraphIssues } from '../map/graphInvariants';
 
 export interface GameStateInvariantViolation {
   /** Short machine-checkable category, e.g. `'army.negative_troops'`. */
   code: string;
   /** Human-readable detail for test failures/logging. */
   message: string;
+}
+
+function isOpenInvasionStatus(status: string): boolean {
+  return status === 'pending_response' || status === 'defense_in_progress';
 }
 
 function toEngineSnapshotView(state: GameState): GameStateSnapshot {
@@ -70,6 +75,9 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     if (key !== snap.id) {
       push('faction.key_id_mismatch', `factions map key ${key} does not match WarlordSnapshot.id ${snap.id}`);
     }
+    if (!factionIdSet.has(key)) {
+      push('faction.missing_from_all_ids', `factions map has ${key}, but allFactionIds does not list it`);
+    }
   }
   for (const [key, t] of state.territories.entries()) {
     if (key !== t.id) {
@@ -108,6 +116,10 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     // See docs/BATTLE_ENGINE_CORRECTNESS.md and `cli.ts`'s `eliminateArmies`.
     if (a.soldiers + a.knights + a.siegeEngines <= 0) {
       push('army.defeated_but_present', `army ${a.id} has 0 total troops/siege but is still present in the canonical armies map`);
+    }
+    const ownerSnap = state.factions.get(a.owner);
+    if (ownerSnap && !ownerSnap.armies.includes(a.id)) {
+      push('army.not_listed_by_owner', `army ${a.id} owner ${a.owner} does not list this army in armies[]`);
     }
     const mv = a.movement;
     if (mv && mv.status === 'moving') {
@@ -152,6 +164,12 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       }
       if (!Number.isInteger(intent.battleSeed) || !Number.isFinite(intent.battleSeed)) {
         push('army.invalid_attack_battle_seed', `army ${a.id} attackIntent battleSeed ${intent.battleSeed} is not a finite integer`);
+      }
+      if (intent.holdForInvasionId) {
+        const held = state.activeInvasions.get(intent.holdForInvasionId);
+        if (!held || !isOpenInvasionStatus(held.status)) {
+          push('army.hold_for_resolved_invasion', `army ${a.id} holdForInvasionId ${intent.holdForInvasionId} does not reference an open invasion`);
+        }
       }
       if (intent.commitmentId) {
         const c = state.commitments.get(a.owner);
@@ -262,6 +280,294 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       push('event.duplicate_instance_id', `active event instanceId ${e.instanceId} appears more than once`);
     }
     eventIdSeen.add(e.instanceId);
+  }
+
+  // ---- territory neighbor graph (committed states must be internally consistent) ----
+  for (const issue of collectNeighborGraphIssues(state.territories)) {
+    push(`territory.neighbor_${issue.kind}`, `territory ${issue.territoryId} neighbor ${issue.neighborId} (${issue.kind})`);
+  }
+
+  // ---- visibility maps reference real factions and territories ----
+  for (const [fid, vis] of state.visibility.entries()) {
+    if (!state.factions.has(fid)) {
+      push('visibility.unknown_faction', `visibility map exists for unknown faction ${fid}`);
+    }
+    if (vis.owner !== fid) {
+      push('visibility.owner_mismatch', `visibility map key ${fid} has owner ${vis.owner}`);
+    }
+    for (const tid of vis.visibility.keys()) {
+      if (!state.territories.has(tid)) {
+        push('visibility.unknown_territory', `visibility[${fid}] references unknown territory ${tid}`);
+      }
+    }
+  }
+
+  // ---- player reward application (Phase 17H) ----
+  const rewards = state.playerRewards;
+  if (!rewards) {
+    push('reward.missing_player_rewards', 'playerRewards is required on canonical GameState');
+  } else {
+    const troops = rewards.bankedTroops;
+    if (!Number.isSafeInteger(troops) || troops < 0) {
+      push('reward.invalid_banked_troops', `bankedTroops ${String(troops)} must be a non-negative safe integer`);
+    }
+    for (const [index, effect] of rewards.pendingConstructionEffects.entries()) {
+      if (!Number.isFinite(effect.workerPower) || effect.workerPower < 0) {
+        push('reward.invalid_construction_power', `pendingConstructionEffects[${index}].workerPower is ${String(effect.workerPower)}`);
+      }
+      if (effect.permanence !== 'TEMPORARY_ACCELERATION') {
+        push('reward.invalid_construction_permanence', `pendingConstructionEffects[${index}] must be a temporary acceleration`);
+      }
+    }
+    for (const [index, effect] of rewards.pendingGoldenYieldEffects.entries()) {
+      if (!Number.isFinite(effect.multiplier) || effect.multiplier < 0) {
+        push('reward.invalid_golden_yield_multiplier', `pendingGoldenYieldEffects[${index}].multiplier is ${String(effect.multiplier)}`);
+      }
+      if (effect.permanence !== 'EPHEMERAL' || effect.effect !== 'ONE_TIME_COLLECTION' || effect.consumed !== false) {
+        push('reward.invalid_golden_yield_semantics', `pendingGoldenYieldEffects[${index}] must be an unconsumed one-time ephemeral effect`);
+      }
+    }
+    const appliedIds = new Set<string>();
+    for (const record of rewards.appliedRewards) {
+      if (!record.applicationId || appliedIds.has(record.applicationId)) {
+        push('reward.duplicate_application_id', `appliedRewards contains a missing or duplicate applicationId ${record.applicationId}`);
+      }
+      appliedIds.add(record.applicationId);
+    }
+  }
+
+  if (!state.activeInvasions) {
+    push('invasion.missing_map', 'activeInvasions is required on canonical GameState');
+  } else {
+    let inProgressDefenseCount = 0;
+    for (const [key, invasion] of state.activeInvasions.entries()) {
+      if (key !== invasion.id) {
+        push('invasion.key_id_mismatch', `activeInvasions map key ${key} does not match invasion.id ${invasion.id}`);
+      }
+      if (!isOpenInvasionStatus(invasion.status)) {
+        push('invasion.inactive_in_active_map', `invasion ${invasion.id} status is ${invasion.status}`);
+      }
+      if (!state.factions.has(invasion.defenderFactionId)) {
+        push('invasion.invalid_defender', `invasion ${invasion.id} defender ${invasion.defenderFactionId} is not a known faction`);
+      }
+      if (!state.factions.has(invasion.attackerFactionId)) {
+        push('invasion.invalid_attacker', `invasion ${invasion.id} attacker ${invasion.attackerFactionId} is not a known faction`);
+      }
+      if (invasion.attackerFactionId === invasion.defenderFactionId) {
+        push('invasion.self_attack', `invasion ${invasion.id} attacker and defender are the same faction`);
+      }
+      const territory = state.territories.get(invasion.territoryId);
+      if (!territory) {
+        push('invasion.invalid_territory', `invasion ${invasion.id} territory ${invasion.territoryId} is not a known territory`);
+      } else if (territory.owner !== invasion.defenderFactionId) {
+        push('invasion.territory_owner_mismatch', `invasion ${invasion.id} territory ${invasion.territoryId} owner is ${String(territory.owner)}`);
+      }
+      for (const [label, tick] of [
+        ['startedAtTick', invasion.startedAtTick],
+        ['notifiedAtTick', invasion.notifiedAtTick],
+        ['responseDeadlineTick', invasion.responseDeadlineTick],
+      ] as const) {
+        if (!Number.isInteger(tick) || !Number.isFinite(tick) || tick < 0) {
+          push('invasion.invalid_timing', `invasion ${invasion.id} ${label} is ${String(tick)}`);
+        }
+      }
+      if (invasion.notifiedAtTick < invasion.startedAtTick) {
+        push('invasion.timing_order', `invasion ${invasion.id} notifiedAtTick precedes startedAtTick`);
+      }
+      if (invasion.responseDeadlineTick < invasion.notifiedAtTick) {
+        push('invasion.timing_order', `invasion ${invasion.id} responseDeadlineTick precedes notifiedAtTick`);
+      }
+      const mob = invasion.defenseMobilization;
+      if (mob) {
+        if (!Number.isFinite(mob.defensePower) || mob.defensePower < 0) {
+          push('invasion.invalid_defense_power', `invasion ${invasion.id} defensePower is ${String(mob.defensePower)}`);
+        }
+        if (typeof mob.playerId !== 'string' || mob.playerId.trim() === '') {
+          push('invasion.invalid_defense_player', `invasion ${invasion.id} defense mobilization has an invalid playerId`);
+        }
+        if (mob.workoutStartedAtTick !== null && (!Number.isInteger(mob.workoutStartedAtTick) || mob.workoutStartedAtTick < 0)) {
+          push('invasion.invalid_defense_workout_start', `invasion ${invasion.id} workoutStartedAtTick is ${String(mob.workoutStartedAtTick)}`);
+        }
+      }
+      if (invasion.defenseWorkoutStartedAtTick !== null && (!Number.isInteger(invasion.defenseWorkoutStartedAtTick) || invasion.defenseWorkoutStartedAtTick < 0)) {
+        push('invasion.invalid_defense_workout_start', `invasion ${invasion.id} defenseWorkoutStartedAtTick is ${String(invasion.defenseWorkoutStartedAtTick)}`);
+      }
+      if (invasion.defenseCompletionDeadlineTick !== null && (!Number.isInteger(invasion.defenseCompletionDeadlineTick) || invasion.defenseCompletionDeadlineTick < 0)) {
+        push('invasion.invalid_defense_completion_deadline', `invasion ${invasion.id} defenseCompletionDeadlineTick is ${String(invasion.defenseCompletionDeadlineTick)}`);
+      }
+      if (invasion.status === 'pending_response') {
+        if (invasion.defenseWorkoutStartedAtTick !== null || invasion.defenseCompletionDeadlineTick !== null || invasion.defenseSessionId !== null) {
+          push('invasion.pending_has_defense_start', `invasion ${invasion.id} is pending_response but has defense-start fields`);
+        }
+        if (mob) {
+          push('invasion.pending_has_mobilization', `invasion ${invasion.id} is pending_response but has a defense mobilization`);
+        }
+      }
+      if (invasion.status === 'defense_in_progress') {
+        if (invasion.defenseWorkoutStartedAtTick === null) {
+          push('invasion.missing_defense_start', `invasion ${invasion.id} is defense_in_progress without defenseWorkoutStartedAtTick`);
+        }
+        if (invasion.defenseCompletionDeadlineTick === null) {
+          push('invasion.missing_defense_completion_deadline', `invasion ${invasion.id} is defense_in_progress without defenseCompletionDeadlineTick`);
+        }
+        if (
+          invasion.defenseWorkoutStartedAtTick !== null
+          && invasion.defenseWorkoutStartedAtTick > invasion.responseDeadlineTick
+        ) {
+          push('invasion.defense_started_after_deadline', `invasion ${invasion.id} defense started after the response deadline`);
+        }
+        if (
+          invasion.defenseWorkoutStartedAtTick !== null
+          && invasion.defenseCompletionDeadlineTick !== null
+          && invasion.defenseCompletionDeadlineTick < invasion.defenseWorkoutStartedAtTick
+        ) {
+          push('invasion.timing_order', `invasion ${invasion.id} defenseCompletionDeadlineTick precedes defenseWorkoutStartedAtTick`);
+        }
+      }
+      if (invasion.defenderFactionId === state.playerFactionId && invasion.status === 'defense_in_progress') {
+        inProgressDefenseCount += 1;
+      }
+    }
+    if (inProgressDefenseCount > 1) {
+      push('invasion.duplicate_active_defense', 'player has more than one defense_in_progress invasion');
+    }
+  }
+
+  if (!state.constructions) {
+    push('construction.missing_map', 'constructions is required on canonical GameState');
+  } else {
+    const inProgressByTerritory = new Map<string, string>();
+    for (const [key, project] of state.constructions.entries()) {
+      if (key !== project.id) {
+        push('construction.key_id_mismatch', `constructions map key ${key} does not match id ${project.id}`);
+      }
+      if (!state.factions.has(project.factionId)) {
+        push('construction.invalid_owner', `construction ${project.id} owner ${project.factionId} is not a known faction`);
+      }
+      if (!state.territories.has(project.territoryId)) {
+        push('construction.invalid_territory', `construction ${project.id} territory ${project.territoryId} is not a known territory`);
+      }
+      if (!Number.isFinite(project.remainingTicks) || project.remainingTicks < 0) {
+        push('construction.invalid_remaining', `construction ${project.id} remainingTicks is ${String(project.remainingTicks)}`);
+      }
+      if (!Number.isInteger(project.lastProgressTick) || project.lastProgressTick < 0) {
+        push('construction.invalid_last_progress', `construction ${project.id} lastProgressTick is ${String(project.lastProgressTick)}`);
+      }
+      if (project.status === 'completed') {
+        if (project.remainingTicks !== 0) {
+          push('construction.completed_remaining', `completed construction ${project.id} remainingTicks is ${project.remainingTicks}`);
+        }
+        if (project.completedAtTick === null) {
+          push('construction.missing_completed_tick', `completed construction ${project.id} has no completedAtTick`);
+        }
+      }
+      if (project.status === 'in_progress') {
+        const prev = inProgressByTerritory.get(project.territoryId);
+        if (prev) {
+          push('construction.multiple_in_progress', `territory ${project.territoryId} has multiple in-progress constructions (${prev}, ${project.id})`);
+        } else {
+          inProgressByTerritory.set(project.territoryId, project.id);
+        }
+      }
+    }
+  }
+
+  if (!state.cities) {
+    push('city.missing_map', 'cities is required on canonical GameState');
+  } else {
+    for (const [key, city] of state.cities.entries()) {
+      if (key !== city.id) {
+        push('city.key_id_mismatch', `cities map key ${key} does not match id ${city.id}`);
+      }
+      const territory = state.territories.get(city.territoryId);
+      if (!territory) {
+        push('city.invalid_territory', `city ${city.id} territory ${city.territoryId} is not a known territory`);
+      } else if (territory.owner === null) {
+        push('city.unowned_territory', `city ${city.id} exists on unowned territory ${city.territoryId}`);
+      } else if (territory.owner !== city.factionId) {
+        push('city.owner_mismatch', `city ${city.id} faction ${city.factionId} does not match territory owner ${territory.owner}`);
+      }
+      if (!state.factions.has(city.factionId)) {
+        push('city.invalid_faction', `city ${city.id} faction ${city.factionId} is not a known faction`);
+      }
+      for (const building of city.buildings) {
+        if (building.type !== 'FORTIFICATION') {
+          push('city.invalid_building', `city ${city.id} has unsupported building ${String(building.type)}`);
+        }
+        if (!Number.isInteger(building.level) || building.level < 0 || building.level > 5) {
+          push('city.invalid_building_level', `city ${city.id} building level ${String(building.level)} is invalid`);
+        }
+        if (!Number.isInteger(building.completedAtTick) || building.completedAtTick < 0) {
+          push('city.invalid_building_tick', `city ${city.id} building completedAtTick is ${String(building.completedAtTick)}`);
+        }
+      }
+    }
+  }
+
+  if (!state.territoryEconomy) {
+    push('economy.missing_map', 'territoryEconomy is required on canonical GameState');
+  } else {
+    for (const [key, rec] of state.territoryEconomy.entries()) {
+      if (key !== rec.territoryId) {
+        push('economy.key_id_mismatch', `territoryEconomy map key ${key} does not match territoryId ${rec.territoryId}`);
+      }
+      if (!state.territories.has(rec.territoryId)) {
+        push('economy.invalid_territory', `territoryEconomy ${rec.territoryId} is not a known territory`);
+      }
+      if (!Number.isInteger(rec.lastAccrualTick) || rec.lastAccrualTick < 0) {
+        push('economy.invalid_last_accrual', `territoryEconomy ${rec.territoryId} lastAccrualTick is ${String(rec.lastAccrualTick)}`);
+      }
+      for (const [rk, rv] of Object.entries(rec.uncollected)) {
+        if (!Number.isFinite(rv) || rv < 0 || Number.isNaN(rv)) {
+          push('economy.malformed_uncollected', `territoryEconomy ${rec.territoryId} uncollected.${rk} is ${String(rv)}`);
+        }
+      }
+    }
+  }
+
+  if (!state.playerFitness) {
+    push('fitness.missing_player_fitness', 'playerFitness is required on canonical GameState');
+  } else if (state.playerFitness.estimate && state.playerFitness.estimate.level < 0) {
+    push('fitness.invalid_estimate', 'playerFitness.estimate.level must be non-negative');
+  } else {
+    const session = state.playerFitness.activeSession;
+    if (session && (session.state === 'ACTIVE' || session.state === 'PAUSED') && session.purpose === 'DEFENSE') {
+      const invasionId = session.gameplayContext?.invasionId;
+      const invasion = invasionId ? state.activeInvasions.get(invasionId) : undefined;
+      if (!invasion || !isOpenInvasionStatus(invasion.status)) {
+        push('fitness.defense_session_missing_invasion', 'ACTIVE DEFENSE session does not reference an open invasion');
+      } else {
+        if (state.playerFactionId && invasion.defenderFactionId !== state.playerFactionId) {
+          push('fitness.defense_session_wrong_player', 'ACTIVE DEFENSE session is not owned by the local defender');
+        }
+        if (invasion.defenseSessionId && invasion.defenseSessionId !== session.sessionId) {
+          push('fitness.defense_session_mismatch', 'ACTIVE DEFENSE session does not match invasion.defenseSessionId');
+        }
+        if (invasion.status !== 'defense_in_progress') {
+          push('fitness.defense_session_invasion_not_in_progress', 'ACTIVE DEFENSE session is linked to a pending_response invasion');
+        }
+      }
+    }
+  }
+
+  if (!state.playerEmpirePause) {
+    push('pause.missing', 'playerEmpirePause is required on canonical GameState');
+  }
+
+  if (!state.attackerCooldowns) {
+    push('cooldown.missing_map', 'attackerCooldowns is required on canonical GameState');
+  } else {
+    for (const [fid, cooldown] of state.attackerCooldowns.entries()) {
+      if (!state.factions.has(fid)) {
+        push('cooldown.unknown_faction', `attackerCooldowns has an entry for unknown faction ${fid}`);
+      }
+      if (cooldown.recoveryUntilTick !== null && (!Number.isInteger(cooldown.recoveryUntilTick) || cooldown.recoveryUntilTick < 0)) {
+        push('cooldown.invalid_recovery', `attackerCooldowns[${fid}].recoveryUntilTick is ${String(cooldown.recoveryUntilTick)}`);
+      }
+      if (cooldown.continuationUntilTick !== null && (!Number.isInteger(cooldown.continuationUntilTick) || cooldown.continuationUntilTick < 0)) {
+        push('cooldown.invalid_continuation', `attackerCooldowns[${fid}].continuationUntilTick is ${String(cooldown.continuationUntilTick)}`);
+      }
+    }
   }
 
   return violations;

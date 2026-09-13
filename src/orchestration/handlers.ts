@@ -8,6 +8,10 @@ import {
 } from '../state/gameStateAdapters';
 import { cloneGameState } from '../state/cloneGameState';
 import { GameState } from '../types/GameState';
+import { GAMEPLAY_CONFIG } from '../gameplay/config';
+import { syncCityFortification } from '../gameplay/cities/city';
+import { settleTerritoryOwnershipChange } from '../gameplay/economy/ownership';
+import { progressWorldEconomy } from '../gameplay/economy/worldProgress';
 import { WarlordState, isActiveCommitmentStatus, validateCommitmentTarget } from '../engine/DecisionEngine';
 import { isUnsupportedCommitmentAction } from '../engine/executableActions';
 import { COMMAND_INDEX, commandIndexSummary } from './commandIndex';
@@ -39,6 +43,7 @@ import {
   TerritoryChange,
 } from './protocol';
 import { serializePublicGameState, serializeVisibleWorld } from './publicView';
+import { resolveViewerFactionId } from './authorization';
 import { ContinuousWorldEngine, WorldAdvanceResult, WorldSimulationHost } from '../world/ContinuousWorldEngine';
 import { parseElapsedTicks } from '../world/worldTime';
 import { runEventEngineTurn } from '../world/eventTick';
@@ -50,8 +55,26 @@ import {
 } from '../army/movement';
 import {
   executeReadyStrategicAttack,
+  listImmediateAttackingArmies,
   startStrategicAttack,
 } from '../army/strategicAttack';
+import { commitBankedTroopsAndAttack } from '../gameplay/attacks/commitBankedTroops';
+import { assertPlayerCanSeeTarget } from '../gameplay/attacks/visibility';
+import { maybeHoldAttackAsInvasion } from '../gameplay/invasion/create';
+import { progressExpiredInvasions } from '../gameplay/invasion/progress';
+import {
+  handleAbandonWorkout,
+  handleApplyConstructionAcceleration,
+  handleCollectResources,
+  handleFinalizeWorkout,
+  handleRecordExercise,
+  handleRecordIntegrityFlag,
+  handleSetPlayerPause,
+  handleSkipRest,
+  handleStartConstruction,
+  handleStartWorkout,
+  handleSubmitWorkoutFeedback,
+} from './gameplayCommands';
 
 export interface OrchestratorRuntime {
   aiWarlordStates: Map<string, WarlordState>;
@@ -86,13 +109,13 @@ export function handleGetCommandIndex(_state: GameState, _ctx: HandlerContext): 
 }
 
 export function handleGetGameState(state: GameState, ctx: HandlerContext): HandlerResult {
-  const viewer = paramString(ctx.req, 'factionId') ?? state.playerFactionId;
+  const viewer = resolveViewerFactionId(state, ctx.req);
   const snapshot = serializePublicGameState(cloneGameState(state), viewer);
   return { ...emptyResult(), payload: { gameState: snapshot } };
 }
 
 export function handleGetVisibleWorld(state: GameState, ctx: HandlerContext): HandlerResult {
-  const viewer = paramString(ctx.req, 'factionId') ?? state.playerFactionId;
+  const viewer = resolveViewerFactionId(state, ctx.req);
   if (!viewer || !state.factions.has(viewer)) {
     throw new OrchestrationError(ErrorCode.INVALID_FACTION, 'Viewer faction required for GET_VISIBLE_WORLD');
   }
@@ -108,6 +131,31 @@ export function executeAttack(state: GameState, ctx: HandlerContext, territoryId
   const commitment = state.commitments.get(attackerId);
   const commitmentId = paramString(ctx.req, 'commitmentId')
     ?? (commitment && commitment.action === 'ATTACK' ? commitment.id : null);
+  requireTerritory(state, territoryId);
+
+  if (state.playerFactionId && attackerId === state.playerFactionId) {
+    assertPlayerCanSeeTarget(state, attackerId, territoryId);
+    const commitAmount = paramNumber(ctx.req, 'commitAmount');
+    if (commitAmount !== undefined) {
+      return commitBankedTroopsAndAttack(state, ctx, {
+        factionId: attackerId,
+        territoryId,
+        commitAmount,
+        playerFactionId: state.playerFactionId,
+      });
+    }
+  }
+
+  const immediate = listImmediateAttackingArmies(state, attackerId, territoryId);
+  const held = maybeHoldAttackAsInvasion(state, {
+    attackerId,
+    territoryId,
+    armies: immediate,
+    commitmentId,
+    battleSeed: paramNumber(ctx.req, 'seed'),
+  });
+  if (held) return held;
+
   return startStrategicAttack(state, ctx, {
     territoryId,
     factionId: attackerId,
@@ -120,7 +168,44 @@ export function executePendingStrategicAttack(state: GameState, ctx: HandlerCont
   const intent = army?.attackIntent;
   const factionId = army?.owner;
   const commitmentId = intent?.commitmentId ?? null;
-  const inner = executeReadyStrategicAttack(state, ctx, armyId);
+  let inner: HandlerResult;
+  if (army && intent && !isArmyMoving(army)) {
+    try {
+      const held = maybeHoldAttackAsInvasion(state, {
+        attackerId: army.owner,
+        territoryId: intent.targetTerritoryId,
+        armies: [army],
+        commitmentId: intent.commitmentId,
+        battleSeed: intent.battleSeed,
+      });
+      if (held) {
+        inner = held;
+        return wrapPendingAttackCommitment(state, ctx, factionId, commitmentId, inner);
+      }
+    } catch (err) {
+      if (err instanceof OrchestrationError) {
+        inner = {
+          ...emptyResult(),
+          commandSuccess: false,
+          errors: [{ code: err.code, message: err.message }],
+          payload: { attackOutcome: 'failed', arrivalPending: false },
+        };
+        return wrapPendingAttackCommitment(state, ctx, factionId, commitmentId, inner);
+      }
+      throw err;
+    }
+  }
+  inner = executeReadyStrategicAttack(state, ctx, armyId);
+  return wrapPendingAttackCommitment(state, ctx, factionId, commitmentId, inner);
+}
+
+function wrapPendingAttackCommitment(
+  state: GameState,
+  ctx: HandlerContext,
+  factionId: string | undefined,
+  commitmentId: string | null,
+  inner: HandlerResult,
+): HandlerResult {
   if (!factionId || !commitmentId) return inner;
   const current = state.commitments.get(factionId);
   if (!current || current.id !== commitmentId || !isActiveCommitmentStatus(current.status)) return inner;
@@ -128,6 +213,10 @@ export function executePendingStrategicAttack(state: GameState, ctx: HandlerCont
     const term = applyCommitmentTerminal(state, ctx, factionId, 'completed', 'delayed attack resolved by BattleEngine');
     inner.stateChanges.push(...term.stateChanges);
     inner.payload = { ...inner.payload, ...term.payload };
+    return inner;
+  }
+  if (inner.payload.attackOutcome === 'invasion_created' || inner.payload.attackOutcome === 'awaiting_defense') {
+    inner.payload = { ...inner.payload, arrivalPending: true };
     return inner;
   }
   if (inner.commandSuccess === false || inner.payload.attackOutcome === 'failed') {
@@ -166,18 +255,23 @@ export function handleBuild(state: GameState, ctx: HandlerContext): HandlerResul
   }
   const faction = requireFactionSnapshot(state, factionId);
   const { gold: costG, stone: costS } = BALANCE.territory.fortificationCostPerLevel;
-  if (faction.resources.gold < costG) {
-    throw new OrchestrationError(ErrorCode.INSUFFICIENT_RESOURCES, `Need ${costG} gold to build`);
+  const maxFortification = GAMEPLAY_CONFIG.maxFortificationLevel;
+  if (t.fortification >= maxFortification) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Territory is already at maximum fortification');
+  }
+  if (faction.resources.gold < costG || faction.resources.stone < costS) {
+    throw new OrchestrationError(ErrorCode.INSUFFICIENT_RESOURCES, 'Insufficient resources');
   }
   const resourcesChanged: ResourceChange[] = [];
   const goldFrom = faction.resources.gold;
   const stoneFrom = faction.resources.stone;
   faction.resources.gold -= costG;
-  faction.resources.stone = Math.max(0, faction.resources.stone - costS);
+  faction.resources.stone -= costS;
   recordResourceChange(resourcesChanged, factionId, 'gold', goldFrom, faction.resources.gold);
   recordResourceChange(resourcesChanged, factionId, 'stone', stoneFrom, faction.resources.stone);
   const fortFrom = t.fortification;
-  t.fortification = Math.min(5, t.fortification + 1);
+  t.fortification = fortFrom + 1;
+  syncCityFortification(state, territoryId, t.fortification, state.worldTick);
   const territoryChanges: TerritoryChange[] = [{ territoryId, field: 'fortification', from: fortFrom, to: t.fortification }];
   return {
     ...emptyResult(),
@@ -249,7 +343,14 @@ export function handleScout(state: GameState, ctx: HandlerContext): HandlerResul
     if (!fromId) {
       throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'No origin territory for map scout');
     }
+    const origin = state.territories.get(fromId);
+    if (!origin || origin.owner !== factionId) {
+      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Scout origin must be owned');
+    }
     const range = paramNumber(ctx.req, 'range') ?? 2;
+    if (!Number.isFinite(range) || range < 1) {
+      throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'Scout range must be a positive number');
+    }
     const scout = map.revealTerritories(state.mapWorld, fromId, range, vis, 'scout');
     changes.push({
       entity: 'visibility',
@@ -263,6 +364,10 @@ export function handleScout(state: GameState, ctx: HandlerContext): HandlerResul
     };
   }
 
+  if (!canScoutWithoutMapWorld(state, factionId, territoryId)) {
+    throw new OrchestrationError(ErrorCode.FOG_OF_WAR, 'Target is not a legal scout destination');
+  }
+
   if (!faction.knownTerritories.includes(territoryId)) {
     faction.knownTerritories.push(territoryId);
     changes.push({ entity: 'faction', id: factionId, field: 'knownTerritories', summary: `Learned territory ${territoryId}` });
@@ -272,6 +377,20 @@ export function handleScout(state: GameState, ctx: HandlerContext): HandlerResul
     faction.knownFactions.push(t.owner);
   }
   return { ...emptyResult(), stateChanges: changes, payload: { territoryId, known: true } };
+}
+
+/** Hand-authored worlds have no MapEngine fog: scout only owned, known, or adjacent-to-owned tiles. */
+function canScoutWithoutMapWorld(state: GameState, factionId: string, territoryId: string): boolean {
+  const faction = state.factions.get(factionId);
+  const target = state.territories.get(territoryId);
+  if (!faction || !target) return false;
+  if (target.owner === factionId) return true;
+  if (faction.knownTerritories.includes(territoryId)) return true;
+  for (const ownedId of faction.territories) {
+    const owned = state.territories.get(ownedId);
+    if (owned?.neighboring.includes(territoryId)) return true;
+  }
+  return false;
 }
 
 export function executeExpand(state: GameState, ctx: HandlerContext, territoryId: string, factionId?: string): HandlerResult {
@@ -304,6 +423,7 @@ export function executeExpand(state: GameState, ctx: HandlerContext, territoryId
   target.garrison = Math.max(E.minGarrisonAfter, target.garrison - E.garrisonReduction);
   target.owner = actorId;
   if (!faction.territories.includes(target.id)) faction.territories.push(target.id);
+  settleTerritoryOwnershipChange(state, target.id, actorId);
   pushMemory(faction, state.turn, 'territory_gained', null, target.id, 8, { territory: target.name, via: 'expansion' });
   for (const [otherId, other] of state.factions) {
     if (otherId === actorId) continue;
@@ -532,6 +652,18 @@ export function handleAdvanceWorld(state: GameState, ctx: HandlerContext): Handl
   };
 
   const worldAdvance = new ContinuousWorldEngine().advance(state, elapsedTicks, host);
+  try {
+    const expired = progressExpiredInvasions(state, ctx.registry.requireBattle());
+    for (const extra of expired) {
+      worldAdvance.stateChanges.push(...extra.stateChanges);
+      worldAdvance.events.push(...extra.events);
+      worldAdvance.notifications.push(...extra.notifications);
+    }
+  } catch (err) {
+    if (!(err instanceof OrchestrationError)) throw err;
+    worldAdvance.errors.push({ code: err.code, message: err.message });
+  }
+  progressWorldEconomy(state);
   return {
     ...emptyResult(),
     stateChanges: worldAdvance.stateChanges,
@@ -706,7 +838,9 @@ export function handleResolveCommitment(state: GameState, ctx: HandlerContext): 
     throw err;
   }
 
-  if (inner.payload.arrivalPending === true) {
+  if (inner.payload.arrivalPending === true
+    || inner.payload.attackOutcome === 'invasion_created'
+    || inner.payload.attackOutcome === 'awaiting_defense') {
     syncCommitmentsFromWarlordStates(state, ctx.runtime.aiWarlordStates);
     inner.stateChanges.push({
       entity: 'commitment',
@@ -755,6 +889,17 @@ export const MUTATING_HANDLERS: Record<string, MutatingHandler> = {
   ADVANCE_WORLD: handleAdvanceWorld,
   AI_DECIDE: handleAiDecide,
   RESOLVE_COMMITMENT: handleResolveCommitment,
+  START_CONSTRUCTION: handleStartConstruction,
+  APPLY_CONSTRUCTION_ACCELERATION: handleApplyConstructionAcceleration,
+  COLLECT_RESOURCES: handleCollectResources,
+  SET_PLAYER_PAUSE: handleSetPlayerPause,
+  START_WORKOUT: handleStartWorkout,
+  RECORD_EXERCISE: handleRecordExercise,
+  SKIP_REST: handleSkipRest,
+  SUBMIT_WORKOUT_FEEDBACK: handleSubmitWorkoutFeedback,
+  FINALIZE_WORKOUT: handleFinalizeWorkout,
+  ABANDON_WORKOUT: handleAbandonWorkout,
+  RECORD_INTEGRITY_FLAG: handleRecordIntegrityFlag,
 };
 
 export type ReadOnlyHandler = (state: GameState, ctx: HandlerContext) => HandlerResult;

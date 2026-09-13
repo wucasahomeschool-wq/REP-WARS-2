@@ -17,6 +17,7 @@ import { SeededRNG } from '../utils/SeededRNG';
 import { computeMilitaryAdvantageRatio } from '../battle/CombatPower';
 import { getAttackFeasibility, isMoveDestinationFeasible } from '../engine/feasibility';
 import { armyHasActiveStrategicOperation } from '../army/strategicAttack';
+import { isAttackForbiddenOnSnapshot } from '../gameplay/invasion/eligibility';
 
 const {
   scoring: S,
@@ -428,6 +429,7 @@ export class ActionScorer {
     for (const targetTerr of ctx.enemyNeighbors) {
       const targetFactionId = targetTerr.owner;
       if (!targetFactionId) continue;
+      if (isAttackForbiddenOnSnapshot(ctx.gameState, ctx.self.id, targetFactionId)) continue;
       let { base, factors, reasoning } = this.baseScored('ATTACK', input);
       let score = base;
       const targetOwner = ctx.allFactions.get(targetFactionId);
