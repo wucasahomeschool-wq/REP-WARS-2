@@ -1,0 +1,183 @@
+{
+  "formatVersion": "rep-wars-world.v1",
+  "worldId": "w_ember_atoll",
+  "level": 1,
+  "name": "Ember Atoll",
+  "playerFactionId": "f_player",
+  "island": {
+    "rings": [[
+      { "x": 40, "y": 20 }, { "x": 180, "y": 30 }, { "x": 220, "y": 90 },
+      { "x": 200, "y": 170 }, { "x": 110, "y": 200 }, { "x": 30, "y": 140 },
+      { "x": 40, "y": 20 }
+    ]]
+  },
+  "completion": {
+    "type": "control_fraction",
+    "fraction": 0.7
+  },
+  "containedWorlds": [],
+  "factions": [
+    {
+      "id": "f_player",
+      "role": "player",
+      "name": "Player",
+      "homeTerritoryId": "t_01",
+      "startingResources": { "gold": 400, "food": 400, "iron": 80, "wood": 80, "stone": 80 },
+      "startingArmy": { "soldiers": 400, "knights": 40, "siegeEngines": 0, "locationTerritoryId": "t_01" },
+      "personality": null
+    },
+    {
+      "id": "f_cinder_court",
+      "role": "ai",
+      "name": "Cinder Court",
+      "homeTerritoryId": "t_04",
+      "startingResources": { "gold": 500, "food": 500, "iron": 120, "wood": 80, "stone": 80 },
+      "startingArmy": { "soldiers": 600, "knights": 80, "siegeEngines": 2, "locationTerritoryId": "t_04" },
+      "personality": {
+        "id": "p_cinder_court",
+        "label": "Ashen Steward",
+        "ambition": 0.55,
+        "traits": {
+          "aggression": 0.35,
+          "defensiveness": 0.7,
+          "expansionism": 0.4,
+          "opportunism": 0.45,
+          "diplomacy": 0.6,
+          "economics": 0.75,
+          "riskTolerance": 0.3,
+          "patience": 0.7,
+          "forgivingness": 0.5,
+          "loyalty": 0.65
+        }
+      }
+    },
+    {
+      "id": "f_salt_raiders",
+      "role": "ai",
+      "name": "Salt Raiders",
+      "homeTerritoryId": "t_06",
+      "startingResources": { "gold": 350, "food": 300, "iron": 60, "wood": 40, "stone": 40 },
+      "startingArmy": { "soldiers": 700, "knights": 20, "siegeEngines": 0, "locationTerritoryId": "t_06" },
+      "personality": {
+        "id": "p_salt_raiders",
+        "label": "Tide Wolf",
+        "ambition": 0.7,
+        "traits": {
+          "aggression": 0.9,
+          "defensiveness": 0.25,
+          "expansionism": 0.75,
+          "opportunism": 0.8,
+          "diplomacy": 0.15,
+          "economics": 0.3,
+          "riskTolerance": 0.8,
+          "patience": 0.2,
+          "forgivingness": 0.15,
+          "loyalty": 0.3
+        }
+      }
+    }
+  ],
+  "startingDiplomacy": [
+    { "a": "f_cinder_court", "b": "f_salt_raiders", "state": "tense", "opinion": -20 }
+  ],
+  "regions": [
+    {
+      "id": "r_cinder_highlands",
+      "name": "Cinder Highlands",
+      "worldId": "w_ember_atoll",
+      "territoryIds": ["t_01", "t_02", "t_03"]
+    },
+    {
+      "id": "r_salt_margin",
+      "name": "Salt Margin",
+      "worldId": "w_ember_atoll",
+      "territoryIds": ["t_04", "t_05", "t_06"]
+    }
+  ],
+  "territories": [
+    {
+      "id": "t_01",
+      "regionId": "r_cinder_highlands",
+      "startingOwnerFactionId": "f_player",
+      "neighborIds": ["t_02", "t_03"],
+      "terrain": "plains",
+      "resourceOutput": { "food": 20, "gold": 8, "iron": 0, "wood": 6, "stone": 4 },
+      "polygon": {
+        "rings": [[
+          { "x": 50, "y": 80 }, { "x": 110, "y": 70 }, { "x": 100, "y": 120 },
+          { "x": 55, "y": 125 }, { "x": 50, "y": 80 }
+        ]]
+      }
+    },
+    {
+      "id": "t_02",
+      "regionId": "r_cinder_highlands",
+      "startingOwnerFactionId": "f_cinder_court",
+      "neighborIds": ["t_01", "t_03", "t_04"],
+      "terrain": "hills",
+      "resourceOutput": { "food": 10, "gold": 6, "iron": 12, "wood": 4, "stone": 10 },
+      "polygon": {
+        "rings": [[
+          { "x": 110, "y": 70 }, { "x": 165, "y": 75 }, { "x": 150, "y": 125 },
+          { "x": 100, "y": 120 }, { "x": 110, "y": 70 }
+        ]]
+      }
+    },
+    {
+      "id": "t_03",
+      "regionId": "r_cinder_highlands",
+      "startingOwnerFactionId": "f_cinder_court",
+      "neighborIds": ["t_01", "t_02", "t_05"],
+      "terrain": "forest",
+      "resourceOutput": { "food": 8, "gold": 4, "iron": 0, "wood": 22, "stone": 2 },
+      "polygon": {
+        "rings": [[
+          { "x": 55, "y": 125 }, { "x": 100, "y": 120 }, { "x": 95, "y": 170 },
+          { "x": 50, "y": 160 }, { "x": 55, "y": 125 }
+        ]]
+      }
+    },
+    {
+      "id": "t_04",
+      "regionId": "r_salt_margin",
+      "startingOwnerFactionId": "f_cinder_court",
+      "neighborIds": ["t_02", "t_05", "t_06"],
+      "terrain": "mountain",
+      "resourceOutput": { "food": 4, "gold": 10, "iron": 24, "wood": 2, "stone": 18 },
+      "polygon": {
+        "rings": [[
+          { "x": 165, "y": 75 }, { "x": 205, "y": 95 }, { "x": 185, "y": 145 },
+          { "x": 150, "y": 125 }, { "x": 165, "y": 75 }
+        ]]
+      }
+    },
+    {
+      "id": "t_05",
+      "regionId": "r_salt_margin",
+      "startingOwnerFactionId": "f_salt_raiders",
+      "neighborIds": ["t_03", "t_04", "t_06"],
+      "terrain": "coastal",
+      "resourceOutput": { "food": 14, "gold": 16, "iron": 0, "wood": 4, "stone": 4 },
+      "polygon": {
+        "rings": [[
+          { "x": 100, "y": 120 }, { "x": 150, "y": 125 }, { "x": 145, "y": 175 },
+          { "x": 95, "y": 170 }, { "x": 100, "y": 120 }
+        ]]
+      }
+    },
+    {
+      "id": "t_06",
+      "regionId": "r_salt_margin",
+      "startingOwnerFactionId": "f_salt_raiders",
+      "neighborIds": ["t_04", "t_05"],
+      "terrain": "coastal",
+      "resourceOutput": { "food": 12, "gold": 22, "iron": 2, "wood": 2, "stone": 2 },
+      "polygon": {
+        "rings": [[
+          { "x": 150, "y": 125 }, { "x": 185, "y": 145 }, { "x": 175, "y": 185 },
+          { "x": 145, "y": 175 }, { "x": 150, "y": 125 }
+        ]]
+      }
+    }
+  ]
+}
