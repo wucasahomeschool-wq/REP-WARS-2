@@ -14,6 +14,7 @@ import {
 } from '../fitness/session';
 import type { IntegrityFlagType } from '../fitness/session';
 import { WorkoutPurpose } from '../fitness/types';
+import { persistTerminalSessionHistory } from '../fitness/history/persistSession';
 import { startConstruction, consumeConstructionEffect } from '../gameplay/construction/consume';
 import { collectTerritoryYield } from '../gameplay/economy/collect';
 import { isDeadlineElapsed, isOpenInvasion } from '../gameplay/invasion/deadlines';
@@ -336,6 +337,7 @@ export function handleFinalizeWorkout(state: GameState, ctx: GameplayHandlerCont
   }
   const result = runWorkoutRewardPipeline(state, session, ctx.req.playerId, {
     battle: ctx.registry.requireBattle(),
+    history: ctx.registry.workoutHistory,
   });
   if (!result.ok) {
     return {
@@ -379,6 +381,9 @@ export function handleAbandonWorkout(state: GameState, ctx: GameplayHandlerConte
     throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, next.error.message);
   }
   state.playerFitness.activeSession = next.value;
+  persistTerminalSessionHistory(ctx.registry.workoutHistory, next.value, {
+    completedAtWorldTick: playerFacingTick(state),
+  });
   const invasionOutcome = session.purpose === 'DEFENSE'
     ? resolveAbandonedDefense(state, ctx, session.gameplayContext?.invasionId)
     : undefined;
@@ -409,6 +414,11 @@ export function handleRecordIntegrityFlag(state: GameState, ctx: GameplayHandler
     throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, next.error.message);
   }
   state.playerFitness.activeSession = next.value;
+  if (next.value.state === 'ABANDONED') {
+    persistTerminalSessionHistory(ctx.registry.workoutHistory, next.value, {
+      completedAtWorldTick: playerFacingTick(state),
+    });
+  }
   const invasionOutcome = next.value.state === 'ABANDONED' && session.purpose === 'DEFENSE'
     ? resolveAbandonedDefense(state, ctx, session.gameplayContext?.invasionId)
     : undefined;

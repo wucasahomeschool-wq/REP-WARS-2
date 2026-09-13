@@ -123,6 +123,8 @@ export {
   parseElapsedTicks,
   runEventEngineTurn,
   commitmentDurationTicksFor,
+  catchUpWorld,
+  nextCatchUpElapsedTicks,
 } from './world';
 export type {
   WorldAdvanceResult,
@@ -132,6 +134,7 @@ export type {
   WorldCommitmentProgressRecord,
   WorldCommitmentResolutionRecord,
   WorldEventStepResult,
+  CatchUpWorldResult,
 } from './world';
 
 export {
@@ -213,6 +216,7 @@ export {
   isEligibleForFitnessEvaluation,
   buildWorkoutSessionSummary,
   finalizeCompletedWorkout,
+  persistTerminalSessionHistory,
   FITNESS_EVIDENCE_VERSION,
   FITNESS_EVIDENCE_SOURCES,
   EVIDENCE_QUALITIES,
@@ -229,6 +233,8 @@ export {
   applyFitnessEvaluation,
   cloneFitnessEstimate,
   recencyFactor,
+  MS_PER_DAY,
+  MS_PER_WEEK,
   PHYSICAL_RESULT_MODEL_VERSION,
   PHYSICAL_OUTPUT_VERSION,
   PHYSICAL_RESULT_CONFIG,
@@ -304,6 +310,7 @@ export {
   REWARD_APPLICATION_MODEL_VERSION,
   REWARD_APPLICATION_ERROR_CODES,
   runWorkoutRewardPipeline,
+  retryPendingWorkoutReward,
 } from './rewards';
 export {
   GAMEPLAY_CONFIG,
@@ -353,5 +360,48 @@ export type {
   ApplyGameRewardOutcome,
   WorkoutPipelineResult,
 } from './rewards';
+
+export {
+  GAME_STATE_PERSISTENCE_FORMAT,
+  DEFAULT_WORLD_ID,
+  PersistenceError,
+  isPersistenceError,
+  encodePersistable,
+  decodePersistable,
+  serializeToJson,
+  deserializeFromJson,
+  jsonRoundTrip,
+  migrateGameStatePayload,
+  hydratePersistedPayload,
+  snapshotGameState,
+  InMemoryGameStateStore,
+  FixedWorldTimeAuthority,
+  resolveAuthoritativeTargetTick,
+  commitAuthoritativePlayerWorld,
+  syncPlayerWorld,
+  SUPABASE_DDL,
+  SupabaseGameStateStore,
+} from './persistence';
+export type {
+  PersistedWorldRecord,
+  GameStateStore,
+  LoadWorldResult,
+  SaveWorldResult,
+  WorldTimeAuthority,
+  SyncPlayerWorldInput,
+  SyncPlayerWorldResult,
+} from './persistence';
+
+export {
+  WORKOUT_HISTORY_FORMAT,
+  InMemoryWorkoutHistoryStore,
+  DEFAULT_HISTORY_LIMIT,
+  toWorkoutHistoryEntry,
+  fitnessHistoryContextFromStore,
+} from './fitness';
+export type {
+  WorkoutHistoryEntry,
+  WorkoutHistoryStore,
+} from './fitness';
 
 

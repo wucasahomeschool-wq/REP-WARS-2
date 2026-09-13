@@ -65,5 +65,5 @@ export type {
   RewardStateChange,
 } from './application';
 
-export { runWorkoutRewardPipeline } from './pipeline/runWorkoutRewardPipeline';
+export { retryPendingWorkoutReward, runWorkoutRewardPipeline } from './pipeline/runWorkoutRewardPipeline';
 export type { WorkoutPipelineResult, WorkoutPipelineOptions } from './pipeline/runWorkoutRewardPipeline';

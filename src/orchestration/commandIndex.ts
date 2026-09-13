@@ -210,6 +210,25 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   }),
 
   cmd({
+    commandId: 'SYNC_PLAYER_WORLD',
+    category: 'WORLD',
+    description:
+      'Catch the local player world up to an authorized targetWorldTick using chunked ADVANCE_WORLD semantics. The authoritative clock, not the client, decides the legal now.',
+    optional: [
+      p('targetWorldTick', 'number', 'Requested tick; rejected if beyond the registered time authority'),
+    ],
+    routesTo: ['imperialEvents', 'aiWarlord', 'state'],
+    changesState: true,
+    possibleErrors: [
+      ErrorCode.ENGINE_UNAVAILABLE,
+      ErrorCode.ENGINE_ERROR,
+      ErrorCode.INVALID_PARAMETER,
+      ErrorCode.INVALID_GAME_STATE,
+      ErrorCode.TIME_UNAUTHORIZED,
+    ],
+    status: 'implemented',
+  }),
+  cmd({
     commandId: 'ADVANCE_WORLD',
     category: 'WORLD',
     description:

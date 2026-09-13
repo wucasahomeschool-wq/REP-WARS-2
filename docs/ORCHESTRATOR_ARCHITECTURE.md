@@ -74,6 +74,7 @@ Machine-readable entries in `src/orchestration/commandIndex.ts`. Each entry incl
 | `SCOUT` | MapEngine (if mapWorld) or faction knowledge | yes |
 | `DECLARE_WAR` | state (relationship → `at_war`) | yes |
 | `NEGOTIATE` | state (small opinion bump) | yes |
+| `EXPAND` | state (unowned claim via local usable military power) | yes |
 | `ADVANCE_WORLD` | ContinuousWorldEngine → AI_DECIDE / RESOLVE_COMMITMENT / WorldSimulator | yes |
 | `AI_DECIDE` | DecisionEngine → sync commitments | yes (commitments only) |
 | `RESOLVE_COMMITMENT` | handler delegates to ATTACK/BUILD/… | yes |
@@ -85,7 +86,7 @@ Machine-readable entries in `src/orchestration/commandIndex.ts`. Each entry incl
 | `OFFER_PEACE` | Current model records offers in memory but does not transition war state |
 | `TRADE` | Current model adjusts opinion/memory but does not exchange resources |
 
-Commitment actions not yet executable (`EXPAND`, `RETREAT`, `MOVE` as AI commitment, etc.) fail with `FEATURE_NOT_IMPLEMENTED` via `RESOLVE_COMMITMENT`.
+Commitment actions `EXPAND`, `RETREAT`, and `MOVE` are executable through `RESOLVE_COMMITMENT` (see `docs/AI_COMMITMENT_EXECUTION.md`). Unsupported catalog entries (`TRADE`, `OFFER_PEACE`) still fail with `FEATURE_NOT_IMPLEMENTED`.
 
 ## Responsibilities
 

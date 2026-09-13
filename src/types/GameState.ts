@@ -406,9 +406,10 @@ export interface GameState {
   attackerCooldowns: Map<FactionId, AttackerCooldown>;
 
   // ---- deferred: not implemented in this repository yet ----
-  // Persistence/version negotiation beyond `schemaVersion` itself
-  // (migrations, save-file compatibility): not built — this pass only
-  // adds the marker future persistence code would need.
+  // Persistence/version negotiation: Phase 17L (`src/persistence/`) stores
+  // a JSON-safe envelope plus a separate workout-history store. GameState
+  // remains the single in-memory authority; `stateVersion` lives on the
+  // persistence envelope, not this type.
 }
 
 /** Initial continuous-clock fields. `worldTick` 0 means no simulation time has elapsed. */

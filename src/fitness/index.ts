@@ -236,3 +236,19 @@ export type {
   PhysicalResultError,
   PhysicalResultOpResult,
 } from './physicalResult';
+export {
+  WORKOUT_HISTORY_FORMAT,
+  InMemoryWorkoutHistoryStore,
+  DEFAULT_HISTORY_LIMIT,
+  toWorkoutHistoryEntry,
+  cloneWorkoutHistoryEntry,
+  fitnessHistoryContextFromStore,
+  persistTerminalSessionHistory,
+} from './history';
+export type {
+  WorkoutHistoryCompletionState,
+  WorkoutHistoryEntry,
+  WorkoutHistoryQuery,
+  SameExerciseQuery,
+  WorkoutHistoryStore,
+} from './history';

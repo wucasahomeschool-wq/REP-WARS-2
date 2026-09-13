@@ -69,9 +69,10 @@ GAMESTATE  (invariants, then commit)
 CommandResponse  (shared BattleResult / state-change fields)
 ```
 
-The command envelope has a `playerId`. Gameplay faction is
-`parameters.factionId` or `GameState.playerFactionId`. The engines never
-see `playerId`.
+The command envelope has a `playerId`. Gameplay faction for player-originated
+commands is `GameState.playerFactionId`. A client-supplied `parameters.factionId`
+cannot select another faction. AI factions act through `AI_DECIDE` /
+`RESOLVE_COMMITMENT` / `ADVANCE_WORLD`. Engines never see `playerId`.
 
 ### 2. AI vs player / AI vs AI
 

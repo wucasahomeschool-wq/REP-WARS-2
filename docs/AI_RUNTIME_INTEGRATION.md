@@ -242,10 +242,10 @@ mid-flight). No exile/comeback mechanic is implied or built — a faction
 that somehow regains a territory or army is simply no longer
 "eliminated" by the same check, automatically.
 
-`celestial_theocracy` in `WARLORD_SPECS` starts eliminated by this
-definition (0 starting territories, 0 starting army) — this is the
-concrete case the audit found and the tests verify against the real
-sample map (`tests/longSimulation.ts`, "already eliminated at tick 0...").
+`celestial_theocracy` is a living SAMPLE_MAP faction (Golden Hills + Eastern
+Hills). Elimination is still derived (`territories.length === 0 &&
+armies.length === 0`); tests cover that with an injected empty faction
+rather than a broken sample start.
 
 ## 11. Personality differentiation
 

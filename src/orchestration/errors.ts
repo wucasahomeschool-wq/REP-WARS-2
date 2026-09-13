@@ -20,6 +20,7 @@ export const ErrorCode = {
   NOT_ADJACENT: 'NOT_ADJACENT',
   FOG_OF_WAR: 'FOG_OF_WAR',
   WORKOUT_SESSION_INVALID: 'WORKOUT_SESSION_INVALID',
+  TIME_UNAUTHORIZED: 'TIME_UNAUTHORIZED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -66,4 +67,5 @@ export const ERROR_CATALOG: Record<ErrorCode, { meaning: string; httpHint?: numb
   NOT_ADJACENT: { meaning: 'Territories are not neighbors' },
   FOG_OF_WAR: { meaning: 'Player cannot see the requested information' },
   WORKOUT_SESSION_INVALID: { meaning: 'No matching active workout session' },
+  TIME_UNAUTHORIZED: { meaning: 'Requested world time is beyond the authoritative clock or would rewind state' },
 };

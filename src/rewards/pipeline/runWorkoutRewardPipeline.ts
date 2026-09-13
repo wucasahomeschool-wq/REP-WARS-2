@@ -12,6 +12,9 @@ import { applyFitnessEvaluation, evaluateFitness } from '../../fitness/estimate/
 import { cloneFitnessEstimate } from '../../fitness/estimate/clone';
 import { FitnessEstimate } from '../../fitness/estimate/types';
 import { evaluateFitnessEvidence } from '../../fitness/evaluation/evaluator';
+import { persistTerminalSessionHistory } from '../../fitness/history/persistSession';
+import { fitnessHistoryContextFromStore } from '../../fitness/history/context';
+import { WorkoutHistoryStore } from '../../fitness/history/types';
 import { calculatePhysicalResult } from '../../fitness/physicalResult/evaluator';
 import { finalizeCompletedWorkout } from '../../fitness/session/summary';
 import { WorkoutSession } from '../../fitness/session/types';
@@ -20,6 +23,7 @@ import { resolveInvasionBattle } from '../../gameplay/invasion/resolve';
 import { isOpenInvasion } from '../../gameplay/invasion/deadlines';
 import { GameState } from '../../types/GameState';
 import { applyGameReward } from '../application/apply';
+import { resolveRewardApplicationId } from '../application/identity';
 import { ApplyGameRewardOutcome, RewardApplicationContext } from '../application/types';
 import { convertGameReward } from '../converter';
 import { cloneGameRewardResult } from '../validation';
@@ -38,6 +42,7 @@ export interface WorkoutPipelineResult {
 
 export interface WorkoutPipelineOptions {
   battle?: BattleEngine;
+  history?: WorkoutHistoryStore | null;
 }
 
 function contextFromSession(session: WorkoutSession, playerId: string): RewardApplicationContext {
@@ -103,6 +108,11 @@ export function runWorkoutRewardPipeline(
   const alreadyApplied = state.playerRewards.appliedRewards.some((record) => record.sessionId === session.sessionId);
   const alreadyEstimated = state.playerFitness.compactHistory.some((entry) => entry.sessionId === session.sessionId);
   if (alreadyApplied && alreadyEstimated) {
+    persistTerminalSessionHistory(options.history, session, {
+      completedAtWorldTick: state.worldTick,
+      rewardApplicationId: state.playerRewards.appliedRewards.find((record) => record.sessionId === session.sessionId)?.applicationId ?? null,
+      rewardKind: state.playerRewards.appliedRewards.find((record) => record.sessionId === session.sessionId)?.kind ?? null,
+    });
     return {
       ok: true,
       alreadyProcessed: true,
@@ -194,10 +204,13 @@ export function runWorkoutRewardPipeline(
     };
   }
 
+  const historicalContext = options.history
+    ? fitnessHistoryContextFromStore(options.history, playerId, evidence.completedAt, session.sessionId)
+    : { now: evidence.completedAt };
   const fitnessUpdate = evaluateFitness({
     previousEstimate: prescriptionEstimate,
     currentEvidence: evidence,
-    historicalContext: { now: evidence.completedAt },
+    historicalContext,
   });
   if (!fitnessUpdate.ok) {
     return {
@@ -242,13 +255,22 @@ export function runWorkoutRewardPipeline(
     : contextFromSession(session, playerId);
 
   const applied = applyGameReward(state, reward, context);
+  const applicationId = resolveRewardApplicationId(reward, context);
 
   if (!applied.ok) {
+    state.playerFitness.activeSession = session;
     state.playerFitness.pendingReward = {
       sessionId: session.sessionId,
       reward: cloneGameRewardResult(converted.value),
       context,
     };
+    persistTerminalSessionHistory(options.history, session, {
+      completedAtWorldTick: state.worldTick,
+      evidence,
+      physicalResult: physical.value,
+      rewardKind: reward.kind,
+      rewardApplicationId: applicationId,
+    });
     return {
       ok: false,
       alreadyProcessed: false,
@@ -286,6 +308,14 @@ export function runWorkoutRewardPipeline(
     }
   }
 
+  persistTerminalSessionHistory(options.history, session, {
+    completedAtWorldTick: state.worldTick,
+    evidence,
+    physicalResult: physical.value,
+    rewardKind: reward.kind,
+    rewardApplicationId: applied.result.applicationId,
+  });
+
   return {
     ok: true,
     alreadyProcessed: applied.result.alreadyApplied === true,
@@ -296,4 +326,43 @@ export function runWorkoutRewardPipeline(
     application: applied,
     invasionOutcome,
   };
+}
+
+/**
+ * Retry a persisted pending reward after reload. Uses the existing
+ * application identity so a successful grant cannot duplicate.
+ */
+export function retryPendingWorkoutReward(
+  state: GameState,
+  playerId: string,
+  options: WorkoutPipelineOptions = {},
+): WorkoutPipelineResult | null {
+  const pending = state.playerFitness.pendingReward;
+  if (!pending) return null;
+  const session = state.playerFitness.activeSession
+    && state.playerFitness.activeSession.sessionId === pending.sessionId
+    ? state.playerFitness.activeSession
+    : null;
+  if (!session) {
+    const applied = applyGameReward(state, pending.reward, pending.context);
+    if (applied.ok && applied.state !== state) {
+      adoptGameState(state, applied.state);
+    }
+    if (applied.ok) {
+      state.playerFitness.pendingReward = null;
+      if (state.playerFitness.activeSession?.sessionId === pending.sessionId) {
+        state.playerFitness.activeSession = null;
+      }
+    }
+    return {
+      ok: applied.ok,
+      alreadyProcessed: applied.ok && applied.result.alreadyApplied === true,
+      state,
+      sessionId: pending.sessionId,
+      purpose: pending.reward.purpose,
+      application: applied,
+      error: applied.ok ? undefined : { code: applied.result.code, message: applied.result.message },
+    };
+  }
+  return runWorkoutRewardPipeline(state, session, playerId, options);
 }

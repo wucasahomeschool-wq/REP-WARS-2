@@ -1,7 +1,9 @@
 import { BattleEngine } from '../battle/BattleEngine';
 import { DecisionEngine } from '../engine/DecisionEngine';
 import { WorldSimulator } from '../events/WorldSimulator';
+import { WorkoutHistoryStore } from '../fitness/history/types';
 import { MapEngine } from '../map/MapEngine';
+import { WorldTimeAuthority } from '../persistence/timeAuthority';
 import { OrchestrationError, ErrorCode } from './errors';
 
 export type EngineId =
@@ -50,6 +52,10 @@ export class EngineRegistry {
   events: WorldSimulator | null = null;
   map: MapEngine | null = null;
   fitness: FitnessEnginePort | null = null;
+  /** Persistence-facing history port. Engines still consume domain data only. */
+  workoutHistory: WorkoutHistoryStore | null = null;
+  /** Authoritative world clock. Clients cannot choose a tick beyond this. */
+  timeAuthority: WorldTimeAuthority | null = null;
 
   registerBattle(engine: BattleEngine): void {
     this.battle = engine;

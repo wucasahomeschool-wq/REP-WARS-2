@@ -69,6 +69,7 @@ import { registerRewardApplicationTests } from './rewardApplication';
 import { registerGameplayConsumptionTests } from './gameplayConsumption';
 import { registerEconomyCitiesTests } from './economyCities';
 import { registerInvasionLifecycleTests } from './invasionLifecycle';
+import { registerPersistenceTests } from './persistence';
 
 let failed = 0;
 let passed = 0;
@@ -3404,6 +3405,8 @@ registerGameplayConsumptionTests({ test });
 registerEconomyCitiesTests({ test });
 
 registerInvasionLifecycleTests({ test });
+
+registerPersistenceTests({ test });
 
 console.log('');
 console.log(`Results: ${passed} passed, ${failed} failed`);

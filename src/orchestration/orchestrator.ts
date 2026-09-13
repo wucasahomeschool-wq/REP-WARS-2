@@ -1,5 +1,6 @@
 import { GameState } from '../types/GameState';
 import { buildWarlordStates, rebindWarlordRuntime } from '../state/gameStateAdapters';
+import { handleSyncPlayerWorld } from '../world/catchup';
 import { getCommandDefinition } from './commandIndex';
 import { createDefaultRegistry, EngineRegistry } from './engineRegistry';
 import { OrchestrationError, ErrorCode, OrchestrationErrorBody } from './errors';
@@ -109,7 +110,9 @@ export class Orchestrator {
         return successResponse(req, requestId, result);
       }
 
-      const mutHandler = MUTATING_HANDLERS[req.commandId];
+      const mutHandler = req.commandId === 'SYNC_PLAYER_WORLD'
+        ? handleSyncPlayerWorld
+        : MUTATING_HANDLERS[req.commandId];
       if (!mutHandler) {
         throw new OrchestrationError(ErrorCode.INVALID_COMMAND, `No mutating handler for ${req.commandId}`);
       }

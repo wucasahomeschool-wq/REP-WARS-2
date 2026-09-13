@@ -213,9 +213,9 @@ does not emit retreat outcomes; `TerritoryOutcome` has no `retreat_required`;
 
 `ActionType.RETREAT` scores pulling a field army **off a territory this
 faction does not own** when locally outnumbered. Armies standing on owned
-land are never RETREAT candidates. The CLI still has no RETREAT execution
-case — movement remains an Orchestrator/execution concern. This pass does
-not redesign army movement.
+land are never RETREAT candidates. Strategic RETREAT executes through the
+Orchestrator (`executeStrategicRetreat` → `handleMove`); it is not a
+battlefield retreat and never calls BattleEngine.
 
 ---
 
