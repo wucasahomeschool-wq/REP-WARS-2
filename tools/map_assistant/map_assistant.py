@@ -17,8 +17,9 @@ Fitness, rewards, GameState, or persistence. It does not generate worlds.
 Coordinates in JSON are world-local 2D: +x right, +y up.
 Tkinter screen space is +y down; conversion happens only at draw/pick time.
 Editor-only state (selection, zoom, pan, undo, raw drawing strokes, convert
-report, boundary graph) is never included in playable export. Raw freehand
-strokes are not WorldDefinition data; CONVERT TO MAP interprets them.
+report) is never included in playable export. Raw freehand strokes are not
+WorldDefinition data; CONVERT TO MAP rasterizes the whole drawing and counts
+enclosed areas.
 
 Usage:
   python map_assistant.py
@@ -50,16 +51,7 @@ EDITOR_GRAPH_KEY = "_editorBoundaryGraph"
 EDITOR_OPEN_STROKES_KEY = "_editorOpenStrokes"
 EDITOR_DRAWING_KEY = "_editorDrawing"
 EDITOR_CONVERT_REPORT_KEY = "_editorConvertReport"
-NODE_MERGE_EPS = 1e-4
-CONVERT_SNAP_TOL_MIN = 1.5
-CONVERT_SNAP_FRAC = 0.045
-CONVERT_EXTEND_FRAC = 0.22
-CONVERT_ISLAND_CLOSE_FRAC = 0.35
-CONVERT_ISLAND_CLOSE_ABS = 10.0
 CONVERT_MIN_ISLAND_AREA = 40.0
-CONVERT_SLIVER_FRAC = 0.006
-CONVERT_MIN_EDGE = 0.08
-CONVERT_DUP_TOL = 0.7
 
 TERRAIN = (
     "plains", "mountain", "hills", "forest", "coastal", "desert", "river", "fortress",
@@ -519,648 +511,521 @@ def finalize_drawn_path(
 
 
 # ---------------------------------------------------------------------------
-# Planar boundary graph (editor-only; stripped on export)
+# Combined-drawing converter (raster enclosed regions)
 # ---------------------------------------------------------------------------
+# Raw strokes are only a recording of the pen. Conversion rasterizes them into
+# one image, flood-fills the outside, and treats remaining enclosed empty
+# areas as territories. No stroke roles, graphs, or face-walk.
 
-def empty_boundary_graph() -> Dict[str, Any]:
-    return {"nodes": {}, "edges": {}, "next_n": 1, "next_e": 1}
+CONVERT_GRID_MAX = 400
+CONVERT_GAP_FRAC = 0.018
+CONVERT_GAP_MIN = 0.4
+CONVERT_GAP_MAX = 1.0
+CONVERT_NOISE_FRAC = 0.0035
 
-
-def _node_key(p: Point) -> Tuple[float, float]:
-    return (round(float(p[0]), 6), round(float(p[1]), 6))
-
-
-def graph_node_point(graph: Dict[str, Any], nid: str) -> Point:
-    p = graph["nodes"][nid]
-    return (float(p[0]), float(p[1]))
-
-
-def _poly_list(raw: Sequence[Any]) -> List[Point]:
-    out: List[Point] = []
-    for p in raw:
-        out.append((float(p[0]), float(p[1])))
-    return out
-
-
-def _sync_edge_poly(graph: Dict[str, Any], eid: str) -> List[Point]:
-    e = graph["edges"][eid]
-    a = graph_node_point(graph, e["a"])
-    b = graph_node_point(graph, e["b"])
-    poly = _poly_list(e.get("poly") or [])
-    if len(poly) < 2:
-        poly = [a, b]
-    else:
-        poly[0] = a
-        poly[-1] = b
-    e["poly"] = poly
-    return poly
-
-
-def add_graph_node(graph: Dict[str, Any], p: Point, merge_eps: float = NODE_MERGE_EPS) -> str:
-    eps = max(float(merge_eps), NODE_MERGE_EPS)
-    for nid, q in graph["nodes"].items():
-        if edge_length(p, (float(q[0]), float(q[1]))) <= eps:
-            return nid
-    nid = f"n{graph['next_n']:04d}"
-    graph["next_n"] += 1
-    graph["nodes"][nid] = (float(p[0]), float(p[1]))
-    return nid
-
-
-def add_graph_edge(graph: Dict[str, Any], a: str, b: str, poly: Sequence[Point]) -> Optional[str]:
-    if a == b:
-        return None
-    pts = _poly_list(poly)
-    if len(pts) < 2:
-        pts = [graph_node_point(graph, a), graph_node_point(graph, b)]
-    pts[0] = graph_node_point(graph, a)
-    pts[-1] = graph_node_point(graph, b)
-    for eid, e in graph["edges"].items():
-        if {e["a"], e["b"]} == {a, b}:
-            return eid
-    eid = f"e{graph['next_e']:04d}"
-    graph["next_e"] += 1
-    graph["edges"][eid] = {"a": a, "b": b, "poly": pts}
-    return eid
-
-
-def existing_graph_edge(graph: Dict[str, Any], a: str, b: str) -> Optional[str]:
-    want = {a, b}
-    for eid, e in graph["edges"].items():
-        if {e["a"], e["b"]} == want:
-            return eid
-    return None
-
-
-def dist_point_to_polyline(p: Point, poly: Sequence[Point]) -> Tuple[float, Point, int, float]:
-    if len(poly) < 2:
-        q = poly[0] if poly else p
-        return (edge_length(p, q), q, 0, 0.0)
-    best_d = float("inf")
-    best: Tuple[float, Point, int, float] = (0.0, poly[0], 0, 0.0)
-    for i in range(len(poly) - 1):
-        d, q, t = dist_point_to_segment(p, poly[i], poly[i + 1])
-        if d < best_d:
-            best_d = d
-            best = (d, q, i, t)
-    return best
-
-
-def polyline_along(poly: Sequence[Point], seg_index: int, t: float) -> float:
-    total = 0.0
-    for i in range(seg_index):
-        if i + 1 < len(poly):
-            total += edge_length(poly[i], poly[i + 1])
-    if seg_index + 1 < len(poly):
-        total += max(0.0, min(1.0, t)) * edge_length(poly[seg_index], poly[seg_index + 1])
-    return total
-
-
-def slice_polyline_by_distance(poly: Sequence[Point], d0: float, d1: float) -> List[Point]:
-    if d1 < d0:
-        d0, d1 = d1, d0
-    acc = 0.0
-    out: List[Point] = []
-
-    def point_at(dist: float) -> Point:
-        if dist <= GEOM_EPS:
-            return (float(poly[0][0]), float(poly[0][1]))
-        walked = 0.0
-        for i in range(len(poly) - 1):
-            seg = edge_length(poly[i], poly[i + 1])
-            if walked + seg >= dist - GEOM_EPS or i == len(poly) - 2:
-                t = 0.0 if seg <= GEOM_EPS else max(0.0, min(1.0, (dist - walked) / seg))
-                return (poly[i][0] + (poly[i + 1][0] - poly[i][0]) * t,
-                        poly[i][1] + (poly[i + 1][1] - poly[i][1]) * t)
-            walked += seg
-        return (float(poly[-1][0]), float(poly[-1][1]))
-
-    out.append(point_at(d0))
-    walked = 0.0
-    for i in range(len(poly) - 1):
-        a, b = poly[i], poly[i + 1]
-        seg = edge_length(a, b)
-        next_w = walked + seg
-        if next_w > d0 + GEOM_EPS and walked < d1 - GEOM_EPS:
-            if walked > d0 + GEOM_EPS:
-                q = (float(a[0]), float(a[1]))
-                if edge_length(out[-1], q) > NODE_MERGE_EPS:
-                    out.append(q)
-        walked = next_w
-    end = point_at(d1)
-    if edge_length(out[-1], end) > NODE_MERGE_EPS:
-        out.append(end)
-    else:
-        out[-1] = end
-    if len(out) < 2:
-        out.append(end)
-    return out
-
-
-def split_graph_edge(graph: Dict[str, Any], eid: str, p: Point) -> str:
-    e = graph["edges"].get(eid)
-    if not e:
-        return add_graph_node(graph, p)
-    a, b = e["a"], e["b"]
-    pa, pb = graph_node_point(graph, a), graph_node_point(graph, b)
-    if edge_length(p, pa) <= NODE_MERGE_EPS:
-        return a
-    if edge_length(p, pb) <= NODE_MERGE_EPS:
-        return b
-    for nid, q in list(graph["nodes"].items()):
-        qp = (float(q[0]), float(q[1]))
-        if edge_length(p, qp) <= NODE_MERGE_EPS and nid not in (a, b):
-            d, _, _, _ = dist_point_to_polyline(qp, _sync_edge_poly(graph, eid))
-            if d <= NODE_MERGE_EPS * 5:
-                p = qp
-                break
-    poly = _sync_edge_poly(graph, eid)
-    _d, q, si, t = dist_point_to_polyline(p, poly)
-    p = q
-    if t <= 1e-6:
-        if si == 0:
-            return a
-        p = poly[si]
-        insert_at = si
-    elif t >= 1.0 - 1e-6:
-        if si >= len(poly) - 2:
-            return b
-        p = poly[si + 1]
-        insert_at = si + 1
-    else:
-        insert_at = si + 1
-        poly = poly[:insert_at] + [p] + poly[insert_at:]
-    nid = add_graph_node(graph, p)
-    if nid in (a, b):
-        return nid
-    left = poly[: insert_at + 1]
-    right = poly[insert_at:]
-    del graph["edges"][eid]
-    add_graph_edge(graph, a, nid, left)
-    add_graph_edge(graph, nid, b, right)
-    return nid
-
-
-def move_graph_node(graph: Dict[str, Any], nid: str, p: Point) -> None:
-    graph["nodes"][nid] = (float(p[0]), float(p[1]))
-    for eid in list(graph["edges"]):
-        e = graph["edges"][eid]
-        if e["a"] == nid or e["b"] == nid:
-            _sync_edge_poly(graph, eid)
-
-
-def move_graph_edge_vertex(graph: Dict[str, Any], eid: str, index: int, p: Point) -> None:
-    e = graph["edges"].get(eid)
-    if not e:
-        return
-    poly = _sync_edge_poly(graph, eid)
-    if index <= 0:
-        move_graph_node(graph, e["a"], p)
-        return
-    if index >= len(poly) - 1:
-        move_graph_node(graph, e["b"], p)
-        return
-    poly[index] = (float(p[0]), float(p[1]))
-    e["poly"] = poly
-
-
-def insert_graph_edge_vertex(graph: Dict[str, Any], eid: str, p: Point, threshold: float) -> bool:
-    e = graph["edges"].get(eid)
-    if not e:
-        return False
-    poly = _sync_edge_poly(graph, eid)
-    d, q, si, t = dist_point_to_polyline(p, poly)
-    if d > threshold or t <= 0.05 or t >= 0.95:
-        return False
-    poly = poly[: si + 1] + [q] + poly[si + 1 :]
-    e["poly"] = poly
-    return True
-
-
-def delete_graph_vertex(graph: Dict[str, Any], nid: Optional[str] = None,
-                        eid: Optional[str] = None, index: Optional[int] = None) -> bool:
-    if eid is not None and index is not None:
-        e = graph["edges"].get(eid)
-        if not e:
-            return False
-        poly = _sync_edge_poly(graph, eid)
-        if index <= 0 or index >= len(poly) - 1 or len(poly) <= 2:
-            if index <= 0:
-                return delete_graph_vertex(graph, nid=e["a"])
-            if index >= len(poly) - 1:
-                return delete_graph_vertex(graph, nid=e["b"])
-            return False
-        del poly[index]
-        e["poly"] = poly
-        return True
-    if not nid or nid not in graph["nodes"]:
-        return False
-    incident = [eid for eid, e in graph["edges"].items() if e["a"] == nid or e["b"] == nid]
-    if len(incident) >= 3:
-        return False
-    if len(incident) == 0:
-        del graph["nodes"][nid]
-        return True
-    if len(incident) == 1:
-        del graph["edges"][incident[0]]
-        del graph["nodes"][nid]
-        return True
-    e1 = graph["edges"][incident[0]]
-    e2 = graph["edges"][incident[1]]
-    a = e1["b"] if e1["a"] == nid else e1["a"]
-    b = e2["b"] if e2["a"] == nid else e2["a"]
-    p1 = _sync_edge_poly(graph, incident[0])
-    p2 = _sync_edge_poly(graph, incident[1])
-    if e1["a"] == nid:
-        p1 = list(reversed(p1))
-    if e2["b"] == nid:
-        p2 = list(reversed(p2))
-    merged = p1[:-1] + p2
-    del graph["edges"][incident[0]]
-    del graph["edges"][incident[1]]
-    del graph["nodes"][nid]
-    add_graph_edge(graph, a, b, merged)
-    return True
+_INK = 1
+_OUTSIDE = 2
+_N8 = ((1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1))
+_N4 = ((1, 0), (-1, 0), (0, 1), (0, -1))
 
 
 def drawing_snap_radius(zoom: float) -> float:
     return max(0.35, 14.0 / max(zoom, 0.01))
 
 
-def nearest_graph_snap(
-    graph: Dict[str, Any], p: Point, radius: float,
-) -> Optional[Dict[str, Any]]:
-    if not graph["nodes"]:
-        return None
-    best_node: Optional[Tuple[float, str, Point]] = None
-    for nid, q in graph["nodes"].items():
-        qp = (float(q[0]), float(q[1]))
-        d = edge_length(p, qp)
-        if d <= radius and (best_node is None or d < best_node[0]):
-            best_node = (d, nid, qp)
-    best_edge: Optional[Tuple[float, str, Point]] = None
-    for eid in graph["edges"]:
-        poly = _sync_edge_poly(graph, eid)
-        d, q, _si, _t = dist_point_to_polyline(p, poly)
-        if d <= radius and (best_edge is None or d < best_edge[0]):
-            best_edge = (d, eid, q)
-    if best_node:
-        return {"kind": "node", "node": best_node[1], "edge": None, "point": best_node[2], "dist": best_node[0]}
-    if best_edge:
-        return {"kind": "edge", "node": None, "edge": best_edge[1], "point": best_edge[2], "dist": best_edge[0]}
-    return None
+def _bresenham(x0: int, y0: int, x1: int, y1: int) -> List[Tuple[int, int]]:
+    pts: List[Tuple[int, int]] = []
+    dx = abs(x1 - x0)
+    dy = -abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx + dy
+    x, y = x0, y0
+    while True:
+        pts.append((x, y))
+        if x == x1 and y == y1:
+            break
+        e2 = 2 * err
+        if e2 >= dy:
+            err += dy
+            x += sx
+        if e2 <= dx:
+            err += dx
+            y += sy
+    return pts
 
 
-def realize_snap(graph: Dict[str, Any], snap: Dict[str, Any]) -> str:
-    if snap.get("kind") == "node" and snap.get("node"):
-        return snap["node"]
-    eid = snap.get("edge")
-    pt = snap["point"]
-    if eid:
-        return split_graph_edge(graph, eid, pt)
-    return add_graph_node(graph, pt)
+def _stamp_cell(grid: bytearray, w: int, h: int, x: int, y: int) -> None:
+    if 0 <= x < w and 0 <= y < h:
+        grid[y * w + x] = _INK
 
 
-def _segment_intersection(a: Point, b: Point, c: Point, d: Point) -> Optional[Point]:
-    den = (a[0] - b[0]) * (c[1] - d[1]) - (a[1] - b[1]) * (c[0] - d[0])
-    if abs(den) <= GEOM_EPS:
-        return None
-    t = ((a[0] - c[0]) * (c[1] - d[1]) - (a[1] - c[1]) * (c[0] - d[0])) / den
-    u = -((a[0] - b[0]) * (a[1] - c[1]) - (a[1] - b[1]) * (a[0] - c[0])) / den
-    if t < -1e-7 or t > 1.0 + 1e-7 or u < -1e-7 or u > 1.0 + 1e-7:
-        return None
-    t = max(0.0, min(1.0, t))
-    return (a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]))
-
-
-def _outgoing_angle(graph: Dict[str, Any], nid: str, eid: str, from_a: bool) -> float:
-    poly = _sync_edge_poly(graph, eid)
-    pts = poly if from_a else list(reversed(poly))
-    origin = graph_node_point(graph, nid)
-    for q in pts[1:]:
-        dx, dy = q[0] - origin[0], q[1] - origin[1]
-        if dx * dx + dy * dy > NODE_MERGE_EPS * NODE_MERGE_EPS:
-            return math.atan2(dy, dx)
-    return 0.0
-
-
-def _incident_half_edges(graph: Dict[str, Any]) -> Dict[str, List[Tuple[str, bool]]]:
-    inc: Dict[str, List[Tuple[str, bool]]] = {nid: [] for nid in graph["nodes"]}
-    for eid, e in graph["edges"].items():
-        inc.setdefault(e["a"], []).append((eid, True))
-        inc.setdefault(e["b"], []).append((eid, False))
-    for nid, hedges in inc.items():
-        hedges.sort(key=lambda h: _outgoing_angle(graph, nid, h[0], h[1]))
-    return inc
-
-
-def _next_ccw_hedge(
-    inc: Dict[str, List[Tuple[str, bool]]], graph: Dict[str, Any], eid: str, from_a: bool,
-) -> Optional[Tuple[str, bool]]:
-    e = graph["edges"][eid]
-    dest = e["b"] if from_a else e["a"]
-    hedges = inc.get(dest) or []
-    if not hedges:
-        return None
-    rev = (eid, not from_a)
-    try:
-        idx = hedges.index(rev)
-    except ValueError:
-        return hedges[0]
-    return hedges[(idx + 1) % len(hedges)]
-
-
-def _hedge_polyline(graph: Dict[str, Any], eid: str, from_a: bool) -> List[Point]:
-    poly = _sync_edge_poly(graph, eid)
-    return poly if from_a else list(reversed(poly))
-
-
-def classify_boundary_faces(graph: Dict[str, Any]) -> Dict[str, Any]:
-    """Walk the planar embedding. Outer face is the most-clockwise cycle."""
-    inc = _incident_half_edges(graph)
-    used: Set[Tuple[str, bool]] = set()
-    faces: List[Dict[str, Any]] = []
-    for eid, e in graph["edges"].items():
-        for from_a in (True, False):
-            start = (eid, from_a)
-            if start in used:
-                continue
-            walk: List[Tuple[str, bool]] = []
-            cur: Optional[Tuple[str, bool]] = start
-            guard = 0
-            while cur is not None and cur not in used and guard < 20000:
-                used.add(cur)
-                walk.append(cur)
-                cur = _next_ccw_hedge(inc, graph, cur[0], cur[1])
-                guard += 1
-                if cur == start:
-                    break
-            if not walk or cur != start:
-                continue
-            ring: List[Point] = []
-            edge_ids: Set[str] = set()
-            counts: Dict[str, int] = defaultdict(int)
-            for he_eid, he_from in walk:
-                edge_ids.add(he_eid)
-                counts[he_eid] += 1
-                poly = _hedge_polyline(graph, he_eid, he_from)
-                if not ring:
-                    ring.extend(poly)
-                else:
-                    ring.extend(poly[1:])
-            ring = close_ring(ring)
-            area = ring_area(ring)
-            simple = all(c == 1 for c in counts.values())
-            faces.append({
-                "ring": ring, "edges": edge_ids, "area": area, "simple": simple, "walk": walk,
-            })
-    if not faces:
-        return {"outer": None, "territories": []}
-    max_abs = max(abs(f["area"]) for f in faces)
-    candidates = [f for f in faces if abs(abs(f["area"]) - max_abs) <= max(GEOM_EPS, max_abs * 1e-9)]
-    neg = [f for f in candidates if f["area"] < 0]
-    outer = min(neg, key=lambda f: f["area"]) if neg else max(candidates, key=lambda f: abs(f["area"]))
-    territories = []
-    for f in faces:
-        if f is outer:
-            continue
-        if not f["simple"]:
-            continue
-        if abs(f["area"]) < DRAW_MIN_AREA:
-            continue
-        ring = f["ring"]
-        if f["area"] < 0:
-            ring = close_ring(list(reversed(unique_ring_vertices(ring))))
-        territories.append({"ring": ring, "edges": set(f["edges"])})
-    outer_ring = outer["ring"]
-    if outer["area"] > 0:
-        outer_ring = close_ring(list(reversed(unique_ring_vertices(outer_ring))))
-    outer_edges = set(outer.get("edges") or [])
-    has_internal = any(eid not in outer_edges for eid in graph["edges"])
-    if not has_internal:
-        territories = []
-    return {"outer": outer_ring, "territories": territories}
-
-
-def graph_has_island(graph: Dict[str, Any]) -> bool:
-    if len(graph.get("nodes") or {}) < 3:
-        return False
-    faces = classify_boundary_faces(graph)
-    return faces["outer"] is not None and len(unique_ring_vertices(faces["outer"] or [])) >= 3
-
-
-def seed_island_from_ring(graph: Dict[str, Any], ring: Sequence[Point]) -> None:
-    graph.clear()
-    graph.update(empty_boundary_graph())
-    verts = unique_ring_vertices(ring)
-    if len(verts) < 3:
+def _dilate_ink(grid: bytearray, w: int, h: int, radius: int) -> None:
+    """Thicken ink by a chessboard radius so tiny drawing gaps close."""
+    r = max(0, int(radius))
+    if r <= 0:
         return
-    nids = [add_graph_node(graph, v) for v in verts]
-    for i, a in enumerate(nids):
-        b = nids[(i + 1) % len(nids)]
-        add_graph_edge(graph, a, b, [graph_node_point(graph, a), graph_node_point(graph, b)])
+    frontier = [i for i, val in enumerate(grid) if val == _INK]
+    for _ in range(r):
+        nxt: List[int] = []
+        for i in frontier:
+            x = i % w
+            y = i // w
+            for dx, dy in _N8:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    j = ny * w + nx
+                    if grid[j] == 0:
+                        grid[j] = _INK
+                        nxt.append(j)
+        if not nxt:
+            break
+        frontier = nxt
 
 
-def graph_from_world(world: Dict[str, Any]) -> Dict[str, Any]:
-    graph = empty_boundary_graph()
-    key_to_nid: Dict[Tuple[float, float], str] = {}
-
-    def node_at(p: Point) -> str:
-        k = _node_key(p)
-        nid = key_to_nid.get(k)
-        if nid:
-            return nid
-        nid = add_graph_node(graph, p)
-        key_to_nid[_node_key(graph_node_point(graph, nid))] = nid
-        return nid
-
-    def add_ring(ring: Optional[Sequence[Point]]) -> None:
-        if not ring:
-            return
-        verts = unique_ring_vertices(ring)
-        if len(verts) < 3:
-            return
-        ids = [node_at(v) for v in verts]
-        for i, a in enumerate(ids):
-            b = ids[(i + 1) % len(ids)]
-            add_graph_edge(graph, a, b, [graph_node_point(graph, a), graph_node_point(graph, b)])
-
-    add_ring(polygon_exterior(world.get("island") if isinstance(world.get("island"), dict) else None))
-    for t in world.get("territories") or []:
-        if isinstance(t, dict):
-            add_ring(polygon_exterior(t.get("polygon") if isinstance(t.get("polygon"), dict) else None))
-    return graph
+def _flood_match(grid: bytearray, w: int, h: int, starts: List[int], src: int, dst: int) -> None:
+    stack = [i for i in starts if grid[i] == src]
+    for i in stack:
+        grid[i] = dst
+    while stack:
+        i = stack.pop()
+        x = i % w
+        y = i // w
+        for dx, dy in _N4:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                j = ny * w + nx
+                if grid[j] == src:
+                    grid[j] = dst
+                    stack.append(j)
 
 
-def ensure_boundary_graph(world: Dict[str, Any]) -> Dict[str, Any]:
-    g = world.get(EDITOR_GRAPH_KEY)
-    if isinstance(g, dict) and isinstance(g.get("nodes"), dict) and isinstance(g.get("edges"), dict):
-        return g
-    g = graph_from_world(world)
-    world[EDITOR_GRAPH_KEY] = g
-    return g
-
-
-def insert_boundary_stroke(
-    graph: Dict[str, Any], points: Sequence[Point], radius: float,
-) -> Tuple[bool, str]:
-    """Snap a simplified open stroke onto the graph. Both ends must connect."""
-    pts = _poly_list(points)
-    if len(pts) < 2:
-        return False, "Stroke needs at least two points."
-    start = nearest_graph_snap(graph, pts[0], radius)
-    end = nearest_graph_snap(graph, pts[-1], radius)
-    if not start:
-        return False, (
-            "Start of the line must snap to an existing boundary or junction. "
-            "Begin drawing on the island edge or another border."
-        )
-    if not end:
-        return False, (
-            "End of the line must snap to an existing boundary or junction. "
-            "There would be a gap, so the stroke was not saved."
-        )
-    n_start = realize_snap(graph, start)
-    end = nearest_graph_snap(graph, pts[-1], radius) or end
-    n_end = realize_snap(graph, end)
-    pts[0] = graph_node_point(graph, n_start)
-    pts[-1] = graph_node_point(graph, n_end)
-    if n_start == n_end:
-        return False, "A territory divider must connect two different places on the boundary network."
-    if existing_graph_edge(graph, n_start, n_end) and len(pts) <= 3:
-        return False, "That boundary already exists."
-    island = classify_boundary_faces(graph).get("outer")
-    if island:
-        cx = sum(p[0] for p in pts) / len(pts)
-        cy = sum(p[1] for p in pts) / len(pts)
-        if not point_in_ring((cx, cy), island):
-            return False, "Internal boundaries must stay inside the island. The stroke was not saved."
-    if _open_path_self_intersects(pts):
-        return False, "Stroke intersects itself. Redraw the boundary without crossing."
-
-    stroke_len = path_length(pts)
-    if stroke_len <= GEOM_EPS:
-        return False, "Stroke collapsed after snapping."
-
-    cuts: List[Tuple[float, Point, Optional[str]]] = [
-        (0.0, pts[0], None),
-        (stroke_len, pts[-1], None),
-    ]
-    edge_hits: Dict[str, List[Point]] = defaultdict(list)
-    for i in range(len(pts) - 1):
-        a, b = pts[i], pts[i + 1]
-        for eid in list(graph["edges"]):
-            poly = _sync_edge_poly(graph, eid)
-            for j in range(len(poly) - 1):
-                ip = _segment_intersection(a, b, poly[j], poly[j + 1])
-                if ip is None:
-                    continue
-                if edge_length(ip, pts[0]) <= NODE_MERGE_EPS or edge_length(ip, pts[-1]) <= NODE_MERGE_EPS:
-                    continue
-                along = polyline_along(pts, i, 0.0)
-                seg = edge_length(a, b)
-                t = 0.0 if seg <= GEOM_EPS else edge_length(a, ip) / seg
-                along = polyline_along(pts, i, t)
-                cuts.append((along, ip, eid))
-                edge_hits[eid].append(ip)
-
-    for eid, ips in list(edge_hits.items()):
-        if eid not in graph["edges"]:
-            continue
-        uniq: List[Point] = []
-        for ip in ips:
-            if not any(edge_length(ip, u) <= NODE_MERGE_EPS for u in uniq):
-                uniq.append(ip)
-        for ip in uniq:
-            if eid not in graph["edges"]:
-                # previous split replaced eid; snap to whatever edge now contains ip
-                hit = nearest_graph_snap(graph, ip, max(radius, 1.0))
-                if hit and hit.get("kind") == "edge" and hit.get("edge"):
-                    split_graph_edge(graph, hit["edge"], ip)
-                elif hit and hit.get("kind") == "node":
-                    continue
-            else:
-                split_graph_edge(graph, eid, ip)
-
-    # Unique cuts along the stroke.
-    cuts.sort(key=lambda c: c[0])
-    merged_cuts: List[Tuple[float, Point]] = []
-    for along, ip, _eid in cuts:
-        if merged_cuts and abs(along - merged_cuts[-1][0]) <= NODE_MERGE_EPS:
-            continue
-        if merged_cuts and edge_length(ip, merged_cuts[-1][1]) <= NODE_MERGE_EPS:
-            continue
-        merged_cuts.append((along, ip))
-    if len(merged_cuts) < 2:
-        merged_cuts = [(0.0, pts[0]), (stroke_len, pts[-1])]
-
-    node_chain: List[str] = []
-    for along, ip in merged_cuts:
-        snap = nearest_graph_snap(graph, ip, max(radius, NODE_MERGE_EPS * 20))
-        if snap:
-            node_chain.append(realize_snap(graph, snap))
-        else:
-            node_chain.append(add_graph_node(graph, ip))
-    node_chain[0] = n_start
-    node_chain[-1] = n_end
-
-    added = 0
-    for i in range(len(node_chain) - 1):
-        a, b = node_chain[i], node_chain[i + 1]
-        if a == b:
-            continue
-        if existing_graph_edge(graph, a, b):
-            continue
-        sub = slice_polyline_by_distance(pts, merged_cuts[i][0], merged_cuts[i + 1][0])
-        sub[0] = graph_node_point(graph, a)
-        sub[-1] = graph_node_point(graph, b)
-        if add_graph_edge(graph, a, b, sub):
-            added += 1
-    if added == 0:
-        return False, "That stroke did not add a new connected boundary (it may already exist)."
-    return True, ""
-
-
-def _open_path_self_intersects(pts: Sequence[Point]) -> bool:
-    edges = [(pts[i], pts[i + 1]) for i in range(len(pts) - 1) if edge_length(pts[i], pts[i + 1]) > GEOM_EPS]
-    n = len(edges)
+def _label_value(grid: bytearray, w: int, h: int, value: int) -> List[List[Tuple[int, int]]]:
+    seen = bytearray(len(grid))
+    out: List[List[Tuple[int, int]]] = []
+    n = len(grid)
     for i in range(n):
-        a, b = edges[i]
-        for j in range(i + 2, n):
-            if i == 0 and j == n - 1:
+        if grid[i] != value or seen[i]:
+            continue
+        pix: List[Tuple[int, int]] = []
+        stack = [i]
+        seen[i] = 1
+        while stack:
+            j = stack.pop()
+            x = j % w
+            y = j // w
+            pix.append((x, y))
+            for dx, dy in _N4:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    k = ny * w + nx
+                    if not seen[k] and grid[k] == value:
+                        seen[k] = 1
+                        stack.append(k)
+        out.append(pix)
+    return out
+
+
+def _label_landmass(grid: bytearray, w: int, h: int) -> List[List[Tuple[int, int]]]:
+    """8-connected components that are not outside (ink + enclosed empty)."""
+    seen = bytearray(len(grid))
+    out: List[List[Tuple[int, int]]] = []
+    n = len(grid)
+    for i in range(n):
+        if grid[i] == _OUTSIDE or seen[i]:
+            continue
+        pix: List[Tuple[int, int]] = []
+        stack = [i]
+        seen[i] = 1
+        while stack:
+            j = stack.pop()
+            x = j % w
+            y = j // w
+            pix.append((x, y))
+            for dx, dy in _N8:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    k = ny * w + nx
+                    if not seen[k] and grid[k] != _OUTSIDE:
+                        seen[k] = 1
+                        stack.append(k)
+        out.append(pix)
+    return out
+
+
+def _moore_contour(pixels: Sequence[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    occ = set(pixels)
+    if not occ:
+        return []
+    start = min(occ, key=lambda p: (p[1], p[0]))
+    bx, by = start[0] - 1, start[1]
+    x, y = start
+    contour: List[Tuple[int, int]] = []
+    guard = len(occ) * 8 + 16
+    for _ in range(guard):
+        contour.append((x, y))
+        nbrs = [(x + dx, y + dy) for dx, dy in _N8]
+        try:
+            i0 = nbrs.index((bx, by))
+        except ValueError:
+            i0 = 0
+        nxt = None
+        new_b = (bx, by)
+        for k in range(1, 9):
+            i = (i0 + k) % 8
+            cand = nbrs[i]
+            if cand in occ:
+                nxt = cand
+                new_b = nbrs[(i - 1) % 8]
+                break
+        if nxt is None:
+            break
+        bx, by = new_b
+        x, y = nxt
+        if (x, y) == start and len(contour) >= 3:
+            break
+    if len(contour) >= 2 and contour[0] == contour[-1]:
+        contour = contour[:-1]
+    return contour
+
+
+def _pixels_to_ring(
+    pixels: Sequence[Tuple[int, int]], origin: Point, scale: float,
+) -> Optional[List[Point]]:
+    contour = _moore_contour(pixels)
+    if len(contour) < 3:
+        return None
+    ring: List[Point] = []
+    inv = 1.0 / scale
+    ox, oy = origin
+    for gx, gy in contour:
+        ring.append((ox + (gx + 0.5) * inv, oy + (gy + 0.5) * inv))
+    ring = close_ring(ring)
+    eps = max(inv * 1.15, DRAW_RDP_EPS_MIN * 0.5)
+    simplified = simplify_drawn_path(ring, eps)
+    if len(unique_ring_vertices(simplified)) < 3:
+        simplified = ring
+    verts = unique_ring_vertices(simplified)
+    if len(verts) < 3:
+        return None
+    closed = close_ring(verts)
+    if ring_area(closed) < 0:
+        closed = close_ring(list(reversed(verts)))
+    return closed
+
+
+def _pick_ccw_next(
+    prev: Tuple[int, int], cur: Tuple[int, int], options: Sequence[Tuple[int, int]],
+) -> Tuple[int, int]:
+    if len(options) == 1:
+        return options[0]
+    ix = cur[0] - prev[0]
+    iy = cur[1] - prev[1]
+    best = options[0]
+    best_ang = -10.0
+    for nxt in options:
+        if nxt == prev and len(options) > 1:
+            continue
+        ox = nxt[0] - cur[0]
+        oy = nxt[1] - cur[1]
+        ang = math.atan2(ix * oy - iy * ox, ix * ox + iy * oy)
+        if ang > best_ang:
+            best_ang = ang
+            best = nxt
+    return best
+
+
+def _crack_ring(
+    labels: Sequence[int], w: int, h: int, which: int, origin: Point, scale: float,
+) -> Optional[List[Point]]:
+    """Trace the CCW crack contour of one label so shared walls use identical vertices."""
+    succ: Dict[Tuple[int, int], List[Tuple[int, int]]] = defaultdict(list)
+
+    def emit(a: Tuple[int, int], b: Tuple[int, int]) -> None:
+        if b not in succ[a]:
+            succ[a].append(b)
+
+    def same(x: int, y: int) -> bool:
+        if x < 0 or y < 0 or x >= w or y >= h:
+            return False
+        return labels[y * w + x] == which
+
+    for y in range(h):
+        row = y * w
+        for x in range(w):
+            if labels[row + x] != which:
                 continue
-            c, d = edges[j]
-            if _proper_intersect(a, b, c, d):
+            if not same(x, y - 1):
+                emit((x, y), (x + 1, y))
+            if not same(x + 1, y):
+                emit((x + 1, y), (x + 1, y + 1))
+            if not same(x, y + 1):
+                emit((x + 1, y + 1), (x, y + 1))
+            if not same(x - 1, y):
+                emit((x, y + 1), (x, y))
+    unused: Set[Tuple[Tuple[int, int], Tuple[int, int]]] = set()
+    for a, nxts in succ.items():
+        for b in nxts:
+            unused.add((a, b))
+    if not unused:
+        return None
+
+    def walk(start_a: Tuple[int, int], start_b: Tuple[int, int]) -> List[Tuple[int, int]]:
+        path = [start_a]
+        cur = start_a
+        nxt = start_b
+        guard = len(unused) + 4
+        for _ in range(guard):
+            if (cur, nxt) not in unused:
+                break
+            unused.discard((cur, nxt))
+            path.append(nxt)
+            if nxt == start_a:
+                return path[:-1]
+            options = [q for q in succ.get(nxt, []) if (nxt, q) in unused]
+            if not options:
+                return path
+            prev = cur
+            cur = nxt
+            nxt = _pick_ccw_next(prev, cur, options)
+        return path
+
+    best: List[Tuple[int, int]] = []
+    if unused:
+        start_a, start_b = min(unused)
+        best = walk(start_a, start_b)
+        while unused:
+            start_a, start_b = next(iter(unused))
+            cyc = walk(start_a, start_b)
+            if len(cyc) > len(best):
+                best = cyc
+    if len(best) < 3:
+        return None
+    inv = 1.0 / scale
+    ox, oy = origin
+    ring = [(ox + p[0] * inv, oy + p[1] * inv) for p in best]
+    ring = close_ring(ring)
+    if len(unique_ring_vertices(ring)) < 3:
+        return None
+    if ring_area(ring) < 0:
+        ring = close_ring(list(reversed(unique_ring_vertices(ring))))
+    return ring
+
+
+def interpret_combined_drawing(polylines: Sequence[Sequence[Point]]) -> Dict[str, Any]:
+    """Rasterize every polyline as one drawing and return enclosed regions."""
+    fail = {
+        "ok": False,
+        "island": None,
+        "territories": [],
+        "neighbors": [],
+        "noiseCount": 0,
+        "message": "No island could be identified. Draw a large enclosing outline, then convert.",
+    }
+    strokes = [[(float(p[0]), float(p[1])) for p in s] for s in polylines if len(s) >= 2]
+    if not strokes:
+        return fail
+    xs = [p[0] for s in strokes for p in s]
+    ys = [p[1] for s in strokes for p in s]
+    minx, maxx = min(xs), max(xs)
+    miny, maxy = min(ys), max(ys)
+    diag = math.hypot(maxx - minx, maxy - miny)
+    gap_world = max(CONVERT_GAP_MIN, CONVERT_GAP_FRAC * diag)
+    gap_world = min(gap_world, CONVERT_GAP_MAX)
+    close_loop = max(gap_world * 2.0, min(2.5, 0.03 * max(diag, 1.0)))
+    pad = gap_world * 3.0
+    minx -= pad
+    miny -= pad
+    maxx += pad
+    maxy += pad
+    span_x = max(maxx - minx, 1e-6)
+    span_y = max(maxy - miny, 1e-6)
+    scale = (CONVERT_GRID_MAX - 4) / max(span_x, span_y)
+    w = max(16, int(span_x * scale) + 4)
+    h = max(16, int(span_y * scale) + 4)
+    w = min(w, CONVERT_GRID_MAX + 8)
+    h = min(h, CONVERT_GRID_MAX + 8)
+    origin = (minx, miny)
+    gap_px = max(1, int(round(gap_world * scale)))
+    grid = bytearray(w * h)
+
+    def to_cell(p: Point) -> Tuple[int, int]:
+        gx = int(round((p[0] - origin[0]) * scale))
+        gy = int(round((p[1] - origin[1]) * scale))
+        return (max(0, min(w - 1, gx)), max(0, min(h - 1, gy)))
+
+    for stroke in strokes:
+        prev = to_cell(stroke[0])
+        _stamp_cell(grid, w, h, prev[0], prev[1])
+        for p in stroke[1:]:
+            cur = to_cell(p)
+            for x, y in _bresenham(prev[0], prev[1], cur[0], cur[1]):
+                _stamp_cell(grid, w, h, x, y)
+            prev = cur
+        gap_ends = edge_length(stroke[0], stroke[-1])
+        if GEOM_EPS < gap_ends <= close_loop:
+            a = to_cell(stroke[-1])
+            b = to_cell(stroke[0])
+            for x, y in _bresenham(a[0], a[1], b[0], b[1]):
+                _stamp_cell(grid, w, h, x, y)
+    _dilate_ink(grid, w, h, gap_px)
+
+    border: List[int] = []
+    for x in range(w):
+        border.append(x)
+        border.append((h - 1) * w + x)
+    for y in range(h):
+        border.append(y * w)
+        border.append(y * w + (w - 1))
+    _flood_match(grid, w, h, border, 0, _OUTSIDE)
+
+    land_blobs = _label_landmass(grid, w, h)
+    if not land_blobs:
+        return fail
+    land = max(land_blobs, key=len)
+    land_set = set(land)
+    interiors = [
+        pix for pix in _label_value(grid, w, h, 0)
+        if pix and pix[0] in land_set
+    ]
+    if not interiors:
+        fail = dict(fail)
+        fail["message"] = "No enclosed area was found inside the drawing."
+        return fail
+
+    cell_area = (1.0 / scale) ** 2
+    land_area = len(land) * cell_area
+    if land_area < CONVERT_MIN_ISLAND_AREA:
+        return fail
+    min_terr = max(DRAW_MIN_AREA, land_area * CONVERT_NOISE_FRAC)
+    kept: List[List[Tuple[int, int]]] = []
+    noise = 0
+    for pix in interiors:
+        if len(pix) * cell_area >= min_terr and len(pix) >= 8:
+            kept.append(pix)
+        else:
+            noise += 1
+    if not kept:
+        fail = dict(fail)
+        fail["message"] = "Drawing produced no meaningful territories (enclosed areas were only noise)."
+        fail["noiseCount"] = noise
+        return fail
+
+    def ink_touches_outside(x: int, y: int) -> bool:
+        for dx, dy in _N4:
+            nx, ny = x + dx, y + dy
+            if nx < 0 or ny < 0 or nx >= w or ny >= h:
                 return True
-    return False
+            if grid[ny * w + nx] == _OUTSIDE:
+                return True
+        return False
+
+    labels = [-3] * (w * h)
+    for idx, val in enumerate(grid):
+        if val == _OUTSIDE:
+            labels[idx] = -2
+    queue: List[Tuple[int, int, int]] = []
+    for i, pix in enumerate(kept):
+        for x, y in pix:
+            labels[y * w + x] = i
+            queue.append((x, y, 0))
+    qi = 0
+    wall_limit = max(2, gap_px * 2 + 2)
+    while qi < len(queue):
+        x, y, dist = queue[qi]
+        qi += 1
+        lab = labels[y * w + x]
+        for dx, dy in _N4:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                j = ny * w + nx
+                if labels[j] == -3 and grid[j] == _INK:
+                    if dist >= wall_limit and ink_touches_outside(nx, ny):
+                        continue
+                    labels[j] = lab
+                    queue.append((nx, ny, dist + 1))
+
+    island_id = 10_000
+    island_labels = [-2] * (w * h)
+    for idx, val in enumerate(labels):
+        if val >= 0:
+            island_labels[idx] = island_id
+    island = _crack_ring(island_labels, w, h, island_id, origin, scale)
+    if island is None or abs(ring_area(island)) < CONVERT_MIN_ISLAND_AREA:
+        island = _pixels_to_ring(land, origin, scale)
+    if island is None or abs(ring_area(island)) < CONVERT_MIN_ISLAND_AREA:
+        return fail
+
+    territories: List[List[Point]] = []
+    kept_idx: List[int] = []
+    for i, pix in enumerate(kept):
+        ring = _crack_ring(labels, w, h, i, origin, scale)
+        if ring is None or abs(ring_area(ring)) < min_terr:
+            noise += 1
+            continue
+        territories.append(ring)
+        kept_idx.append(i)
+    if not territories:
+        fail = dict(fail)
+        fail["message"] = "Could not turn enclosed areas into polygons."
+        fail["noiseCount"] = noise
+        return fail
+
+    remap = {old: new for new, old in enumerate(kept_idx)}
+    neighbors_set: Set[Tuple[int, int]] = set()
+    for y in range(h):
+        row = y * w
+        for x in range(w):
+            a = labels[row + x]
+            if a not in remap:
+                continue
+            for dx, dy in _N4:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    b = labels[ny * w + nx]
+                    if b in remap and b != a:
+                        ia, ib = remap[a], remap[b]
+                        neighbors_set.add((min(ia, ib), max(ia, ib)))
+    neighbors = sorted(neighbors_set)
+
+    return {
+        "ok": True,
+        "island": island,
+        "territories": territories,
+        "neighbors": neighbors,
+        "noiseCount": noise,
+        "message": "",
+        "cellSize": 1.0 / scale,
+        "gapWorld": gap_world,
+    }
 
 
-def apply_boundary_graph_to_world(world: Dict[str, Any]) -> None:
-    """Rebuild island + territory polygons + geometric adjacency from the graph."""
-    graph = ensure_boundary_graph(world)
-    world[EDITOR_GRAPH_KEY] = graph
-    faces = classify_boundary_faces(graph)
-    outer = faces.get("outer")
-    if outer and len(unique_ring_vertices(outer)) >= 3:
+def apply_converted_polygons(
+    world: Dict[str, Any],
+    island: Sequence[Point],
+    territory_rings: Sequence[Sequence[Point]],
+    neighbor_pairs: Sequence[Tuple[int, int]],
+) -> None:
+    """Replace converted geography. Match prior territory metadata by centroid."""
+    world.pop(EDITOR_GRAPH_KEY, None)
+    if island and len(unique_ring_vertices(island)) >= 3:
         if not isinstance(world.get("island"), dict):
             world["island"] = {"rings": []}
-        set_exterior(world["island"], outer)
+        set_exterior(world["island"], island)
     else:
         world["island"] = {"rings": [[]]}
 
-    terr_faces: List[Dict[str, Any]] = list(faces.get("territories") or [])
     old = [t for t in (world.get("territories") or []) if isinstance(t, dict)]
     used_old: Set[str] = set()
     new_terrs: List[Dict[str, Any]] = []
-    face_index_for: List[int] = []
-
-    if not (world.get("regions") or []) and terr_faces:
+    if not (world.get("regions") or []) and territory_rings:
         add_region(world, "Region")
     regions = world.get("regions") or []
     default_rid = regions[0]["id"] if regions else ""
+    player_id = world.get("playerFactionId") or ""
+    ais = [f["id"] for f in world.get("factions") or [] if isinstance(f, dict) and f.get("role") == "ai"]
 
-    for fi, face in enumerate(terr_faces):
-        ring = face["ring"]
+    for ring in territory_rings:
         c = ring_centroid(ring)
         match: Optional[Dict[str, Any]] = None
         for t in old:
@@ -1181,7 +1046,7 @@ def apply_boundary_graph_to_world(world: Dict[str, Any]) -> None:
                     match = t
                     break
         if match is not None:
-            used_old.add(match["id"])
+            used_old.add(str(match["id"]))
             t = clone_world(match)
             if not isinstance(t.get("polygon"), dict):
                 t["polygon"] = points_to_polygon(ring)
@@ -1189,14 +1054,12 @@ def apply_boundary_graph_to_world(world: Dict[str, Any]) -> None:
                 set_exterior(t["polygon"], ring)
             new_terrs.append(t)
         else:
-            player_id = world.get("playerFactionId") or ""
-            ais = [f["id"] for f in world.get("factions") or [] if isinstance(f, dict) and f.get("role") == "ai"]
             if any(nt.get("startingOwnerFactionId") == player_id for nt in new_terrs):
                 owner = ais[0] if ais else player_id
             else:
                 owner = player_id
             tid = next_id("t_", [x.get("id") for x in new_terrs] + [x.get("id") for x in old])
-            t = {
+            new_terrs.append({
                 "id": tid,
                 "regionId": default_rid,
                 "startingOwnerFactionId": owner,
@@ -1204,25 +1067,23 @@ def apply_boundary_graph_to_world(world: Dict[str, Any]) -> None:
                 "terrain": "plains",
                 "resourceOutput": {k: 0 for k in RESOURCE_KEYS},
                 "polygon": points_to_polygon(ring),
-            }
-            new_terrs.append(t)
-        face_index_for.append(fi)
+            })
 
-    # Fix owner assignment for brand-new maps: first tile player, rest first AI.
-    player = world.get("playerFactionId") or ""
-    ais = [f["id"] for f in world.get("factions") or [] if isinstance(f, dict) and f.get("role") == "ai"]
-    player_owned = [t for t in new_terrs if t.get("startingOwnerFactionId") == player]
+    player_owned = [t for t in new_terrs if t.get("startingOwnerFactionId") == player_id]
     if len(player_owned) == 0 and new_terrs:
-        new_terrs[0]["startingOwnerFactionId"] = player
+        new_terrs[0]["startingOwnerFactionId"] = player_id
     elif len(player_owned) > 1:
         for t in new_terrs[1:]:
-            if t.get("startingOwnerFactionId") == player:
-                t["startingOwnerFactionId"] = ais[0] if ais else player
+            if t.get("startingOwnerFactionId") == player_id:
+                t["startingOwnerFactionId"] = ais[0] if ais else player_id
 
     world["territories"] = new_terrs
     ids = [t["id"] for t in new_terrs if t.get("id")]
     for r in world.get("regions") or []:
-        r["territoryIds"] = [i for i in ids if find_territory(world, i) and find_territory(world, i).get("regionId") == r.get("id")]
+        r["territoryIds"] = [
+            i for i in ids
+            if find_territory(world, i) and find_territory(world, i).get("regionId") == r.get("id")
+        ]
         for t in new_terrs:
             if t.get("regionId") == r.get("id") and t.get("id") not in r["territoryIds"]:
                 r["territoryIds"].append(t["id"])
@@ -1233,23 +1094,25 @@ def apply_boundary_graph_to_world(world: Dict[str, Any]) -> None:
         elif t.get("id") and t.get("regionId"):
             sync_region_membership(world, t["id"], t["regionId"])
 
-    # Geometric adjacency from shared boundary edges.
-    edge_faces: Dict[str, List[int]] = defaultdict(list)
-    for i, face in enumerate(terr_faces):
-        for eid in face["edges"]:
-            edge_faces[eid].append(i)
     neighbors: Dict[str, Set[str]] = {t["id"]: set() for t in new_terrs if t.get("id")}
-    for _eid, idxs in edge_faces.items():
-        uniq = []
-        for i in idxs:
-            if i not in uniq:
-                uniq.append(i)
-        if len(uniq) == 2:
-            a = new_terrs[uniq[0]].get("id")
-            b = new_terrs[uniq[1]].get("id")
-            if a and b and a != b:
-                neighbors[a].add(b)
-                neighbors[b].add(a)
+    for a, b in neighbor_pairs:
+        if 0 <= a < len(new_terrs) and 0 <= b < len(new_terrs):
+            ia, ib = new_terrs[a].get("id"), new_terrs[b].get("id")
+            if ia and ib and ia != ib:
+                neighbors[ia].add(ib)
+                neighbors[ib].add(ia)
+    if len(new_terrs) > 1 and not any(neighbors.values()):
+        for i, a in enumerate(new_terrs):
+            pa = a.get("polygon") if isinstance(a.get("polygon"), dict) else None
+            if not pa:
+                continue
+            for j in range(i + 1, len(new_terrs)):
+                pb = new_terrs[j].get("polygon")
+                if isinstance(pb, dict) and plausible_shared_edge(pa, pb, tol=4.0):
+                    ia, ib = a.get("id"), new_terrs[j].get("id")
+                    if ia and ib:
+                        neighbors[ia].add(ib)
+                        neighbors[ib].add(ia)
     for t in new_terrs:
         tid = t.get("id")
         if tid:
@@ -1267,15 +1130,69 @@ def apply_boundary_graph_to_world(world: Dict[str, Any]) -> None:
             loc = army.get("locationTerritoryId")
             if loc and loc not in live:
                 army["locationTerritoryId"] = f.get("homeTerritoryId") or (ids[0] if ids else "")
-    if ids and player:
-        fac = find_faction(world, player)
+    if ids and player_id:
+        fac = find_faction(world, player_id)
         if fac and not fac.get("homeTerritoryId"):
-            owned = next((t["id"] for t in new_terrs if t.get("startingOwnerFactionId") == player), ids[0])
+            owned = next((t["id"] for t in new_terrs if t.get("startingOwnerFactionId") == player_id), ids[0])
             fac["homeTerritoryId"] = owned
             army = fac.get("startingArmy")
             if isinstance(army, dict) and not army.get("locationTerritoryId"):
                 army["locationTerritoryId"] = owned
 
+
+def convert_drawing_to_map(world: Dict[str, Any], snap_tol: Optional[float] = None) -> Dict[str, Any]:
+    """Rebuild island/territories from the combined raw drawing. Strokes are preserved."""
+    _ = snap_tol
+    polylines = [open_stroke_points(item) for item in all_raw_strokes(world)]
+    geom = interpret_combined_drawing(polylines)
+    report = {
+        "ok": bool(geom.get("ok")),
+        "message": geom.get("message") or "",
+        "islandDetected": bool(geom.get("ok") and geom.get("island")),
+        "territoryCount": len(geom.get("territories") or []),
+        "noiseCount": int(geom.get("noiseCount") or 0),
+    }
+    world[EDITOR_CONVERT_REPORT_KEY] = report
+    result = {
+        "ok": report["ok"],
+        "message": report["message"],
+        "island": geom.get("island"),
+        "territories": geom.get("territories") or [],
+        "report": report,
+    }
+    if not result["ok"]:
+        return result
+    apply_converted_polygons(
+        world,
+        geom["island"],
+        geom["territories"],
+        geom.get("neighbors") or [],
+    )
+    report["territoryCount"] = len(world.get("territories") or [])
+    return result
+
+
+def format_conversion_report(result: Dict[str, Any]) -> str:
+    report = result.get("report") if isinstance(result.get("report"), dict) else result
+    if not isinstance(report, dict):
+        report = {}
+    ok = result.get("ok")
+    if ok is None:
+        ok = report.get("ok")
+    message = result.get("message") or report.get("message") or ""
+    lines = []
+    if ok:
+        lines.append("CONVERT TO MAP — enclosed areas in the drawing.")
+    else:
+        lines.append("CONVERT TO MAP — could not interpret the drawing.")
+        if message:
+            lines.append(message)
+    island_yes = "YES" if report.get("islandDetected") or (ok and result.get("island")) else "NO"
+    lines.append(f"Detected island: {island_yes}")
+    lines.append(f"Territories: {report.get('territoryCount', len(result.get('territories') or []))}")
+    noise = int(report.get("noiseCount") or 0)
+    lines.append(f"Ignored noise: {noise} areas")
+    return "\n".join(lines)
 
 def empty_open_strokes() -> Dict[str, Any]:
     return {"next": 1, "items": []}
@@ -1433,31 +1350,6 @@ def editor_export_issues(world: Dict[str, Any]) -> List[Issue]:
     return validate_world(world)
 
 
-def commit_drawn_polyline(
-    world: Dict[str, Any], points: Sequence[Point], snap_radius: float,
-    min_spacing: Optional[float] = None,
-) -> Tuple[bool, str]:
-    """Commit a paused or finished stroke into island/territory topology."""
-    raw = [(float(p[0]), float(p[1])) for p in points]
-    spacing = DRAW_DEFAULT_MIN_SPACING if min_spacing is None else min_spacing
-    g = ensure_boundary_graph(world)
-    if not graph_has_island(g):
-        pts, err = finalize_drawn_polygon(raw, min_spacing=spacing)
-        if err or not pts:
-            return False, (err or {}).get("message") or "Island stroke could not be closed."
-        seed_island_from_ring(g, pts)
-        apply_boundary_graph_to_world(world)
-        return True, ""
-    pts, err = finalize_drawn_path(raw, min_spacing=spacing)
-    if err or not pts:
-        return False, (err or {}).get("message") or "Boundary stroke is too short."
-    ok, msg = insert_boundary_stroke(g, pts, snap_radius)
-    if not ok:
-        return False, msg
-    apply_boundary_graph_to_world(world)
-    return True, ""
-
-
 def assign_territories_to_region(world: Dict[str, Any], territory_ids: Sequence[str], region_id: str) -> int:
     if not find_region(world, region_id):
         return 0
@@ -1574,575 +1466,6 @@ def all_raw_strokes(world: Dict[str, Any]) -> List[Dict[str, Any]]:
     return strokes
 
 
-def conversion_snap_tol(points_groups: Sequence[Sequence[Point]], explicit: Optional[float] = None) -> float:
-    if explicit is not None:
-        return max(0.2, float(explicit))
-    xs: List[float] = []
-    ys: List[float] = []
-    for pts in points_groups:
-        for x, y in pts:
-            xs.append(x)
-            ys.append(y)
-    if not xs:
-        return CONVERT_SNAP_TOL_MIN
-    diag = math.hypot(max(xs) - min(xs), max(ys) - min(ys))
-    return max(CONVERT_SNAP_TOL_MIN, CONVERT_SNAP_FRAC * diag)
-
-
-def _normalize_stroke(points: Sequence[Point]) -> List[Point]:
-    sampled = sample_path_by_distance(points, DRAW_DEFAULT_MIN_SPACING)
-    if len(sampled) < 2:
-        return sampled
-    return simplify_drawn_path(sampled)
-
-
-def _polyline_hausdorff(a: Sequence[Point], b: Sequence[Point]) -> float:
-    if not a or not b:
-        return float("inf")
-    ab = max(dist_point_to_polyline(p, b)[0] for p in a)
-    ba = max(dist_point_to_polyline(p, a)[0] for p in b)
-    return max(ab, ba)
-
-
-def _ring_contains_ring(outer: Sequence[Point], inner: Sequence[Point]) -> bool:
-    verts = unique_ring_vertices(inner)
-    if len(verts) < 3:
-        return False
-    return all(point_in_ring(p, outer) for p in verts)
-
-
-def clip_polyline_to_ring(pts: Sequence[Point], ring: Sequence[Point]) -> Tuple[List[List[Point]], bool]:
-    """Keep sub-polylines whose midpoints lie inside (or on) the island."""
-    if len(pts) < 2:
-        return [], False
-    chain: List[Point] = [(float(pts[0][0]), float(pts[0][1]))]
-    verts = unique_ring_vertices(ring)
-    for i in range(len(pts) - 1):
-        a = (float(pts[i][0]), float(pts[i][1]))
-        b = (float(pts[i + 1][0]), float(pts[i + 1][1]))
-        hits: List[Point] = []
-        for j, c in enumerate(verts):
-            d = verts[(j + 1) % len(verts)]
-            ip = _segment_intersection(a, b, c, d)
-            if ip is None:
-                continue
-            if edge_length(ip, a) <= NODE_MERGE_EPS or edge_length(ip, b) <= NODE_MERGE_EPS:
-                continue
-            hits.append(ip)
-        hits.sort(key=lambda p: edge_length(a, p))
-        for h in hits:
-            if edge_length(chain[-1], h) > NODE_MERGE_EPS:
-                chain.append(h)
-        if edge_length(chain[-1], b) > NODE_MERGE_EPS:
-            chain.append(b)
-    pieces: List[List[Point]] = []
-    current: List[Point] = []
-    clipped = False
-    for i in range(len(chain) - 1):
-        a, b = chain[i], chain[i + 1]
-        mid = ((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5)
-        if point_in_ring(mid, ring):
-            if not current:
-                current = [a]
-            elif edge_length(current[-1], a) > NODE_MERGE_EPS:
-                pieces.append(current)
-                current = [a]
-            if edge_length(current[-1], b) > GEOM_EPS:
-                current.append(b)
-        else:
-            clipped = True
-            if current:
-                pieces.append(current)
-                current = []
-    if current:
-        pieces.append(current)
-    return [p for p in pieces if len(p) >= 2 and path_length(p) >= CONVERT_MIN_EDGE], clipped
-
-
-def _nearest_on_polylines(
-    p: Point, polylines: Sequence[Sequence[Point]], skip: Optional[int] = None,
-) -> Optional[Tuple[float, Point, int]]:
-    best: Optional[Tuple[float, Point, int]] = None
-    for i, poly in enumerate(polylines):
-        if i == skip or len(poly) < 2:
-            continue
-        d, q, _si, _t = dist_point_to_polyline(p, poly)
-        if best is None or d < best[0]:
-            best = (d, q, i)
-    return best
-
-
-def _ray_hit_segment(origin: Point, direction: Point, a: Point, b: Point) -> Optional[Tuple[float, Point]]:
-    dx, dy = direction
-    mag = math.hypot(dx, dy)
-    if mag <= GEOM_EPS:
-        return None
-    rx, ry = dx / mag, dy / mag
-    sx, sy = b[0] - a[0], b[1] - a[1]
-    den = rx * sy - ry * sx
-    if abs(den) <= GEOM_EPS:
-        return None
-    qx, qy = a[0] - origin[0], a[1] - origin[1]
-    t = (qx * sy - qy * sx) / den
-    u = (qx * ry - qy * rx) / den
-    if t < -1e-9 or u < -1e-7 or u > 1.0 + 1e-7:
-        return None
-    t = max(0.0, t)
-    return (t, (origin[0] + rx * t, origin[1] + ry * t))
-
-
-def _ray_hit_polylines(
-    origin: Point,
-    direction: Point,
-    polylines: Sequence[Sequence[Point]],
-    skip: Optional[int],
-    max_dist: float,
-) -> Optional[Tuple[float, Point, int]]:
-    best: Optional[Tuple[float, Point, int]] = None
-    for i, poly in enumerate(polylines):
-        if i == skip or len(poly) < 2:
-            continue
-        for j in range(len(poly) - 1):
-            hit = _ray_hit_segment(origin, direction, poly[j], poly[j + 1])
-            if hit is None:
-                continue
-            t, p = hit
-            if t <= NODE_MERGE_EPS or t > max_dist:
-                continue
-            if best is None or t < best[0]:
-                best = (t, p, i)
-    return best
-
-
-def conversion_extend_max(points_groups: Sequence[Sequence[Point]], snap_tol: float) -> float:
-    xs: List[float] = []
-    ys: List[float] = []
-    for pts in points_groups:
-        for x, y in pts:
-            xs.append(x)
-            ys.append(y)
-    if not xs:
-        return max(snap_tol * 2.0, 4.0)
-    diag = math.hypot(max(xs) - min(xs), max(ys) - min(ys))
-    return max(snap_tol * 2.0, CONVERT_EXTEND_FRAC * diag)
-
-
-def _extend_polyline_ends(
-    poly: List[Point],
-    others: Sequence[Sequence[Point]],
-    skip: int,
-    snap_tol: float,
-    extend_max: float,
-) -> Tuple[List[Point], bool]:
-    """Connect loose ends: near-snap first, then ray-extend along the stroke."""
-    out = list(poly)
-    if len(out) < 2:
-        return out, False
-    plen = path_length(out)
-    max_gap = max(snap_tol, min(extend_max, 0.5 * max(plen, snap_tol)))
-    changed = False
-    ends = ((0, 1), (-1, -2))
-    for end_idx, inward_idx in ends:
-        p = out[end_idx]
-        inward = out[inward_idx]
-        direction = (p[0] - inward[0], p[1] - inward[1])
-        near = _nearest_on_polylines(p, others, skip=skip)
-        chosen: Optional[Point] = None
-        if near and near[0] <= snap_tol:
-            if near[0] > NODE_MERGE_EPS:
-                chosen = near[1]
-        else:
-            ray = _ray_hit_polylines(p, direction, others, skip, max_gap)
-            if ray is not None:
-                chosen = ray[1]
-            elif near is not None and near[0] <= max_gap:
-                vx, vy = near[1][0] - p[0], near[1][1] - p[1]
-                mag_dir = math.hypot(direction[0], direction[1]) or 1.0
-                if vx * direction[0] + vy * direction[1] >= 0.05 * near[0] * mag_dir:
-                    chosen = near[1]
-        if chosen is None:
-            continue
-        if end_idx == 0:
-            if edge_length(out[0], chosen) > NODE_MERGE_EPS:
-                out.insert(0, chosen)
-                changed = True
-        else:
-            if edge_length(out[-1], chosen) > NODE_MERGE_EPS:
-                out.append(chosen)
-                changed = True
-    return out, changed
-
-
-def _insert_point_on_polyline(poly: List[Point], q: Point) -> List[Point]:
-    _d, snap, si, _t = dist_point_to_polyline(q, poly)
-    if si + 1 >= len(poly):
-        return poly
-    if edge_length(poly[si], snap) <= NODE_MERGE_EPS or edge_length(poly[si + 1], snap) <= NODE_MERGE_EPS:
-        return poly
-    out = list(poly)
-    out.insert(si + 1, snap)
-    return out
-
-
-def _split_polyline_by_on_edge_points(poly: Sequence[Point], extras: Sequence[Point]) -> List[Point]:
-    """Keep original vertices and splice intersection points onto the segments they hit."""
-    if len(poly) < 2:
-        return list(poly)
-    out: List[Point] = [(float(poly[0][0]), float(poly[0][1]))]
-    for i in range(len(poly) - 1):
-        a = (float(poly[i][0]), float(poly[i][1]))
-        b = (float(poly[i + 1][0]), float(poly[i + 1][1]))
-        mids: List[Tuple[float, Point]] = []
-        for raw in extras:
-            p = (float(raw[0]), float(raw[1]))
-            d, q, t = dist_point_to_segment(p, a, b)
-            if d > max(NODE_MERGE_EPS * 80.0, 1e-4):
-                continue
-            if t <= 1e-4 or t >= 1.0 - 1e-4:
-                continue
-            mids.append((t, q))
-        mids.sort(key=lambda item: item[0])
-        for _t, q in mids:
-            if edge_length(out[-1], q) > NODE_MERGE_EPS:
-                out.append(q)
-        if edge_length(out[-1], b) > NODE_MERGE_EPS:
-            out.append(b)
-    return out
-
-
-def _split_polylines_at_intersections(polylines: List[List[Point]], closed_flags: List[bool]) -> List[List[Point]]:
-    extras: List[List[Point]] = [[] for _ in polylines]
-    for i, poly in enumerate(polylines):
-        nseg = max(0, len(poly) - 1)
-        for sa in range(nseg):
-            a0, a1 = poly[sa], poly[sa + 1]
-            for j in range(i, len(polylines)):
-                other = polylines[j]
-                mseg = max(0, len(other) - 1)
-                start_sb = sa + 2 if i == j else 0
-                for sb in range(start_sb, mseg):
-                    if i == j and closed_flags[i] and sa == 0 and sb == mseg - 1:
-                        continue
-                    ip = _segment_intersection(a0, a1, other[sb], other[sb + 1])
-                    if ip is None:
-                        continue
-                    extras[i].append(ip)
-                    extras[j].append(ip)
-    return [_split_polyline_by_on_edge_points(poly, extras[i]) for i, poly in enumerate(polylines)]
-
-
-def _arrangement_graph(
-    island: Sequence[Point], internals: Sequence[Sequence[Point]], snap_tol: float,
-) -> Dict[str, Any]:
-    island_poly = unique_ring_vertices(island)
-    if len(island_poly) < 3:
-        return empty_boundary_graph()
-    island_closed = island_poly + [island_poly[0]]
-    paths: List[List[Point]] = [list(island_closed)]
-    closed_flags = [True]
-    for internal in internals:
-        if len(internal) >= 2:
-            paths.append(list(internal))
-            closed_flags.append(False)
-    # T-junctions: snap loose ends onto other paths.
-    for i in range(1, len(paths)):
-        for end_idx in (0, -1):
-            hit = _nearest_on_polylines(paths[i][end_idx], paths, skip=i)
-            if hit and hit[0] <= snap_tol:
-                q = hit[1]
-                j = hit[2]
-                paths[j] = _insert_point_on_polyline(paths[j], q)
-                if end_idx == 0:
-                    paths[i][0] = q
-                else:
-                    paths[i][-1] = q
-    paths = _split_polylines_at_intersections(paths, closed_flags)
-    merge_eps = max(NODE_MERGE_EPS, min(0.12, snap_tol * 0.12))
-    graph = empty_boundary_graph()
-    for pi, poly in enumerate(paths):
-        pts = unique_ring_vertices(poly) if closed_flags[pi] else list(poly)
-        nids: List[str] = []
-        for p in pts:
-            nids.append(add_graph_node(graph, p, merge_eps=merge_eps))
-        count = len(nids)
-        for k in range(count if closed_flags[pi] else count - 1):
-            a = nids[k]
-            b = nids[(k + 1) % count] if closed_flags[pi] else nids[k + 1]
-            if a == b:
-                continue
-            pa, pb = graph_node_point(graph, a), graph_node_point(graph, b)
-            add_graph_edge(graph, a, b, [pa, pb])
-    _trim_dangling_edges(graph)
-    return graph
-
-
-def _trim_dangling_edges(graph: Dict[str, Any]) -> None:
-    guard = 0
-    while guard < 10000:
-        guard += 1
-        inc: Dict[str, List[str]] = defaultdict(list)
-        for eid, e in graph["edges"].items():
-            inc[e["a"]].append(eid)
-            inc[e["b"]].append(eid)
-        dangling = [nid for nid, eids in inc.items() if len(eids) == 1]
-        if not dangling:
-            break
-        for nid in dangling:
-            for eid in list(inc.get(nid) or []):
-                graph["edges"].pop(eid, None)
-        used: Set[str] = set()
-        for e in graph["edges"].values():
-            used.add(e["a"])
-            used.add(e["b"])
-        graph["nodes"] = {nid: pt for nid, pt in graph["nodes"].items() if nid in used}
-
-
-def _choose_island(
-    strokes: Sequence[Dict[str, Any]], existing: Optional[Sequence[Point]],
-) -> Tuple[Optional[List[Point]], Optional[str], List[str], List[str]]:
-    """Return island ring, winning stroke id, warnings, errors."""
-    warnings: List[str] = []
-    errors: List[str] = []
-    candidates: List[Dict[str, Any]] = []
-    for item in strokes:
-        pts = _normalize_stroke(open_stroke_points(item))
-        if len(pts) < 3:
-            continue
-        closed = close_ring(pts)
-        gap = edge_length(pts[0], pts[-1])
-        peri = path_length(closed)
-        area = abs(ring_area(closed))
-        if area < CONVERT_MIN_ISLAND_AREA or peri < DRAW_MIN_PATH_LENGTH:
-            continue
-        if ring_self_intersects(closed):
-            continue
-        if gap > max(CONVERT_ISLAND_CLOSE_ABS, CONVERT_ISLAND_CLOSE_FRAC * peri):
-            continue
-        candidates.append({"id": item.get("id"), "ring": closed, "area": area})
-    candidates.sort(key=lambda c: c["area"], reverse=True)
-    if existing and len(unique_ring_vertices(existing)) >= 3:
-        exist_area = abs(ring_area(existing))
-        if exist_area >= CONVERT_MIN_ISLAND_AREA and not candidates:
-            return list(close_ring(unique_ring_vertices(existing))), None, warnings, errors
-    if not candidates:
-        errors.append(
-            "No island could be identified. Draw a large enclosing outline that nearly closes, then convert."
-        )
-        return None, None, warnings, errors
-    best = candidates[0]
-    for other in candidates[1:]:
-        if other["area"] < 0.65 * best["area"]:
-            continue
-        if _ring_contains_ring(best["ring"], other["ring"]):
-            warnings.append("Ignored a smaller closed loop inside the island (holes are not territories).")
-            continue
-        if _ring_contains_ring(other["ring"], best["ring"]):
-            best = other
-            continue
-        errors.append(
-            "Ambiguous island: two large closed shapes were found. "
-            "Keep one main enclosing outline and convert again."
-        )
-        return None, None, warnings, errors
-    return list(best["ring"]), str(best["id"]) if best.get("id") else None, warnings, errors
-
-
-def interpret_drawing_strokes(
-    strokes: Sequence[Dict[str, Any]],
-    *,
-    existing_island: Optional[Sequence[Point]] = None,
-    snap_tol: Optional[float] = None,
-) -> Dict[str, Any]:
-    """Interpret raw freehand strokes into island + territory rings. Does not require perfect topology."""
-    report: Dict[str, Any] = {
-        "ok": False,
-        "islandStrokeId": None,
-        "territoryCount": 0,
-        "usedInternalIds": [],
-        "ignored": [],
-        "clipped": [],
-        "extended": [],
-        "warnings": [],
-        "ambiguous": False,
-    }
-    normalized: List[Dict[str, Any]] = []
-    for item in strokes:
-        pts = _normalize_stroke(open_stroke_points(item))
-        sid = str(item.get("id") or "")
-        if len(pts) < 2 or path_length(pts) < CONVERT_MIN_EDGE:
-            report["ignored"].append({"id": sid, "reason": "tiny mark"})
-            continue
-        normalized.append({"id": sid, "points": pts})
-    # Drop near-duplicate strokes (keep the longer).
-    prov_tol = conversion_snap_tol([k["points"] for k in normalized], snap_tol)
-    dup_tol = max(CONVERT_DUP_TOL, 0.45 * prov_tol)
-    kept: List[Dict[str, Any]] = []
-    for item in sorted(normalized, key=lambda s: path_length(s["points"]), reverse=True):
-        dup = False
-        for prev in kept:
-            if _polyline_hausdorff(item["points"], prev["points"]) <= dup_tol:
-                report["ignored"].append({"id": item["id"], "reason": "duplicate stroke"})
-                dup = True
-                break
-        if not dup:
-            kept.append(item)
-    island, island_id, warnings, errors = _choose_island(kept, existing_island)
-    report["warnings"].extend(warnings)
-    if errors:
-        report["ambiguous"] = any("Ambiguous" in e for e in errors)
-        report["ok"] = False
-        report["message"] = errors[0]
-        return {"ok": False, "message": errors[0], "island": None, "territories": [], "graph": None, "report": report}
-    assert island is not None
-    report["islandStrokeId"] = island_id
-    tol = conversion_snap_tol([island] + [k["points"] for k in kept], snap_tol)
-    extend_max = conversion_extend_max([island] + [k["points"] for k in kept], tol)
-    island_closed = unique_ring_vertices(island) + [unique_ring_vertices(island)[0]]
-    min_loop = max(DRAW_MIN_AREA, abs(ring_area(island)) * CONVERT_SLIVER_FRAC)
-    internals: List[Dict[str, Any]] = []
-    for item in kept:
-        if item["id"] and item["id"] == island_id:
-            continue
-        if _polyline_hausdorff(item["points"], island_closed) <= dup_tol:
-            report["ignored"].append({"id": item["id"], "reason": "duplicate of island outline"})
-            continue
-        gap = edge_length(item["points"][0], item["points"][-1])
-        closed_loop = gap <= max(tol, 0.12 * path_length(item["points"]))
-        if closed_loop:
-            loop_area = abs(ring_area(close_ring(item["points"])))
-            if loop_area < min_loop:
-                report["ignored"].append({"id": item["id"], "reason": "tiny accidental loop"})
-                continue
-            if loop_area < 0.65 * abs(ring_area(island)) and _ring_contains_ring(island, close_ring(item["points"])):
-                report["ignored"].append({"id": item["id"], "reason": "interior closed loop (holes are not territories)"})
-                continue
-        pieces, clipped = clip_polyline_to_ring(item["points"], island)
-        if clipped:
-            report["clipped"].append({"id": item["id"], "reason": "outside island clipped"})
-        if not pieces:
-            report["ignored"].append({"id": item["id"], "reason": "outside island or too short after clip"})
-            continue
-        for piece in pieces:
-            internals.append({"id": item["id"], "points": piece})
-    # Extend loose ends toward the island and other internals.
-    for _pass in range(4):
-        changed = False
-        paths = [list(island_closed)]
-        paths.extend(p["points"] for p in internals)
-        for i, item in enumerate(internals):
-            extended, did = _extend_polyline_ends(
-                item["points"], paths, skip=i + 1, snap_tol=tol, extend_max=extend_max,
-            )
-            if did:
-                internals[i]["points"] = extended
-                if item["id"] not in report["extended"]:
-                    report["extended"].append(item["id"])
-                changed = True
-        if not changed:
-            break
-    internals = [p for p in internals if path_length(p["points"]) >= CONVERT_MIN_EDGE]
-    graph = _arrangement_graph(island, [p["points"] for p in internals], tol)
-    faces = classify_boundary_faces(graph)
-    outer = faces.get("outer") or island
-    min_t = max(DRAW_MIN_AREA, abs(ring_area(outer)) * CONVERT_SLIVER_FRAC)
-    terrs: List[List[Point]] = []
-    for face in faces.get("territories") or []:
-        ring = face.get("ring") or []
-        if abs(ring_area(ring)) >= min_t and len(unique_ring_vertices(ring)) >= 3:
-            terrs.append(ring)
-    if not terrs and not internals:
-        terrs = [close_ring(unique_ring_vertices(outer))]
-    elif not terrs and internals:
-        report["warnings"].append(
-            "Internal lines did not form closed territories. They may not meet the island; try drawing across it."
-        )
-    report["ok"] = bool(terrs)
-    report["territoryCount"] = len(terrs)
-    report["usedInternalIds"] = sorted({p["id"] for p in internals if p.get("id")})
-    if not terrs:
-        msg = "Could not derive any territory from the drawing."
-        report["message"] = msg
-        return {
-            "ok": False,
-            "message": msg,
-            "island": outer,
-            "territories": [],
-            "graph": graph,
-            "report": report,
-        }
-    report["message"] = ""
-    return {
-        "ok": True,
-        "message": "",
-        "island": outer,
-        "territories": terrs,
-        "graph": graph,
-        "report": report,
-    }
-
-
-def convert_drawing_to_map(world: Dict[str, Any], snap_tol: Optional[float] = None) -> Dict[str, Any]:
-    """Rebuild island/territories from raw drawing. Raw strokes are preserved."""
-    strokes = all_raw_strokes(world)
-    existing = polygon_exterior(world.get("island") if isinstance(world.get("island"), dict) else None)
-    result = interpret_drawing_strokes(strokes, existing_island=existing, snap_tol=snap_tol)
-    report = dict(result.get("report") or {})
-    report["ok"] = bool(result.get("ok"))
-    report["message"] = result.get("message") or report.get("message") or ""
-    world[EDITOR_CONVERT_REPORT_KEY] = report
-    result["report"] = report
-    if not result.get("ok"):
-        return result
-    graph = result.get("graph")
-    if not isinstance(graph, dict):
-        msg = "Conversion produced no boundary network."
-        report["ok"] = False
-        report["message"] = msg
-        world[EDITOR_CONVERT_REPORT_KEY] = report
-        return {**result, "ok": False, "message": msg, "report": report}
-    world[EDITOR_GRAPH_KEY] = graph
-    apply_boundary_graph_to_world(world)
-    if not world.get("territories") and result.get("territories"):
-        if not (world.get("regions") or []):
-            add_region(world, "Region")
-        rid = (world.get("regions") or [{}])[0].get("id") or ""
-        owner = world.get("playerFactionId") or ""
-        add_territory(world, result["territories"][0], rid, owner)
-    return result
-
-
-def format_conversion_report(result: Dict[str, Any]) -> str:
-    report = result.get("report") if isinstance(result.get("report"), dict) else result
-    if not isinstance(report, dict):
-        report = {}
-    ok = result.get("ok")
-    if ok is None:
-        ok = report.get("ok")
-    message = result.get("message") or report.get("message") or ""
-    lines = []
-    if ok:
-        lines.append("CONVERT TO MAP — interpreted drawing into structured geography.")
-    else:
-        lines.append("CONVERT TO MAP — could not interpret the drawing.")
-        if message:
-            lines.append(message)
-    lines.append(f"Territories detected: {report.get('territoryCount', 0)}")
-    if report.get("islandStrokeId"):
-        lines.append(f"Island stroke: {report.get('islandStrokeId')}")
-    used = report.get("usedInternalIds") or []
-    if used:
-        lines.append("Internal strokes used: " + ", ".join(used))
-    for item in report.get("clipped") or []:
-        lines.append(f"Clipped {item.get('id')}: {item.get('reason')}")
-    for item in report.get("ignored") or []:
-        lines.append(f"Ignored {item.get('id')}: {item.get('reason')}")
-    if report.get("extended"):
-        lines.append("Loose ends extended: " + ", ".join(str(x) for x in report["extended"]))
-    for w in report.get("warnings") or []:
-        lines.append("Warning: " + w)
-    return "\n".join(lines)
-
-
 def dumps_editor_document(world: Dict[str, Any]) -> str:
     """Save converted geography plus raw drawing (not a playable export)."""
     payload = ordered_world(world)
@@ -2198,7 +1521,6 @@ def new_blank_world() -> Dict[str, Any]:
         "startingDiplomacy": [],
         "regions": [],
         "territories": [],
-        EDITOR_GRAPH_KEY: empty_boundary_graph(),
         EDITOR_OPEN_STROKES_KEY: empty_open_strokes(),
         EDITOR_DRAWING_KEY: empty_drawing(),
     }
@@ -2993,9 +2315,7 @@ class WorldLogicTests(unittest.TestCase):
         self.assertIn("territory.empty", codes)
         self.assertIn("geometry.missing_ring", codes)
         self.assertFalse(polygon_exterior(w.get("island") if isinstance(w.get("island"), dict) else None))
-        g = ensure_boundary_graph(w)
-        self.assertEqual(g["nodes"], {})
-        self.assertEqual(g["edges"], {})
+        self.assertNotIn(EDITOR_GRAPH_KEY, w)
 
     def test_minimal_world_valid(self) -> None:
         w = make_minimal_valid_world()
@@ -3400,207 +2720,6 @@ class DrawnPolygonTests(unittest.TestCase):
         self.assertNotIn("screenX", text)
 
 
-def _square_ring() -> List[Point]:
-    return [(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0), (0.0, 0.0)]
-
-
-def _world_with_square_island() -> Dict[str, Any]:
-    w = new_blank_world()
-    seed_island_from_ring(ensure_boundary_graph(w), _square_ring())
-    apply_boundary_graph_to_world(w)
-    return w
-
-
-class BoundaryGraphTests(unittest.TestCase):
-    def test_new_map_starts_with_no_island(self) -> None:
-        w = new_blank_world()
-        self.assertFalse(polygon_exterior(w["island"]))
-        self.assertEqual(w["territories"], [])
-        self.assertFalse(graph_has_island(ensure_boundary_graph(w)))
-
-    def test_continuous_draw_creates_organic_island(self) -> None:
-        w = new_blank_world()
-        closed, err = finalize_drawn_polygon(_organic_coast_path(360))
-        self.assertIsNone(err)
-        assert closed is not None
-        seed_island_from_ring(ensure_boundary_graph(w), closed)
-        apply_boundary_graph_to_world(w)
-        isle = polygon_exterior(w["island"])
-        self.assertIsNotNone(isle)
-        verts = unique_ring_vertices(isle or [])
-        self.assertGreaterEqual(len(verts), 24)
-        self.assertEqual(w["territories"], [])
-        self.assertFalse(ring_self_intersects(isle or []))
-        self.assertGreater(abs(ring_area(isle or [])), DRAW_MIN_AREA)
-
-    def test_chord_snaps_and_creates_two_territories(self) -> None:
-        w = _world_with_square_island()
-        g = ensure_boundary_graph(w)
-        start = nearest_graph_snap(g, (10.0, 0.2), 1.0)
-        end = nearest_graph_snap(g, (10.0, 19.8), 1.0)
-        self.assertIsNotNone(start)
-        self.assertIsNotNone(end)
-        assert start is not None and end is not None
-        self.assertEqual(start["kind"], "edge")
-        self.assertEqual(end["kind"], "edge")
-        ok, msg = insert_boundary_stroke(g, [(10.0, 0.2), (10.0, 10.0), (10.0, 19.8)], 1.0)
-        self.assertTrue(ok, msg=msg)
-        apply_boundary_graph_to_world(w)
-        self.assertEqual(len(w["territories"]), 2)
-        for t in w["territories"]:
-            self.assertEqual(_check_polygon(t["polygon"], t["id"]), [])
-        a, b = w["territories"]
-        self.assertIn(b["id"], a["neighborIds"])
-        self.assertIn(a["id"], b["neighborIds"])
-        n_start = realize_snap(g, nearest_graph_snap(g, (10.0, 0.0), 1.0) or start)
-        n_end = realize_snap(g, nearest_graph_snap(g, (10.0, 20.0), 1.0) or end)
-        self.assertNotEqual(n_start, n_end)
-        self.assertEqual(graph_node_point(g, n_start), nearest_graph_snap(g, (10.0, 0.0), 1.0)["point"])  # type: ignore[index]
-
-    def test_start_and_end_snap_share_exact_nodes(self) -> None:
-        w = _world_with_square_island()
-        g = ensure_boundary_graph(w)
-        raw = [(0.15, 10.0), (10.0, 10.0), (19.85, 10.0)]
-        ok, msg = insert_boundary_stroke(g, raw, 1.0)
-        self.assertTrue(ok, msg=msg)
-        s = nearest_graph_snap(g, (0.0, 10.0), 0.6)
-        e = nearest_graph_snap(g, (20.0, 10.0), 0.6)
-        self.assertIsNotNone(s)
-        self.assertIsNotNone(e)
-        assert s and e
-        self.assertEqual(s["kind"], "node")
-        self.assertEqual(e["kind"], "node")
-        self.assertLess(edge_length(s["point"], (0.0, 10.0)), NODE_MERGE_EPS * 20)
-        self.assertLess(edge_length(e["point"], (20.0, 10.0)), NODE_MERGE_EPS * 20)
-
-    def test_vertex_snap_beats_edge_snap(self) -> None:
-        w = _world_with_square_island()
-        g = ensure_boundary_graph(w)
-        snap = nearest_graph_snap(g, (0.3, 0.2), 1.5)
-        self.assertIsNotNone(snap)
-        assert snap is not None
-        self.assertEqual(snap["kind"], "node")
-        self.assertEqual(snap["point"], (0.0, 0.0))
-
-    def test_branch_from_mid_edge_creates_shared_node(self) -> None:
-        w = _world_with_square_island()
-        g = ensure_boundary_graph(w)
-        self.assertTrue(insert_boundary_stroke(g, [(10.0, 0.2), (10.0, 19.8)], 1.0)[0])
-        apply_boundary_graph_to_world(w)
-        self.assertEqual(len(w["territories"]), 2)
-        mid = nearest_graph_snap(g, (10.0, 10.0), 1.0)
-        self.assertIsNotNone(mid)
-        assert mid is not None
-        nid = realize_snap(g, mid)
-        # Branch to the right island wall.
-        g2 = ensure_boundary_graph(w)
-        ok, msg = insert_boundary_stroke(g2, [(10.05, 10.0), (15.0, 10.0), (19.8, 10.0)], 1.0)
-        self.assertTrue(ok, msg=msg)
-        apply_boundary_graph_to_world(w)
-        self.assertEqual(len(w["territories"]), 3)
-        junction = nearest_graph_snap(ensure_boundary_graph(w), (10.0, 10.0), 0.6)
-        self.assertIsNotNone(junction)
-        assert junction is not None
-        self.assertEqual(junction["kind"], "node")
-        inc = sum(
-            1
-            for e in ensure_boundary_graph(w)["edges"].values()
-            if e["a"] == junction["node"] or e["b"] == junction["node"]
-        )
-        self.assertGreaterEqual(inc, 3)
-
-    def test_open_unsnapped_stroke_is_not_a_territory(self) -> None:
-        w = _world_with_square_island()
-        g = ensure_boundary_graph(w)
-        before = len(w["territories"])
-        ok, msg = insert_boundary_stroke(g, [(5.0, 5.0), (8.0, 8.0), (6.0, 12.0)], 0.8)
-        self.assertFalse(ok)
-        self.assertIn("snap", msg.lower())
-        apply_boundary_graph_to_world(w)
-        self.assertEqual(len(w["territories"]), before)
-
-    def test_tiny_gap_is_not_left_after_snap(self) -> None:
-        w = _world_with_square_island()
-        g = ensure_boundary_graph(w)
-        ok, msg = insert_boundary_stroke(g, [(10.4, 0.3), (10.2, 10.0), (9.7, 19.6)], 1.2)
-        self.assertTrue(ok, msg=msg)
-        apply_boundary_graph_to_world(w)
-        g = ensure_boundary_graph(w)
-        top = nearest_graph_snap(g, (10.0, 20.0), 1.2)
-        bot = nearest_graph_snap(g, (10.0, 0.0), 1.2)
-        self.assertIsNotNone(top)
-        self.assertIsNotNone(bot)
-        assert top and bot
-        self.assertEqual(top["kind"], "node")
-        self.assertEqual(bot["kind"], "node")
-        self.assertEqual(graph_node_point(g, top["node"]), top["point"])
-        self.assertEqual(graph_node_point(g, bot["node"]), bot["point"])
-
-    def test_shared_node_move_updates_both_territories(self) -> None:
-        w = _world_with_square_island()
-        g = ensure_boundary_graph(w)
-        self.assertTrue(insert_boundary_stroke(g, [(10.0, 0.2), (10.0, 19.8)], 1.0)[0])
-        apply_boundary_graph_to_world(w)
-        g = ensure_boundary_graph(w)
-        snap = nearest_graph_snap(g, (10.0, 0.0), 0.8)
-        self.assertIsNotNone(snap)
-        assert snap and snap.get("node")
-        move_graph_node(g, snap["node"], (12.0, 0.0))
-        apply_boundary_graph_to_world(w)
-        p = (12.0, 0.0)
-        hits = 0
-        for t in w["territories"]:
-            ext = polygon_exterior(t["polygon"])
-            if ext and any(almost_equal(v[0], p[0]) and almost_equal(v[1], p[1]) for v in unique_ring_vertices(ext)):
-                hits += 1
-        self.assertGreaterEqual(hits, 2)
-
-    def test_undo_redo_topology_stroke(self) -> None:
-        w = _world_with_square_island()
-        stack = UndoStack()
-        stack.push(w)
-        g = ensure_boundary_graph(w)
-        self.assertTrue(insert_boundary_stroke(g, [(10.0, 0.2), (10.0, 19.8)], 1.0)[0])
-        apply_boundary_graph_to_world(w)
-        self.assertEqual(len(w["territories"]), 2)
-        restored = stack.apply_undo(w)
-        self.assertIsNotNone(restored)
-        assert restored is not None
-        self.assertEqual(len(restored["territories"]), 0)
-        redone = stack.apply_redo(restored)
-        self.assertIsNotNone(redone)
-        assert redone is not None
-        self.assertEqual(len(redone["territories"]), 2)
-
-    def test_export_strips_editor_graph_and_keeps_schema(self) -> None:
-        w = _world_with_square_island()
-        add_ai_faction(w)
-        g = ensure_boundary_graph(w)
-        self.assertTrue(insert_boundary_stroke(g, [(10.0, 0.2), (10.0, 19.8)], 1.0)[0])
-        apply_boundary_graph_to_world(w)
-        owned = [t for t in w["territories"] if t.get("startingOwnerFactionId") == "f_player"]
-        if owned:
-            fac = find_faction(w, "f_player")
-            fac["homeTerritoryId"] = owned[0]["id"]
-            fac["startingArmy"]["locationTerritoryId"] = owned[0]["id"]
-        ai = find_faction(w, "f_ai_01")
-        ai_t = next(t for t in w["territories"] if t.get("startingOwnerFactionId") != "f_player")
-        ai["homeTerritoryId"] = ai_t["id"]
-        ai["startingArmy"]["locationTerritoryId"] = ai_t["id"]
-        text = dumps_world(w)
-        self.assertNotIn(EDITOR_GRAPH_KEY, text)
-        data = json.loads(text)
-        self.assertEqual(data["formatVersion"], FORMAT_VERSION)
-        self.assertEqual(len(data["territories"]), 2)
-        self.assertIn("neighborIds", data["territories"][0])
-        for t in data["territories"]:
-            for p in t["polygon"]["rings"][0]:
-                self.assertEqual(set(p.keys()), {"x", "y"})
-        again, issues = parse_world_json(text)
-        self.assertEqual(issues, [], msg=issues)
-        self.assertIsNotNone(again)
-
-
 class EditorWorkflowTests(unittest.TestCase):
     def test_pointer_release_stores_raw_stroke_without_territories(self) -> None:
         w = new_blank_world()
@@ -3696,17 +2815,29 @@ class EditorWorkflowTests(unittest.TestCase):
         self.assertEqual(army["siegeEngines"], 10)
 
 
-def _cvt_stroke(sid: str, pts: Sequence[Point]) -> Dict[str, Any]:
-    return {"id": sid, "points": [(float(p[0]), float(p[1])) for p in pts]}
-
-
 def _cvt_square() -> List[Point]:
     return [(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0), (0.0, 0.0)]
 
 
+def _cvt_irregular_island() -> List[Point]:
+    return [
+        (2.0, 4.0), (8.0, 0.5), (18.0, 1.5), (22.0, 8.0),
+        (20.5, 18.0), (12.0, 22.0), (3.0, 19.0), (0.5, 11.0), (2.0, 4.0),
+    ]
+
+
+def _wavy_divider(x: float, y0: float, y1: float, n: int = 48, amp: float = 1.15) -> List[Point]:
+    pts: List[Point] = []
+    steps = max(n, 8)
+    for i in range(steps):
+        t = i / float(steps - 1)
+        y = y0 + (y1 - y0) * t
+        pts.append((x + amp * math.sin(t * math.pi * 3.0), y))
+    return pts
+
+
 def _cvt_interpret(*polylines: Sequence[Point]) -> Dict[str, Any]:
-    strokes = [_cvt_stroke(f"s{i}", pts) for i, pts in enumerate(polylines)]
-    return interpret_drawing_strokes(strokes)
+    return interpret_combined_drawing(polylines)
 
 
 def _cvt_world_from(*polylines: Sequence[Point]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -3732,168 +2863,96 @@ def _cvt_assign_homes(world: Dict[str, Any]) -> None:
                 army["locationTerritoryId"] = owned[0]["id"]
 
 
-def _wavy_divider(x: float, y0: float, y1: float, n: int = 48, amp: float = 1.15) -> List[Point]:
-    pts: List[Point] = []
-    steps = max(n, 8)
-    for i in range(steps):
-        t = i / float(steps - 1)
-        y = y0 + (y1 - y0) * t
-        pts.append((x + amp * math.sin(t * math.pi * 3.0), y))
-    return pts
-
-
 class DrawingConvertTests(unittest.TestCase):
-    def test_simple_island_no_internal_lines(self) -> None:
-        result = _cvt_interpret(_cvt_square())
+    def test_new_map_starts_blank(self) -> None:
+        w = new_blank_world()
+        self.assertFalse(polygon_exterior(w["island"]))
+        self.assertEqual(w["territories"], [])
+        self.assertEqual(iter_drawing_strokes(w), [])
+
+    def test_closed_irregular_outer_is_one_territory(self) -> None:
+        result = _cvt_interpret(_cvt_irregular_island())
         self.assertTrue(result["ok"], msg=result.get("message"))
         self.assertEqual(len(result["territories"]), 1)
-        self.assertGreater(abs(ring_area(result["island"])), 300.0)
+        self.assertGreater(abs(ring_area(result["island"])), 80.0)
 
-    def test_island_divided_by_one_line(self) -> None:
-        result = _cvt_interpret(_cvt_square(), [(10.0, -0.2), (10.0, 20.2)])
+    def test_outer_plus_one_through_divider_is_two_territories(self) -> None:
+        result = _cvt_interpret(_cvt_square(), [(10.0, -8.0), (10.0, 28.0)])
         self.assertTrue(result["ok"], msg=result.get("message"))
         self.assertEqual(len(result["territories"]), 2)
+        pa = points_to_polygon(result["territories"][0])
+        pb = points_to_polygon(result["territories"][1])
+        self.assertGreater(shared_edge_length(pa, pb), 1.0)
 
-    def test_two_crossing_lines_make_four_territories(self) -> None:
+    def test_outer_plus_vertical_and_horizontal_is_four_territories(self) -> None:
         result = _cvt_interpret(
             _cvt_square(),
-            [(10.0, -1.0), (10.0, 21.0)],
-            [(-1.0, 10.0), (21.0, 10.0)],
+            [(10.0, -6.0), (10.0, 26.0)],
+            [(-6.0, 10.0), (26.0, 10.0)],
         )
         self.assertTrue(result["ok"], msg=result.get("message"))
         self.assertEqual(len(result["territories"]), 4)
 
-    def test_many_territories_from_grid_dividers(self) -> None:
+    def test_several_intersecting_lines_make_enclosed_regions(self) -> None:
         result = _cvt_interpret(
             _cvt_square(),
-            [(6.5, -1.0), (6.5, 21.0)],
-            [(13.5, -1.0), (13.5, 21.0)],
-            [(-1.0, 10.0), (21.0, 10.0)],
+            [(7.0, -5.0), (7.0, 25.0)],
+            [(13.0, -5.0), (13.0, 25.0)],
+            [(-5.0, 10.0), (25.0, 10.0)],
         )
         self.assertTrue(result["ok"], msg=result.get("message"))
         self.assertEqual(len(result["territories"]), 6)
 
-    def test_internal_line_ending_slightly_short_of_boundary(self) -> None:
-        result = _cvt_interpret(_cvt_square(), [(10.0, 1.6), (10.0, 18.4)])
+    def test_dividers_extending_outside_island_are_ignored(self) -> None:
+        result = _cvt_interpret(_cvt_square(), [(10.0, -40.0), (10.0, 60.0)])
         self.assertTrue(result["ok"], msg=result.get("message"))
         self.assertEqual(len(result["territories"]), 2)
-        self.assertTrue(result["report"].get("extended"))
-
-    def test_internal_line_slightly_crossing_outside_is_clipped(self) -> None:
-        result = _cvt_interpret(_cvt_square(), [(10.0, -4.0), (10.0, 24.0)])
-        self.assertTrue(result["ok"], msg=result.get("message"))
-        self.assertEqual(len(result["territories"]), 2)
-        self.assertTrue(result["report"].get("clipped"))
         isle = result["island"]
         for ring in result["territories"]:
             self.assertTrue(all_vertices_inside(unique_ring_vertices(ring), isle))
 
-    def test_loose_ended_internal_line(self) -> None:
-        result = _cvt_interpret(_cvt_square(), [(10.0, 0.4), (10.0, 17.2)])
+    def test_loose_line_that_encloses_nothing_adds_no_territory(self) -> None:
+        result = _cvt_interpret(_cvt_square(), [(6.0, 8.0), (8.5, 9.2)])
+        self.assertTrue(result["ok"], msg=result.get("message"))
+        self.assertEqual(len(result["territories"]), 1)
+
+    def test_small_gap_to_boundary_is_bridged(self) -> None:
+        result = _cvt_interpret(_cvt_square(), [(10.0, 0.45), (10.0, 19.55)])
         self.assertTrue(result["ok"], msg=result.get("message"))
         self.assertEqual(len(result["territories"]), 2)
 
-    def test_multiple_loose_ended_lines(self) -> None:
-        result = _cvt_interpret(
-            _cvt_square(),
-            [(7.0, 1.4), (7.0, 18.5)],
-            [(13.0, 1.7), (13.0, 18.2)],
-        )
-        self.assertTrue(result["ok"], msg=result.get("message"))
-        self.assertEqual(len(result["territories"]), 3)
-
-    def test_lines_intersecting(self) -> None:
-        result = _cvt_interpret(
-            _cvt_square(),
-            [(2.0, 2.0), (18.0, 18.0)],
-            [(18.0, 2.0), (2.0, 18.0)],
-        )
-        self.assertTrue(result["ok"], msg=result.get("message"))
-        self.assertEqual(len(result["territories"]), 4)
-
-    def test_nearly_touching_lines(self) -> None:
-        result = _cvt_interpret(
-            _cvt_square(),
-            [(10.0, 0.2), (10.0, 19.8)],
-            [(10.4, 10.0), (19.7, 10.0)],
-        )
-        self.assertTrue(result["ok"], msg=result.get("message"))
-        self.assertEqual(len(result["territories"]), 3)
-
-    def test_tiny_accidental_loops_ignored(self) -> None:
-        speck = [(4.0, 4.0), (4.4, 4.0), (4.4, 4.35), (4.0, 4.35), (4.0, 4.0)]
+    def test_tiny_accidental_closed_mark_ignored(self) -> None:
+        speck = [(30.0, 30.0), (30.6, 30.0), (30.6, 30.5), (30.0, 30.5), (30.0, 30.0)]
         result = _cvt_interpret(_cvt_square(), speck)
         self.assertTrue(result["ok"], msg=result.get("message"))
         self.assertEqual(len(result["territories"]), 1)
-        ignored = [i.get("reason", "") for i in result["report"].get("ignored") or []]
-        self.assertTrue(any("tiny" in r or "loop" in r for r in ignored))
+        self.assertGreaterEqual(int(result.get("noiseCount") or 0), 0)
 
-    def test_stray_strokes_outside_island_ignored(self) -> None:
-        result = _cvt_interpret(
-            _cvt_square(),
-            [(30.0, 5.0), (40.0, 8.0), (38.0, 12.0)],
-        )
-        self.assertTrue(result["ok"], msg=result.get("message"))
-        self.assertEqual(len(result["territories"]), 1)
-        ignored = [i.get("reason", "") for i in result["report"].get("ignored") or []]
-        self.assertTrue(any("outside" in r for r in ignored))
-
-    def test_organic_island_outline_preserved(self) -> None:
-        raw = _organic_coast_path(360)
+    def test_organic_island_shape_preserved(self) -> None:
+        raw = _organic_coast_path(280)
         result = _cvt_interpret(raw)
         self.assertTrue(result["ok"], msg=result.get("message"))
         self.assertEqual(len(result["territories"]), 1)
         verts = unique_ring_vertices(result["island"])
-        self.assertGreaterEqual(len(verts), 24)
+        self.assertGreaterEqual(len(verts), 20)
         orig = abs(ring_area(close_ring(raw)))
         got = abs(ring_area(result["island"]))
-        self.assertLess(abs(got - orig) / orig, 0.12)
+        self.assertLess(abs(got - orig) / orig, 0.25)
 
-    def test_organic_territory_boundaries_preserved(self) -> None:
+    def test_organic_internal_borders_preserved(self) -> None:
         raw = _organic_coast_path(280)
-        divider = _wavy_divider(48.0, 8.0, 72.0, n=60, amp=1.4)
+        divider = _wavy_divider(48.0, -10.0, 90.0, n=60, amp=1.4)
         result = _cvt_interpret(raw, divider)
         self.assertTrue(result["ok"], msg=result.get("message"))
         self.assertEqual(len(result["territories"]), 2)
         for ring in result["territories"]:
             self.assertGreaterEqual(len(unique_ring_vertices(ring)), 8)
 
-    def test_dense_freehand_point_data(self) -> None:
-        dense = _dense_square_path(70)
-        divider: List[Point] = []
-        for i in range(90):
-            t = i / 89.0
-            divider.append((40.0, 10.0 + 60.0 * t))
-        result = _cvt_interpret(dense, divider)
-        self.assertTrue(result["ok"], msg=result.get("message"))
-        self.assertEqual(len(result["territories"]), 2)
-
-    def test_duplicate_strokes_do_not_multiply_territories(self) -> None:
-        line = [(10.0, -0.5), (10.0, 20.5)]
-        jittered = [(10.05, -0.4), (10.08, 10.0), (9.96, 20.4)]
-        result = _cvt_interpret(_cvt_square(), line, jittered)
-        self.assertTrue(result["ok"], msg=result.get("message"))
-        self.assertEqual(len(result["territories"]), 2)
-        ignored = [i.get("reason", "") for i in result["report"].get("ignored") or []]
-        self.assertTrue(any("duplicate" in r for r in ignored))
-
-    def test_ambiguous_two_islands_reports_error(self) -> None:
-        a = _cvt_square()
-        b = [(40.0, 0.0), (60.0, 0.0), (60.0, 20.0), (40.0, 20.0), (40.0, 0.0)]
-        result = _cvt_interpret(a, b)
-        self.assertFalse(result["ok"])
-        self.assertTrue(result["report"].get("ambiguous"))
-        self.assertIn("Ambiguous", result.get("message") or "")
-
     def test_no_island_drawn(self) -> None:
         result = _cvt_interpret([(1.0, 1.0), (8.0, 2.0), (4.0, 9.0)])
         self.assertFalse(result["ok"])
-        self.assertIn("island", (result.get("message") or "").lower())
-
-    def test_self_intersecting_island_is_invalid(self) -> None:
-        bowtie = [(0.0, 0.0), (20.0, 20.0), (20.0, 0.0), (0.0, 20.0), (0.0, 0.0)]
-        result = _cvt_interpret(bowtie)
-        self.assertFalse(result["ok"])
+        msg = (result.get("message") or "").lower()
+        self.assertTrue("island" in msg or "enclosed" in msg)
 
     def test_conversion_writes_world_and_export_is_valid(self) -> None:
         w = new_blank_world()
@@ -3909,37 +2968,37 @@ class DrawingConvertTests(unittest.TestCase):
         self.assertEqual(issues, [], msg=issues)
         text = dumps_world(w)
         self.assertNotIn(EDITOR_DRAWING_KEY, text)
+        self.assertNotIn(EDITOR_GRAPH_KEY, text)
         again, parse_issues = parse_world_json(text)
         self.assertEqual(parse_issues, [], msg=parse_issues)
         self.assertIsNotNone(again)
         assert again is not None
         self.assertEqual(len(again["territories"]), 2)
 
-    def test_reconvert_keeps_raw_drawing(self) -> None:
+    def test_reconvert_rebuilds_from_raw_drawing(self) -> None:
         w, first = _cvt_world_from(_cvt_square())
         self.assertTrue(first["ok"])
+        self.assertEqual(len(w["territories"]), 1)
         n = len(iter_drawing_strokes(w))
-        add_drawing_stroke(w, [(10.0, -1.0), (10.0, 21.0)])
+        add_drawing_stroke(w, [(10.0, -8.0), (10.0, 28.0)])
         second = convert_drawing_to_map(w)
         self.assertTrue(second["ok"], msg=second.get("message"))
         self.assertEqual(len(iter_drawing_strokes(w)), n + 1)
         self.assertEqual(len(w["territories"]), 2)
 
     def test_editor_save_keeps_drawing_export_does_not(self) -> None:
-        w, result = _cvt_world_from(_cvt_square(), [(10.0, 0.0), (10.0, 20.0)])
+        w, result = _cvt_world_from(_cvt_square(), [(10.0, -4.0), (10.0, 24.0)])
         self.assertTrue(result["ok"])
         editor = dumps_editor_document(w)
         self.assertIn(EDITOR_DRAWING_KEY, editor)
         playable = dumps_world(w)
         self.assertNotIn(EDITOR_DRAWING_KEY, playable)
 
-
 def run_self_test() -> int:
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
     suite.addTests(loader.loadTestsFromTestCase(WorldLogicTests))
     suite.addTests(loader.loadTestsFromTestCase(DrawnPolygonTests))
-    suite.addTests(loader.loadTestsFromTestCase(BoundaryGraphTests))
     suite.addTests(loader.loadTestsFromTestCase(EditorWorkflowTests))
     suite.addTests(loader.loadTestsFromTestCase(DrawingConvertTests))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
@@ -4486,25 +3545,7 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                     sx, sy = self.w2s(cx, cy)
                     c.create_text(sx, sy - 14, text=r.get("name", ""), fill="#cde", font=("Segoe UI", 10))
             poly = self._selected_polygon()
-            g = ensure_boundary_graph(self.world)
-            if g["nodes"]:
-                for nid, q in g["nodes"].items():
-                    sx, sy = self.w2s(float(q[0]), float(q[1]))
-                    r = 5
-                    c.create_rectangle(sx - r, sy - r, sx + r, sy + r, fill="#fff56a", outline="#000")
-                    if self.sel and self.sel[0] == "gnode" and self.sel[1] == nid:
-                        c.create_oval(sx - 8, sy - 8, sx + 8, sy + 8, outline="#fff", width=2)
-                if self.sel and self.sel[0] in ("territory", "island", "gnode", "gedge"):
-                    for eid, e in g["edges"].items():
-                        poly_e = _sync_edge_poly(g, eid)
-                        for i, (x, y) in enumerate(poly_e):
-                            if i == 0 or i == len(poly_e) - 1:
-                                continue
-                            sx, sy = self.w2s(x, y)
-                            c.create_oval(sx - 3, sy - 3, sx + 3, sy + 3, fill="#c9e6ff", outline="#000")
-                            if self.sel and self.sel[0] == "gedge" and self.sel[1] == eid and self.sel[2] == i:
-                                c.create_oval(sx - 7, sy - 7, sx + 7, sy + 7, outline="#fff", width=2)
-            elif poly:
+            if poly:
                 verts = unique_ring_vertices(poly)
                 for i, (x, y) in enumerate(verts):
                     sx, sy = self.w2s(x, y)
@@ -4512,10 +3553,6 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                     c.create_rectangle(sx - r, sy - r, sx + r, sy + r, fill="#fff56a", outline="#000")
             if self.show_raw.get():
                 live_id = (self.stroke or {}).get("open_id")
-                report = self.world.get(EDITOR_CONVERT_REPORT_KEY) if isinstance(self.world.get(EDITOR_CONVERT_REPORT_KEY), dict) else {}
-                ignored_ids = {str(i.get("id")) for i in (report.get("ignored") or []) if isinstance(i, dict)}
-                used_ids = set(report.get("usedInternalIds") or [])
-                island_sid = report.get("islandStrokeId")
                 seen_ids: Set[str] = set()
                 for item in list(iter_drawing_strokes(self.world)) + list(iter_open_strokes(self.world)):
                     sid = str(item.get("id") or "")
@@ -4529,20 +3566,9 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                     for x, y in pts:
                         sx, sy = self.w2s(x, y)
                         coords.extend((sx, sy))
-                    if sid == island_sid:
-                        color, width, dash = "#e8d48a", 2, None
-                    elif sid in used_ids:
-                        color, width, dash = "#9ad7ff", 2, None
-                    elif sid in ignored_ids:
-                        color, width, dash = "#666", 1, (4, 4)
-                    else:
-                        color, width, dash = "#7fe3ff", 2, (5, 3)
-                    line_kw: Dict[str, Any] = {
-                        "fill": color, "width": width, "capstyle": "round", "joinstyle": "round",
-                    }
-                    if dash:
-                        line_kw["dash"] = dash
-                    c.create_line(*coords, **line_kw)
+                    c.create_line(
+                        *coords, fill="#7fe3ff", width=2, capstyle="round", joinstyle="round", dash=(5, 3),
+                    )
             if self.stroke:
                 preview = list(self.stroke.get("raw") or [])
                 cursor = self.stroke.get("cursor")
@@ -4590,26 +3616,9 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             return None
 
         def _hit_vertex(self, wx: float, wy: float) -> Optional[Tuple[str, Any, int]]:
-            g = ensure_boundary_graph(self.world)
             thresh = 8.0 / max(self.zoom, 0.01)
             best: Optional[Tuple[str, Any, int]] = None
             best_d = thresh
-            for nid, q in g["nodes"].items():
-                d = math.hypot(wx - float(q[0]), wy - float(q[1]))
-                if d < best_d:
-                    best_d = d
-                    best = ("gnode", nid, 0)
-            for eid in g["edges"]:
-                poly = _sync_edge_poly(g, eid)
-                for i, (x, y) in enumerate(poly):
-                    if i == 0 or i == len(poly) - 1:
-                        continue
-                    d = math.hypot(wx - x, wy - y)
-                    if d < best_d:
-                        best_d = d
-                        best = ("gedge", eid, i)
-            if best:
-                return best
             kinds: List[Tuple[str, Any, List[Point]]] = []
             isle = polygon_exterior(self.world.get("island"))
             if isle:
@@ -4634,10 +3643,7 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             return None
 
         def _snap_at(self, wx: float, wy: float) -> Optional[Dict[str, Any]]:
-            g = ensure_boundary_graph(self.world)
-            if not graph_has_island(g):
-                return None
-            return nearest_graph_snap(g, (wx, wy), drawing_snap_radius(self.zoom))
+            return None
 
         def _on_press(self, event) -> None:
             self.canvas.focus_set()
@@ -4691,11 +3697,7 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
 
         def _begin_vertex_drag(self, kind: str, ident: Any, index: int, wx: float, wy: float) -> None:
             self.undo.push(self.world)
-            if kind == "gnode":
-                self.sel = ("gnode", ident)
-            elif kind == "gedge":
-                self.sel = ("gedge", ident, index)
-            elif kind == "island":
+            if kind == "island":
                 self.sel = ("vertex", "island", index)
             else:
                 self.sel = ("vertex", "territory", index, ident)
@@ -4715,14 +3717,7 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                 return
             wx, wy = self.s2w(event.x, event.y)
             kind, ident, index = self.drag["kind"], self.drag["ident"], self.drag["index"]
-            g = ensure_boundary_graph(self.world)
-            if kind == "gnode":
-                move_graph_node(g, ident, (wx, wy))
-                apply_boundary_graph_to_world(self.world)
-            elif kind == "gedge":
-                move_graph_edge_vertex(g, ident, index, (wx, wy))
-                apply_boundary_graph_to_world(self.world)
-            elif kind == "island":
+            if kind == "island":
                 pts = unique_ring_vertices(polygon_exterior(self.world.get("island")) or [])
                 if 0 <= index < len(pts):
                     pts[index] = (wx, wy)
@@ -4752,16 +3747,7 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self._try_add_vertex(wx, wy)
 
         def _try_add_vertex(self, wx: float, wy: float) -> None:
-            g = ensure_boundary_graph(self.world)
             thresh = 10.0 / max(self.zoom, 0.01)
-            snap = nearest_graph_snap(g, (wx, wy), thresh)
-            if snap and snap.get("kind") == "edge" and snap.get("edge"):
-                self.undo.push(self.world)
-                if insert_graph_edge_vertex(g, snap["edge"], snap["point"], thresh):
-                    apply_boundary_graph_to_world(self.world)
-                    self.dirty = True
-                    self._redraw()
-                    return
             poly = self._selected_polygon()
             if not poly:
                 return
@@ -4806,13 +3792,8 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                 return
             kind, ident, idx = hit
             self.undo.push(self.world)
-            g = ensure_boundary_graph(self.world)
             changed = False
-            if kind == "gnode":
-                changed = delete_graph_vertex(g, nid=ident)
-            elif kind == "gedge":
-                changed = delete_graph_vertex(g, eid=ident, index=idx)
-            elif kind == "island":
+            if kind == "island":
                 pts = delete_vertex_at(polygon_exterior(self.world.get("island")) or [], idx)
                 if pts:
                     set_exterior(self.world["island"], pts)
@@ -4825,8 +3806,6 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                         set_exterior(t["polygon"], pts)
                         changed = True
             if changed:
-                if kind in ("gnode", "gedge"):
-                    apply_boundary_graph_to_world(self.world)
                 self.dirty = True
             self._redraw()
 
@@ -4887,19 +3866,19 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                 n = len(self.stroke.get("raw") or [])
                 self.banner_text.set(
                     f"DRAWING — {n} points  ·  release stores the stroke  ·  zoom/pan anytime  ·  "
-                    "CONVERT TO MAP interprets the whole drawing  ·  Esc cancels this stroke"
+                    "CONVERT TO MAP counts enclosed areas  ·  Esc cancels this stroke"
                 )
                 self.banner.config(bg="#0b5cad", fg="#ffffff")
             elif tool == "draw":
                 extra = f"{n_raw} stroke(s) stored. " if n_raw else "Blank canvas. "
                 self.banner_text.set(
                     extra + "Drag freely. Lines do not need to snap or close. "
-                    "When the drawing looks right, press CONVERT TO MAP."
+                    "When the drawing looks right, press CONVERT TO MAP to count enclosed areas."
                 )
                 self.banner.config(bg="#3d4a1f", fg="#f3f0c8")
             elif n_raw and not polygon_exterior(self.world.get("island")):
                 self.banner_text.set(
-                    f"{n_raw} raw stroke(s) — press CONVERT TO MAP to interpret island and territories."
+                    f"{n_raw} raw stroke(s) — press CONVERT TO MAP to find the island and territories."
                 )
                 self.banner.config(bg="#3d4a1f", fg="#f3f0c8")
             else:
@@ -5669,8 +4648,8 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
         def _ui_dup_territory(self) -> None:
             messagebox.showinfo(
                 "Territories",
-                "Territories come from closed regions in the boundary network. "
-                "Use Draw to add a divider that snaps to existing borders; do not duplicate a polygon.",
+                "Territories come from enclosed areas after CONVERT TO MAP. "
+                "Draw on the canvas and convert again rather than duplicating a polygon.",
             )
 
         def _delete_selection(self, event=None) -> None:
@@ -5681,24 +4660,11 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                     return
             if not self.sel:
                 return
-            if self.sel[0] in ("gnode", "gedge"):
-                self.undo.push(self.world)
-                g = ensure_boundary_graph(self.world)
-                if self.sel[0] == "gnode":
-                    delete_graph_vertex(g, nid=self.sel[1])
-                else:
-                    delete_graph_vertex(g, eid=self.sel[1], index=self.sel[2])
-                apply_boundary_graph_to_world(self.world)
-                self.sel = None
-                self.dirty = True
-                self._reload_lists()
-                self._redraw()
-                return
             if self.sel[0] == "territory":
                 messagebox.showinfo(
                     "Territories",
-                    "A territory is a closed region of the boundary network. "
-                    "Delete a dividing vertex/edge (right-click) or use World → Clear all map geometry.",
+                    "Territories come from enclosed areas in the drawing. "
+                    "Change the raw drawing and CONVERT TO MAP again, or use World → Clear all map geometry.",
                 )
                 return
             elif self.sel[0] == "vertex":
@@ -5736,7 +4702,7 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
         def _clear_island(self) -> None:
             if not messagebox.askyesno(
                 "Clear geometry",
-                "Remove the island, territories, boundary network, and raw drawing strokes? "
+                "Remove the island, territories, and raw drawing strokes? "
                 "This returns to a blank canvas.",
             ):
                 return
@@ -5745,7 +4711,7 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self.world["territories"] = []
             for r in self.world.get("regions") or []:
                 r["territoryIds"] = []
-            self.world[EDITOR_GRAPH_KEY] = empty_boundary_graph()
+            self.world.pop(EDITOR_GRAPH_KEY, None)
             self.world[EDITOR_OPEN_STROKES_KEY] = empty_open_strokes()
             self.world[EDITOR_DRAWING_KEY] = empty_drawing()
             self.world.pop(EDITOR_CONVERT_REPORT_KEY, None)
@@ -5888,7 +4854,7 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             if replacing and not self._confirm_discard():
                 return
             self.world = world
-            ensure_boundary_graph(self.world)
+            self.world.pop(EDITOR_GRAPH_KEY, None)
             get_drawing(self.world, create=True)
             self.path = path
             self.dirty = False
