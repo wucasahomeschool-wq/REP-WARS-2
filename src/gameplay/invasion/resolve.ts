@@ -8,6 +8,7 @@ import { armiesInTerritory, requireFactionSnapshot, requireTerritory } from '../
 import { clearAttackIntent } from '../../army/strategicAttack';
 import { failedDefenseContinuationTicks, successfulDefenseRecoveryTicks } from '../config';
 import { isOpenInvasion } from './deadlines';
+import { withTerritoryBattleLabel } from '../../worldDefinition/display';
 import { abandonLinkedDefenseSession } from './session';
 
 export type InvasionResolveReason =
@@ -136,7 +137,7 @@ export function resolveInvasionBattle(
     attackerArmies: attackers,
     defenderArmies: [...realDefenders, ...virtualDefender],
     defenderGarrison: target.garrison,
-    territory: target,
+    territory: withTerritoryBattleLabel(state, target),
   };
   const validation = battle.validate(input);
   if (!validation.valid) {

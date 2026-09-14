@@ -135,7 +135,7 @@ They are **not** army travel formulas. Adjacent-hop travel is
 | Action | Duration (ticks) | Notes |
 | --- | --- | --- |
 | ATTACK | 0 | Immediately resolvable when execution is reached |
-| BUILD, REINFORCE, EXPAND, SCOUT, NEGOTIATE, DECLARE_WAR | 0 | Immediate when ready |
+| BUILD, REINFORCE, NEGOTIATE, DECLARE_WAR | 0 | Immediate when ready |
 | TRADE, OFFER_PEACE | 0 | Fail immediately; never left active |
 | WAIT, DEFEND | 1 | Minimal duration so timing infrastructure exists |
 | MOVE, RETREAT | 0 | Resolve **starts** the march immediately; arrival is army `durationTicks` |

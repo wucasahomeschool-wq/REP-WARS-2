@@ -31,12 +31,6 @@ function coerceMap(value: unknown): Map<unknown, unknown> {
   return new Map();
 }
 
-function coerceSet(value: unknown): Set<unknown> {
-  if (value instanceof Set) return value;
-  if (Array.isArray(value)) return new Set(value);
-  return new Set();
-}
-
 function migrateInvasion(invasion: unknown): void {
   if (!invasion || typeof invasion !== 'object') return;
   const rec = invasion as Record<string, unknown>;
@@ -46,11 +40,26 @@ function migrateInvasion(invasion: unknown): void {
   if (!('defenseWorkoutStartedAtTick' in rec)) rec.defenseWorkoutStartedAtTick = null;
 }
 
+function migrateTerritory(territory: unknown): void {
+  if (!territory || typeof territory !== 'object') return;
+  const rec = territory as Record<string, unknown>;
+  delete rec.name;
+  delete rec.isCapital;
+  delete rec.isKnown;
+  delete rec.scoutedTurnsAgo;
+  if (typeof rec.regionId !== 'string' || rec.regionId.length === 0) {
+    rec.regionId = 'r_legacy_sample';
+  }
+}
+
 function migrateConstruction(project: unknown): void {
   if (!project || typeof project !== 'object') return;
   const rec = project as Record<string, unknown>;
   if (!('lastProgressTick' in rec)) {
     rec.lastProgressTick = rec.startedAtTick ?? 0;
+  }
+  if (rec.projectType !== 'CITY' && rec.projectType !== 'FORTIFICATION') {
+    rec.projectType = 'FORTIFICATION';
   }
 }
 
@@ -63,33 +72,12 @@ function reviveNestedCollections(state: Record<string, unknown>): void {
     rec.diplomacy = coerceMap(rec.diplomacy);
   }
 
-  const visibility = coerceMap(state.visibility);
-  state.visibility = visibility;
-  for (const view of visibility.values()) {
-    if (!view || typeof view !== 'object') continue;
-    const rec = view as Record<string, unknown>;
-    rec.knownThemes = coerceSet(rec.knownThemes);
-    rec.knownRegions = coerceSet(rec.knownRegions);
-    rec.visibility = coerceMap(rec.visibility);
-  }
-
-  const mapWorld = state.mapWorld;
-  if (mapWorld && typeof mapWorld === 'object') {
-    const world = mapWorld as Record<string, unknown>;
-    world.territories = coerceMap(world.territories);
-    world.regions = coerceMap(world.regions);
-    world.themes = coerceMap(world.themes);
-    if (world.graphMeta && typeof world.graphMeta === 'object') {
-      const meta = world.graphMeta as Record<string, unknown>;
-      meta.frontierTerritories = coerceSet(meta.frontierTerritories);
-      meta.coordToTerritory = coerceMap(meta.coordToTerritory);
-      meta.territoryPos = coerceMap(meta.territoryPos);
-    }
-  }
+  delete state.visibility;
+  delete state.mapWorld;
 }
 
 /**
- * Bring a decoded GameState-shaped object forward to schema 8.
+ * Bring a decoded GameState-shaped object forward to schema 9.
  * Missing maps are created empty; major corruption still fails later invariants.
  */
 export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
@@ -118,6 +106,32 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   state.armies = coerceMap(state.armies);
   state.commitments = coerceMap(state.commitments);
   reviveNestedCollections(state);
+
+  const territories = state.territories as Map<unknown, unknown>;
+  for (const territory of territories.values()) migrateTerritory(territory);
+
+  state.regions = coerceMap(state.regions);
+  if (typeof state.definitionWorldId !== 'string') state.definitionWorldId = 'legacy:sample-map';
+  if (typeof state.definitionFormatVersion !== 'string') state.definitionFormatVersion = 'legacy-sample-map';
+  if (typeof state.worldLevel !== 'number') state.worldLevel = 1;
+  if (state.worldName === undefined) state.worldName = null;
+
+  const allTerritoryIds = [...territories.keys()].filter((id): id is string => typeof id === 'string');
+  const regions = state.regions as Map<unknown, unknown>;
+  if (regions.size === 0 && allTerritoryIds.length > 0) {
+    regions.set('r_legacy_sample', {
+      id: 'r_legacy_sample',
+      name: 'Legacy Sample Map',
+      territoryIds: [...allTerritoryIds],
+    });
+  }
+
+  const factions = state.factions as Map<unknown, unknown>;
+  for (const faction of factions.values()) {
+    if (!faction || typeof faction !== 'object') continue;
+    const rec = faction as Record<string, unknown>;
+    rec.knownTerritories = [...allTerritoryIds];
+  }
 
   if (!state.playerRewards) state.playerRewards = emptyPlayerRewardState();
   if (!state.activeInvasions) state.activeInvasions = new Map();

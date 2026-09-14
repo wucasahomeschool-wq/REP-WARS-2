@@ -1,5 +1,9 @@
 # AI Runtime Integration (Phase 16)
 
+> **Phase 17N.2:** AI personalities come from authored world JSON.
+> `SCOUT`/`EXPAND` are removed from the production action set. Region goals
+> use `Territory.regionId`. See `docs/WORLD_DEFINITION.md`.
+
 Phase 15 closed the MOVE → ATTACK strategic gap. This phase audited the
 full AI decision path — `DecisionEngine` → `ActionScorer` → `AICommitment`
 → `RESOLVE_COMMITMENT` → `ContinuousWorldEngine` → `BattleEngine`/`GoalSystem`/
@@ -51,7 +55,7 @@ runtime (not in the legacy CLI demo, which mostly worked around them):
    (which don't require territory) or WAIT, forever, with nothing behind
    any of it.
 
-Everything else audited (EXPAND, REINFORCE, BUILD, SCOUT, DEFEND, RETREAT,
+Everything else audited (REINFORCE, BUILD, DEFEND, RETREAT,
 goal alignment, commitment lifecycle, `ContinuousWorldEngine` tick
 ordering) was already internally consistent — see "Not changed" below.
 
@@ -92,10 +96,8 @@ narrowing, not a behavior change.
 |---|---|---|---|---|---|---|
 | ATTACK | yes | yes | `executeAttack` → `startStrategicAttack` | yes (staging march) | completed/failed | yes |
 | MOVE | yes | yes | `executeMoveCommitment` → `handleMove` | yes (march) | completed/interrupted/failed | yes |
-| EXPAND | yes | yes | `executeExpand` | no (immediate) | completed/failed | yes |
 | REINFORCE | yes | yes | `handleReinforce` | no (immediate) | completed/failed | yes |
 | BUILD | yes | yes | `handleBuild` | no (immediate) | completed/failed | yes |
-| SCOUT | yes | yes | `handleScout` | no (immediate) | completed/failed | yes |
 | DEFEND | yes | yes | posture no-op | no | completed | yes |
 | WAIT | yes | yes | no-op | no | completed | yes |
 | RETREAT | yes | yes | `executeStrategicRetreat` → `handleMove` | yes (march) | completed/interrupted/failed | yes |
@@ -140,17 +142,13 @@ now guaranteed to have at least one genuinely free adjacent army —
 `isMoveDestinationFeasible` is exported for direct testing/reuse but the
 scorer's own loop already enforces the same invariant structurally.
 
-## 5–6. EXPAND / REINFORCE / BUILD / SCOUT — audited, not changed
+## 5–6. REINFORCE / BUILD — audited, not changed
 
-- **EXPAND**: `scoreExpand` and `executeExpand` already share
-  `ScoringHelpers.computeLocalUsableMilitaryPower` (Engine Execution
-  Consistency pass, Phase ≤15) — verified still true, no drift.
 - **REINFORCE/BUILD**: scorer and executor already read the same
   `BALANCE.economy.reinforcementCost` /
   `BALANCE.territory.fortificationCostPerLevel` — verified.
-- **SCOUT**: `scoreScout` only proposes territories that are unknown or
-  stale (`scoutedTurnsAgo > 5`); `handleScout`/map-mode scouting has no
-  separate affordability gate to drift from. No change needed.
+- **EXPAND / SCOUT**: removed from the production action set in Phase
+  17N.2. The current world is fully visible; Level 1 ownership is authored.
 
 ## 7. DEFEND / WAIT / RETREAT loops
 

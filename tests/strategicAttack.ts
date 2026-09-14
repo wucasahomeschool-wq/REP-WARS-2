@@ -18,6 +18,7 @@ import { Orchestrator } from '../src/orchestration/orchestrator';
 import { cloneGameState, checkGameStateInvariants, createGameState } from '../src/state';
 import { Army, Territory } from '../src/types';
 import { GAME_STATE_SCHEMA_VERSION, emptyWorldClock, emptyRewardApplicationState, type GameState } from '../src/types/GameState';
+import { authoredWorldFields, dropTerritoryFromRegions } from './worldTestHelpers';
 import type { CommandRequest } from '../src/orchestration';
 import type { AICommitment, WarlordSnapshot } from '../src/types';
 import type { WorldAdvanceResult } from '../src/world';
@@ -73,8 +74,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
       allFactionIds: [ATK, DEF],
       playerFactionId: ATK,
       territories,
-      mapWorld: null,
-      visibility: new Map(),
+      ...authoredWorldFields(territories),
       armies: new Map([[a.id, a]]),
       commitments: new Map([[ATK, null], [DEF, null]]),
       activeEvents: [],
@@ -101,8 +101,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
       allFactionIds: [ATK, DEF],
       playerFactionId: ATK,
       territories: new Map([['home', home], ['front', front]]),
-      mapWorld: null,
-      visibility: new Map(),
+      ...authoredWorldFields(new Map([['home', home], ['front', front]])),
       armies: new Map([[a.id, a]]),
       commitments: new Map([[ATK, null], [DEF, null]]),
       activeEvents: [],
@@ -497,6 +496,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
     };
     startStrategicAttack(state, host, { territoryId: 'front', factionId: ATK });
     state.territories.delete('front');
+    dropTerritoryFromRegions(state, 'front');
     state.factions.get(DEF)!.territories = [];
     state.territories.get('staging')!.neighboring = ['rear'];
     const stale = invalidateStaleAttackIntents(state);

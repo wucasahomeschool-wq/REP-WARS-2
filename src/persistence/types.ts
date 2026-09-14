@@ -14,8 +14,8 @@ export const DEFAULT_WORLD_ID = 'local';
  * Canonical persisted (authoritative):
  *   schemaVersion, turn, worldTick, lastAiDecisionTick, worldSeed,
  *   factions (resources, diplomacy, memory, goals, armies refs),
- *   playerFactionId, territories (ownership, garrison, fortification),
- *   mapWorld, visibility, armies, commitments, activeEvents, eventHistory,
+ *   playerFactionId, definitionWorldId/worldLevel, territories (ownership,
+ *   garrison, fortification), armies, commitments, activeEvents, eventHistory,
  *   playerRewards (banked Troops, pending effects, appliedRewards ledger),
  *   activeInvasions, constructions (remainingTicks + lastProgressTick),
  *   cities, territoryEconomy (lastAccrualTick + uncollected),
@@ -26,7 +26,7 @@ export const DEFAULT_WORLD_ID = 'local';
  *   remaining construction display time (from lastProgressTick + worldTick),
  *   currently collectible resources (uncollected + production since lastAccrual),
  *   remaining invasion/protection ticks (deadlines vs playerFacingTick),
- *   public-view fog snapshots, BattleEngine/Fitness calculations.
+ *   public views of the current world. BattleEngine/Fitness calculations.
  *
  * Workout history is a separate store. compactHistory remains a small
  * GameState index; durable evidence lives in WorkoutHistoryStore.

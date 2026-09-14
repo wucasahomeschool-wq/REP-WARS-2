@@ -6,9 +6,9 @@
   "playerFactionId": "f_player",
   "island": {
     "rings": [[
-      { "x": 40, "y": 20 }, { "x": 180, "y": 30 }, { "x": 220, "y": 90 },
-      { "x": 200, "y": 170 }, { "x": 110, "y": 200 }, { "x": 30, "y": 140 },
-      { "x": 40, "y": 20 }
+      { "x": 10, "y": 40 }, { "x": 160, "y": 10 }, { "x": 240, "y": 70 },
+      { "x": 230, "y": 210 }, { "x": 80, "y": 230 }, { "x": 5, "y": 150 },
+      { "x": 10, "y": 40 }
     ]]
   },
   "completion": {
@@ -113,7 +113,7 @@
       "id": "t_02",
       "regionId": "r_cinder_highlands",
       "startingOwnerFactionId": "f_cinder_court",
-      "neighborIds": ["t_01", "t_03", "t_04"],
+      "neighborIds": ["t_01", "t_04", "t_05"],
       "terrain": "hills",
       "resourceOutput": { "food": 10, "gold": 6, "iron": 12, "wood": 4, "stone": 10 },
       "polygon": {
@@ -127,7 +127,7 @@
       "id": "t_03",
       "regionId": "r_cinder_highlands",
       "startingOwnerFactionId": "f_cinder_court",
-      "neighborIds": ["t_01", "t_02", "t_05"],
+      "neighborIds": ["t_01", "t_05"],
       "terrain": "forest",
       "resourceOutput": { "food": 8, "gold": 4, "iron": 0, "wood": 22, "stone": 2 },
       "polygon": {
@@ -141,7 +141,7 @@
       "id": "t_04",
       "regionId": "r_salt_margin",
       "startingOwnerFactionId": "f_cinder_court",
-      "neighborIds": ["t_02", "t_05", "t_06"],
+      "neighborIds": ["t_02", "t_06"],
       "terrain": "mountain",
       "resourceOutput": { "food": 4, "gold": 10, "iron": 24, "wood": 2, "stone": 18 },
       "polygon": {
@@ -155,7 +155,7 @@
       "id": "t_05",
       "regionId": "r_salt_margin",
       "startingOwnerFactionId": "f_salt_raiders",
-      "neighborIds": ["t_03", "t_04", "t_06"],
+      "neighborIds": ["t_02", "t_03", "t_06"],
       "terrain": "coastal",
       "resourceOutput": { "food": 14, "gold": 16, "iron": 0, "wood": 4, "stone": 4 },
       "polygon": {

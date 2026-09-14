@@ -11,7 +11,6 @@ export interface ArmyLike {
 export interface TerritoryLike {
   terrain: string;
   fortification?: number;
-  isCapital?: boolean;
 }
 
 export interface UnitBreakdown {
@@ -97,9 +96,6 @@ export function terrainAndFortToDefenseBonus(territory: TerritoryLike): number {
   const fortLvl = Math.max(0, territory.fortification ?? 0);
   if (fortLvl > 0) {
     defenseBonus += fortLvl * BALANCE.combat.fortificationPerLevelBonus;
-  }
-  if (territory.isCapital) {
-    defenseBonus *= BALANCE.combat.capitalBonus;
   }
   return Math.max(1.0, defenseBonus);
 }

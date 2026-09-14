@@ -25,6 +25,7 @@ import {
   StateChange,
 } from '../orchestration/protocol';
 import { beginArmyMovement, calculateMovementDuration, isArmyMoving } from './movement';
+import { withTerritoryBattleLabel } from '../worldDefinition/display';
 
 /** Same eligibility floor `executeAttack` / ActionScorer already used. Not combat math. */
 export const MIN_ATTACKING_TROOPS = 100;
@@ -284,14 +285,14 @@ function resolveStrategicBattle(
     attackerArmies: attackingArmies,
     defenderArmies: defendingArmies,
     defenderGarrison: target.garrison,
-    territory: target,
+    territory: withTerritoryBattleLabel(state, target),
   };
   const battle = host.registry.requireBattle();
   const validation = battle.validate(input);
   if (!validation.valid) {
     throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, validation.errors.join('; '), { errors: validation.errors });
   }
-  pushMemory(attackerSnap, state.turn, 'attack_made', defenderId, target.id, 8, { target: target.name });
+  pushMemory(attackerSnap, state.turn, 'attack_made', defenderId, target.id, 8, { target: target.id });
   pushMemory(defenderSnap, state.turn, 'attack_received', attackerId, target.id, 10, { attacker: attackerSnap.name });
   const rel = defenderSnap.diplomacy.get(attackerId);
   if (rel) {
@@ -331,7 +332,7 @@ function resolveStrategicBattle(
     presentation: {
       type: 'battle_report',
       durationMs: DEFAULT_PRESENTATION_MS,
-      title: `Battle at ${target.name}`,
+      title: `Battle at ${target.id}`,
       summary: result.summary,
     },
     payload: {

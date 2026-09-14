@@ -1,5 +1,10 @@
 # Player / AI interaction architecture (Phase 11)
 
+> **Phase 17N.2:** Production worlds are authored `WorldDefinition` JSON
+> (`docs/WORLD_DEFINITION.md`). `SCOUT` and `EXPAND` are not production
+> commands. The current world is fully visible. `SAMPLE_MAP` is a legacy
+> test fixture.
+
 Phase 11 is an **architectural boundary pass**. Player and AI still share
 domain engines. Phase 13 adds elapsed-time world simulation around that
 boundary (`docs/CONTINUOUS_WORLD_ARCHITECTURE.md`) without persistence,
@@ -42,7 +47,6 @@ Concrete shared examples:
 | Battle | `ATTACK` command | `RESOLVE_COMMITMENT` → ATTACK | `BattleEngine` + `executeAttack` |
 | Fortify | `BUILD` | commitment BUILD | same handler + `BALANCE.territory.fortificationCostPerLevel` |
 | Reinforce | `REINFORCE` | commitment REINFORCE | same handler + `BALANCE.economy.reinforcementCost` |
-| Scout | `SCOUT` | commitment SCOUT | same `handleScout` / `MapEngine.revealTerritories` |
 | Declare war | `DECLARE_WAR` | commitment DECLARE_WAR | same handler |
 | World events | `ADVANCE_WORLD` | same world step | `WorldSimulator` |
 
@@ -58,7 +62,7 @@ AIEventEngine.
 ```
 PLAYER
   ↓
-COMMAND  (ATTACK / BUILD / SCOUT / DECLARE_WAR / …)
+COMMAND  (ATTACK / BUILD / DECLARE_WAR / …)
   ↓
 ORCHESTRATOR  (validate → route → transaction)
   ↓
@@ -126,7 +130,6 @@ affected territory.
 | ATTACK eligibility / apply | thin glue | no | no | yes | yes | Orchestrator `executeAttack` |
 | BUILD / REINFORCE costs | yes (BALANCE) | no | no | apply only | yes | handlers + `BALANCE` (no EconomyEngine) |
 | MOVE (adjacent, immediate) | trivial | no | no | yes | yes | handler (no MovementEngine) |
-| SCOUT / fog | yes (existing map) | no | no | route | yes | **MapEngine** when `mapWorld` exists; else `knownTerritories` |
 | DECLARE_WAR / NEGOTIATE | trivial writes | no | no | yes | yes | handlers (no DiplomacyEngine yet) |
 | OFFER_PEACE / TRADE | future | scoring exists | no | reject | no | `FEATURE_NOT_IMPLEMENTED` |
 | Event step | yes | no | no | invoke/apply | yes | **WorldSimulator** |
@@ -252,8 +255,7 @@ It does not:
 | GET_COMMAND_INDEX, GET_GAME_STATE, GET_VISIBLE_WORLD | **A** routing / read | clones; no mutation |
 | ATTACK (`executeAttack` → `startStrategicAttack`) | **A + B** | Shared immediate/delayed attack: staging selection, optional one-hop MOVE, then BattleEngine + `applyBattleResultToGameState`. Eligibility (`soldiers+knights > 100`) and diplomacy side-effects stay as glue — not a second combat engine. |
 | MOVE | **B** trivial | adjacency + location write |
-| BUILD / REINFORCE | **B** trivial | charge `BALANCE`, increment fort/garrison |
-| SCOUT | **A + B** | MapEngine fog when present; else `knownTerritories` |
+| BUILD / REINFORCE | **B** trivial | charge `BALANCE`, increment fort/garrison (BUILD requires a city) |
 | DECLARE_WAR / NEGOTIATE | **B** trivial | relationship / opinion writes |
 | ADVANCE_WORLD | **A** | ContinuousWorldEngine + EventEngine adapter + existing AI handlers |
 | AI_DECIDE | **A** | DecisionEngine + commitment sync (not world mutation) |
@@ -347,16 +349,12 @@ that lives in DiplomacyEngine, a later EconomyEngine, or a small service)
 
 ---
 
-## Map / scout parity
+## Map / visibility
 
-`handleScout` is faction-id based, not player-vs-AI:
-
-- If `mapWorld` + visibility exist → `MapEngine.revealTerritories`
-- Else (SAMPLE_MAP / default `createGameState`) → `knownTerritories` /
-  `knownFactions`
-
-Player `SCOUT` and AI commitment `SCOUT` call the same function. Fog of
-war was not redesigned this phase.
+The current authored world is **fully visible**. There is no `SCOUT`
+command, no territory fog, and no `mapWorld` visibility maps on
+production `GameState`. `knownTerritories` on a warlord snapshot lists
+every current-world tile id (complete knowledge of this world, not fog).
 
 ---
 

@@ -13,6 +13,11 @@ import {
   sumUnits,
 } from './CombatPower';
 
+/** Region display name when provided; otherwise the stable territory id. */
+function battlePlaceName(territory: { id: string; name?: string }): string {
+  return territory.name && territory.name.length > 0 ? territory.name : territory.id;
+}
+
 /**
  * Battle-specific input DTO. Deliberately NOT the canonical `Army`/`Territory`
  * types (see `../types`) — this is what BattleEngine actually needs to
@@ -37,10 +42,10 @@ export interface BattleInput {
   defenderGarrison?: number;
   territory: TerritoryLike & {
     id: string;
-    name: string;
+    /** Optional display label (region name). Falls back to territory id. */
+    name?: string;
     owner?: string | null;
     fortification: number;
-    isCapital?: boolean;
     garrison?: number;
   };
   attackerAggression?: number;
@@ -234,7 +239,7 @@ export class BattleEngine {
     const atkName = input.attackerFactionName ?? input.attackerFactionId;
     const defName = input.defenderFactionName ?? input.defenderFactionId;
     emit('setup', 'phase_start', 'both',
-      `${atkName} marches on ${input.territory.name}.`, 0);
+      `${atkName} marches on ${battlePlaceName(input.territory)}.`, 0);
 
     const atkQuality = input.attackerQuality ?? C.qualityDefault;
     const defQuality = input.defenderQuality ?? C.qualityDefault;
@@ -363,9 +368,7 @@ export class BattleEngine {
 
     let territoryOutcome: 'unchanged' | 'captured' | 'contested';
     let defenderSurrendered = false;
-    const neededAdv = input.territory.isCapital
-      ? V.captureCapitalRequiredWinnerAdvantage
-      : V.captureRequiredWinnerAdvantage;
+    const neededAdv = V.captureRequiredWinnerAdvantage;
     const minRemain = V.captureMinAttackerRemainingRatio;
     const atkRemCount = atkRemaining.soldiers + atkRemaining.knights;
     const atkInitCount = atkInit.soldiers + atkInit.knights;
@@ -376,7 +379,7 @@ export class BattleEngine {
       const attackerHasEnough = atkInitCount === 0 ? false : (atkRemCount / Math.max(1, atkInitCount)) >= minRemain;
       if (relativeAdvantage >= neededAdv && attackerHasEnough) {
         territoryOutcome = 'captured';
-        emit('resolution', 'breach', 'attacker', `${input.territory.name} falls to the attackers.`, 30);
+        emit('resolution', 'breach', 'attacker', `${battlePlaceName(input.territory)} falls to the attackers.`, 30);
         // Under the no-retreat rule the defender (loser) is always fully
         // eliminated — see `defCasRate` above, forced to 1.0 whenever
         // attacker wins. So "did the garrison collapse" is no longer an
@@ -390,7 +393,7 @@ export class BattleEngine {
       } else {
         territoryOutcome = 'contested';
         emit('resolution', 'phase_end', 'both',
-          `Attackers win the field but cannot secure ${input.territory.name}.`, 5);
+          `Attackers win the field but cannot secure ${battlePlaceName(input.territory)}.`, 5);
       }
     } else {
       territoryOutcome = 'unchanged';
@@ -491,7 +494,7 @@ export class BattleEngine {
       battleId,
       turn: input.turn,
       territoryId: input.territory.id,
-      territoryName: input.territory.name,
+      territoryName: battlePlaceName(input.territory),
       seedUsed: input.seed,
       winner: isStalemate ? 'draw' : winner,
       loser: isStalemate ? 'draw' : loser,
@@ -568,10 +571,10 @@ export class BattleEngine {
     };
     const terrLabels: Record<string, string> = {
       unchanged: `Territory remains with ${defName}.`,
-      captured: `${input.territory.name} is captured by ${atkName}.`,
-      contested: `${input.territory.name} is contested but not yet captured.`,
+      captured: `${battlePlaceName(input.territory)} is captured by ${atkName}.`,
+      contested: `${battlePlaceName(input.territory)} is contested but not yet captured.`,
     };
-    return `${labels[outcome]} at ${input.territory.name}. ${terrLabels[territory]} Atk losses: ${atk.casualties.total}; Def losses: ${def.casualties.total}.`;
+    return `${labels[outcome]} at ${battlePlaceName(input.territory)}. ${terrLabels[territory]} Atk losses: ${atk.casualties.total}; Def losses: ${def.casualties.total}.`;
   }
 
   private buildReadableLog(
@@ -590,12 +593,11 @@ export class BattleEngine {
     const atkName = atk.factionName;
     const defName = def.factionName;
     const L: string[] = [];
-    L.push(`=== BATTLE at ${input.territory.name.toUpperCase()} ===`);
+    L.push(`=== BATTLE at ${battlePlaceName(input.territory).toUpperCase()} ===`);
     L.push(`${atkName} (attacker) vs ${defName} (defender)`);
     const terrName = TERRAIN_NAMES[input.territory.terrain] ?? input.territory.terrain;
     const fortStr = BALANCE.combat.fortificationPerLevelBonus;
-    L.push(`Terrain: ${terrName}  |  Fortification: L${input.territory.fortification}`
-      + `${input.territory.isCapital ? ' ★ CAPITAL (×' + BALANCE.combat.capitalBonus.toFixed(2) + ')' : ''}`);
+    L.push(`Terrain: ${terrName}  |  Fortification: L${input.territory.fortification}`);
     L.push('');
     L.push('── ATTACKER POWER CALCULATION ──');
     L.push(`  Raw troops:     ${calc.attacker.rawTroops}`);

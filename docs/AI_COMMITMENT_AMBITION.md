@@ -1,5 +1,9 @@
 # AI Commitment & Ambition Pass (Phase 8)
 
+> **Phase 17N.2:** `EXPAND`/`SCOUT` are not production actions. Ambition still
+> layers onto ATTACK/DECLARE_WAR. Personalities are authored per world.
+> See `docs/WORLD_DEFINITION.md`.
+
 This document describes the **AI Warlord Engine** after the commitment /
 ambition pass. It does **not** implement an Orchestrator, an authoritative
 runtime `GameState`, persistence, a frontend, or continuous-world timing.
@@ -122,17 +126,18 @@ memory, military, and goal-alignment math:
 1. **Goal persistence** — extra = `(goal alignment contribution) * (ambition - 0.5) * goalPersistenceScale`.
    High ambition amplifies aligned long-term goals; low ambition shrinks them.
 2. **Strategic push** — extra = `(ambition - 0.5) * strategicPushWeight` on
-   `EXPAND` / `ATTACK` / `DECLARE_WAR` when the faction is **not** under
+   `ATTACK` / `DECLARE_WAR` when the faction is **not** under
    immediate local threat.
 
 Immediate threat (`ScoringHelpers.factionUnderImmediateThreat`): any owned
-territory (especially a capital) whose neighboring hostile local power
+territory whose neighboring hostile local power
 (garrison + stationed armies on those neighbors) outmatches the troops
 actually standing there. Empire-wide `totalMilitaryPower` is not used.
+Fixed-capital status is not part of this check.
 
 Under threat:
 
-- `EXPAND` / `DECLARE_WAR` get **no** ambition extras (including goal-persistence amp).
+- `DECLARE_WAR` gets **no** ambition extras (including goal-persistence amp).
 - Offensive strategic-push is skipped (including on `ATTACK`).
 - `DEFEND` / `REINFORCE` are not penalized or boosted by ambition.
 
@@ -179,12 +184,11 @@ There is no tick delay, cooldown, or wall-clock duration in the engine.
 `validateCommitmentTarget` (DecisionEngine):
 
 - **WAIT**: always valid (no entity).
-- **Territory actions** (`ATTACK`, `EXPAND`, `SCOUT`, `BUILD`, `DEFEND`,
+- **Territory actions** (`ATTACK`, `BUILD`, `DEFEND`,
   `REINFORCE`, `MOVE`, `RETREAT`): target id must exist in
   `gameState.territories` (except `MOVE`/`RETREAT` with a null target, which
   means “no viable destination,” not a missing entity).
   - `ATTACK` also fails if the tile is unowned or self-owned.
-  - `EXPAND` fails if the tile is no longer unowned.
   - `DEFEND` / `REINFORCE` / `BUILD` fail if the tile is no longer self-owned.
 - **Faction actions** (`NEGOTIATE`, `TRADE`, `DECLARE_WAR`, `OFFER_PEACE`):
   target must exist in `gameState.factions` and must not be self.
@@ -196,9 +200,8 @@ action.
 
 `GoalSystem.invalidateMissingTargets` completes goals whose
 `targetFaction` / `targetTerritory` no longer exist so they leave
-`getActiveGoals`. It does **not** invent replacements. `control_region` with
-a null region is a known limitation (no `Territory.regionId` on the canonical
-tile), not an invalid target.
+`getActiveGoals`. It does **not** invent replacements. `control_region`
+uses authored `Territory.regionId` against `goal.targetRegion`.
 
 ---
 

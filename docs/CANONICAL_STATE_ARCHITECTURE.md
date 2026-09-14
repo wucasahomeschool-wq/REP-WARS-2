@@ -1,5 +1,11 @@
 # Canonical types & state architecture (phase 3)
 
+> **Phase 17N.2:** Runtime `Territory` has id, owner, `regionId`, terrain,
+> neighbors, runtime economy fields, fortification, and garrison. No
+> player-facing name, `isCapital`, or tile fog fields. Production geography
+> is `WorldDefinition` (`docs/WORLD_DEFINITION.md`), not MapEngine.
+> `SAMPLE_MAP` is a legacy fixture.
+
 Architecture / type-consistency pass. **No Orchestrator, command routing,
 persistence, or new gameplay systems were built in this pass** — see
 "What was intentionally NOT done" at the bottom.

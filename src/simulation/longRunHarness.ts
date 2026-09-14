@@ -13,6 +13,7 @@
 import { Orchestrator } from '../orchestration/orchestrator';
 import { createGameState, CreateGameStateOptions } from '../state/createGameState';
 import { GameState } from '../types/GameState';
+import { ensureCity } from '../gameplay/cities/city';
 import { WorldAdvanceResult } from '../world/ContinuousWorldEngine';
 import { isFactionEliminated } from '../engine/DecisionEngine';
 import { ActionType, FactionId } from '../types';
@@ -65,6 +66,14 @@ export function runLongSimulation(opts: LongSimulationOptions): LongSimulationSt
     mapSpecs: opts.mapSpecs,
     warlordSpecs: opts.warlordSpecs,
   });
+  // SAMPLE_MAP / warlordSpecs is a legacy simulation fixture. Production
+  // authored worlds start with no cities; this path plants cities so
+  // historical BUILD personality tests can still execute fortification.
+  if (opts.mapSpecs || opts.warlordSpecs) {
+    for (const territory of state.territories.values()) {
+      if (territory.owner) ensureCity(state, territory.id, territory.owner);
+    }
+  }
   const orch = new Orchestrator(state);
 
   const eliminatedAtStart = orch.getState().allFactionIds.filter((fid) => {

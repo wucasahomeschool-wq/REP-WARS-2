@@ -48,7 +48,7 @@ export type TerritoryOutcome = 'unchanged' | 'captured' | 'contested';
  * eliminated as a fighting force), not troops escaping.
  */
 export type BattleEventType = 'phase_start' | 'first_strike' | 'charge' | 'rally' | 'rout' | 'breach' | 'flank' | 'ambush' | 'heroic_stand' | 'surrender' | 'phase_end' | 'critical_hit';
-export type ActionType = 'ATTACK' | 'DEFEND' | 'REINFORCE' | 'EXPAND' | 'SCOUT' | 'BUILD' | 'MOVE' | 'NEGOTIATE' | 'OFFER_PEACE' | 'DECLARE_WAR' | 'TRADE' | 'RETREAT' | 'WAIT';
+export type ActionType = 'ATTACK' | 'DEFEND' | 'REINFORCE' | 'BUILD' | 'MOVE' | 'NEGOTIATE' | 'OFFER_PEACE' | 'DECLARE_WAR' | 'TRADE' | 'RETREAT' | 'WAIT';
 /**
  * AI commitment lifecycle (AI COMMITMENT & AMBITION PASS).
  *
@@ -67,7 +67,7 @@ export type TreatyType = 'alliance' | 'non_aggression' | 'trade_agreement' | 'va
 /**
  * `action_failed` added (AI RUNTIME INTEGRATION PASS) — the one new
  * memory type this pass introduces, deliberately generic (not one type
- * per failing action) so a failed ATTACK/EXPAND/MOVE/commitment records
+ * per failing action) so a failed ATTACK/MOVE/commitment records
  * *something* self-referential (`withFaction: null`) instead of nothing.
  * It does not feed `summarizeForFaction` (which is specifically about
  * relations with ANOTHER faction) — it exists so failures are visible in
@@ -142,18 +142,23 @@ export interface StrategicAttackIntent {
 }
 export interface Territory {
     id: TerritoryId;
-    name: string;
     owner: FactionId | null;
+    regionId: RegionId;
     terrain: TerrainType;
     neighboring: TerritoryId[];
+    /**
+     * Runtime-only. WorldSimulator events mutate this. Not part of
+     * WorldDefinition; authored worlds initialize to 0.
+     */
     population: number;
+    /**
+     * Runtime-only AI scoring weight. Not part of WorldDefinition;
+     * authored worlds initialize to 0.
+     */
     baseValue: number;
     resourceOutput: Partial<Resources>;
     fortification: number;
     garrison: number;
-    isCapital: boolean;
-    isKnown: boolean;
-    scoutedTurnsAgo: number | null;
 }
 export interface DiplomaticRelationship {
     target: FactionId;
@@ -268,6 +273,7 @@ export interface WarlordSnapshot {
     goals: StrategicGoal[];
     currentThreats: FactionId[];
     knownFactions: FactionId[];
+    /** All current-world territory ids (the current island is fully visible). */
     knownTerritories: TerritoryId[];
     lastActions: {
         turn: number;

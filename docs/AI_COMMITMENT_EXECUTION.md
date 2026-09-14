@@ -1,5 +1,9 @@
 # AI commitment execution (Phase 12)
 
+> **Phase 17N.2:** `SCOUT` and `EXPAND` are not executable production
+> commitments. Shared domain operations that remain: ATTACK, MOVE, BUILD,
+> REINFORCE, NEGOTIATE, DECLARE_WAR, RETREAT, WAIT, DEFEND.
+
 Phase 12 makes the Phase 8 commitment lifecycle **honestly executable**
 through the Phase 10 Orchestrator. Phase 13 schedules that same
 `RESOLVE_COMMITMENT` path from the Continuous World Engine when a
@@ -39,10 +43,8 @@ same terminal status.
 | Action | Player command | AI commitment | Shared function |
 | --- | --- | --- | --- |
 | ATTACK | `ATTACK` | yes | `executeAttack` → `startStrategicAttack` → BattleEngine (immediate or one-hop staging then battle) |
-| BUILD | `BUILD` | yes | `handleBuild` + `BALANCE.territory.fortificationCostPerLevel` |
+| BUILD | `BUILD` | yes | `handleBuild` + `BALANCE.territory.fortificationCostPerLevel` (requires a city) |
 | REINFORCE | `REINFORCE` | yes | `handleReinforce` + `BALANCE.economy.reinforcementCost` |
-| EXPAND | `EXPAND` | yes | `executeExpand` + `ScoringHelpers.computeLocalUsableMilitaryPower` |
-| SCOUT | `SCOUT` | yes | `handleScout` |
 | MOVE | `MOVE` | yes | `handleMove` → `beginArmyMovement` (commitment picks a stationary adjacent army; stays `executing` until arrival) |
 | NEGOTIATE | `NEGOTIATE` | yes | `handleNegotiate` |
 | DECLARE_WAR | `DECLARE_WAR` | yes | `handleDeclareWar` |
@@ -64,8 +66,6 @@ Scoring was not redesigned. Execution will not fake them.
 | ATTACK | yes | yes | yes | BattleEngine | **executable** |
 | DEFEND | yes | yes | complete no-op | — | **executable as posture** (no extra mutation) |
 | REINFORCE | yes | yes | yes | BALANCE reinforce | **executable** |
-| EXPAND | yes | yes | yes | local usable power | **executable** |
-| SCOUT | yes | yes | yes | handleScout | **executable** |
 | BUILD | yes | yes | yes | BALANCE build | **executable** |
 | MOVE | yes | yes | yes | handleMove | **executable** |
 | NEGOTIATE | yes | yes | yes | handleNegotiate | **executable** |
@@ -79,19 +79,11 @@ Classification lives in `src/engine/executableActions.ts`.
 
 ---
 
-## EXPAND
+## EXPAND and SCOUT (removed)
 
-Existing CLI rules (Phase 6), now also on the Orchestrator:
-
-- Target must be **unowned**
-- Strength = `ScoringHelpers.computeLocalUsableMilitaryPower()` (adjacent
-  armies + bordering owned garrisons — **not** empire-wide power)
-- Succeeds when local power `> (garrison + garrisonBuffer) * soldierValue * successLocalPowerRatio`
-- Costs `BALANCE.territory.expansionClaim.goldCost`
-- Applies garrison reduction / min garrison / neighbor opinion hit from the
-  same BALANCE block (values unchanged from cli.ts)
-
-No cities, travel time, or new geometry.
+`EXPAND` and `SCOUT` are **not** production actions. Level 1 starting
+ownership is authored; the current world is fully visible. Do not restore
+these commands from leftover `BALANCE.territory.expansionClaim` numbers.
 
 ---
 
@@ -121,7 +113,7 @@ rule is untouched. RETREAT never calls battle math.
 
 Before execution, `validateCommitmentTarget` runs on **current** GameState.
 
-If invalid (target captured, no longer unowned, missing entity, …):
+If invalid (target captured, missing entity, …):
 
 - commitment status → `failed`
 - world entities unchanged

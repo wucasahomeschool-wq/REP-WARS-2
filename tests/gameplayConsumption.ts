@@ -16,6 +16,7 @@ import {
   convertGameReward,
   createActiveInvasion,
   createGameState,
+  createLegacySampleMapGameState,
   defenseResponseTicks,
   failedDefenseContinuationTicks,
   getCurrentExercise,
@@ -40,6 +41,7 @@ import { BattleEngine, BattleInput } from '../src/battle/BattleEngine';
 import { createDefaultRegistry } from '../src/orchestration';
 import { toDecisionEngineSnapshot } from '../src/state';
 import { startConstruction, consumeConstructionEffect, collectTerritoryYield } from '../src/gameplay';
+import { plantOwnedCities } from './worldTestHelpers';
 
 export interface GameplayConsumptionTestApi {
   test: (name: string, fn: () => void) => void;
@@ -61,7 +63,7 @@ function cmdReq(commandId: string, parameters: Record<string, unknown> = {}, pla
 }
 
 function playerState(): GameState {
-  return createGameState({ seed: 17, playerFactionId: PLAYER_FACTION });
+  return createLegacySampleMapGameState({ seed: 17, playerFactionId: PLAYER_FACTION });
 }
 
 function tinyWorkout(): WorkoutDefinition {
@@ -239,6 +241,7 @@ export function registerGameplayConsumptionTests(api: GameplayConsumptionTestApi
 
   test('construction can start without a workout and a worker effect accelerates it once', () => {
     const state = playerState();
+    plantOwnedCities(state);
     const orch = new Orchestrator(state);
     const started = orch.execute(cmdReq('START_CONSTRUCTION', { territoryId: HOME, constructionId: 'con_17i' }));
     assert.strictEqual(started.success, true, started.errors[0]?.message);
@@ -269,6 +272,7 @@ export function registerGameplayConsumptionTests(api: GameplayConsumptionTestApi
 
   test('Player A cannot consume Player B\'s construction effect', () => {
     const state = playerState();
+    plantOwnedCities(state);
     startConstruction(state, { factionId: PLAYER_FACTION, territoryId: HOME, projectId: 'con_b' });
     const session = completedSession('EXTRA_CONSTRUCTION_WORKERS', 'wses_17i_con_b', { constructionId: 'con_b' });
     const applied = runWorkoutRewardPipeline(state, session, PLAYER_ID);

@@ -19,7 +19,7 @@
  * follow-up in docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "Remaining
  * migration gaps".
  */
-import { Army, DiplomaticRelationship, FactionId, MapWorldState, PlayerVisibilityMap, Region, Resources, Territory, ThemeDefinition, Treaty, WarlordSnapshot } from '../types';
+import { Army, DiplomaticRelationship, FactionId, RegionId, Resources, Territory, Treaty, WarlordSnapshot } from '../types';
 import { ActiveEvent, ConsequenceDelta, HistoryEntry } from '../events/EventModel';
 import {
   ActiveInvasion,
@@ -30,6 +30,7 @@ import {
   GameState,
   PlayerFitnessState,
   PlayerRewardState,
+  RuntimeRegion,
   TerritoryEconomy,
 } from '../types/GameState';
 import { cloneCommitment } from '../engine/DecisionEngine';
@@ -93,56 +94,8 @@ export function cloneWarlordSnapshot(f: WarlordSnapshot): WarlordSnapshot {
   };
 }
 
-function cloneThemeDefinition(t: ThemeDefinition): ThemeDefinition {
-  return {
-    ...t,
-    preferredTerrain: t.preferredTerrain.map((p) => ({ ...p })),
-    terrainDistributionWeights: { ...t.terrainDistributionWeights },
-    naming: {
-      ...t.naming,
-      prefixes: [...t.naming.prefixes],
-      roots: [...t.naming.roots],
-      suffixes: [...t.naming.suffixes],
-      formatWeights: { ...t.naming.formatWeights },
-    },
-    resourceTendencies: { ...t.resourceTendencies },
-    baseValueRange: [...t.baseValueRange] as [number, number],
-    populationRange: [...t.populationRange] as [number, number],
-    garrisonRange: [...t.garrisonRange] as [number, number],
-    fortificationWeights: { ...t.fortificationWeights },
-    borderSizePreference: { ...t.borderSizePreference },
-    allowedAdjacentThemes: [...t.allowedAdjacentThemes],
-  };
-}
-
-function cloneRegion(r: Region): Region {
-  return { ...r, territories: [...r.territories] };
-}
-
-function cloneMapWorldState(w: MapWorldState): MapWorldState {
-  return {
-    ...w,
-    territories: cloneMap(w.territories, cloneTerritory),
-    regions: cloneMap(w.regions, cloneRegion),
-    themes: cloneMap(w.themes, cloneThemeDefinition),
-    graphMeta: {
-      ...w.graphMeta,
-      frontierTerritories: new Set(w.graphMeta.frontierTerritories),
-      coordToTerritory: new Map(w.graphMeta.coordToTerritory),
-      territoryPos: new Map(
-        Array.from(w.graphMeta.territoryPos.entries()).map(([k, v]) => [k, { ...v }] as const),
-      ),
-    },
-  };
-}
-
-function clonePlayerVisibilityMap(v: PlayerVisibilityMap): PlayerVisibilityMap {
-  return {
-    ...v,
-    visibility: cloneMap(v.visibility, (entry) => ({ ...entry })),
-    knownThemes: new Set(v.knownThemes),
-    knownRegions: new Set(v.knownRegions),
-  };
+function cloneRuntimeRegion(r: RuntimeRegion): RuntimeRegion {
+  return { id: r.id, name: r.name, territoryIds: [...r.territoryIds] };
 }
 
 /**
@@ -258,8 +211,8 @@ function clonePlayerRewardState(rewards: PlayerRewardState): PlayerRewardState {
 /**
  * Deep-clones a `GameState` with no shared mutable nested references.
  * Every `Map`/`Set`/array/object nested field is rebuilt, including
- * `factions[].diplomacy`, `mapWorld.graphMeta`, `visibility[].visibility`,
- * `commitments`, `activeEvents`, `playerRewards`, and `activeInvasions`.
+ * `factions[].diplomacy`, `regions`, `commitments`, `activeEvents`,
+ * `playerRewards`, and `activeInvasions`.
  * See tests/run.ts, "GameState clone isolation".
  */
 export function cloneGameState(state: GameState): GameState {
@@ -272,9 +225,12 @@ export function cloneGameState(state: GameState): GameState {
     factions: cloneMap(state.factions, cloneWarlordSnapshot),
     allFactionIds: [...state.allFactionIds],
     playerFactionId: state.playerFactionId,
+    definitionWorldId: state.definitionWorldId,
+    definitionFormatVersion: state.definitionFormatVersion,
+    worldLevel: state.worldLevel,
+    worldName: state.worldName,
+    regions: cloneMap(state.regions, cloneRuntimeRegion),
     territories: cloneMap(state.territories, cloneTerritory),
-    mapWorld: state.mapWorld ? cloneMapWorldState(state.mapWorld) : null,
-    visibility: cloneMap(state.visibility, clonePlayerVisibilityMap),
     armies: cloneMap(state.armies, cloneArmy),
     commitments: cloneMap(state.commitments, (c) => (c ? cloneCommitment(c) : null)),
     activeEvents: state.activeEvents.map(cloneActiveEvent),

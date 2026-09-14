@@ -7,7 +7,7 @@ import { GameStateSnapshot, WarlordSnapshot, Decision, FactionId, RelationshipSt
 import { BattleEngine, BattleInput, BattleResult } from '../battle/BattleEngine';
 import { ScoringHelpers } from '../scoring/ActionScorer';
 import { Orchestrator } from '../orchestration/orchestrator';
-import { createGameState } from '../state/createGameState';
+import { createGameState, createLegacySampleMapGameState } from '../state/createGameState';
 import { checkGameStateInvariants } from '../state/gameStateInvariants';
 import { calculateMovementDuration } from '../army/movement';
 import { PersonalitySystem } from '../personality/PersonalitySystem';
@@ -70,7 +70,6 @@ function printMapLegend(): void {
       console.log(`  ▸ ${label}:`);
       lastOwner = t.owner;
     }
-    const cap = t.isCapital ? ' ★' : '';
     const terr = TERRAIN_NAMES[t.terrain] ?? t.terrain;
     const resources = Object.entries(t.resourceOutput)
       .filter((entry): entry is [string, number] => {
@@ -79,7 +78,7 @@ function printMapLegend(): void {
       })
       .map(([k, v]) => `${k}:${v}`)
       .join(' ');
-    console.log(`    · ${t.name}${cap} (${terr}) fort:${t.fortification} gar:${t.garrison} — ${resources}`);
+    console.log(`    · ${t.id} (${terr}) fort:${t.fortification} gar:${t.garrison} — ${resources}`);
   }
   console.log('');
 }
@@ -220,7 +219,7 @@ function recalcMilitary(snap: WarlordSnapshot, gameState: GameStateSnapshot): nu
 }
 
 /**
- * ENGINE EXECUTION CONSISTENCY PASS — helpers shared by the ATTACK/EXPAND
+ * ENGINE EXECUTION CONSISTENCY PASS — helpers shared by ATTACK
  * execution paths below. See docs/ENGINE_EXECUTION_CONSISTENCY.md for the
  * full rationale; summarized inline at each call site.
  */
@@ -349,8 +348,8 @@ function applyBattleResult(
       // direct consequence of capture; it is not a troop-movement/
       // logistics system.
       for (const a of attackingArmies) a.location = targetTerritory.id;
-      attackerWs.memory.addEntry(turn, 'territory_gained', defenderWs.snapshot.id, targetTerritory.id, 12, { territory: targetTerritory.name, via: 'conquest' });
-      defenderWs.memory.addEntry(turn, 'territory_lost', attackerWs.snapshot.id, targetTerritory.id, 15, { territory: targetTerritory.name });
+      attackerWs.memory.addEntry(turn, 'territory_gained', defenderWs.snapshot.id, targetTerritory.id, 12, { territory: targetTerritory.id, via: 'conquest' });
+      defenderWs.memory.addEntry(turn, 'territory_lost', attackerWs.snapshot.id, targetTerritory.id, 15, { territory: targetTerritory.id });
     }
     attackerWs.memory.addEntry(turn, 'battle_won', defenderWs.snapshot.id, targetTerritory.id, 10, { outcome: result.outcomeType });
     defenderWs.memory.addEntry(turn, 'battle_lost', attackerWs.snapshot.id, targetTerritory.id, 12, { outcome: result.outcomeType });
@@ -414,7 +413,7 @@ function simulateDecisionOutcomes(
               attackerArmies: attackingArmies,
               defenderArmies: defendingArmies,
               defenderGarrison: t.garrison,
-              territory: t,
+              territory: { ...t, name: t.id },
             };
             const validation = battleEngine.validate(input);
             if (validation.valid) {
@@ -537,61 +536,6 @@ function simulateDecisionOutcomes(
               ws.snapshot.resources.gold -= costG;
               ws.snapshot.resources.food -= costF;
               t.garrison += garrisonGain;
-            }
-          }
-        }
-        break;
-      case 'EXPAND':
-      case 'SCOUT':
-        if (d.targetId) {
-          if (!ws.snapshot.knownTerritories.includes(d.targetId)) {
-            ws.snapshot.knownTerritories.push(d.targetId);
-            const t = gameState.territories.get(d.targetId);
-            if (t?.owner && !ws.snapshot.knownFactions.includes(t.owner)) {
-              ws.snapshot.knownFactions.push(t.owner);
-            }
-          }
-          if (d.action === 'EXPAND') {
-            const t = gameState.territories.get(d.targetId);
-            if (t && t.owner === null) {
-              // ENGINE EXECUTION CONSISTENCY PASS: this used to compare
-              // `ws.snapshot.totalMilitaryPower` — the faction's ENTIRE
-              // empire-wide military power, including armies/garrisons on
-              // the other side of the map — against this one target's
-              // garrison. That let a faction "expand" using strength it
-              // had no way to actually bring to bear here. Execution now
-              // uses `ScoringHelpers.computeLocalUsableMilitaryPower`, the
-              // exact same local/usable-strength formula
-              // `ActionScorer.scoreExpand` uses to decide EXPAND is worth
-              // scoring in the first place (armies stationed adjacent to
-              // the target + garrisons of my own bordering territories).
-              // See docs/AI_DECISION_CORRECTNESS.md ("Expansion strength
-              // evaluation") and docs/ENGINE_EXECUTION_CONSISTENCY.md.
-              const myPower = ScoringHelpers.computeLocalUsableMilitaryPower(
-                d.warlordId, factionArmies(ws, gameState), gameState.territories, t.id,
-              );
-              const E = BALANCE.territory.expansionClaim;
-              const needed = (t.garrison + E.garrisonBuffer) * BALANCE.military.soldierValue;
-              if (myPower > needed * E.successLocalPowerRatio) {
-                t.owner = d.warlordId;
-                ws.snapshot.territories.push(t.id);
-                ws.snapshot.resources.gold = Math.max(0, ws.snapshot.resources.gold - E.goldCost);
-                t.garrison = Math.max(E.minGarrisonAfter, t.garrison - E.garrisonReduction);
-                ws.memory.addEntry(turn, 'territory_gained', null, t.id, 8, { territory: t.name, via: 'expansion' });
-                for (const otherId of gameState.allFactionIds) {
-                  if (otherId === d.warlordId)
-                    continue;
-                  const other = warlordStates.get(otherId);
-                  if (!other)
-                    continue;
-                  const hasNeighbor = t.neighboring.some((nid) => other.snapshot.territories.includes(nid));
-                  if (hasNeighbor) {
-                    const rel = other.snapshot.diplomacy.get(d.warlordId);
-                    if (rel)
-                      rel.opinion = Math.max(-100, rel.opinion - E.neighborOpinionHit);
-                  }
-                }
-              }
             }
           }
         }
@@ -747,7 +691,7 @@ async function runContinuousWorldDemo(opts: CliOpts): Promise<void> {
   console.log(`  · elapsedTicks:  ${opts.turns}`);
   console.log('  · Authority:     Orchestrator → ContinuousWorldEngine → existing handlers');
   console.log('');
-  const orch = new Orchestrator(createGameState({ seed: opts.seed, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: opts.seed, playerFactionId: 'merchant_republic' }));
   const beforeTick = orch.getState().worldTick;
   const beforeTurn = orch.getState().turn;
   const res = orch.execute({
@@ -795,7 +739,7 @@ async function runArmyMoveDemo(opts: CliOpts): Promise<void> {
   console.log(`  · Seed: ${opts.seed}`);
   console.log('  · Authority: Orchestrator beginArmyMovement — not a second implementation');
   console.log('');
-  const orch = new Orchestrator(createGameState({ seed: opts.seed, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: opts.seed, playerFactionId: 'merchant_republic' }));
   const fid = 'merchant_republic';
   const armyId = orch.getState().factions.get(fid)!.armies[0]!;
   const army = orch.getState().armies.get(armyId)!;
@@ -842,19 +786,16 @@ async function runAttackChainDemo(opts: CliOpts): Promise<void> {
   const atk = 'atk_faction';
   const def = 'def_faction';
   const rear: Territory = {
-    id: 'rear', name: 'Rear', owner: atk, terrain: 'plains', neighboring: ['staging'],
+    id: 'rear', owner: atk, regionId: 'r_demo', terrain: 'plains', neighboring: ['staging'],
     population: 1000, baseValue: 10, resourceOutput: {}, fortification: 0, garrison: 20,
-    isCapital: true, isKnown: true, scoutedTurnsAgo: 0,
   };
   const staging: Territory = {
-    id: 'staging', name: 'Staging', owner: atk, terrain: 'plains', neighboring: ['rear', 'front'],
+    id: 'staging', owner: atk, regionId: 'r_demo', terrain: 'plains', neighboring: ['rear', 'front'],
     population: 1000, baseValue: 10, resourceOutput: {}, fortification: 0, garrison: 20,
-    isCapital: false, isKnown: true, scoutedTurnsAgo: 0,
   };
   const front: Territory = {
-    id: 'front', name: 'Front', owner: def, terrain: 'plains', neighboring: ['staging'],
+    id: 'front', owner: def, regionId: 'r_demo', terrain: 'plains', neighboring: ['staging'],
     population: 1000, baseValue: 10, resourceOutput: {}, fortification: 0, garrison: 10,
-    isCapital: false, isKnown: true, scoutedTurnsAgo: 0,
   };
   const army: Army = {
     id: 'atk_army', owner: atk, location: 'rear',
@@ -878,9 +819,12 @@ async function runAttackChainDemo(opts: CliOpts): Promise<void> {
     factions: new Map([[atk, atkSnap], [def, defSnap]]),
     allFactionIds: [atk, def],
     playerFactionId: atk,
+    definitionWorldId: 'cli:attack-chain',
+    definitionFormatVersion: 'legacy-sample-map',
+    worldLevel: 1,
+    worldName: 'Attack Chain Demo',
+    regions: new Map([['r_demo', { id: 'r_demo', name: 'Demo', territoryIds: ['rear', 'staging', 'front'] }]]),
     territories: new Map([['rear', rear], ['staging', staging], ['front', front]]),
-    mapWorld: null,
-    visibility: new Map(),
     armies: new Map([[army.id, army]]),
     commitments: new Map([[atk, null], [def, null]]),
     activeEvents: [],

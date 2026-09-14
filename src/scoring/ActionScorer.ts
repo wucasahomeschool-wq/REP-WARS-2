@@ -122,10 +122,10 @@ export class ScoringHelpers {
   }
 
   /**
-   * True when any owned territory (especially a capital) faces local hostile
-   * force that outmatches the troops actually standing there. Used to
-   * suppress offensive ambition bonuses so high ambition cannot ignore an
-   * immediate survival threat. Local only — empire-wide power is ignored.
+   * True when any owned territory faces local hostile force that outmatches
+   * the troops actually standing there. Used to suppress offensive ambition
+   * bonuses so high ambition cannot ignore an immediate survival threat.
+   * Local only — empire-wide power is ignored. Capital status is not used.
    */
   static factionUnderImmediateThreat(ctx: ActionContext): boolean {
     for (const myTerr of ctx.myTerritories) {
@@ -147,7 +147,7 @@ export class ScoringHelpers {
       }
       if (hostilePower > mine * 1.5)
         return true;
-      if (myTerr.isCapital && hostilePower > mine)
+      if (myTerr && hostilePower > mine)
         return true;
     }
     return false;
@@ -157,13 +157,12 @@ export class ScoringHelpers {
    * ENGINE EXECUTION CONSISTENCY PASS — shared "which of my armies are
    * physically positioned to act against this territory" helper.
    *
-   * Used by BOTH `scoreAttack`/`scoreExpand` (below) AND
-   * `src/simulation/cli.ts`'s ATTACK/EXPAND execution, so the AI's
-   * decision and the harness's execution can never silently disagree
-   * about which armies count as "locally available" for a given target.
-   * No strength/eligibility filtering here — that is action-specific
-   * (e.g. `scoreAttack` additionally requires >100 soldiers+knights before
-   * treating an army as attack-worthy; `scoreExpand` does not).
+   * Used by BOTH `scoreAttack` (below) AND `src/simulation/cli.ts`'s
+   * ATTACK execution, so the AI's decision and the harness's execution
+   * can never silently disagree about which armies count as "locally
+   * available" for a given target. No strength/eligibility filtering
+   * here — that is action-specific (e.g. `scoreAttack` additionally
+   * requires >100 soldiers+knights before treating an army as attack-worthy).
    */
   static armiesBorderingTerritory(
     myArmies: Army[],
@@ -178,12 +177,8 @@ export class ScoringHelpers {
 
   /**
    * ENGINE EXECUTION CONSISTENCY PASS — shared "local/usable military
-   * strength against an unclaimed target" helper, extracted from
-   * `scoreExpand` (AI DECISION CORRECTNESS PASS) so
-   * `src/simulation/cli.ts`'s EXPAND execution can use the exact same
-   * formula instead of the empire-wide `totalMilitaryPower` it used
-   * before. See docs/ENGINE_EXECUTION_CONSISTENCY.md and
-   * docs/AI_DECISION_CORRECTNESS.md ("Expansion strength evaluation").
+   * strength against a neighboring target" helper, used by ATTACK scoring.
+   * Distant armies that are not adjacent to the target do not count.
    *
    * = power of my armies stationed in a territory bordering the target
    * + garrison power of my own territories bordering the target.
@@ -214,7 +209,6 @@ export class ScoringHelpers {
       return s + (v ?? 0) * weight * E.resourceScarcityMultiplier;
     }, 0);
     const popVal = (t.population / 1000) * T.populationValuePerThousand;
-    const capitalBonus = t.isCapital ? T.capitalBonus : 0;
     const chokepointBonus = t.neighboring.length >= 4
       ? T.chokepointBonus
       : t.neighboring.length === 3
@@ -224,7 +218,6 @@ export class ScoringHelpers {
       t.baseValue * T.baseValueWeight +
       resourceVal * T.resourceValueWeight +
       popVal +
-      capitalBonus +
       chokepointBonus * T.strategicPositionWeight
     );
   }
@@ -256,7 +249,6 @@ export class ScoringHelpers {
         const n = allTerritories.get(nId);
         if (n && n.owner === targetFaction.id) {
           borderThreat += ScoringHelpers.evaluateTerritoryValue(n) * 0.3;
-          if (myT.isCapital) borderThreat *= T.capitalThreatMultiplier;
         }
       }
     }
@@ -331,7 +323,7 @@ export class ActionScorer {
   scoreAllActions(input: ScorerInput): ScoredAction[] {
     const results: ScoredAction[] = [];
     const actions: ActionType[] = [
-      'ATTACK', 'DEFEND', 'REINFORCE', 'EXPAND', 'SCOUT',
+      'ATTACK', 'DEFEND', 'REINFORCE',
       'BUILD', 'MOVE', 'NEGOTIATE', 'OFFER_PEACE', 'DECLARE_WAR',
       'TRADE', 'RETREAT', 'WAIT',
     ];
@@ -347,7 +339,7 @@ export class ActionScorer {
    * Ambition layers on top of existing goal alignment and personality.
    * At `BALANCE.ambition.defaultValue` (0.5) every extra is 0.
    * Under immediate local threat, offensive ambition bonuses on
-   * EXPAND/DECLARE_WAR (and the strategic-push bonus on ATTACK) are skipped.
+   * DECLARE_WAR (and the strategic-push bonus on ATTACK) are skipped.
    */
   private applyAmbitionModifiers(results: ScoredAction[], input: ScorerInput): void {
     const ambition = input.ctx.self.ambition;
@@ -356,11 +348,11 @@ export class ActionScorer {
     for (const scored of results) {
       const goalFactor = scored.factorBreakdown.find((f) => f.factor === 'Goal alignment');
       const goalContribution = goalFactor?.contribution ?? 0;
-      const skipGoalAmp = threatened && (scored.action === 'EXPAND' || scored.action === 'DECLARE_WAR');
+      const skipGoalAmp = threatened && scored.action === 'DECLARE_WAR';
       const ambitionGoal = (!skipGoalAmp && goalContribution !== 0)
         ? goalContribution * delta * BALANCE.ambition.goalPersistenceScale
         : 0;
-      const offensivePush = scored.action === 'EXPAND' || scored.action === 'ATTACK' || scored.action === 'DECLARE_WAR';
+      const offensivePush = scored.action === 'ATTACK' || scored.action === 'DECLARE_WAR';
       const strategicPush = (!threatened && offensivePush)
         ? delta * BALANCE.ambition.strategicPushWeight
         : 0;
@@ -388,8 +380,6 @@ export class ActionScorer {
       case 'ATTACK': return this.scoreAttack(input);
       case 'DEFEND': return this.scoreDefend(input);
       case 'REINFORCE': return this.scoreReinforce(input);
-      case 'EXPAND': return this.scoreExpand(input);
-      case 'SCOUT': return this.scoreScout(input);
       case 'BUILD': return this.scoreBuild(input);
       case 'MOVE': return this.scoreMove(input);
       case 'NEGOTIATE': return this.scoreNegotiate(input);
@@ -493,15 +483,6 @@ export class ActionScorer {
       score += goalAlign.scoreContribution;
       factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
       for (const g of goalAlign.alignedGoals) reasoning.push(`aligns with goal: ${g.type.replace(/_/g, ' ')}`);
-      const myNeighbor = targetTerr.neighboring.find((nId) => ctx.self.territories.includes(nId));
-      if (myNeighbor) {
-        const neighborTerr = ctx.allTerritories.get(myNeighbor);
-        if (neighborTerr?.isCapital) {
-          score += T.capitalBonus * 0.3;
-          factors.push({ factor: 'Near capital', weight: 0.3, contribution: T.capitalBonus * 0.3 });
-          reasoning.push('target borders capital');
-        }
-      }
       if (isStaging) {
         score -= S.stagingAttackPenalty;
         factors.push({ factor: 'Requires staging march', weight: 1, contribution: -S.stagingAttackPenalty });
@@ -509,7 +490,7 @@ export class ActionScorer {
       }
       score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
       results.push({
-        action: 'ATTACK', targetId: targetTerr.id, targetName: targetTerr.name,
+        action: 'ATTACK', targetId: targetTerr.id, targetName: targetTerr.id,
         score, baseScore: S.baseScores.ATTACK, factorBreakdown: factors, reasoning,
       });
     }
@@ -556,11 +537,6 @@ export class ActionScorer {
       factors.push({ factor: 'Border threat', weight: 1, contribution: borderThreat });
       if (borderThreat > 30) reasoning.push('high border threat');
       else if (borderThreat > 10) reasoning.push('border tensions detected');
-      if (myTerr.isCapital) {
-        score += T.capitalBonus * 0.5;
-        factors.push({ factor: 'Capital defense', weight: 0.5, contribution: T.capitalBonus * 0.5 });
-        reasoning.push('protecting capital');
-      }
       const terrValue = ScoringHelpers.evaluateTerritoryValue(myTerr);
       score += terrValue * 0.3;
       factors.push({ factor: 'Territory value', weight: 0.3, contribution: terrValue * 0.3 });
@@ -577,7 +553,7 @@ export class ActionScorer {
       if (borderThreat === 0) score -= 20;
       score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
       results.push({
-        action: 'DEFEND', targetId: myTerr.id, targetName: myTerr.name,
+        action: 'DEFEND', targetId: myTerr.id, targetName: myTerr.id,
         score, baseScore: S.baseScores.DEFEND, factorBreakdown: factors, reasoning,
       });
     }
@@ -603,11 +579,6 @@ export class ActionScorer {
       else { score += 5; factors.push({ factor: 'Resources available', weight: 1, contribution: 5 }); }
       const wantReinforce = myTerr.garrison < 300;
       if (wantReinforce) { score += 25; factors.push({ factor: 'Garrison weak', weight: 1, contribution: 25 }); reasoning.push('garrison needs reinforcement'); }
-      if (myTerr.isCapital && myTerr.garrison < 500) {
-        score += T.capitalBonus * 0.4;
-        factors.push({ factor: 'Capital garrison', weight: 0.4, contribution: T.capitalBonus * 0.4 });
-        reasoning.push('capital garrison understrength');
-      }
       const goalAlign = goals.evaluateActionAlignment({
         actionType: 'REINFORCE', targetTerritory: myTerr.id,
         self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
@@ -617,131 +588,11 @@ export class ActionScorer {
       void scarcity; void overallNeed;
       score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
       results.push({
-        action: 'REINFORCE', targetId: myTerr.id, targetName: myTerr.name,
+        action: 'REINFORCE', targetId: myTerr.id, targetName: myTerr.id,
         score, baseScore: S.baseScores.REINFORCE, factorBreakdown: factors, reasoning,
       });
     }
     return results.sort((a, b) => b.score - a.score).slice(0, 2);
-  }
-
-  private scoreExpand(input: ScorerInput): ScoredAction[] {
-    const { ctx, turn, goals } = input;
-    const results: ScoredAction[] = [];
-    for (const targetTerr of ctx.unownedNeighbors) {
-      let { base, factors, reasoning } = this.baseScored('EXPAND', input);
-      let score = base;
-      // AI DECISION CORRECTNESS PASS — expansion strength must be LOCAL.
-      // Previously this compared `ctx.self.totalMilitaryPower` (every army
-      // and every garrison the faction owns, anywhere on the map) against
-      // this one target's garrison. A faction with a huge army on a
-      // distant front would look like it could trivially seize an
-      // unclaimed territory on the opposite border, even though nothing it
-      // actually has nearby could act on that. There is no troop-movement
-      // model in this codebase, so "usable" strength is defined the same
-      // way `scoreAttack` already defines it: field armies stationed in a
-      // territory that borders the target, plus the garrisons of my own
-      // territories bordering the target (a garrison can plausibly push
-      // into adjacent unclaimed land). Armies/garrisons elsewhere are
-      // excluded — this is a known, documented simplification (see
-      // docs/AI_DECISION_CORRECTNESS.md, "Expansion strength evaluation")
-      // rather than a claim that distant forces could help.
-      //
-      // ENGINE EXECUTION CONSISTENCY PASS: this formula now lives in
-      // `ScoringHelpers.computeLocalUsableMilitaryPower` so
-      // `src/simulation/cli.ts`'s EXPAND execution (which previously used
-      // empire-wide `totalMilitaryPower`, inconsistent with this scorer)
-      // can call the exact same helper. See
-      // docs/ENGINE_EXECUTION_CONSISTENCY.md, "EXPAND consistency".
-      const myLocalPower = ScoringHelpers.computeLocalUsableMilitaryPower(
-        ctx.self.id, ctx.myArmies, ctx.allTerritories, targetTerr.id,
-      );
-      const localOpposition = targetTerr.garrison * M.soldierValue;
-      const advantage = localOpposition === 0
-        ? 100
-        : myLocalPower <= 0
-          ? -S.maxFactorWeight
-          : Math.log2(myLocalPower / localOpposition) * 25;
-      score += Math.min(S.maxFactorWeight, advantage);
-      factors.push({ factor: 'Expansion advantage', weight: 1, contribution: advantage });
-      if (localOpposition === 0) reasoning.push('unclaimed territory, no opposition');
-      else if (myLocalPower > localOpposition * 5) reasoning.push('weak opposition');
-      const terrValue = ScoringHelpers.evaluateTerritoryValue(targetTerr);
-      score += terrValue * 0.7;
-      factors.push({ factor: 'Territory value', weight: T.baseValueWeight, contribution: terrValue * 0.7 });
-      if (terrValue > 70) reasoning.push('rich unclaimed land');
-      const resourceOutput = Object.values(targetTerr.resourceOutput).reduce((s, v) => s + (v ?? 0), 0);
-      if (resourceOutput > 10) {
-        const { overallNeed } = ScoringHelpers.evaluateResourceNeed(ctx.self.resources, ctx.self.resourceIncome);
-        score += overallNeed * 30;
-        factors.push({ factor: 'Resource need match', weight: 1, contribution: overallNeed * 30 });
-        if (overallNeed > 0.5) reasoning.push('addresses resource shortages');
-      }
-      const neighborsClaimed = targetTerr.neighboring.filter((nId) => {
-        const t = ctx.allTerritories.get(nId);
-        return t?.owner && t.owner !== ctx.self.id;
-      }).length;
-      if (neighborsClaimed > 0) { score -= neighborsClaimed * 10; factors.push({ factor: 'Competing claims', weight: 1, contribution: -neighborsClaimed * 10 }); reasoning.push('rival powers also nearby'); }
-      const goalAlign = goals.evaluateActionAlignment({
-        actionType: 'EXPAND', targetTerritory: targetTerr.id,
-        self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
-      });
-      score += goalAlign.scoreContribution;
-      factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
-      for (const g of goalAlign.alignedGoals) reasoning.push(`aligns with goal: ${g.type.replace(/_/g, ' ')}`);
-      score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
-      results.push({
-        action: 'EXPAND', targetId: targetTerr.id, targetName: targetTerr.name,
-        score, baseScore: S.baseScores.EXPAND, factorBreakdown: factors, reasoning,
-      });
-    }
-    return results.sort((a, b) => b.score - a.score).slice(0, 3);
-  }
-
-  private scoreScout(input: ScorerInput): ScoredAction[] {
-    const { ctx, turn, goals } = input;
-    let { base, factors, reasoning } = this.baseScored('SCOUT', input);
-    let score = base;
-    const candidates: Territory[] = [];
-    for (const myT of ctx.myTerritories) {
-      for (const nId of myT.neighboring) {
-        const t = ctx.allTerritories.get(nId);
-        if (t && !ctx.self.knownTerritories.includes(t.id)) if (!candidates.find((c) => c.id === t.id)) candidates.push(t);
-      }
-      for (const nId of myT.neighboring) {
-        const t = ctx.allTerritories.get(nId);
-        if (t && t.scoutedTurnsAgo !== null && t.scoutedTurnsAgo > 5) {
-          if (!candidates.find((c) => c.id === t.id)) candidates.push(t);
-        }
-      }
-    }
-    if (candidates.length === 0) {
-      score -= 20; factors.push({ factor: 'No targets', weight: 1, contribution: -20 }); reasoning.push('all neighbors already known');
-      return [{
-        action: 'SCOUT', targetId: null, targetName: null, score,
-        baseScore: S.baseScores.SCOUT, factorBreakdown: factors, reasoning,
-      }];
-    }
-    const results: ScoredAction[] = [];
-    for (const t of candidates.slice(0, 3)) {
-      let s = score; const f: FactorEntry[] = [...factors]; const r: string[] = [...reasoning];
-      const unknown = !ctx.self.knownTerritories.includes(t.id);
-      s += unknown ? 15 : 5;
-      f.push({ factor: unknown ? 'Unknown territory' : 'Stale intel', weight: 1, contribution: unknown ? 15 : 5 });
-      const strategic = t.isCapital || t.neighboring.length >= 4;
-      if (strategic) { s += 10; f.push({ factor: 'Strategic location', weight: 1, contribution: 10 }); }
-      const goalAlign = goals.evaluateActionAlignment({
-        actionType: 'SCOUT', targetTerritory: t.id,
-        self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
-      });
-      s += goalAlign.scoreContribution;
-      f.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
-      s = Math.max(S.minReasonableScore, Math.min(S.maxScore, s));
-      results.push({
-        action: 'SCOUT', targetId: t.id, targetName: t.name,
-        score: s, baseScore: S.baseScores.SCOUT, factorBreakdown: f, reasoning: r,
-      });
-    }
-    return results.sort((a, b) => b.score - a.score);
   }
 
   private scoreBuild(input: ScorerInput): ScoredAction[] {
@@ -776,7 +627,6 @@ export class ActionScorer {
       score += enemyBorder * 8;
       factors.push({ factor: 'Border exposure', weight: 1, contribution: enemyBorder * 8 });
       if (enemyBorder >= 2) reasoning.push('border with hostile powers');
-      if (myTerr.isCapital) { score += 20; factors.push({ factor: 'Capital', weight: 1, contribution: 20 }); reasoning.push('capital should be fortified'); }
       const terrValue = ScoringHelpers.evaluateTerritoryValue(myTerr);
       score += terrValue * 0.2;
       factors.push({ factor: 'Territory value', weight: 0.2, contribution: terrValue * 0.2 });
@@ -788,7 +638,7 @@ export class ActionScorer {
       factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
       score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
       results.push({
-        action: 'BUILD', targetId: myTerr.id, targetName: myTerr.name,
+        action: 'BUILD', targetId: myTerr.id, targetName: myTerr.id,
         score, baseScore: S.baseScores.BUILD, factorBreakdown: factors, reasoning,
       });
     }
@@ -835,7 +685,6 @@ export class ActionScorer {
           ms += borderThreat;
           if (dest.garrison < 150) ms += 15;
         }
-        if (dest.isCapital && !ctx.self.territories.includes(dest.id)) ms += 30;
         if (ms > bestMoveScore) { bestMoveScore = ms; bestTarget = dest; }
       }
     }
@@ -852,7 +701,7 @@ export class ActionScorer {
     factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
     score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
     return [{
-      action: 'MOVE', targetId: bestTarget?.id ?? null, targetName: bestTarget?.name ?? null,
+      action: 'MOVE', targetId: bestTarget?.id ?? null, targetName: bestTarget?.id ?? null,
       score, baseScore: S.baseScores.MOVE, factorBreakdown: factors, reasoning,
     }];
   }
@@ -1129,7 +978,7 @@ export class ActionScorer {
     return [{
       action: 'RETREAT',
       targetId: worstArmy?.location ?? null,
-      targetName: worstArmy ? ctx.allTerritories.get(worstArmy.location)?.name ?? null : null,
+      targetName: worstArmy ? worstArmy.location : null,
       score, baseScore: S.baseScores.RETREAT, factorBreakdown: factors, reasoning,
     }];
   }

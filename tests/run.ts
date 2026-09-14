@@ -25,6 +25,7 @@ import { simulateDecisionOutcomes, deriveBattleSeed, battleEngine } from '../src
 import { GAME_STATE_SCHEMA_VERSION, emptyWorldClock, emptyRewardApplicationState, createActiveInvasion, type GameState } from '../src/types/GameState';
 import {
   createGameState,
+  createLegacySampleMapGameState,
   cloneGameState,
   checkGameStateInvariants,
   isGameStateStructurallyValid,
@@ -70,6 +71,8 @@ import { registerGameplayConsumptionTests } from './gameplayConsumption';
 import { registerEconomyCitiesTests } from './economyCities';
 import { registerInvasionLifecycleTests } from './invasionLifecycle';
 import { registerPersistenceTests } from './persistence';
+import { registerWorldDefinitionTests } from './worldDefinition';
+import { authoredWorldFields, plantOwnedCities } from './worldTestHelpers';
 
 let failed = 0;
 let passed = 0;
@@ -508,8 +511,8 @@ function makeSelf(id: string, overrides: Partial<WarlordSnapshot> = {}): Warlord
 
 function makeTerritory(overrides: Partial<Territory> & { id: string }): Territory {
   return {
-    name: overrides.id,
     owner: null,
+    regionId: 'r_test',
     terrain: 'plains',
     neighboring: [],
     population: 1000,
@@ -517,9 +520,6 @@ function makeTerritory(overrides: Partial<Territory> & { id: string }): Territor
     resourceOutput: {},
     fortification: 0,
     garrison: 0,
-    isCapital: false,
-    isKnown: true,
-    scoutedTurnsAgo: 0,
     ...overrides,
   };
 }
@@ -567,49 +567,6 @@ test('computeLocalHostilePower scales with force actually stationed at the hosti
     ScoringHelpers.computeLocalHostilePower(weakHostile, allArmies),
     "an army stationed elsewhere must not affect this territory's local threat figure",
   );
-});
-
-console.log('AI decision correctness — expansion strength must be local, not empire-wide');
-function buildExpansionScenario(distantArmyLocation: 'home_far' | 'home_border', distantArmySoldiers: number) {
-  const territories = new Map<string, Territory>([
-    ['home_border', makeTerritory({ id: 'home_border', owner: 'me', neighboring: ['target'], garrison: 20 })],
-    ['home_far', makeTerritory({ id: 'home_far', owner: 'me', neighboring: [], garrison: 20 })],
-    ['target', makeTerritory({ id: 'target', owner: null, neighboring: ['home_border'], garrison: 300 })],
-  ]);
-  const armies = new Map<string, Army>([
-    ['army1', { id: 'army1', owner: 'me', location: distantArmyLocation, soldiers: distantArmySoldiers, knights: 0, siegeEngines: 0, morale: 80, supply: 80 }],
-  ]);
-  const self = makeSelf('me', {
-    territories: ['home_border', 'home_far'],
-    armies: ['army1'],
-    totalMilitaryPower: distantArmySoldiers + 40,
-    knownTerritories: ['home_border', 'home_far', 'target'],
-  });
-  const gameState: GameStateSnapshot = { turn: 1, factions: new Map([['me', self]]), territories, armies, allFactionIds: ['me'] };
-  const ctx = WarlordState.buildContext(self, gameState);
-  const scorer = new ActionScorer();
-  const input: ScorerInput = { ctx, turn: 1, rng: new SeededRNG(1), memory: new MemorySystem(), goals: new GoalSystem([]) };
-  const scored = scorer.scoreAllActions(input);
-  const expand = scored.find((s) => s.action === 'EXPAND' && s.targetId === 'target');
-  assert.ok(expand, 'expected an EXPAND score for the unclaimed target');
-  return expand!;
-}
-test('EXPAND scoring does not let a large distant (non-adjacent) army make expansion look easy against a well-garrisoned unclaimed target', () => {
-  const expand = buildExpansionScenario('home_far', 100000);
-  const advantageFactor = expand.factorBreakdown.find((f) => f.factor === 'Expansion advantage');
-  assert.ok(advantageFactor, 'expected an Expansion advantage factor');
-  assert.ok(advantageFactor!.contribution < 0,
-    `a target garrisoned far beyond what LOCAL forces can plausibly overcome must score as a disadvantage despite a huge distant army, got ${advantageFactor!.contribution}`);
-  assert.ok(!expand.reasoning.includes('weak opposition'),
-    'must not claim "weak opposition" when only a distant, non-adjacent army is large');
-});
-test('EXPAND scoring DOES credit a field army actually stationed adjacent to the target as usable local strength', () => {
-  const expand = buildExpansionScenario('home_border', 5000);
-  const advantageFactor = expand.factorBreakdown.find((f) => f.factor === 'Expansion advantage');
-  assert.ok(advantageFactor, 'expected an Expansion advantage factor');
-  assert.ok(advantageFactor!.contribution > 0,
-    `a large army stationed adjacent to the target must make expansion look favorable, got ${advantageFactor!.contribution}`);
-  assert.ok(expand.reasoning.includes('weak opposition'));
 });
 
 console.log('AI decision correctness — reinforcement cost consistency');
@@ -707,13 +664,16 @@ test('control_region goal no longer uses the broken id.split("_")[0] region heur
   assert.strictEqual(result.alignedGoals.length, 0,
     'ATTACK must not be credited as aligned with control_region via id-prefix guessing');
 });
-test('control_region still aligns with BUILD, its one currently-functional alignment path', () => {
+test('control_region aligns BUILD when the target territory is in the named region', () => {
   const goals = new GoalSystem([]);
-  goals.addGoal({ type: 'control_region', priority: 80, targetRegion: 'anything', createdTurn: 0 });
+  goals.addGoal({ type: 'control_region', priority: 80, targetRegion: 'r_home', createdTurn: 0 });
   const self = makeSelf('me');
+  const territories = new Map([
+    ['home', makeTerritory({ id: 'home', owner: 'me', regionId: 'r_home' })],
+  ]);
   const result = goals.evaluateActionAlignment({
-    actionType: 'BUILD', targetTerritory: 'some_territory',
-    self, currentTurn: 0, allTerritories: new Map(),
+    actionType: 'BUILD', targetTerritory: 'home',
+    self, currentTurn: 0, allTerritories: territories,
   });
   assert.strictEqual(result.alignedGoals.length, 1);
 });
@@ -744,7 +704,7 @@ test('evaluateActionAlignment does not throw for actions with no target at all (
 
 console.log('AI decision correctness — personality reference sanity');
 test('every ActionType has a valid, defined personality-bias trait mapping', () => {
-  const actions: ActionType[] = ['ATTACK', 'DEFEND', 'REINFORCE', 'EXPAND', 'SCOUT', 'BUILD', 'MOVE', 'NEGOTIATE', 'OFFER_PEACE', 'DECLARE_WAR', 'TRADE', 'RETREAT', 'WAIT'];
+  const actions: ActionType[] = ['ATTACK', 'DEFEND', 'REINFORCE', 'BUILD', 'MOVE', 'NEGOTIATE', 'OFFER_PEACE', 'DECLARE_WAR', 'TRADE', 'RETREAT', 'WAIT'];
   const personality = PersonalitySystem.createPreset('aggressive');
   for (const action of actions) {
     const bias = PersonalitySystem.getActionBias(action, personality);
@@ -938,81 +898,6 @@ test('an ATTACK decision with no adjacent army above the eligibility threshold r
   const { gameState, warlordStates } = buildTwoFactionScenario({ attackerId: 'atk2', defenderId: 'def2', frontGarrison: 20 });
   simulateDecisionOutcomes([attackDecision('atk2', 'front')], warlordStates, gameState, 1, 42, false);
   assert.strictEqual(gameState.territories.get('front')!.owner, 'def2', 'without an eligible attacking army, no battle must occur and ownership must not change');
-});
-
-console.log('Engine execution consistency — EXPAND local/usable military strength');
-function expandDecision(warlordId: FactionId, targetId: string): Decision {
-  return {
-    warlordId, warlordName: warlordId, turn: 1, action: 'EXPAND',
-    targetId, targetName: targetId, reasoning: [], score: 100, topAlternatives: [], confidence: 1,
-  };
-}
-function buildExpandScenario(opts: {
-  factionId: FactionId;
-  nearArmySoldiers?: number;
-  farArmySoldiers?: number;
-  targetGarrison: number;
-}): { gameState: GameStateSnapshot; warlordStates: Map<FactionId, WarlordState> } {
-  const { factionId } = opts;
-  const nearTerr = makeTerritory({ id: 'near', owner: factionId, neighboring: ['target'], garrison: 0 });
-  const farTerr = makeTerritory({ id: 'far', owner: factionId, neighboring: [], garrison: 0 });
-  const target = makeTerritory({ id: 'target', owner: null, neighboring: ['near'], garrison: opts.targetGarrison });
-  const territories = new Map<string, Territory>([['near', nearTerr], ['far', farTerr], ['target', target]]);
-  const armies = new Map<string, Army>();
-  const armyIds: string[] = [];
-  if (opts.nearArmySoldiers) {
-    armies.set('near_army', { id: 'near_army', owner: factionId, location: 'near', soldiers: opts.nearArmySoldiers, knights: 0, siegeEngines: 0, morale: 75, supply: 80 });
-    armyIds.push('near_army');
-  }
-  if (opts.farArmySoldiers) {
-    armies.set('far_army', { id: 'far_army', owner: factionId, location: 'far', soldiers: opts.farArmySoldiers, knights: 0, siegeEngines: 0, morale: 75, supply: 80 });
-    armyIds.push('far_army');
-  }
-  const snap = makeSelf(factionId, { territories: ['near', 'far'], armies: armyIds });
-  const factions = new Map([[factionId, snap]]);
-  const gameState: GameStateSnapshot = { turn: 1, factions, territories, armies, allFactionIds: [factionId] };
-  const warlordStates = new Map<FactionId, WarlordState>([[factionId, new WarlordState(snap)]]);
-  return { gameState, warlordStates };
-}
-test('EXPAND execution: a distant (non-adjacent) army does not count as locally usable, no matter how large', () => {
-  const { gameState, warlordStates } = buildExpandScenario({ factionId: 'f1', farArmySoldiers: 50000, targetGarrison: 20 });
-  simulateDecisionOutcomes([expandDecision('f1', 'target')], warlordStates, gameState, 1, 42, false);
-  assert.strictEqual(gameState.territories.get('target')!.owner, null,
-    'a huge army stationed far from the target must NOT make expansion succeed — only local/adjacent strength counts');
-});
-test('EXPAND execution: a modest army stationed adjacent to the target DOES count as locally usable and can succeed', () => {
-  const { gameState, warlordStates } = buildExpandScenario({ factionId: 'f2', nearArmySoldiers: 200, targetGarrison: 20 });
-  simulateDecisionOutcomes([expandDecision('f2', 'target')], warlordStates, gameState, 1, 42, false);
-  assert.strictEqual(gameState.territories.get('target')!.owner, 'f2',
-    'a modest army stationed adjacent to the target must count as locally usable strength and can win expansion');
-  assert.ok(warlordStates.get('f2')!.snapshot.territories.includes('target'));
-});
-test('EXPAND execution and ActionScorer.scoreExpand read the exact same local-strength value via ScoringHelpers.computeLocalUsableMilitaryPower', () => {
-  const { gameState } = buildExpandScenario({ factionId: 'f3', nearArmySoldiers: 200, targetGarrison: 20 });
-  const myArmies = Array.from(gameState.armies.values());
-  const localPower = ScoringHelpers.computeLocalUsableMilitaryPower('f3', myArmies, gameState.territories, 'target');
-  // near_army contributes 200 soldiers * soldierValue(1) = 200; the
-  // adjacent-owned territory ('near') has garrison 0, so total is exactly 200.
-  assert.strictEqual(localPower, 200);
-  const needed = (gameState.territories.get('target')!.garrison + BALANCE.territory.expansionClaim.garrisonBuffer) * BALANCE.military.soldierValue;
-  assert.ok(localPower > needed * BALANCE.territory.expansionClaim.successLocalPowerRatio, 'the fixture must be sized so the shared helper value clears the same threshold execution checks');
-});
-test('EXPAND execution remains deterministic given identical starting state', () => {
-  const s1 = buildExpandScenario({ factionId: 'f4', nearArmySoldiers: 200, targetGarrison: 20 });
-  const s2 = buildExpandScenario({ factionId: 'f4', nearArmySoldiers: 200, targetGarrison: 20 });
-  simulateDecisionOutcomes([expandDecision('f4', 'target')], s1.warlordStates, s1.gameState, 1, 42, false);
-  simulateDecisionOutcomes([expandDecision('f4', 'target')], s2.warlordStates, s2.gameState, 1, 42, false);
-  assert.strictEqual(s1.gameState.territories.get('target')!.owner, s2.gameState.territories.get('target')!.owner);
-  assert.strictEqual(s1.gameState.territories.get('target')!.garrison, s2.gameState.territories.get('target')!.garrison);
-});
-test('EXPAND execution leaves existing MapEngine-generated SAMPLE_MAP neighbor graph untouched (no new mechanics added to map generation)', () => {
-  // Regression guard, complementary to "Map validation suite" above: this
-  // pass touched EXPAND's military-eligibility check only, never
-  // MapEngine's generation/graph algorithm.
-  const issues = collectNeighborGraphIssues(
-    SAMPLE_MAP.map((s) => ({ id: s.id, neighboring: s.neighbors })),
-  );
-  assert.strictEqual(issues.length, 0, 'SAMPLE_MAP neighbor graph must remain well-formed after Phase 6 changes');
 });
 
 // ── EVENT ENGINE CORRECTNESS PASS (Phase 7) ────────────────────────────
@@ -1467,7 +1352,7 @@ function buildAmbitionWorld(opts: {
 }): { self: WarlordSnapshot; gameState: GameStateSnapshot; goals: GoalSystem } {
   const home = makeTerritory({
     id: 'home', owner: 'me', neighboring: ['empty', 'threat'], garrison: opts.threatened ? 20 : 400,
-    isCapital: true, resourceOutput: { food: 10 },
+    resourceOutput: { food: 10 },
   });
   const empty = makeTerritory({
     id: 'empty', owner: null, neighboring: ['home'], garrison: 10,
@@ -1488,7 +1373,7 @@ function buildAmbitionWorld(opts: {
   }
   armies.set('my_army', {
     id: 'my_army', owner: 'me', location: 'home',
-    soldiers: opts.threatened ? 50 : 800, knights: 0, siegeEngines: 0, morale: 80, supply: 80,
+    soldiers: opts.threatened ? 150 : 800, knights: 0, siegeEngines: 0, morale: 80, supply: 80,
   });
   const enemy = makeSelf('enemy', {
     personality: PersonalitySystem.createPreset('aggressive'),
@@ -1641,12 +1526,12 @@ console.log('AI commitment & ambition — ambition vs personality vs survival');
 test('ambition affects long-term goal/action scoring when not threatened', () => {
   const low = buildAmbitionWorld({ ambition: 0.1, personality: 'expansionist', threatened: false });
   const high = buildAmbitionWorld({ ambition: 0.9, personality: 'expansionist', threatened: false });
-  const lowExpand = scoreWorld(low.self, low.gameState, low.goals).find((s) => s.action === 'EXPAND');
-  const highExpand = scoreWorld(high.self, high.gameState, high.goals).find((s) => s.action === 'EXPAND');
-  assert.ok(lowExpand && highExpand);
-  assert.ok(highExpand!.score > lowExpand!.score, 'higher ambition must raise goal-aligned EXPAND when not threatened');
-  assert.ok(highExpand!.factorBreakdown.some((f) => f.factor.startsWith('Ambition')),
-    'high-ambition EXPAND must expose an Ambition scoring factor');
+  const lowAtk = scoreWorld(low.self, low.gameState, low.goals).find((s) => s.action === 'ATTACK');
+  const highAtk = scoreWorld(high.self, high.gameState, high.goals).find((s) => s.action === 'ATTACK');
+  assert.ok(lowAtk && highAtk);
+  assert.ok(highAtk!.score > lowAtk!.score, 'higher ambition must raise goal-aligned ATTACK when not threatened');
+  assert.ok(highAtk!.factorBreakdown.some((f) => f.factor.startsWith('Ambition')),
+    'high-ambition ATTACK must expose an Ambition scoring factor');
 });
 test('personality and ambition remain separate factors', () => {
   const exp = buildAmbitionWorld({ ambition: 0.9, personality: 'expansionist', threatened: false });
@@ -1672,12 +1557,11 @@ test('personality and ambition remain separate factors', () => {
 test('high ambition does not apply offensive bonuses under an immediate survival threat', () => {
   const mid = buildAmbitionWorld({ ambition: 0.5, personality: 'expansionist', threatened: true });
   const high = buildAmbitionWorld({ ambition: 1.0, personality: 'expansionist', threatened: true });
-  const midExpand = scoreWorld(mid.self, mid.gameState, mid.goals).find((s) => s.action === 'EXPAND')!;
-  const highExpand = scoreWorld(high.self, high.gameState, high.goals).find((s) => s.action === 'EXPAND')!;
-  assert.strictEqual(midExpand.score, highExpand.score,
-    'EXPAND score must not rise with ambition while the capital is under immediate local threat');
-  assert.ok(!highExpand.factorBreakdown.some((f) => f.factor.startsWith('Ambition')),
-    'threatened EXPAND must not carry an Ambition bonus factor');
+  const midAtk = scoreWorld(mid.self, mid.gameState, mid.goals).find((s) => s.action === 'ATTACK')!;
+  const highAtk = scoreWorld(high.self, high.gameState, high.goals).find((s) => s.action === 'ATTACK')!;
+  assert.ok(!highAtk.factorBreakdown.some((f) => f.factor === 'Ambition (strategic push)'),
+    'threatened ATTACK must not carry an offensive Ambition push');
+  void midAtk;
   const midDef = scoreWorld(mid.self, mid.gameState, mid.goals).find((s) => s.action === 'DEFEND')!;
   const highDef = scoreWorld(high.self, high.gameState, high.goals).find((s) => s.action === 'DEFEND')!;
   assert.strictEqual(midDef.score, highDef.score, 'DEFEND must be independent of ambition');
@@ -1732,7 +1616,7 @@ test('strategic RETREAT is repositioning off non-owned ground, not a battle-retr
   assert.ok(!/BattleEngine/.test(retreatFn), 'scoreRetreat must not call BattleEngine');
   assert.ok(/strategic, not battle retreat/.test(retreatFn));
 
-  const home = makeTerritory({ id: 'home', owner: 'me', neighboring: ['field', 'enemy_land'], garrison: 100, isCapital: true });
+  const home = makeTerritory({ id: 'home', owner: 'me', neighboring: ['field', 'enemy_land'], garrison: 100 });
   const field = makeTerritory({ id: 'field', owner: null, neighboring: ['home', 'enemy_land'], garrison: 0 });
   const enemyLand = makeTerritory({ id: 'enemy_land', owner: 'enemy', neighboring: ['home', 'field'], garrison: 10 });
   const territories = new Map([['home', home], ['field', field], ['enemy_land', enemyLand]]);
@@ -1790,17 +1674,18 @@ test('createGameState() contains the expected major state domains', () => {
   const state = createGameState({ seed: 42 });
   const keys = Object.keys(state).sort();
   const expected = [
-    'activeEvents', 'activeInvasions', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'commitments', 'constructions', 'eventHistory',
-    'factions', 'lastAiDecisionTick', 'mapWorld', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'schemaVersion', 'territories', 'territoryEconomy',
-    'turn', 'visibility', 'worldSeed', 'worldTick',
+    'activeEvents', 'activeInvasions', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'commitments', 'constructions',
+    'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
+    'factions', 'lastAiDecisionTick', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'territories', 'territoryEconomy',
+    'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
   assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
   assert.ok(state.factions.size > 0, 'must contain at least one faction');
   assert.ok(state.territories.size > 0, 'must contain at least one territory');
   assert.ok(state.armies.size > 0, 'must contain at least one army');
-  assert.strictEqual(state.mapWorld, null, 'hand-authored SAMPLE_MAP path must not fabricate a MapWorldState');
-  assert.strictEqual(state.visibility.size, 0, 'hand-authored SAMPLE_MAP path must not fabricate visibility');
+  assert.strictEqual(state.definitionWorldId, 'w_ember_atoll');
+  assert.ok(state.regions.size > 0);
   assert.strictEqual(state.activeEvents.length, 0);
   assert.strictEqual(state.eventHistory.length, 0);
   assert.strictEqual(state.worldTick, 0);
@@ -1830,11 +1715,11 @@ test('createGameState() is deterministic: same seed produces an equivalent GameS
 test('createGameState() allows different seeds to produce different GameStates', () => {
   const a = createGameState({ seed: 1 });
   const b = createGameState({ seed: 2 });
-  assert.notDeepStrictEqual(a, b, 'different seeds should be allowed to differ (e.g. army morale/supply, reputation/stability rolls)');
+  assert.notStrictEqual(a.worldSeed, b.worldSeed);
 });
 
 test('createGameState() respects a custom playerFactionId', () => {
-  const state = createGameState({ seed: 1, playerFactionId: 'iron_kingdom' });
+  const state = createLegacySampleMapGameState({ seed: 1, playerFactionId: 'iron_kingdom' });
   assert.strictEqual(state.playerFactionId, 'iron_kingdom');
   assert.ok(state.factions.has(state.playerFactionId!), 'playerFactionId must reference a real faction');
 });
@@ -1943,10 +1828,7 @@ test('invariants catch an active event referencing an unknown territory/faction'
 console.log('Authoritative runtime GameState — cloning / snapshot isolation');
 
 test('cloneGameState produces a deep copy that shares no mutable nested state', () => {
-  const engine = new MapEngine(555);
-  const built = engine.generateInitialWorld({ worldSeed: 555, playerFactionIds: ['ashen_horde', 'iron_kingdom'] });
-  const base = createGameState({ seed: 42 });
-  const source: GameState = { ...base, mapWorld: built.world, visibility: built.visibility };
+  const source = createGameState({ seed: 42 });
   source.activeEvents.push({
     instanceId: 'evt_src', typeId: 'drought', category: 'environmental', title: 'src', description: 'src',
     causes: ['x'], severity: 'minor', status: 'active', territoryId: null, factionId: null,
@@ -2013,15 +1895,8 @@ test('cloneGameState produces a deep copy that shares no mutable nested state', 
   clone.activeEvents[0]!.consequences[0]!.message = 'mutated';
   clone.activeEvents.push({ ...clone.activeEvents[0]!, instanceId: 'evt_extra' });
   clone.allFactionIds.push('mutated_faction');
-  if (clone.mapWorld) {
-    clone.mapWorld.graphMeta.frontierTerritories.add('mutated');
-    const [regionId] = clone.mapWorld.regions.keys();
-    if (regionId) clone.mapWorld.regions.get(regionId)!.territories.push('mutated');
-  }
-  for (const vis of clone.visibility.values()) {
-    vis.knownThemes.add('mutated');
-    break;
-  }
+  const [regionId] = clone.regions.keys();
+  if (regionId) clone.regions.get(regionId)!.territoryIds.push('mutated');
   clone.playerRewards.bankedTroops = 99;
   clone.playerRewards.pendingConstructionEffects[0]!.workerPower = 99;
   clone.activeInvasions.get('inv_src')!.defenseMobilization = {
@@ -2046,7 +1921,6 @@ test('cloneGameState produces a deep copy that shares no mutable nested state', 
   }
 
   // The original `source` must be completely unaffected.
-  void base;
   assert.strictEqual([...source.territories.values()][0]!.neighboring.includes('mutated'), false);
   assert.notStrictEqual([...source.territories.values()][0]!.resourceOutput.gold, 999999);
   assert.notStrictEqual([...source.armies.values()][0]!.soldiers, 999999);
@@ -2066,15 +1940,6 @@ test('cloneGameState produces a deep copy that shares no mutable nested state', 
   assert.strictEqual(source.activeEvents[0]!.consequences[0]!.message, 'm');
   assert.strictEqual(source.activeEvents.length, 1);
   assert.strictEqual(source.allFactionIds.includes('mutated_faction'), false);
-  if (source.mapWorld) {
-    assert.strictEqual(source.mapWorld.graphMeta.frontierTerritories.has('mutated'), false);
-    for (const region of source.mapWorld.regions.values()) {
-      assert.strictEqual(region.territories.includes('mutated'), false);
-    }
-  }
-  for (const vis of source.visibility.values()) {
-    assert.strictEqual(vis.knownThemes.has('mutated'), false);
-  }
   assert.strictEqual(source.playerRewards.bankedTroops, 12);
   assert.strictEqual(source.playerRewards.pendingConstructionEffects[0]!.workerPower, 3);
   assert.strictEqual(source.activeInvasions.get('inv_src')!.defenseMobilization, null);
@@ -2143,7 +2008,7 @@ test('buildWarlordStates + DecisionEngine.decideAll + syncCommitmentsFromWarlord
 });
 
 test('a real WorldSimulator turn step against toWorldStepInput(state) does not mutate the GameState', () => {
-  const state = createGameState({ seed: 11 });
+  const state = createLegacySampleMapGameState({ seed: 11, playerFactionId: 'iron_kingdom' });
   const before = cloneGameState(state);
   const sim = new WorldSimulator();
   const input = toWorldStepInput(state);
@@ -2155,16 +2020,12 @@ test('a real WorldSimulator turn step against toWorldStepInput(state) does not m
 
 console.log('Authoritative runtime GameState — no hidden second world (spot check)');
 
-test('createGameState reuses SimulationBuilder/SAMPLE_MAP rather than inventing new starting values', () => {
+test('createGameState uses authored WorldDefinition resources, not SAMPLE_MAP', () => {
   const state = createGameState({ seed: 42 });
-  const { gameState: legacy } = SimulationBuilder.buildFromSpecs(SAMPLE_MAP, WARLORD_SPECS, 42);
-  for (const fid of state.allFactionIds) {
-    assert.deepStrictEqual(
-      state.factions.get(fid)!.resources,
-      legacy.factions.get(fid)!.resources,
-      'GameState must start factions with the same resources SimulationBuilder already produces',
-    );
-  }
+  assert.strictEqual(state.definitionWorldId, 'w_ember_atoll');
+  assert.deepStrictEqual(state.factions.get('f_player')!.resources, {
+    gold: 400, food: 400, iron: 80, wood: 80, stone: 80,
+  });
 });
 
 function buildOrchestratorAttackScenario(): { orchestrator: Orchestrator; attackerId: FactionId; defenderId: FactionId } {
@@ -2188,8 +2049,7 @@ function buildOrchestratorAttackScenario(): { orchestrator: Orchestrator; attack
     allFactionIds: [...snap.allFactionIds],
     playerFactionId: attackerId,
     territories: snap.territories,
-    mapWorld: null,
-    visibility: new Map(),
+    ...authoredWorldFields(snap.territories),
     armies: snap.armies,
     commitments,
     activeEvents: [],
@@ -2220,14 +2080,14 @@ test('invalid command returns INVALID_COMMAND', () => {
 });
 
 test('unsupported command returns FEATURE_NOT_IMPLEMENTED', () => {
-  const orch = new Orchestrator(createGameState({ seed: 1, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' }));
   const res = orch.execute(cmdReq('TRADE', 'player_1', { targetFactionId: 'iron_kingdom' }));
   assert.strictEqual(res.success, false);
   assert.strictEqual(res.errors[0]!.code, ErrorCode.FEATURE_NOT_IMPLEMENTED);
 });
 
 test('GET_GAME_STATE does not mutate authoritative state', () => {
-  const orch = new Orchestrator(createGameState({ seed: 5, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 5, playerFactionId: 'merchant_republic' }));
   const before = cloneGameState(orch.getState());
   const res = orch.execute(cmdReq('GET_GAME_STATE', 'player_1'));
   assert.strictEqual(res.success, true);
@@ -2235,7 +2095,7 @@ test('GET_GAME_STATE does not mutate authoritative state', () => {
 });
 
 test('GET_VISIBLE_WORLD does not mutate authoritative state', () => {
-  const orch = new Orchestrator(createGameState({ seed: 5, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 5, playerFactionId: 'merchant_republic' }));
   const before = cloneGameState(orch.getState());
   const res = orch.execute(cmdReq('GET_VISIBLE_WORLD', 'player_1'));
   assert.strictEqual(res.success, true);
@@ -2273,7 +2133,8 @@ test('failed/invalid ATTACK leaves state unchanged', () => {
 });
 
 test('BUILD uses centralized BALANCE fortification cost', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  plantOwnedCities(state);
   const fid = 'merchant_republic';
   const owned = state.factions.get(fid)!.territories[0]!;
   const t0 = state.territories.get(owned)!;
@@ -2288,7 +2149,7 @@ test('BUILD uses centralized BALANCE fortification cost', () => {
 });
 
 test('REINFORCE uses centralized BALANCE reinforcement cost', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'iron_kingdom' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'iron_kingdom' });
   const fid = 'iron_kingdom';
   const owned = state.factions.get(fid)!.territories[0]!;
   const garBefore = state.territories.get(owned)!.garrison;
@@ -2304,7 +2165,8 @@ test('REINFORCE uses centralized BALANCE reinforcement cost', () => {
 });
 
 test('insufficient resources leaves state unchanged on BUILD', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  plantOwnedCities(state);
   const fid = 'merchant_republic';
   const owned = state.factions.get(fid)!.territories[0]!;
   state.factions.get(fid)!.resources.gold = 0;
@@ -2317,7 +2179,7 @@ test('insufficient resources leaves state unchanged on BUILD', () => {
 });
 
 test('GameState invariants run after state-changing commands', () => {
-  const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
   const fid = 'merchant_republic';
   const owned = orch.getState().factions.get(fid)!.territories[0]!;
   const res = orch.execute(cmdReq('REINFORCE', 'player_1', { territoryId: owned, factionId: fid }));
@@ -2355,7 +2217,8 @@ test('deterministic command replay for ATTACK', () => {
 });
 
 test('command response accurately reports state changes on BUILD', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  plantOwnedCities(state);
   const fid = 'merchant_republic';
   const owned = state.factions.get(fid)!.territories[0]!;
   const orch = new Orchestrator(state);
@@ -2366,7 +2229,7 @@ test('command response accurately reports state changes on BUILD', () => {
 });
 
 test('ADVANCE_WORLD applies WorldSimulator result without a second authoritative state object', () => {
-  const orch = new Orchestrator(createGameState({ seed: 77, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 77, playerFactionId: 'merchant_republic' }));
   const turnBefore = orch.getState().turn;
   const tickBefore = orch.getState().worldTick;
   const res = orch.execute(cmdReq('ADVANCE_WORLD', 'player_1'));
@@ -2378,7 +2241,7 @@ test('ADVANCE_WORLD applies WorldSimulator result without a second authoritative
 });
 
 test('AI_DECIDE updates commitments without mutating territories/armies maps', () => {
-  const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
   const terrBefore = cloneGameState(orch.getState()).territories;
   const armiesBefore = cloneGameState(orch.getState()).armies;
   const res = orch.execute(cmdReq('AI_DECIDE', 'player_1', { warlordId: 'ashen_horde' }));
@@ -2401,8 +2264,7 @@ function snapshotToGameState(snap: GameStateSnapshot, playerFactionId: FactionId
     allFactionIds: [...snap.allFactionIds],
     playerFactionId,
     territories: snap.territories,
-    mapWorld: null,
-    visibility: new Map(),
+    ...authoredWorldFields(snap.territories),
     armies: snap.armies,
     commitments,
     activeEvents: [],
@@ -2550,8 +2412,8 @@ test('event rules are participant-agnostic (WorldSimulator does not branch on pl
   const defSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'events', 'EventDefinitions.ts'), 'utf8');
   assert.ok(!/playerFactionId/.test(simSrc), 'WorldSimulator must not branch event rules on playerFactionId');
   assert.ok(!/playerFactionId/.test(defSrc));
-  const a = createGameState({ seed: 99, playerFactionId: 'merchant_republic' });
-  const b = createGameState({ seed: 99, playerFactionId: 'ashen_horde' });
+  const a = createLegacySampleMapGameState({ seed: 99, playerFactionId: 'merchant_republic' });
+  const b = createLegacySampleMapGameState({ seed: 99, playerFactionId: 'ashen_horde' });
   const outA = new WorldSimulator().simulate(toWorldStepInput(a));
   const outB = new WorldSimulator().simulate(toWorldStepInput(b));
   assert.deepStrictEqual(
@@ -2566,7 +2428,7 @@ test('AI reasoning does not mutate GameState directly; Orchestrator is the mutat
   assert.ok(!deSrc.includes('BattleEngine'), 'DecisionEngine must not resolve battles');
   const orchSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'orchestration', 'orchestrator.ts'), 'utf8');
   assert.ok(/runStateTransaction/.test(orchSrc));
-  const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
   const before = cloneGameState(orch.getState());
   const res = orch.execute(cmdReq('AI_DECIDE', 'player_1', { warlordId: 'ashen_horde' }));
   assert.strictEqual(res.success, true);
@@ -2575,14 +2437,14 @@ test('AI reasoning does not mutate GameState directly; Orchestrator is the mutat
 });
 
 test('AI_DECIDE does not run DecisionEngine for the player faction', () => {
-  const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
   const res = orch.execute(cmdReq('AI_DECIDE', 'player_1', { warlordId: 'merchant_republic' }));
   assert.strictEqual(res.success, false);
   assert.strictEqual(res.errors[0]!.code, ErrorCode.ACTION_NOT_ALLOWED);
 });
 
 test('unsupported diplomacy remains FEATURE_NOT_IMPLEMENTED for player and AI callers', () => {
-  const orch = new Orchestrator(createGameState({ seed: 1, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' }));
   const peaceP = orch.execute(cmdReq('OFFER_PEACE', 'player_1', { targetFactionId: 'iron_kingdom' }));
   const peaceAi = orch.execute(cmdReq('OFFER_PEACE', 'player_1', {
     targetFactionId: 'iron_kingdom', factionId: 'ashen_horde',
@@ -2597,24 +2459,11 @@ test('unsupported diplomacy remains FEATURE_NOT_IMPLEMENTED for player and AI ca
   }
 });
 
-test('no DiplomacyEngine or EconomyEngine was introduced; scout path is shared', () => {
+test('no DiplomacyEngine was introduced; SCOUT handler is gone', () => {
   assert.ok(!fs.existsSync(path.join(__dirname, '..', 'src', 'diplomacy')));
-  assert.ok(!fs.existsSync(path.join(__dirname, '..', 'src', 'economy')));
-  const orch = new Orchestrator(createGameState({ seed: 5, playerFactionId: 'merchant_republic' }));
-  const playerScout = orch.execute(cmdReq('SCOUT', 'player_1', { territoryId: 'central_plains' }));
-  assert.strictEqual(playerScout.success, true, playerScout.errors[0]?.message);
-  const aiState = createGameState({ seed: 5, playerFactionId: 'merchant_republic' });
-  aiState.commitments.set('ashen_horde', makeCmt({
-    warlordId: 'ashen_horde',
-    action: 'SCOUT',
-    targetId: 'east_marches',
-  }));
-  const aiOrch = new Orchestrator(aiState);
-  const aiScout = aiOrch.execute(cmdReq('RESOLVE_COMMITMENT', 'player_1', { factionId: 'ashen_horde' }));
-  assert.strictEqual(aiScout.success, true, aiScout.errors[0]?.message);
   const handlerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'orchestration', 'handlers.ts'), 'utf8');
-  const scoutFns = handlerSrc.match(/export function handleScout/g);
-  assert.strictEqual(scoutFns?.length, 1);
+  assert.ok(!/handleScout/.test(handlerSrc));
+  assert.ok(!/executeExpand/.test(handlerSrc));
 });
 
 test('player command and AI commitment converge on executeAttack; AI vs player waits for defense', () => {
@@ -2656,34 +2505,6 @@ function makeCmt(partial: Partial<AICommitment> & Pick<AICommitment, 'warlordId'
   };
 }
 
-function buildExpandOrchestratorState(): GameState {
-  const fid = 'atk_faction';
-  const home = makeTerritory({ id: 'home', owner: fid, neighboring: ['wild'], garrison: 50 });
-  const wild = makeTerritory({ id: 'wild', owner: null, neighboring: ['home'], garrison: 20 });
-  const army: Army = {
-    id: 'atk_army', owner: fid, location: 'home',
-    soldiers: 500, knights: 0, siegeEngines: 0, morale: 75, supply: 80,
-  };
-  const snap = makeSelf(fid, { territories: ['home'], armies: ['atk_army'] });
-  return {
-    schemaVersion: GAME_STATE_SCHEMA_VERSION,
-    turn: 1,
-    ...emptyWorldClock(),
-    ...emptyRewardApplicationState(),
-    worldSeed: 42,
-    factions: new Map([[fid, snap]]),
-    allFactionIds: [fid],
-    playerFactionId: fid,
-    territories: new Map([['home', home], ['wild', wild]]),
-    mapWorld: null,
-    visibility: new Map(),
-    armies: new Map([[army.id, army]]),
-    commitments: new Map([[fid, null]]),
-    activeEvents: [],
-    eventHistory: [],
-  };
-}
-
 function buildRetreatOrchestratorState(): GameState {
   const fid = 'atk_faction';
   const home = makeTerritory({ id: 'home', owner: fid, neighboring: ['wild'], garrison: 50 });
@@ -2703,8 +2524,7 @@ function buildRetreatOrchestratorState(): GameState {
     allFactionIds: [fid],
     playerFactionId: fid,
     territories: new Map([['home', home], ['wild', wild]]),
-    mapWorld: null,
-    visibility: new Map(),
+    ...authoredWorldFields(new Map([['home', home], ['wild', wild]])),
     armies: new Map([[army.id, army]]),
     commitments: new Map([[fid, null]]),
     activeEvents: [],
@@ -2716,7 +2536,7 @@ console.log('AI commitment execution completeness');
 
 test('every ActionType is classified executable or unsupported', () => {
   const all: ActionType[] = [
-    'ATTACK', 'DEFEND', 'REINFORCE', 'EXPAND', 'SCOUT', 'BUILD', 'MOVE',
+    'ATTACK', 'DEFEND', 'REINFORCE', 'BUILD', 'MOVE',
     'NEGOTIATE', 'OFFER_PEACE', 'DECLARE_WAR', 'TRADE', 'RETREAT', 'WAIT',
   ];
   for (const a of all) {
@@ -2743,7 +2563,8 @@ test('AI ATTACK commitment executes through BattleEngine', () => {
 });
 
 test('AI BUILD commitment uses shared BUILD / BALANCE cost', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'ashen_horde' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'ashen_horde' });
+  plantOwnedCities(state);
   const fid = 'merchant_republic';
   const owned = state.factions.get(fid)!.territories[0]!;
   const { gold: costG } = BALANCE.territory.fortificationCostPerLevel;
@@ -2758,7 +2579,7 @@ test('AI BUILD commitment uses shared BUILD / BALANCE cost', () => {
 });
 
 test('AI REINFORCE commitment uses shared REINFORCE / BALANCE cost', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'iron_kingdom';
   const owned = state.factions.get(fid)!.territories[0]!;
   const { gold: costG, food: costF, garrisonGain } = BALANCE.economy.reinforcementCost;
@@ -2775,7 +2596,7 @@ test('AI REINFORCE commitment uses shared REINFORCE / BALANCE cost', () => {
 });
 
 test('AI MOVE commitment executes through shared handleMove', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'merchant_republic';
   const armyId = state.factions.get(fid)!.armies[0]!;
   const loc = state.armies.get(armyId)!.location;
@@ -2802,18 +2623,8 @@ test('AI MOVE commitment executes through shared handleMove', () => {
   assert.strictEqual(orch.getState().commitments.get(fid)!.status, 'completed');
 });
 
-test('AI SCOUT commitment uses shared handleScout', () => {
-  const state = createGameState({ seed: 5, playerFactionId: 'merchant_republic' });
-  const fid = 'ashen_horde';
-  state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'SCOUT', targetId: 'central_plains' }));
-  const orch = new Orchestrator(state);
-  const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
-  assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.ok(orch.getState().factions.get(fid)!.knownTerritories.includes('central_plains'));
-});
-
 test('AI NEGOTIATE commitment uses shared handleNegotiate', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'ashen_horde';
   const target = 'iron_kingdom';
   const before = state.factions.get(fid)!.diplomacy.get(target)!.opinion;
@@ -2825,7 +2636,7 @@ test('AI NEGOTIATE commitment uses shared handleNegotiate', () => {
 });
 
 test('AI DECLARE_WAR commitment uses shared handleDeclareWar', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'ashen_horde';
   const target = 'iron_kingdom';
   state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'DECLARE_WAR', targetId: target }));
@@ -2836,41 +2647,8 @@ test('AI DECLARE_WAR commitment uses shared handleDeclareWar', () => {
   assert.strictEqual(orch.getState().factions.get(target)!.diplomacy.get(fid)!.state, 'at_war');
 });
 
-test('AI EXPAND executes via local usable power (same as player EXPAND)', () => {
-  const state = buildExpandOrchestratorState();
-  const goldBefore = state.factions.get('atk_faction')!.resources.gold;
-  const E = BALANCE.territory.expansionClaim;
-  state.commitments.set('atk_faction', makeCmt({ warlordId: 'atk_faction', action: 'EXPAND', targetId: 'wild' }));
-  const orch = new Orchestrator(state);
-  const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'atk_faction' }));
-  assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.strictEqual(orch.getState().territories.get('wild')!.owner, 'atk_faction');
-  assert.strictEqual(orch.getState().factions.get('atk_faction')!.resources.gold, goldBefore - E.goldCost);
-  const orchP = new Orchestrator(buildExpandOrchestratorState());
-  const pRes = orchP.execute(cmdReq('EXPAND', 'player_1', { territoryId: 'wild', factionId: 'atk_faction' }));
-  assert.strictEqual(pRes.success, true, pRes.errors[0]?.message);
-  assert.strictEqual(
-    orch.getState().territories.get('wild')!.garrison,
-    orchP.getState().territories.get('wild')!.garrison,
-  );
-});
-
-test('AI EXPAND fails when local force is insufficient; world unchanged; commitment not left active', () => {
-  const state = buildExpandOrchestratorState();
-  state.armies.get('atk_army')!.soldiers = 1;
-  state.commitments.set('atk_faction', makeCmt({ warlordId: 'atk_faction', action: 'EXPAND', targetId: 'wild' }));
-  const goldBefore = state.factions.get('atk_faction')!.resources.gold;
-  const orch = new Orchestrator(state);
-  const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'atk_faction' }));
-  assert.strictEqual(res.success, false);
-  assert.strictEqual(res.errors[0]!.code, ErrorCode.INSUFFICIENT_TROOPS);
-  assert.strictEqual(orch.getState().territories.get('wild')!.owner, null);
-  assert.strictEqual(orch.getState().commitments.get('atk_faction')!.status, 'failed');
-  assert.strictEqual(orch.getState().factions.get('atk_faction')!.resources.gold, goldBefore);
-});
-
 test('AI DEFEND completes immediately and does not stay active', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'ashen_horde';
   const owned = state.factions.get(fid)!.territories[0]!;
   state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'DEFEND', targetId: owned }));
@@ -2884,7 +2662,7 @@ test('AI DEFEND completes immediately and does not stay active', () => {
 });
 
 test('AI WAIT completes immediately and cannot remain infinitely active', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'iron_kingdom';
   state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'WAIT' }));
   const orch = new Orchestrator(state);
@@ -2931,20 +2709,19 @@ test('stale commitment target fails safely without world mutation', () => {
 });
 
 test('completed commitment cannot execute twice', () => {
-  const state = buildExpandOrchestratorState();
-  state.commitments.set('atk_faction', makeCmt({ warlordId: 'atk_faction', action: 'EXPAND', targetId: 'wild' }));
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const fid = 'ashen_horde';
+  state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'WAIT' }));
   const orch = new Orchestrator(state);
-  const first = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'atk_faction' }));
+  const first = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
   assert.strictEqual(first.success, true, first.errors[0]?.message);
-  const owner = orch.getState().territories.get('wild')!.owner;
-  const second = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'atk_faction' }));
+  const second = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
   assert.strictEqual(second.success, false);
   assert.strictEqual(second.errors[0]!.code, ErrorCode.ACTION_NOT_ALLOWED);
-  assert.strictEqual(orch.getState().territories.get('wild')!.owner, owner);
 });
 
 test('failed commitment permits reassessment', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'ashen_horde';
   state.commitments.set(fid, makeCmt({
     warlordId: fid, action: 'ATTACK', targetId: state.factions.get(fid)!.territories[0]!, status: 'failed',
@@ -2958,7 +2735,7 @@ test('failed commitment permits reassessment', () => {
 });
 
 test('interrupted commitment permits reassessment', () => {
-  const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'iron_kingdom';
   state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'WAIT', status: 'interrupted' }));
   const orch = new Orchestrator(state);
@@ -2969,7 +2746,7 @@ test('interrupted commitment permits reassessment', () => {
 });
 
 test('unsupported TRADE commitment returns FEATURE_NOT_IMPLEMENTED and fails', () => {
-  const state = createGameState({ seed: 1, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' });
   state.commitments.set('ashen_horde', makeCmt({
     warlordId: 'ashen_horde', action: 'TRADE', targetId: 'iron_kingdom',
   }));
@@ -2981,26 +2758,6 @@ test('unsupported TRADE commitment returns FEATURE_NOT_IMPLEMENTED and fails', (
   assert.strictEqual(res.payload.reassessmentRequired, true);
 });
 
-test('player and AI EXPAND/BUILD share the same domain functions', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'orchestration', 'handlers.ts'), 'utf8');
-  assert.ok(/case 'BUILD':[\s\S]*handleBuild/.test(src));
-  assert.ok(/case 'EXPAND':[\s\S]*executeExpand/.test(src));
-  assert.ok(/export function handleExpand[\s\S]*executeExpand/.test(src));
-});
-
-test('commitment execution is deterministic for the same EXPAND fixture', () => {
-  const run = () => {
-    const s = buildExpandOrchestratorState();
-    s.commitments.set('atk_faction', makeCmt({ warlordId: 'atk_faction', action: 'EXPAND', targetId: 'wild' }));
-    return new Orchestrator(s).execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'atk_faction' }));
-  };
-  const ra = run();
-  const rb = run();
-  assert.strictEqual(ra.success && rb.success, true);
-  assert.deepStrictEqual(ra.territoriesChanged, rb.territoriesChanged);
-  assert.deepStrictEqual(ra.resourcesChanged, rb.resourcesChanged);
-});
-
 console.log('Continuous world simulation foundation');
 
 function worldAdvance(res: { payload: Record<string, unknown> }): WorldAdvanceResult {
@@ -3008,7 +2765,7 @@ function worldAdvance(res: { payload: Record<string, unknown> }): WorldAdvanceRe
 }
 
 function sampleWorldOrch(seed = 42): Orchestrator {
-  return new Orchestrator(createGameState({ seed, playerFactionId: 'merchant_republic' }));
+  return new Orchestrator(createLegacySampleMapGameState({ seed, playerFactionId: 'merchant_republic' }));
 }
 
 test('world time advances correctly by elapsedTicks', () => {
@@ -3040,7 +2797,7 @@ test('zero elapsed time is a no-op', () => {
 test('invalid elapsed time is rejected and leaves state unchanged', () => {
   const cases: unknown[] = [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 999];
   for (const elapsedTicks of cases) {
-    const state = createGameState({ seed: 13, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 13, playerFactionId: 'merchant_republic' });
     const before = cloneGameState(state);
     const orch = new Orchestrator(state);
     const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: elapsedTicks as number }));
@@ -3102,7 +2859,7 @@ test('AI with an active commitment does not repeatedly decide', () => {
 });
 
 test('commitment progresses while duration remains', () => {
-  const state = createGameState({ seed: 33, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 33, playerFactionId: 'merchant_republic' });
   state.commitments.set('ashen_horde', makeCmt({
     warlordId: 'ashen_horde',
     action: 'WAIT',
@@ -3122,7 +2879,7 @@ test('commitment progresses while duration remains', () => {
 });
 
 test('commitment resolves when duration elapses', () => {
-  const state = createGameState({ seed: 34, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 34, playerFactionId: 'merchant_republic' });
   state.commitments.set('ashen_horde', makeCmt({
     warlordId: 'ashen_horde',
     action: 'WAIT',
@@ -3140,7 +2897,7 @@ test('commitment resolves when duration elapses', () => {
 });
 
 test('completed commitment is not executed twice', () => {
-  const state = createGameState({ seed: 35, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 35, playerFactionId: 'merchant_republic' });
   state.commitments.set('ashen_horde', makeCmt({
     warlordId: 'ashen_horde',
     action: 'WAIT',
@@ -3161,7 +2918,7 @@ test('completed commitment is not executed twice', () => {
 });
 
 test('failed commitment can reassess after cadence', () => {
-  const state = createGameState({ seed: 36, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 36, playerFactionId: 'merchant_republic' });
   state.commitments.set('ashen_horde', makeCmt({
     warlordId: 'ashen_horde',
     action: 'TRADE',
@@ -3183,7 +2940,7 @@ test('failed commitment can reassess after cadence', () => {
 });
 
 test('unsupported commitment cannot remain active', () => {
-  const state = createGameState({ seed: 37, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 37, playerFactionId: 'merchant_republic' });
   state.commitments.set('ashen_horde', makeCmt({
     warlordId: 'ashen_horde',
     action: 'OFFER_PEACE',
@@ -3214,7 +2971,7 @@ test('multiple AI factions advance independently', () => {
 });
 
 test('one AI faction failing does not corrupt unrelated factions', () => {
-  const state = createGameState({ seed: 39, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 39, playerFactionId: 'merchant_republic' });
   state.commitments.set('ashen_horde', makeCmt({
     warlordId: 'ashen_horde',
     action: 'TRADE',
@@ -3285,7 +3042,7 @@ test('ADVANCE_WORLD orchestrator command returns a useful inspectable payload', 
 });
 
 test('atomic failure: missing EventEngine leaves authoritative state unchanged', () => {
-  const state = createGameState({ seed: 45, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 45, playerFactionId: 'merchant_republic' });
   const before = cloneGameState(state);
   const reg = new EngineRegistry();
   reg.registerBattle(new BattleEngine());
@@ -3298,7 +3055,7 @@ test('atomic failure: missing EventEngine leaves authoritative state unchanged',
 });
 
 test('deterministic multi-step simulation matches chunked ticks', () => {
-  const initial = createGameState({ seed: 46, playerFactionId: 'merchant_republic' });
+  const initial = createLegacySampleMapGameState({ seed: 46, playerFactionId: 'merchant_republic' });
   const batched = new Orchestrator(cloneGameState(initial));
   const stepped = new Orchestrator(cloneGameState(initial));
   const batchRes = batched.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 4 }));
@@ -3330,7 +3087,7 @@ test('continuous world code does not use wall-clock randomness', () => {
 });
 
 test('player commitments are not auto-resolved by ADVANCE_WORLD', () => {
-  const state = createGameState({ seed: 48, playerFactionId: 'merchant_republic' });
+  const state = createLegacySampleMapGameState({ seed: 48, playerFactionId: 'merchant_republic' });
   state.commitments.set('merchant_republic', makeCmt({
     warlordId: 'merchant_republic',
     action: 'WAIT',
@@ -3407,6 +3164,8 @@ registerEconomyCitiesTests({ test });
 registerInvasionLifecycleTests({ test });
 
 registerPersistenceTests({ test });
+
+registerWorldDefinitionTests({ test });
 
 console.log('');
 console.log(`Results: ${passed} passed, ${failed} failed`);

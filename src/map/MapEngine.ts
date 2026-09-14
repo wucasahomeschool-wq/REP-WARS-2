@@ -165,17 +165,10 @@ export class MapEngine {
       const boost = (theme.resourceTendencies?.[res] ?? 1) ** 0.6;
       resourceOutput[res]! += Math.round((5 + rng.nextInt(1, 10)) * jitter * boost);
     }
-    let name: string;
-    if (isCapital) {
-      name = this.naming.generateCapitalName(theme);
-    }
-    else {
-      name = this.naming.generateTerritoryName(theme);
-    }
     const terr: Territory = {
       id,
-      name,
       owner: opts.owner ?? null,
+      regionId: 'r_map_engine_legacy',
       terrain,
       neighboring: [],
       population: Math.max(300, pop),
@@ -183,9 +176,6 @@ export class MapEngine {
       resourceOutput,
       fortification: fortTier,
       garrison: Math.max(0, garrison),
-      isCapital,
-      isKnown: false,
-      scoutedTurnsAgo: null,
     };
     world.graphMeta.territoryPos.set(id, pos);
     world.graphMeta.coordToTerritory.set(key(pos.q, pos.r), id);
@@ -534,6 +524,7 @@ export class MapEngine {
           ? rc.theme
           : this.pickTheme(rrng, themeArr, [rc.theme.id]);
         const terr = this.fabricateTerritory(world, pos, ttheme, rrng, { owner: null, isCapital: false });
+        terr.regionId = rid;
         region.territories.push(terr.id);
         if (i === 0)
           centerId = terr.id;
@@ -573,10 +564,8 @@ export class MapEngine {
           region.isCapitalRegion = true;
         }
         capT.owner = fid;
-        capT.isCapital = true;
         capT.fortification = Math.max(capT.fortification, this.C.territory.fortificationCapitalDefault);
         capT.garrison = Math.max(capT.garrison, this.C.territory.garrisonCapitalBase);
-        capT.isKnown = true;
         playerCapitals.set(fid, capId);
         const radius = perFactionStart;
         const withinRadius = Array.from(world.territories.entries()).filter(([, t]) => {
@@ -595,8 +584,7 @@ export class MapEngine {
             break;
           if (!t.owner || t.owner === fid) {
             t.owner = fid;
-            t.isKnown = true;
-            if (!t.isCapital) {
+            if (t.id !== capId) {
               t.fortification = Math.max(t.fortification, 1);
               t.garrison = Math.max(t.garrison, this.C.territory.garrisonStartBase);
             }
@@ -607,8 +595,7 @@ export class MapEngine {
       }
     }
     else {
-      for (const t of world.territories.values())
-        t.isKnown = true;
+      // Legacy generator only: no fog. Production worlds do not use this path.
     }
     while (world.territories.size < targetTerritories) {
       const frontiers = Array.from(world.graphMeta.frontierTerritories);
@@ -726,6 +713,7 @@ export class MapEngine {
       const newT = this.fabricateTerritory(world, { q: spot.q, r: spot.r }, theme, rng, { owner });
       if (currentRegion) {
         currentRegion.territories.push(newT.id);
+        newT.regionId = currentRegion.id;
         if (!currentRegion.centerTerritoryId)
           currentRegion.centerTerritoryId = newT.id;
       }
@@ -957,13 +945,13 @@ export class MapEngine {
       else {
         stateLabel = t.owner ? '#' : 'o';
       }
-      const ownerChar = t.owner ? (t.owner[0] ?? '?').toUpperCase() : (t.isCapital ? '★' : '·');
-      const display = visibility && (visibility.visibility.get(id)?.state ?? 'unknown') === 'unknown' ? '????' : `${stateLabel}${ownerChar}${(t.isCapital ? '★' : '.')}${TERRAIN_NAMES[t.terrain]?.[0] ?? '.'}`;
+      const ownerChar = t.owner ? (t.owner[0] ?? '?').toUpperCase() : '·';
+      const display = visibility && (visibility.visibility.get(id)?.state ?? 'unknown') === 'unknown' ? '????' : `${stateLabel}${ownerChar}.${TERRAIN_NAMES[t.terrain]?.[0] ?? '.'}`;
       const col = (pos.q - minQ) * 4 + (pos.r - minR) % 2 * 2;
       const row = (pos.r - minR) * 2 + 1;
       for (let i = 0; i < display.length; i++)
         grid[row]![col + i] = display[i]!;
-      const tlabel = visibility && !visibility.visibility.has(id) ? '      ' : `${id.split('_')[1]!.padStart(3, '0')}${t.isCapital ? 'K' : '.'}${stateLabel}`;
+      const tlabel = visibility && !visibility.visibility.has(id) ? '      ' : `${id.split('_')[1]!.padStart(3, '0')}.${stateLabel}`;
       if (row + 1 < grid.length)
         for (let i = 0; i < tlabel.length; i++)
           grid[row + 1]![col + i] = tlabel[i]!;
@@ -992,20 +980,20 @@ export class MapEngine {
       const v = visibility?.visibility.get(t.id)?.state ?? 'controlled';
       const shown = !visibility || v !== 'unknown';
       const short = t.id.slice(2, 8).padEnd(4, ' ');
-      const name = shown ? t.name.padEnd(24, ' ').slice(0, 24) : '??? unknown ???'.padEnd(24, ' ');
+      const name = shown ? t.id.padEnd(24, ' ').slice(0, 24) : '??? unknown ???'.padEnd(24, ' ');
       const terr = shown ? (TERRAIN_NAMES[t.terrain] ?? t.terrain).padEnd(10, ' ').slice(0, 10) : '?'.padEnd(10, ' ');
       const owner = t.owner ? t.owner.split('_')[0]!.padEnd(4, ' ').slice(0, 4).toUpperCase() : 'NEUT';
-      const fort = t.isCapital ? `★L${t.fortification}` : ` L${t.fortification}`;
+      const fort = ` L${t.fortification}`;
       const gar = shown ? `${t.garrison}`.padStart(3, ' ') : '???';
       const pop = shown ? `${Math.round(t.population / 1000)}k`.padStart(4, ' ') : '????';
       const val = shown ? `${t.baseValue}`.padStart(5, ' ') : '?????';
       const rid = this.regionFor(world, t.id);
       const rshort = rid ? rid.replace('region_', 'R') : '?';
       const mark = v === 'unknown' ? 'U' : v === 'discovered' ? 'D' : v === 'scouted' ? 'S' : 'C';
-      lines.push(`│${short}${t.isCapital ? '★' : ' '}│${name}│${terr}│ ${owner} │${fort}    │ ${gar} │ ${pop} │ ${val}${mark} │ ${rshort.padEnd(6)} │`);
+      lines.push(`│${short} │${name}│${terr}│ ${owner} │${fort}    │ ${gar} │ ${pop} │ ${val}${mark} │ ${rshort.padEnd(6)} │`);
     }
     lines.push('└─────┴──────────────────────────┴────────────┴──────┴──────────┴─────┴──────┴────────┴────────┘');
-    lines.push('Legend: U=unknown  D=discovered  S=scouted  C=controlled  ★=capital');
+    lines.push('Legend: U=unknown  D=discovered  S=scouted  C=controlled (legacy MapEngine fixture)');
     return lines.join('\n');
   }
 
@@ -1035,9 +1023,9 @@ export class MapEngine {
     const names = new Set<string>();
     let dup = false;
     for (const t of world.territories.values()) {
-      if (names.has(t.name))
+      if (names.has(t.id))
         dup = true;
-      names.add(t.name);
+      names.add(t.id);
     }
     return {
       noIsolated: isolated.length === 0,
@@ -1048,7 +1036,7 @@ export class MapEngine {
         isolated.length ? `Isolated territories (${isolated.length}): ${isolated.join(', ')}` : 'No isolated territories ✓',
         allBidir ? 'All neighborhood edges are bidirectional ✓' : 'UNIDIRECTIONAL EDGE DETECTED',
         covered >= world.territories.size ? `All territories belong to a region (${covered}/${world.territories.size}) ✓` : `${world.territories.size - covered} territories have no region`,
-        dup ? 'DUPLICATE territory names detected' : 'All territory names are unique ✓',
+        dup ? 'DUPLICATE territory ids detected' : 'All territory ids are unique ✓',
       ].join('\n'),
     };
   }
@@ -1064,7 +1052,7 @@ export class MapEngine {
     for (const t of world.territories.values()) {
       specs.push({
         id: t.id,
-        name: t.name,
+        name: t.id,
         terrain: t.terrain,
         neighbors: [...t.neighboring],
         population: t.population,
@@ -1072,7 +1060,7 @@ export class MapEngine {
         resourceOutput: { ...t.resourceOutput },
         fortification: t.fortification,
         garrison: t.garrison,
-        isCapital: t.isCapital,
+        isCapital: false,
         owner: t.owner,
       });
     }

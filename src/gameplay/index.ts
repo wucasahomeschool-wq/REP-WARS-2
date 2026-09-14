@@ -11,7 +11,6 @@ export {
 export type { GameplayConfig } from './config';
 
 export { commitBankedTroopsAndAttack } from './attacks/commitBankedTroops';
-export { assertPlayerCanSeeTarget } from './attacks/visibility';
 export { startConstruction, consumeConstructionEffect } from './construction/consume';
 export { displayedRemainingTicks, progressAllConstructions } from './construction/progress';
 export { collectTerritoryYield } from './economy/collect';

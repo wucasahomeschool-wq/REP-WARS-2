@@ -67,7 +67,14 @@ function fail(code: ErrorCode, message: string): HandlerResult {
 export function handleStartConstruction(state: GameState, ctx: GameplayHandlerContext): HandlerResult {
   const factionId = resolveActingFactionId(state, ctx.req);
   const territoryId = requireString(ctx.req, 'territoryId');
-  const project = startConstruction(state, { factionId, territoryId, projectId: paramString(ctx.req, 'constructionId') });
+  const projectTypeRaw = paramString(ctx.req, 'projectType');
+  const projectType = projectTypeRaw === 'CITY' || projectTypeRaw === 'FORTIFICATION' ? projectTypeRaw : undefined;
+  const project = startConstruction(state, {
+    factionId,
+    territoryId,
+    projectId: paramString(ctx.req, 'constructionId'),
+    projectType,
+  });
   return {
     ...emptyResult(),
     stateChanges: [{
@@ -78,7 +85,12 @@ export function handleStartConstruction(state: GameState, ctx: GameplayHandlerCo
     resourcesChanged: [
       { factionId, resource: 'gold', from: 0, to: 0 },
     ],
-    payload: { constructionId: project.id, remainingTicks: project.remainingTicks, status: project.status },
+    payload: {
+      constructionId: project.id,
+      projectType: project.projectType,
+      remainingTicks: project.remainingTicks,
+      status: project.status,
+    },
   };
 }
 

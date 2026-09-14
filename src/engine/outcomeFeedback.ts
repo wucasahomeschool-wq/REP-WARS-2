@@ -42,14 +42,13 @@ import { pushMemory } from '../orchestration/helpers';
  * How much a successful commitment of this action type advances its
  * `originatingGoalId`. Deliberately coarse/flat — this is bookkeeping so
  * goals are not purely decorative, not a scored planning system. Actions
- * with no entry (SCOUT/WAIT/RETREAT/etc.) simply do not move goal
+ * with no entry (WAIT/RETREAT/etc.) simply do not move goal
  * progress; that is a documented, intentional omission, not a gap — see
  * `GoalSystem.checkAlignment` for which actions each goal type can even
  * align with.
  */
 const GOAL_PROGRESS_ON_SUCCESS: Partial<Record<ActionType, number>> = {
   ATTACK: 15,
-  EXPAND: 15,
   DECLARE_WAR: 8,
   NEGOTIATE: 6,
   DEFEND: 5,
@@ -58,7 +57,7 @@ const GOAL_PROGRESS_ON_SUCCESS: Partial<Record<ActionType, number>> = {
 };
 
 /** Failed actions worth a lightweight, self-referential memory entry. */
-const MEMORY_ON_FAILURE: ReadonlySet<ActionType> = new Set(['ATTACK', 'EXPAND', 'MOVE', 'RETREAT']);
+const MEMORY_ON_FAILURE: ReadonlySet<ActionType> = new Set(['ATTACK', 'MOVE', 'RETREAT']);
 
 export type CommitmentOutcomeKind = 'completed' | 'failed' | 'interrupted';
 

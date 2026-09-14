@@ -29,6 +29,9 @@ export const GAMEPLAY_CONFIG = Object.freeze({
   maxFitnessHistoryEntries: 16,
   constructionGoldCost: 40,
   constructionStoneCost: 20,
+  cityGoldCost: 80,
+  cityStoneCost: 40,
+  cityConstructionDurationTicks: 30,
   maxFortificationLevel: 5,
 });
 

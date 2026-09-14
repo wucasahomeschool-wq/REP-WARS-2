@@ -3,7 +3,7 @@ import { runLongSimulation } from '../src/simulation/longRunHarness';
 import { checkGameStateInvariants } from '../src/state';
 import { isActiveCommitmentStatus } from '../src/engine/DecisionEngine';
 import { ActionType } from '../src/types';
-import { WARLORD_SPECS } from '../src/simulation/SampleMap';
+import { SAMPLE_MAP, WARLORD_SPECS } from '../src/simulation/SampleMap';
 
 export interface LongSimulationTestApi {
   test: (name: string, fn: () => void) => void;
@@ -47,8 +47,8 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
   });
 
   test('different seeds are not forced into identical outcomes (sanity: harness is not a no-op)', () => {
-    const a = runLongSimulation({ seed: 1, ticks: 60 });
-    const b = runLongSimulation({ seed: 2, ticks: 60 });
+    const a = runLongSimulation({ seed: 1, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
+    const b = runLongSimulation({ seed: 2, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
     const differs = a.battlesResolved !== b.battlesResolved
       || a.territoriesChangedOwner !== b.territoriesChangedOwner
       || JSON.stringify([...a.actionCounts.entries()]) !== JSON.stringify([...b.actionCounts.entries()]);
@@ -108,7 +108,7 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
     let aggressiveTotal = 0;
     let defensiveTotal = 0;
     for (const seed of [1, 2, 3, 4, 5]) {
-      const result = runLongSimulation({ seed, ticks: 60 });
+      const result = runLongSimulation({ seed, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
       aggressiveTotal += actionTotal(result.actionCounts.get('ashen_horde'), warlike);
       defensiveTotal += actionTotal(result.actionCounts.get('iron_kingdom'), warlike);
     }
@@ -123,7 +123,7 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
     let economicTotal = 0;
     let aggressiveTotal = 0;
     for (const seed of [1, 2, 3, 4, 5]) {
-      const result = runLongSimulation({ seed, ticks: 60 });
+      const result = runLongSimulation({ seed, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
       economicTotal += actionTotal(result.actionCounts.get('merchant_republic'), economic);
       aggressiveTotal += actionTotal(result.actionCounts.get('ashen_horde'), economic);
     }

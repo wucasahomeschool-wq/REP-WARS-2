@@ -15,7 +15,7 @@ export function mergeEventStepOntoGameState(state: GameState, output: WorldStepO
         field: 'owner',
         from: prev.owner,
         to: t.owner,
-        summary: `${t.name} owner changed by event`,
+        summary: `${t.id} owner changed by event`,
       });
     }
   }

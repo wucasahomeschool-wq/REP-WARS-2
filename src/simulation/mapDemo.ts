@@ -83,7 +83,7 @@ export function runMapValidationTests(): MapValidationTest[] {
     const { world: w4 } = engineT.generateInitialWorld({ worldSeed: 3333, playerFactionIds: [] });
     const snapshot = new Map<string, { name: string; terrain: string; owner: string | null }>();
     for (const [id, t] of w4.territories)
-      snapshot.set(id, { name: t.name, terrain: t.terrain, owner: t.owner });
+      snapshot.set(id, { name: t.id, terrain: t.terrain, owner: t.owner });
     const frontierIds = Array.from(w4.graphMeta.frontierTerritories);
     let expansionAttempts = 0, expansionsOk = 0;
     for (let i = 0; i < Math.min(3, frontierIds.length); i++) {
@@ -97,7 +97,7 @@ export function runMapValidationTests(): MapValidationTest[] {
       expansionAttempts++;
       const origIntact = Array.from(snapshot.entries()).every(([origId, origSnap]) => {
         const cur = w4.territories.get(origId);
-        return !!cur && cur.name === origSnap.name && cur.terrain === origSnap.terrain;
+        return !!cur && cur.id === origSnap.name && cur.terrain === origSnap.terrain;
       });
       if (origIntact && res.validation.noOverwrites)
         expansionsOk++;
@@ -116,8 +116,8 @@ export function runMapValidationTests(): MapValidationTest[] {
     engineB.resetNameTracker();
     const { world: wa } = engineA.generateInitialWorld({ worldSeed: 1001, playerFactionIds: [] });
     const { world: wb } = engineB.generateInitialWorld({ worldSeed: 2002, playerFactionIds: [] });
-    const namesA = new Set(Array.from(wa.territories.values()).map(t => t.name));
-    const namesB = new Set(Array.from(wb.territories.values()).map(t => t.name));
+    const namesA = new Set(Array.from(wa.territories.values()).map(t => t.id));
+    const namesB = new Set(Array.from(wb.territories.values()).map(t => t.id));
     let shared = 0;
     for (const n of namesA)
       if (namesB.has(n))
@@ -147,8 +147,8 @@ export function runMapValidationTests(): MapValidationTest[] {
       for (const id of idsX) {
         const a = wx.territories.get(id)!;
         const b = wy.territories.get(id)!;
-        if (a.name !== b.name || a.terrain !== b.terrain || a.baseValue !== b.baseValue
-          || a.fortification !== b.fortification || a.isCapital !== b.isCapital
+        if (a.terrain !== b.terrain || a.baseValue !== b.baseValue
+          || a.fortification !== b.fortification
           || a.neighboring.join(',') !== b.neighboring.join(',')) {
           identical = false;
           break;
@@ -162,7 +162,7 @@ export function runMapValidationTests(): MapValidationTest[] {
     for (const fid of ['a', 'b']) {
       const c1 = capsX.get(fid)!;
       const c2 = capsY.get(fid)!;
-      if (wx.territories.get(c1)?.name !== wy.territories.get(c2)?.name)
+      if (c1 !== c2)
         capitalsMatch = false;
     }
     tests.push({
@@ -179,7 +179,7 @@ export function runMapValidationTests(): MapValidationTest[] {
       playerFactionIds: ['scout_fa'],
     });
     const vis = vismap.get('scout_fa')!;
-    const capitalId = Array.from(w7.territories.values()).find(t => t.owner === 'scout_fa' && t.isCapital)?.id;
+    const capitalId = Array.from(w7.territories.values()).find(t => t.owner === 'scout_fa')?.id;
     if (capitalId) {
       const beforeUnknown = Array.from(w7.territories.keys()).filter(id => (vis.visibility.get(id)?.state ?? 'unknown') === 'unknown').length;
       const res = engineT.revealTerritories(w7, capitalId, 3, vis, 'scout');
@@ -191,7 +191,7 @@ export function runMapValidationTests(): MapValidationTest[] {
       });
     }
     else {
-      tests.push({ name: 'T7. (skipped — no capital)', pass: false, detail: 'no capital' });
+      tests.push({ name: 'T7. (skipped — no owned origin)', pass: false, detail: 'no owned origin' });
     }
   }
   /* ── TEST 8: GameStateSnapshot bridge produces valid specs ──── */
@@ -347,7 +347,7 @@ export function runMapDemo(opts: {
     out.push('Per-faction starting positions:');
     for (const [fid, info] of Object.entries(report.perFactionStart)) {
       const cap = world.territories.get(info.capital)!;
-      out.push(`  · ${fid.padEnd(22)} capital=${cap.name.padEnd(26)} ${info.territoryCount} territories`);
+      out.push(`  · ${fid.padEnd(22)} capital=${cap.id.padEnd(26)} ${info.territoryCount} territories`);
     }
   }
   out.push('');
@@ -427,7 +427,7 @@ export function runMapDemo(opts: {
     });
     if (candidates.length === 0) {
       out.push('      No adjacent conquerable territories. Triggering scout-based discovery instead.');
-      const ctrl = Array.from(world.territories.values()).find(t => t.owner === ashen && t.isCapital);
+      const ctrl = Array.from(world.territories.values()).find(t => t.owner === ashen);
       if (ctrl) {
         const sr = engine.revealTerritories(world, ctrl.id, 3, vis, 'scout');
         out.push(`      Scout found: ${sr.newlyDiscovered.length} new, ${sr.newlyScouted.length} scouted.`);
@@ -437,8 +437,7 @@ export function runMapDemo(opts: {
     candidates.sort((a, b) => b.baseValue - a.baseValue);
     const target = candidates[0]!;
     target.owner = ashen;
-    target.isKnown = true;
-    out.push(`      Conquered: ${target.name} (${target.terrain}, value=${target.baseValue}) — now owned by ${ashen}.`);
+    out.push(`      Conquered: ${target.id} (${target.terrain}, value=${target.baseValue}) — now owned by ${ashen}.`);
     engine.recomputeVisibilityFor(world, ashen, vis);
     const newly = Array.from(vis.visibility.entries()).filter(([, v]) => v.lastUpdatedTurn >= world.turn - 1 && v.revealedBy === 'control').length;
     out.push(`      Control-based reveal showed ${newly} adjacent territories.`);
@@ -459,9 +458,9 @@ export function runMapDemo(opts: {
         salt: expCount++,
       };
       const res = engine.expandFromFrontier(req);
-      out.push(`      Expansion from ${world.territories.get(pick)?.name ?? pick} → ${res.newTerritories.length} new territories, ${res.newRegions.length} new regions.`);
+      out.push(`      Expansion from ${world.territories.get(pick)?.id ?? pick} → ${res.newTerritories.length} new territories, ${res.newRegions.length} new regions.`);
       for (const nt of res.newTerritories.slice(0, 3)) {
-        out.push(`        ⟶ ${nt.name.padEnd(24)} [${nt.terrain.padEnd(8)} val=${nt.baseValue.toString().padStart(3)} pop=${Math.round(nt.population / 1000)}k]`);
+        out.push(`        ⟶ ${nt.id.padEnd(24)} [${nt.terrain.padEnd(8)} val=${nt.baseValue.toString().padStart(3)} pop=${Math.round(nt.population / 1000)}k]`);
       }
       if (res.newRegions.length) {
         for (const nr of res.newRegions.slice(0, 2)) {
@@ -481,7 +480,7 @@ export function runMapDemo(opts: {
   if (ashenCapital) {
     const beforeUnknown = Array.from(world.territories.keys()).filter(tid => !vis.visibility.has(tid) || vis.visibility.get(tid)!.state === 'unknown').length;
     const scoutRes = engine.revealTerritories(world, ashenCapital, 4, vis, 'scout');
-    out.push(`      Origin: ${world.territories.get(ashenCapital)?.name ?? ashenCapital} (${ashen} capital), range=4.`);
+    out.push(`      Origin: ${world.territories.get(ashenCapital)?.id ?? ashenCapital} (${ashen} capital), range=4.`);
     out.push(`      Revealed territories: ${scoutRes.revealedTerritories.length}`);
     out.push(`      newly discovered: ${scoutRes.newlyDiscovered.length}`);
     out.push(`      newly scouted (full info): ${scoutRes.newlyScouted.length}`);
@@ -489,7 +488,7 @@ export function runMapDemo(opts: {
     if (verbose && scoutRes.revealedTerritories.length) {
       out.push('      Sample reveals:');
       for (const r of scoutRes.revealedTerritories.slice(0, 8)) {
-        const name = world.territories.get(r.id)?.name ?? r.id;
+        const name = world.territories.get(r.id)?.id ?? r.id;
         out.push(`        distance ${r.distance.toFixed(1)}: ${r.fromState} → ${r.toState}  ${name}`);
       }
     }
@@ -516,7 +515,7 @@ export function runMapDemo(opts: {
     for (let i = 0; i < Math.min(ids1.length, ids2.length); i++) {
       const a = world1Fresh.territories.get(ids1[i]!)!;
       const b = world2.territories.get(ids2[i]!)!;
-      if (a.id !== b.id || a.name !== b.name || a.terrain !== b.terrain || a.baseValue !== b.baseValue) {
+      if (a.id !== b.id || a.terrain !== b.terrain || a.baseValue !== b.baseValue) {
         sameWorld = false;
       }
       if (a.neighboring.slice().sort().join('|') !== b.neighboring.slice().sort().join('|')) {
@@ -531,7 +530,7 @@ export function runMapDemo(opts: {
   for (const fid of factions) {
     const c1 = pc1.get(fid)!;
     const c2 = pc2.get(fid)!;
-    if (world1Fresh.territories.get(c1)?.name !== world2.territories.get(c2)?.name)
+    if (world1Fresh.territories.get(c1)?.id !== world2.territories.get(c2)?.id)
       capsSame = false;
   }
   out.push(`      Territories: ${world1Fresh.territories.size}==${world2.territories.size}  Regions: ${world1Fresh.regions.size}==${world2.regions.size}`);
@@ -544,8 +543,8 @@ export function runMapDemo(opts: {
   const engine3 = new MapEngine(2026 + 1);
   engine3.resetNameTracker();
   const { world: world3 } = engine3.generateInitialWorld(paramsAlt);
-  const names1 = new Set(Array.from(world.territories.values()).map(t => t.name));
-  const names3 = new Set(Array.from(world3.territories.values()).map(t => t.name));
+  const names1 = new Set(Array.from(world.territories.values()).map(t => t.id));
+  const names3 = new Set(Array.from(world3.territories.values()).map(t => t.id));
   const commonNames = Array.from(names1).filter(n => names3.has(n)).length;
   const terr1 = JSON.stringify(Object.fromEntries(Object.entries(engine.generateReport(world).terrainDistribution).sort()));
   const terr3 = JSON.stringify(Object.fromEntries(Object.entries(engine3.generateReport(world3).terrainDistribution).sort()));

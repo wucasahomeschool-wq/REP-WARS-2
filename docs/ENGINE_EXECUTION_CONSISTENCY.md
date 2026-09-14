@@ -1,8 +1,12 @@
 # Engine Execution Consistency (Phase 6)
 
+> **Phase 17N.2:** Production execution is the Orchestrator + authored
+> `WorldDefinition`. `EXPAND` is not a production action. The CLI and
+> `SAMPLE_MAP` remain a legacy harness/fixture.
+
 Status: engine-integration consistency pass. This document describes how
 `src/simulation/cli.ts` (the temporary simulation harness) now executes
-`ATTACK`/`EXPAND` decisions through the authoritative engines/formulas
+`ATTACK` decisions through the authoritative engines/formulas
 instead of duplicating or contradicting them, plus a compatibility matrix
 covering every currently-implemented action. It is **not** the
 Orchestrator design — see "Why the CLI is not the final Orchestrator"

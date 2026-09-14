@@ -92,6 +92,7 @@ export type {
 } from './types/GameState';
 export {
   createGameState,
+  createLegacySampleMapGameState,
   CreateGameStateOptions,
   cloneGameState,
   checkGameStateInvariants,
@@ -103,6 +104,28 @@ export {
   rebindWarlordRuntime,
   syncCommitmentsFromWarlordStates,
 } from './state';
+
+export {
+  WORLD_FORMAT_VERSION,
+  WorldCatalog,
+  loadWorldDefinition,
+  parseWorldJson,
+  validateWorldDefinition,
+  createGameStateFromWorld,
+  loadTinyWorldDefinition,
+  requireWorldDefinition,
+  regionDisplayName,
+} from './worldDefinition';
+export type {
+  WorldDefinition,
+  RegionDefinition,
+  TerritoryDefinition,
+  WorldFactionDefinition,
+  WorldPersonalityDefinition,
+  WorldPolygon,
+  ContainedWorldDefinition,
+  WorldLoadResult,
+} from './worldDefinition';
 
 // ====== ORCHESTRATOR (Phase 10) ======
 export {
@@ -324,6 +347,8 @@ export {
   acceleratedRemainingTicks,
   startConstruction,
   consumeConstructionEffect,
+  cityIdFor,
+  ensureCity,
   collectTerritoryYield,
   peekCollectibleResources,
   productionAccrued,

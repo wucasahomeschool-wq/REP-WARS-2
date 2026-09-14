@@ -15,7 +15,7 @@ const BN = B.chain;
 
 function terrName(ctx: ConditionContext): string {
   if (!ctx.territoryId) return 'Unknown';
-  return ctx.helper.getTerritory(ctx.territoryId)?.name ?? ctx.territoryId;
+  return ctx.helper.getTerritory(ctx.territoryId)?.id ?? ctx.territoryId;
 }
 
 function scale(sev: EventSeverity, base: number): number {
@@ -31,7 +31,7 @@ const DROUGHT: EventDefinition = {
   category: 'environmental',
   categoryLabel: 'Environmental',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'Drought — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {
@@ -82,7 +82,7 @@ const FLOOD: EventDefinition = {
   category: 'environmental',
   categoryLabel: 'Environmental',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'Flood — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {
@@ -126,7 +126,7 @@ const STORM: EventDefinition = {
   category: 'environmental',
   categoryLabel: 'Environmental',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'Severe Storm — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {
@@ -169,7 +169,7 @@ const HARSH_WINTER: EventDefinition = {
   category: 'environmental',
   categoryLabel: 'Environmental',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'Harsh Winter — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {
@@ -220,7 +220,7 @@ const RESOURCE_DISCOVERY: EventDefinition = {
   category: 'environmental',
   categoryLabel: 'Environmental (Boons)',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'Resource Discovery — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {
@@ -263,7 +263,7 @@ const FOOD_SHORTAGE: EventDefinition = {
   category: 'economic',
   categoryLabel: 'Economic',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'Food Shortage — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {
@@ -364,7 +364,7 @@ const FAMINE: EventDefinition = {
   category: 'economic',
   categoryLabel: 'Economic (Crisis)',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'FAMINE — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {
@@ -459,7 +459,7 @@ const PROSPERITY: EventDefinition = {
   category: 'economic',
   categoryLabel: 'Economic (Boons)',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'Era of Prosperity — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {
@@ -510,7 +510,7 @@ const TRADE_BOOM: EventDefinition = {
   category: 'economic',
   categoryLabel: 'Economic (Boons)',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'Trade Boom — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {
@@ -548,7 +548,7 @@ const UNREST: EventDefinition = {
   category: 'political',
   categoryLabel: 'Political / Social',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'Unrest — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {
@@ -649,7 +649,7 @@ const REBELLION: EventDefinition = {
   category: 'political',
   categoryLabel: 'Political / Social (Crisis)',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'REBELLION — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {
@@ -735,7 +735,7 @@ const BORDER_TENSION: EventDefinition = {
   category: 'military',
   categoryLabel: 'Military',
   titleTemplate: (sev, loc, world) => {
-    const t = loc && world ? world.territories.get(loc)?.name ?? '' : '';
+    const t = loc && world ? world.territories.get(loc)?.id ?? '' : '';
     return 'Border Tension — ' + (t || 'a territory');
   },
   descriptionTemplate: (sev, ctx) => {

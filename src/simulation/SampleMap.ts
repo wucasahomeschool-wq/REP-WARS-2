@@ -33,6 +33,12 @@ export interface WarlordSpec {
   }[];
 }
 
+/**
+ * LEGACY TEST FIXTURE — not the production authored world.
+ * Production worlds load `rep-wars-world.v1` JSON via WorldDefinition.
+ * Territory `name` / `isCapital` on MapTerritorySpec are fixture-only and
+ * are not copied onto runtime Territory.
+ */
 export const SAMPLE_MAP: MapTerritorySpec[] = [
   { id: 'north_valley', name: 'Northern Valley', terrain: 'plains', neighbors: ['north_pass', 'east_marches', 'central_plains'], population: 25000, baseValue: 30, resourceOutput: { food: 25, gold: 10 }, fortification: 1, garrison: 150, isCapital: false, owner: 'ashen_horde' },
   { id: 'north_pass', name: 'Mountain Pass', terrain: 'mountain', neighbors: ['north_valley', 'frozen_peaks'], population: 8000, baseValue: 25, resourceOutput: { iron: 20, stone: 25 }, fortification: 2, garrison: 250, isCapital: false, owner: 'ashen_horde' },
@@ -134,7 +140,8 @@ export class SimulationBuilder {
     for (const spec of mapSpecs) {
       territories.set(spec.id, {
         id: spec.id,
-        name: spec.name,
+        owner: spec.owner,
+        regionId: 'r_legacy_sample',
         terrain: spec.terrain,
         neighboring: [...spec.neighbors],
         population: spec.population,
@@ -142,10 +149,6 @@ export class SimulationBuilder {
         resourceOutput: { ...spec.resourceOutput },
         fortification: spec.fortification,
         garrison: spec.garrison,
-        isCapital: spec.isCapital,
-        owner: spec.owner,
-        isKnown: true,
-        scoutedTurnsAgo: 0,
       });
     }
     const factionIds = warlordSpecs.map((s) => s.id);
@@ -177,11 +180,11 @@ export class SimulationBuilder {
       const myArmyIds: string[] = [];
       if (spec.startingArmy.soldiers + spec.startingArmy.knights > 0 && spec.startingTerritories.length > 0) {
         const mainArmyId = `army_${armyIdCounter++}`;
-        const capitalT = spec.startingTerritories.find((tid) => territories.get(tid)?.isCapital) ?? spec.startingTerritories[0]!;
+        const homeT = spec.startingTerritories[0]!;
         armies.set(mainArmyId, {
           id: mainArmyId,
           owner: spec.id,
-          location: capitalT,
+          location: homeT,
           soldiers: spec.startingArmy.soldiers,
           knights: spec.startingArmy.knights,
           siegeEngines: spec.startingArmy.siege,
@@ -204,15 +207,9 @@ export class SimulationBuilder {
         otherFactionIds: factionIds.filter((id) => id !== spec.id),
         rivalFactionIds,
         allianceCandidateIds,
+        homeRegionId: 'r_legacy_sample',
       });
-      const knownTerritories = new Set<string>();
-      for (const tid of spec.startingTerritories) {
-        knownTerritories.add(tid);
-        const t = territories.get(tid);
-        if (t)
-          for (const n of t.neighboring)
-            knownTerritories.add(n);
-      }
+      const knownTerritories = Array.from(territories.keys());
       const knownFactions = new Set<string>([spec.id]);
       for (const tid of knownTerritories) {
         const t = territories.get(tid);

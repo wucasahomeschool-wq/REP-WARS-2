@@ -1,22 +1,20 @@
 import { FactionId, TerritoryId } from '../../types';
 import { GameState } from '../../types/GameState';
-import { ensureCity, removeCity, syncCityFortification } from '../cities/city';
+import { removeCity } from '../cities/city';
 import { emptyResources } from './config';
 import { persistTerritoryAccrual } from './accrual';
 
 /**
- * Apply the Prototype 1 ownership-transfer settlement:
- * 1. Stop the previous owner's production clock (lastAccrualTick = now).
- * 2. Forfeit uncollected yield. It is not deposited into either reserve.
- * 3. Cancel in-progress construction on the territory without refund.
- * 4. Reassign or create the city for the new owner; remove it if unowned.
- *
- * Call after `territory.owner` and faction territory lists are updated.
+ * Ownership-transfer settlement:
+ * 1. Stop the previous owner's production clock.
+ * 2. Forfeit uncollected yield.
+ * 3. Cancel in-progress construction without refund.
+ * 4. Destroy any city on the territory. The new owner receives bare land.
  */
 export function settleTerritoryOwnershipChange(
   state: GameState,
   territoryId: TerritoryId,
-  newOwner: FactionId | null,
+  _newOwner: FactionId | null,
 ): void {
   persistTerritoryAccrual(state, territoryId);
   const rec = state.territoryEconomy.get(territoryId);
@@ -29,13 +27,10 @@ export function settleTerritoryOwnershipChange(
       state.constructions.delete(id);
     }
   }
-  if (newOwner) {
-    ensureCity(state, territoryId, newOwner);
-    const territory = state.territories.get(territoryId);
-    if (territory && territory.fortification > 0) {
-      syncCityFortification(state, territoryId, territory.fortification, state.worldTick);
-    }
-  } else {
-    removeCity(state, territoryId);
+  removeCity(state, territoryId);
+  const territory = state.territories.get(territoryId);
+  if (territory) {
+    territory.fortification = 0;
+    territory.garrison = 0;
   }
 }

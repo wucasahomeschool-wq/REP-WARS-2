@@ -1,41 +1,17 @@
-import { Army, FactionId, Territory, TerritoryId, VisibilityState } from '../types';
+import { Army, FactionId, Territory } from '../types';
 import { GameState } from '../types/GameState';
 import { peekCollectibleResources } from '../gameplay/economy/accrual';
 import { displayedRemainingTicks } from '../gameplay/construction/progress';
 import { isOpenInvasion, remainingDeadlineTicks } from '../gameplay/invasion/deadlines';
 import { playerFacingTick } from '../gameplay/invasion/eligibility';
+import { regionDisplayName } from '../worldDefinition/display';
 
-export function visibilityOf(
-  state: GameState,
-  factionId: FactionId,
-  territoryId: TerritoryId,
-): VisibilityState {
-  const vis = state.visibility.get(factionId);
-  if (vis) {
-    return vis.visibility.get(territoryId)?.state ?? 'unknown';
-  }
-  const t = state.territories.get(territoryId);
-  const f = state.factions.get(factionId);
-  if (!t || !f) return 'unknown';
-  if (t.owner === factionId) return 'controlled';
-  if (f.knownTerritories.includes(territoryId)) return 'scouted';
-  const owned = f.territories
-    .map((id) => state.territories.get(id))
-    .filter((x): x is Territory => !!x);
-  if (owned.some((o) => o.neighboring.includes(territoryId))) return 'discovered';
-  return 'unknown';
-}
-
-/**
- * Own armies are always visible. Foreign armies are visible only on tiles
- * the viewer has scouted or controls — `discovered` knows the tile exists
- * but does not reveal occupying forces (matching garrison hiding on
- * discovered tiles in `fogTerritory`).
- */
+/** The current authored world is fully visible. No territory fog. */
 export function isArmyVisibleTo(state: GameState, viewerFactionId: FactionId, army: Army): boolean {
-  if (army.owner === viewerFactionId) return true;
-  const vis = visibilityOf(state, viewerFactionId, army.location);
-  return vis === 'scouted' || vis === 'controlled';
+  void state;
+  void viewerFactionId;
+  void army;
+  return true;
 }
 
 function serializeArmyForViewer(army: Army, viewerFactionId: FactionId): Record<string, unknown> {
@@ -64,35 +40,17 @@ export function visibleArmiesFor(
 ): Record<string, unknown>[] {
   const out: Record<string, unknown>[] = [];
   for (const army of state.armies.values()) {
-    if (!isArmyVisibleTo(state, viewerFactionId, army)) continue;
     out.push(serializeArmyForViewer(army, viewerFactionId));
   }
   return out;
 }
 
-export function fogTerritory(
-  state: GameState,
-  factionId: FactionId,
-  t: Territory,
-): Record<string, unknown> {
-  const vis = visibilityOf(state, factionId, t.id);
-  if (vis === 'unknown') {
-    return { id: t.id, visibility: vis, name: null, owner: null };
-  }
-  if (vis === 'discovered') {
-    return {
-      id: t.id,
-      name: t.name,
-      visibility: vis,
-      owner: t.owner,
-      terrain: t.terrain,
-      neighboring: t.neighboring,
-    };
-  }
+function publicTerritory(state: GameState, t: Territory): Record<string, unknown> {
   return {
     id: t.id,
-    name: t.name,
-    visibility: vis,
+    regionId: t.regionId,
+    regionName: regionDisplayName(state, t.id),
+    visibility: 'visible',
     owner: t.owner,
     terrain: t.terrain,
     neighboring: t.neighboring,
@@ -100,8 +58,7 @@ export function fogTerritory(
     baseValue: t.baseValue,
     resourceOutput: t.resourceOutput,
     fortification: t.fortification,
-    garrison: vis === 'controlled' ? t.garrison : Math.round(t.garrison / 50) * 50,
-    isCapital: t.isCapital,
+    garrison: t.garrison,
   };
 }
 
@@ -109,12 +66,7 @@ export function fogTerritory(
 export function serializePublicGameState(state: GameState, viewerFactionId: FactionId | null): Record<string, unknown> {
   const territories: Record<string, unknown> = {};
   for (const t of state.territories.values()) {
-    territories[t.id] = viewerFactionId ? fogTerritory(state, viewerFactionId, t) : {
-      id: t.id,
-      name: t.name,
-      owner: t.owner,
-      terrain: t.terrain,
-    };
+    territories[t.id] = publicTerritory(state, t);
   }
   const factions = [...state.factions.values()].map((f) => {
     const self = viewerFactionId !== null && f.id === viewerFactionId;
@@ -137,14 +89,16 @@ export function serializePublicGameState(state: GameState, viewerFactionId: Fact
     worldSeed: state.worldSeed,
     playerFactionId: state.playerFactionId,
     viewerFactionId,
+    definitionWorldId: state.definitionWorldId,
+    worldLevel: state.worldLevel,
+    worldName: state.worldName,
     allFactionIds: [...state.allFactionIds],
     factions,
     territories,
     armies,
     activeEventCount: state.activeEvents.filter((e) => e.status === 'active').length,
     commitmentCount: [...state.commitments.values()].filter((c) => c !== null).length,
-    hasMapWorld: state.mapWorld !== null,
-    hasVisibilityMaps: state.visibility.size > 0,
+    currentWorldFullyVisible: true,
     ...(playerView ? { playerGameplay: playerView } : {}),
   };
 }
@@ -201,6 +155,7 @@ function serializePlayerGameplayView(state: GameState): Record<string, unknown> 
       .map((project) => ({
         id: project.id,
         territoryId: project.territoryId,
+        projectType: project.projectType,
         remainingTicks: displayedRemainingTicks(project, state.worldTick),
         status: project.status,
         startedAtTick: project.startedAtTick,
@@ -217,19 +172,19 @@ function serializePlayerGameplayView(state: GameState): Record<string, unknown> 
 export function serializeVisibleWorld(state: GameState, viewerFactionId: FactionId): Record<string, unknown> {
   const territories: Record<string, unknown> = {};
   for (const t of state.territories.values()) {
-    const vis = visibilityOf(state, viewerFactionId, t.id);
-    if (vis === 'unknown') continue;
-    territories[t.id] = fogTerritory(state, viewerFactionId, t);
+    territories[t.id] = publicTerritory(state, t);
   }
   const viewer = state.factions.get(viewerFactionId);
   return {
     turn: state.turn,
     worldTick: state.worldTick,
     viewerFactionId,
-    knownFactions: viewer?.knownFactions ?? [],
-    knownTerritories: viewer?.knownTerritories ?? [],
+    definitionWorldId: state.definitionWorldId,
+    worldLevel: state.worldLevel,
+    worldName: state.worldName,
+    knownFactions: viewer?.knownFactions ?? [...state.allFactionIds],
     territories,
     armies: visibleArmiesFor(state, viewerFactionId),
-    visibilitySource: state.visibility.has(viewerFactionId) ? 'mapEngine' : 'factionKnowledge',
+    currentWorldFullyVisible: true,
   };
 }

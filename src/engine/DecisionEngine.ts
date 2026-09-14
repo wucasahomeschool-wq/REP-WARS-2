@@ -132,7 +132,7 @@ export class WarlordState {
 }
 
 const TERRITORY_ACTIONS = new Set<ActionType>([
-  'ATTACK', 'EXPAND', 'SCOUT', 'BUILD', 'DEFEND', 'REINFORCE', 'MOVE', 'RETREAT',
+  'ATTACK', 'BUILD', 'DEFEND', 'REINFORCE', 'MOVE', 'RETREAT',
 ]);
 const FACTION_ACTIONS = new Set<ActionType>([
   'NEGOTIATE', 'TRADE', 'DECLARE_WAR', 'OFFER_PEACE',
@@ -146,7 +146,7 @@ export function isActiveCommitmentStatus(status: CommitmentStatus): boolean {
  * AI RUNTIME INTEGRATION PASS — faction elimination.
  *
  * A faction with zero territories AND zero armies has no meaningful
- * remaining presence: it cannot ATTACK/DEFEND/REINFORCE/EXPAND/BUILD (all
+ * remaining presence: it cannot ATTACK/DEFEND/REINFORCE/BUILD (all
  * require an owned territory or army), and letting it keep running
  * `AI_DECIDE` only lets it fall back to faction-level actions
  * (NEGOTIATE/TRADE/DECLARE_WAR/OFFER_PEACE) or WAIT forever — a "ghost
@@ -200,10 +200,6 @@ export function validateCommitmentTarget(
       if (isAttackForbiddenOnSnapshot(gameState, warlordId, t.owner)) {
         return { valid: false, reason: 'attack target is protected, paused, or the attacker is on cooldown' };
       }
-    }
-    if (action === 'EXPAND') {
-      if (t.owner !== null)
-        return { valid: false, reason: 'expand target is no longer unowned' };
     }
     if (action === 'DEFEND' || action === 'REINFORCE' || action === 'BUILD') {
       if (t.owner !== warlordId)
@@ -426,7 +422,7 @@ export class DecisionEngine {
       const terr = gameState.territories.get(cloned.targetId);
       const fac = gameState.factions.get(cloned.targetId);
       if (terr)
-        targetName = terr.name;
+        targetName = terr.id;
       else if (fac)
         targetName = fac.name;
     }

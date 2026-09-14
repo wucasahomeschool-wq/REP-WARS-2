@@ -16,6 +16,7 @@ import {
   convertGameReward,
   createActiveInvasion,
   createGameState,
+  createLegacySampleMapGameState,
 } from '../src';
 import { computeAttackerPower } from '../src/battle/CombatPower';
 import type {
@@ -72,7 +73,7 @@ function convert(result: PhysicalResult, purpose?: WorkoutPurpose): GameRewardRe
 }
 
 function playerState(): GameState {
-  return createGameState({ seed: 17, playerFactionId: PLAYER_FACTION });
+  return createLegacySampleMapGameState({ seed: 17, playerFactionId: PLAYER_FACTION });
 }
 
 function bankedContext(overrides: Partial<RewardApplicationContext> = {}): RewardApplicationContext {
@@ -367,7 +368,7 @@ export function registerRewardApplicationTests(api: RewardApplicationTestApi): v
   });
 
   test('reward application requires a local player faction', () => {
-    const state = createGameState({ seed: 17, playerFactionId: null });
+    const state = createLegacySampleMapGameState({ seed: 17, playerFactionId: null });
     const failed = applyErr(state, convert(physical()), bankedContext());
     assert.strictEqual(failed.result.code, 'reward_application.no_player_faction');
   });

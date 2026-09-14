@@ -62,7 +62,7 @@ function makeTerritory(
   owner: string | null,
   fortification: number = 0,
   garrison: number = 0,
-  isCapital: boolean = false,
+  _isCapital: boolean = false,
 ) {
   return {
     id,
@@ -75,9 +75,6 @@ function makeTerritory(
     resourceOutput: {} as Record<string, number>,
     fortification,
     garrison,
-    isCapital,
-    isKnown: true,
-    scoutedTurnsAgo: 0,
   };
 }
 

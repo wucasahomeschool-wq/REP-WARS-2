@@ -66,15 +66,14 @@ Machine-readable entries in `src/orchestration/commandIndex.ts`. Each entry incl
 | --- | --- | --- |
 | `GET_COMMAND_INDEX` | orchestrator | no |
 | `GET_GAME_STATE` | state (cloned public view) | no |
-| `GET_VISIBLE_WORLD` | state (fog/knowledge view) | no |
+| `GET_VISIBLE_WORLD` | state (full current-world view; no tile fog) | no |
 | `ATTACK` | BattleEngine → applyBattle | yes |
 | `MOVE` | state (adjacent army move) | yes |
-| `BUILD` | state (`BALANCE.territory.fortificationCostPerLevel`) | yes |
+| `BUILD` | state (fortify an existing city) | yes |
 | `REINFORCE` | state (`BALANCE.economy.reinforcementCost`) | yes |
-| `SCOUT` | MapEngine (if mapWorld) or faction knowledge | yes |
+| `START_CONSTRUCTION` | state (`CITY` or `FORTIFICATION`) | yes |
 | `DECLARE_WAR` | state (relationship → `at_war`) | yes |
 | `NEGOTIATE` | state (small opinion bump) | yes |
-| `EXPAND` | state (unowned claim via local usable military power) | yes |
 | `ADVANCE_WORLD` | ContinuousWorldEngine → AI_DECIDE / RESOLVE_COMMITMENT / WorldSimulator | yes |
 | `AI_DECIDE` | DecisionEngine → sync commitments | yes (commitments only) |
 | `RESOLVE_COMMITMENT` | handler delegates to ATTACK/BUILD/… | yes |
@@ -86,17 +85,19 @@ Machine-readable entries in `src/orchestration/commandIndex.ts`. Each entry incl
 | `OFFER_PEACE` | Current model records offers in memory but does not transition war state |
 | `TRADE` | Current model adjusts opinion/memory but does not exchange resources |
 
-Commitment actions `EXPAND`, `RETREAT`, and `MOVE` are executable through `RESOLVE_COMMITMENT` (see `docs/AI_COMMITMENT_EXECUTION.md`). Unsupported catalog entries (`TRADE`, `OFFER_PEACE`) still fail with `FEATURE_NOT_IMPLEMENTED`.
+Commitment actions `RETREAT` and `MOVE` are executable through `RESOLVE_COMMITMENT` (see `docs/AI_COMMITMENT_EXECUTION.md`). `SCOUT` and `EXPAND` are not production commands. Unsupported catalog entries (`TRADE`, `OFFER_PEACE`) still fail with `FEATURE_NOT_IMPLEMENTED`.
+
+Production geography is an authored `WorldDefinition` (`docs/WORLD_DEFINITION.md`). `SAMPLE_MAP` / MapEngine are legacy test fixtures only.
 
 ## Responsibilities
 
 | Layer | Owns |
 | --- | --- |
-| **GameState** | Territories, armies, factions, resources, diplomacy, events, commitments, map/visibility metadata |
+| **GameState** | Territories, armies, factions, resources, diplomacy, events, commitments, authored-world identity |
 | **BattleEngine** | Battle math, `BattleResult` |
 | **WorldSimulator** | Event step output (`WorldStepOutput`) |
 | **DecisionEngine** | AI scoring, commitment lifecycle calculation |
-| **MapEngine** | Procedural map/fog when `mapWorld` exists |
+| **WorldDefinition** | Immutable authored geometry, regions, starting owners, AI personalities |
 | **Orchestrator** | Validation, routing, transaction, applying engine results, invariant gate, response packaging |
 | **Handlers** | Per-command glue — no battle formulas, no event generation logic |
 

@@ -5,7 +5,6 @@ import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
 import { HandlerResult } from '../../orchestration/protocol';
 import { requireFactionSnapshot, requireTerritory } from '../../orchestration/helpers';
 import { isLegalStagingTerritory, listLegalStagingTerritoryIds } from '../../army/strategicAttack';
-import { assertPlayerCanSeeTarget } from './visibility';
 
 function pickSpawnTerritory(state: GameState, factionId: string, targetId: string): string {
   const staging = listLegalStagingTerritoryIds(state, factionId, targetId);
@@ -57,7 +56,6 @@ export function commitBankedTroopsAndAttack(
     throw new OrchestrationError(ErrorCode.INSUFFICIENT_TROOPS, 'commitAmount exceeds banked Troops');
   }
   requireTerritory(state, params.territoryId);
-  assertPlayerCanSeeTarget(state, params.factionId, params.territoryId);
 
   const spawnId = pickSpawnTerritory(state, params.factionId, params.territoryId);
   const armyId = `banked_${params.factionId}_${state.worldTick}_${amount}_${state.armies.size}`;

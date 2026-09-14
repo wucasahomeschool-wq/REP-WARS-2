@@ -9,8 +9,7 @@ import {
 import { cloneGameState } from '../state/cloneGameState';
 import { GameState } from '../types/GameState';
 import { GAMEPLAY_CONFIG } from '../gameplay/config';
-import { syncCityFortification } from '../gameplay/cities/city';
-import { settleTerritoryOwnershipChange } from '../gameplay/economy/ownership';
+import { cityIdFor, syncCityFortification } from '../gameplay/cities/city';
 import { progressWorldEconomy } from '../gameplay/economy/worldProgress';
 import { WarlordState, isActiveCommitmentStatus, validateCommitmentTarget } from '../engine/DecisionEngine';
 import { isUnsupportedCommitmentAction } from '../engine/executableActions';
@@ -18,7 +17,6 @@ import { COMMAND_INDEX, commandIndexSummary } from './commandIndex';
 import { EngineRegistry } from './engineRegistry';
 import { OrchestrationError, ErrorCode } from './errors';
 import type { OrchestrationErrorBody } from './errors';
-import { ScoringHelpers } from '../scoring/ActionScorer';
 import { applyCommitmentOutcomeFeedback } from '../engine/outcomeFeedback';
 import {
   armiesInTerritory,
@@ -59,7 +57,6 @@ import {
   startStrategicAttack,
 } from '../army/strategicAttack';
 import { commitBankedTroopsAndAttack } from '../gameplay/attacks/commitBankedTroops';
-import { assertPlayerCanSeeTarget } from '../gameplay/attacks/visibility';
 import { maybeHoldAttackAsInvasion } from '../gameplay/invasion/create';
 import { progressExpiredInvasions } from '../gameplay/invasion/progress';
 import {
@@ -134,7 +131,6 @@ export function executeAttack(state: GameState, ctx: HandlerContext, territoryId
   requireTerritory(state, territoryId);
 
   if (state.playerFactionId && attackerId === state.playerFactionId) {
-    assertPlayerCanSeeTarget(state, attackerId, territoryId);
     const commitAmount = paramNumber(ctx.req, 'commitAmount');
     if (commitAmount !== undefined) {
       return commitBankedTroopsAndAttack(state, ctx, {
@@ -253,6 +249,9 @@ export function handleBuild(state: GameState, ctx: HandlerContext): HandlerResul
   if (t.owner !== factionId) {
     throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Can only build on owned territory');
   }
+  if (!state.cities.get(cityIdFor(territoryId))) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Fortification requires a city on the territory');
+  }
   const faction = requireFactionSnapshot(state, factionId);
   const { gold: costG, stone: costS } = BALANCE.territory.fortificationCostPerLevel;
   const maxFortification = GAMEPLAY_CONFIG.maxFortificationLevel;
@@ -281,7 +280,7 @@ export function handleBuild(state: GameState, ctx: HandlerContext): HandlerResul
       field: 'fortification',
       from: fortFrom,
       to: t.fortification,
-      summary: `${t.name} fortification ${fortFrom} → ${t.fortification}`,
+      summary: `${territoryId} fortification ${fortFrom} → ${t.fortification}`,
     }],
     resourcesChanged,
     territoriesChanged: territoryChanges,
@@ -318,143 +317,12 @@ export function handleReinforce(state: GameState, ctx: HandlerContext): HandlerR
       field: 'garrison',
       from: garFrom,
       to: t.garrison,
-      summary: `${t.name} garrison ${garFrom} → ${t.garrison}`,
+      summary: `${territoryId} garrison ${garFrom} → ${t.garrison}`,
     }],
     resourcesChanged,
     territoriesChanged: [{ territoryId, field: 'garrison', from: garFrom, to: t.garrison }],
     payload: { territoryId, garrison: t.garrison },
   };
-}
-
-export function handleScout(state: GameState, ctx: HandlerContext): HandlerResult {
-  const factionId = resolveActingFactionId(state, ctx.req);
-  const territoryId = requireString(ctx.req, 'territoryId');
-  requireTerritory(state, territoryId);
-  const faction = requireFactionSnapshot(state, factionId);
-  const changes: StateChange[] = [];
-
-  if (state.mapWorld && state.visibility.size > 0) {
-    const map = ctx.registry.requireMap();
-    const vis = state.visibility.get(factionId);
-    if (!vis) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'No visibility map for faction');
-    }
-    const fromId = paramString(ctx.req, 'fromTerritoryId') ?? faction.territories[0];
-    if (!fromId) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'No origin territory for map scout');
-    }
-    const origin = state.territories.get(fromId);
-    if (!origin || origin.owner !== factionId) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Scout origin must be owned');
-    }
-    const range = paramNumber(ctx.req, 'range') ?? 2;
-    if (!Number.isFinite(range) || range < 1) {
-      throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'Scout range must be a positive number');
-    }
-    const scout = map.revealTerritories(state.mapWorld, fromId, range, vis, 'scout');
-    changes.push({
-      entity: 'visibility',
-      id: factionId,
-      summary: `Scout revealed ${scout.newlyDiscovered.length} discovered, ${scout.newlyScouted.length} scouted`,
-    });
-    return {
-      ...emptyResult(),
-      stateChanges: changes,
-      payload: { scoutResult: scout },
-    };
-  }
-
-  if (!canScoutWithoutMapWorld(state, factionId, territoryId)) {
-    throw new OrchestrationError(ErrorCode.FOG_OF_WAR, 'Target is not a legal scout destination');
-  }
-
-  if (!faction.knownTerritories.includes(territoryId)) {
-    faction.knownTerritories.push(territoryId);
-    changes.push({ entity: 'faction', id: factionId, field: 'knownTerritories', summary: `Learned territory ${territoryId}` });
-  }
-  const t = state.territories.get(territoryId)!;
-  if (t.owner && !faction.knownFactions.includes(t.owner)) {
-    faction.knownFactions.push(t.owner);
-  }
-  return { ...emptyResult(), stateChanges: changes, payload: { territoryId, known: true } };
-}
-
-/** Hand-authored worlds have no MapEngine fog: scout only owned, known, or adjacent-to-owned tiles. */
-function canScoutWithoutMapWorld(state: GameState, factionId: string, territoryId: string): boolean {
-  const faction = state.factions.get(factionId);
-  const target = state.territories.get(territoryId);
-  if (!faction || !target) return false;
-  if (target.owner === factionId) return true;
-  if (faction.knownTerritories.includes(territoryId)) return true;
-  for (const ownedId of faction.territories) {
-    const owned = state.territories.get(ownedId);
-    if (owned?.neighboring.includes(territoryId)) return true;
-  }
-  return false;
-}
-
-export function executeExpand(state: GameState, ctx: HandlerContext, territoryId: string, factionId?: string): HandlerResult {
-  const actorId = factionId ?? resolveActingFactionId(state, ctx.req);
-  const target = requireTerritory(state, territoryId);
-  if (target.owner !== null) {
-    throw new OrchestrationError(ErrorCode.INVALID_TARGET, 'EXPAND requires an unowned territory');
-  }
-  const faction = requireFactionSnapshot(state, actorId);
-  const E = BALANCE.territory.expansionClaim;
-  const myPower = ScoringHelpers.computeLocalUsableMilitaryPower(
-    actorId,
-    factionArmies(state, actorId),
-    state.territories,
-    target.id,
-  );
-  const needed = (target.garrison + E.garrisonBuffer) * BALANCE.military.soldierValue;
-  if (myPower <= needed * E.successLocalPowerRatio) {
-    throw new OrchestrationError(
-      ErrorCode.INSUFFICIENT_TROOPS,
-      'Local usable military power is not enough to claim this territory',
-    );
-  }
-  if (faction.resources.gold < E.goldCost) {
-    throw new OrchestrationError(ErrorCode.INSUFFICIENT_RESOURCES, `Need ${E.goldCost} gold to expand`);
-  }
-  const goldFrom = faction.resources.gold;
-  faction.resources.gold -= E.goldCost;
-  const garFrom = target.garrison;
-  target.garrison = Math.max(E.minGarrisonAfter, target.garrison - E.garrisonReduction);
-  target.owner = actorId;
-  if (!faction.territories.includes(target.id)) faction.territories.push(target.id);
-  settleTerritoryOwnershipChange(state, target.id, actorId);
-  pushMemory(faction, state.turn, 'territory_gained', null, target.id, 8, { territory: target.name, via: 'expansion' });
-  for (const [otherId, other] of state.factions) {
-    if (otherId === actorId) continue;
-    const hasNeighbor = target.neighboring.some((nid) => other.territories.includes(nid));
-    if (!hasNeighbor) continue;
-    const rel = other.diplomacy.get(actorId);
-    if (rel) rel.opinion = Math.max(-100, rel.opinion - E.neighborOpinionHit);
-  }
-  const resourcesChanged: ResourceChange[] = [];
-  recordResourceChange(resourcesChanged, actorId, 'gold', goldFrom, faction.resources.gold);
-  return {
-    ...emptyResult(),
-    stateChanges: [{
-      entity: 'territory',
-      id: target.id,
-      field: 'owner',
-      from: null,
-      to: actorId,
-      summary: `${target.name} claimed by expansion`,
-    }],
-    resourcesChanged,
-    territoriesChanged: [
-      { territoryId: target.id, field: 'owner', from: null, to: actorId },
-      { territoryId: target.id, field: 'garrison', from: garFrom, to: target.garrison },
-    ],
-    payload: { territoryId: target.id, owner: actorId, localPower: myPower },
-  };
-}
-
-export function handleExpand(state: GameState, ctx: HandlerContext): HandlerResult {
-  return executeExpand(state, ctx, requireString(ctx.req, 'territoryId'));
 }
 
 function inFlightMovementResult(army: Army): HandlerResult {
@@ -780,10 +648,6 @@ export function handleResolveCommitment(state: GameState, ctx: HandlerContext): 
         ctx.req.parameters = { ...ctx.req.parameters, territoryId: commitment.targetId, factionId };
         inner = handleReinforce(state, ctx);
         break;
-      case 'EXPAND':
-        if (!commitment.targetId) return fail(ErrorCode.INVALID_TARGET, 'EXPAND commitment missing target');
-        inner = executeExpand(state, ctx, commitment.targetId, factionId);
-        break;
       case 'DECLARE_WAR':
         ctx.req.parameters = { ...ctx.req.parameters, targetFactionId: commitment.targetId, factionId };
         inner = handleDeclareWar(state, ctx);
@@ -791,10 +655,6 @@ export function handleResolveCommitment(state: GameState, ctx: HandlerContext): 
       case 'NEGOTIATE':
         ctx.req.parameters = { ...ctx.req.parameters, targetFactionId: commitment.targetId, factionId };
         inner = handleNegotiate(state, ctx);
-        break;
-      case 'SCOUT':
-        ctx.req.parameters = { ...ctx.req.parameters, territoryId: commitment.targetId, factionId };
-        inner = handleScout(state, ctx);
         break;
       case 'MOVE':
         if (!commitment.targetId) return fail(ErrorCode.INVALID_TARGET, 'MOVE commitment missing destination');
@@ -882,8 +742,6 @@ export const MUTATING_HANDLERS: Record<string, MutatingHandler> = {
   MOVE: handleMove,
   BUILD: handleBuild,
   REINFORCE: handleReinforce,
-  SCOUT: handleScout,
-  EXPAND: handleExpand,
   DECLARE_WAR: handleDeclareWar,
   NEGOTIATE: handleNegotiate,
   ADVANCE_WORLD: handleAdvanceWorld,

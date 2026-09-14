@@ -22,6 +22,7 @@ import {
   createActiveInvasion,
   createDefaultRegistry,
   createGameState,
+  createLegacySampleMapGameState,
   decodePersistable,
   defenseResponseTicks,
   defenseWorkoutMaxDurationTicks,
@@ -66,6 +67,7 @@ import type {
 import { BALANCE } from '../src/constants/balance';
 import { attachDefenseWorkoutToInvasion } from '../src/gameplay/invasion/session';
 import { isPlayerEmpirePaused, playerFacingTick } from '../src/gameplay/invasion/eligibility';
+import { plantOwnedCities, plantCity } from './worldTestHelpers';
 
 export interface PersistenceTestApi {
   test: (name: string, fn: () => void) => void;
@@ -87,7 +89,7 @@ function cmdReq(commandId: string, parameters: Record<string, unknown> = {}): Co
 }
 
 function playerState(seed = 17): GameState {
-  const state = createGameState({ seed, playerFactionId: PLAYER_FACTION });
+  const state = createLegacySampleMapGameState({ seed, playerFactionId: PLAYER_FACTION });
   state.playerFitness.lastWorkoutCompletedAtTick = 0;
   return state;
 }
@@ -241,6 +243,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
       notifiedAtTick: 0,
       responseDeadlineTick: 30,
     }));
+    plantCity(state, HOME);
     startConstruction(state, { factionId: PLAYER_FACTION, territoryId: HOME, projectId: 'con_persist' });
     const loaded = reloadRoundTrip(state);
     assert.deepStrictEqual(checkGameStateInvariants(loaded), []);
@@ -368,7 +371,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     if (!loaded.ok) assert.strictEqual(loaded.code, 'persistence.unsupported_schema');
   });
 
-  test('schema 5 snapshots migrate to schema 8', () => {
+  test('schema 5 snapshots migrate to current schema', () => {
     const state = playerState();
     const decoded = decodePersistable(snapshotGameState(state)) as Record<string, unknown>;
     delete decoded.cities;
@@ -390,7 +393,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     });
     const loaded = store.load(PLAYER_ID);
     assert.ok(loaded.ok, loaded.ok ? '' : loaded.message);
-    assert.strictEqual(loaded.state.schemaVersion, 8);
+    assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
     assert.ok(loaded.state.cities instanceof Map);
     assert.ok(loaded.state.playerFitness);
   });
@@ -409,6 +412,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
       }),
       status: 'pending_response',
     });
+    plantCity(state, HOME);
     startConstruction(state, { factionId: PLAYER_FACTION, territoryId: HOME, projectId: 'con_old' });
     const decoded = decodePersistable(snapshotGameState(state)) as Record<string, unknown>;
     decoded.schemaVersion = 6;
@@ -427,7 +431,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     assert.strictEqual(constructions2.get('con_old')!.lastProgressTick, 0);
     decoded.schemaVersion = 7;
     const migrated7 = migrateGameStatePayload(decoded);
-    assert.strictEqual(migrated7.schemaVersion, 8);
+    assert.strictEqual(migrated7.schemaVersion, GAME_STATE_SCHEMA_VERSION);
   });
 
   test('Fitness estimate and pending reward survive reload', () => {
@@ -645,6 +649,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
 
   test('economy and construction progress across a long offline catch-up without double-counting', () => {
     const state = playerState();
+    plantCity(state, HOME);
     startConstruction(state, { factionId: PLAYER_FACTION, territoryId: HOME, projectId: 'con_long' });
     const project = state.constructions.get('con_long')!;
     project.durationTicks = 1440;
@@ -663,6 +668,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
 
   test('worker acceleration after catch-up still uses progress-to-now then lastProgressTick = now', () => {
     const state = playerState();
+    plantCity(state, HOME);
     startConstruction(state, { factionId: PLAYER_FACTION, territoryId: HOME, projectId: 'con_acc' });
     const { result } = syncTo(state, 5);
     const remainingAfterCatchUp = result.state.constructions.get('con_acc')!.remainingTicks;

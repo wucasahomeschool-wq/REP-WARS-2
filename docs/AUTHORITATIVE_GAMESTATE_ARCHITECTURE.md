@@ -1,5 +1,11 @@
 # Authoritative runtime GameState (Phase 9)
 
+> **Phase 17N.2:** Production geography is authored `WorldDefinition`
+> (`docs/WORLD_DEFINITION.md`). `GameState` stores identity
+> (`definitionWorldId` / level / regions index) plus mutable overlay.
+> There is no `mapWorld` / tile fog / `Territory.name` / `isCapital` on
+> the live runtime model. `SAMPLE_MAP` is a legacy test fixture.
+
 This pass establishes the one authoritative runtime representation of the
 current world — `GameState` (`src/types/GameState.ts`) — plus its
 initialization, cloning, and structural-invariant machinery
@@ -212,27 +218,18 @@ No accidental mutation was found or introduced by this pass's new code.
 
 `src/state/createGameState.ts`:
 
-```ts
-createGameState({ seed, mapSpecs?, warlordSpecs?, playerFactionId? }) → GameState
-```
+Production default: `createGameState()` loads `docs/examples/world-level1-tiny.json`
+(`rep-wars-world.v1`) and instantiates it with `createGameStateFromWorld`.
+Geometry, adjacency, owners, and AI personalities come from that JSON.
+See `docs/WORLD_DEFINITION.md`.
 
-Reuses `SimulationBuilder.buildFromSpecs` (SAMPLE_MAP + WARLORD_SPECS by
-default) — the exact same deterministic, seeded-RNG-only path `cli.ts`/
-`eventSimulation.ts`/`tests/run.ts` already use. No new balance system,
-no new starting values: territories/armies/resources/income/diplomacy/
-personality/goals all come from the existing `SAMPLE_MAP`/`WARLORD_SPECS`/
-`BALANCE` constants, unchanged. `mapWorld`/`visibility` start `null`/empty
-(this path never calls `MapEngine`); `activeEvents`/`eventHistory` start
-empty (no initial events exist for the sample scenario); `commitments`
-starts as one `null` entry per faction id (no `decide()` call has
-happened yet).
+`SAMPLE_MAP` + `WARLORD_SPECS` remain available only as
+`createLegacySampleMapGameState()` / explicit `mapSpecs` — a legacy test
+fixture, not production geography. Worlds start with no cities and no tile fog.
+`commitments` start as one `null` entry per faction.
 
-Determinism: `SimulationBuilder.buildFromSpecs` only draws randomness from
-a `SeededRNG` constructed with the given seed — verified (not just
-asserted) by a new test that calls `createGameState({ seed: 1234 })` twice
-and asserts `assert.deepStrictEqual` on the two full results, plus a test
-that two different seeds are allowed (and, for this fixture, do) produce
-different results.
+Determinism: the same seed plus the same WorldDefinition produces the same
+GameState (`worldSeed` is stored; authored personalities are not randomized).
 
 ## 8. Cloning / snapshots
 

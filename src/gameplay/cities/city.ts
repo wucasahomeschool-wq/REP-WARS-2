@@ -5,7 +5,7 @@ export function cityIdFor(territoryId: TerritoryId): CityId {
   return `city_${territoryId}`;
 }
 
-/** Prototype 1: one city per owned territory. Fortification level stays on the territory. */
+/** Cities exist only after explicit CITY construction. Fortification level stays on the territory. */
 export function ensureCity(state: GameState, territoryId: TerritoryId, factionId: FactionId): City {
   const id = cityIdFor(territoryId);
   const existing = state.cities.get(id);
@@ -36,7 +36,8 @@ export function syncCityFortification(
 ): void {
   const territory = state.territories.get(territoryId);
   if (!territory?.owner) return;
-  const city = ensureCity(state, territoryId, territory.owner);
+  const city = state.cities.get(cityIdFor(territoryId));
+  if (!city) return;
   const existing = city.buildings.find((building) => building.type === 'FORTIFICATION');
   if (existing) {
     existing.level = level;

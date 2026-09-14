@@ -1,6 +1,6 @@
 # Phase 17M — Authoritative World / Map Architecture
 
-**Status:** specification only. This document is the design for the future authored world. It is **not** implemented. Do not treat `MapEngine`, `SAMPLE_MAP`, or `GameState.mapWorld` as the destination model.
+**Status:** JSON contract specified in 17M; **runtime foundation implemented in Phase 17N.2** (`src/worldDefinition/`, `createGameStateFromWorld`). Map Assistant / editor is still not implemented. Do not treat `MapEngine` or `SAMPLE_MAP` as the production authored-world source (`SAMPLE_MAP` is a legacy test fixture).
 
 **17M.1 (locked):** Level N+1 uses an independently authored, coarser playable territory graph. A completed Level N world is nested geographic/history only. See §9. Do not interpret nested worlds as inlined playable tiles.
 

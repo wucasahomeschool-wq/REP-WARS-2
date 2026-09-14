@@ -6,8 +6,6 @@ export const BALANCE = {
       ATTACK: 40,
       DEFEND: 30,
       REINFORCE: 25,
-      EXPAND: 35,
-      SCOUT: 15,
       BUILD: 20,
       MOVE: 10,
       NEGOTIATE: 20,
@@ -59,6 +57,7 @@ export const BALANCE = {
     resourceValueWeight: 1.2,
     strategicPositionWeight: 1.5,
     chokepointBonus: 25,
+    /** Unused. Fixed-capital scoring is obsolete; capital mechanics are deferred. */
     capitalBonus: 50,
     capitalThreatMultiplier: 2.5,
     borderTerritoryBonus: 10,
@@ -84,8 +83,8 @@ export const BALANCE = {
       iron: 20,
     },
     /**
-     * Existing SAMPLE_MAP / CLI EXPAND claim rules, centralized so the
-     * Orchestrator and cli.ts cannot drift. Not a new expansion mechanic.
+     * Unused leftover from the removed EXPAND claim action. Not a production
+     * mechanic. Do not reintroduce EXPAND from these numbers.
      */
     expansionClaim: {
       goldCost: 100,
@@ -229,8 +228,6 @@ export const BALANCE = {
       ATTACK: 0,
       BUILD: 0,
       REINFORCE: 0,
-      EXPAND: 0,
-      SCOUT: 0,
       NEGOTIATE: 0,
       DECLARE_WAR: 0,
       TRADE: 0,
@@ -300,6 +297,7 @@ export const BALANCE = {
       fortress: 1.25,
     } as Record<string, number>,
     fortificationPerLevelBonus: 0.03,
+    /** Unused. Fixed-capital combat bonus is obsolete; capital mechanics are deferred. */
     capitalBonus: 1.10,
     qualityDefault: 1.0,
     moraleToMultiplier(morale0_100: number): number {
@@ -552,8 +550,6 @@ export const ACTION_NAMES = {
   ATTACK: 'Attack',
   DEFEND: 'Defend',
   REINFORCE: 'Reinforce',
-  EXPAND: 'Expand',
-  SCOUT: 'Scout',
   BUILD: 'Fortify',
   MOVE: 'Move troops',
   NEGOTIATE: 'Negotiate',

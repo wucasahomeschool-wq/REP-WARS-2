@@ -5,8 +5,9 @@
  * This is the ONE authoritative runtime representation of "the current
  * world" for Rep Wars. It is the source of truth for territories, armies,
  * factions/warlords (resources, diplomacy, personality, ambition, goals,
- * memory), the player, active events/history, AI commitments, and map/
- * world/visibility state where those concepts already exist.
+ * memory), the player, active events/history, AI commitments, and
+ * authored-world identity (`definitionWorldId` / level). Geometry stays
+ * on WorldDefinition. The current world is fully visible.
  *
  * Engines (BattleEngine, WorldSimulator/EventEngine, DecisionEngine,
  * MapEngine) calculate/propose results from a narrow, engine-specific
@@ -45,7 +46,7 @@
  * diagram. See docs/CANONICAL_STATE_ARCHITECTURE.md for the phase-3 audit
  * this type originated from.
  */
-import { AICommitment, Army, ArmyId, FactionId, MapWorldState, PlayerVisibilityMap, Resources, Territory, TerritoryId, WarlordSnapshot } from './index';
+import { AICommitment, Army, ArmyId, FactionId, RegionId, Resources, Territory, TerritoryId, WarlordSnapshot } from './index';
 import { ActiveEvent, HistoryEntry } from '../events/EventModel';
 import { FitnessEstimate } from '../fitness/estimate/types';
 import { WorkoutSession } from '../fitness/session/types';
@@ -65,8 +66,10 @@ import { GameRewardResult } from '../rewards/types';
  *     lastProgressTick).
  * 8 = Phase 17K invasion lifecycle (pending_response / defense_in_progress,
  *     defense completion timeout).
+ * 9 = Phase 17N.2 authored worlds (definition identity, regions, no tile fog,
+ *     no territory names/capitals, CITY construction).
  */
-export const GAME_STATE_SCHEMA_VERSION = 8;
+export const GAME_STATE_SCHEMA_VERSION = 9;
 
 export type InvasionId = string;
 
@@ -163,10 +166,10 @@ export interface ActiveInvasion {
 }
 
 export type ConstructionId = string;
-export type ConstructionProjectType = 'FORTIFICATION';
+export type ConstructionProjectType = 'CITY' | 'FORTIFICATION';
 export type ConstructionProjectStatus = 'in_progress' | 'completed';
 export type CityId = string;
-export type CityBuildingType = 'FORTIFICATION';
+export type CityBuildingType = 'CITY' | 'FORTIFICATION';
 
 export interface CityBuilding {
   type: CityBuildingType;
@@ -175,9 +178,14 @@ export interface CityBuilding {
 }
 
 /**
- * Smallest useful city: one per owned territory. Buildings record completed
- * timed construction. Live fortification level remains `Territory.fortification`.
+ * Authored named region index for the current world. Polygons stay on
+ * WorldDefinition; this is membership + display name only.
  */
+export interface RuntimeRegion {
+  id: RegionId;
+  name: string;
+  territoryIds: TerritoryId[];
+}
 export interface City {
   id: CityId;
   territoryId: TerritoryId;
@@ -301,25 +309,19 @@ export interface GameState {
    */
   playerFactionId: FactionId | null;
 
-  // ---- world (territories, map metadata, armies, visibility/fog) ----
+  /**
+   * Authored world identity. Geometry is NOT stored here — load
+   * WorldDefinition via WorldCatalog using `definitionWorldId`.
+   * Legacy SAMPLE_MAP fixtures use `legacy:sample-map`.
+   */
+  definitionWorldId: string | null;
+  definitionFormatVersion: string | null;
+  worldLevel: number | null;
+  worldName: string | null;
+  regions: Map<RegionId, RuntimeRegion>;
+
+  // ---- world (territories, armies) ----
   territories: Map<TerritoryId, Territory>;
-  /**
-   * Procedural map/graph metadata (regions, themes, frontier bookkeeping)
-   * when the world came from `MapEngine.generateInitialWorld`. `null` for
-   * hand-authored worlds (e.g. `SAMPLE_MAP` via `SimulationBuilder`, the
-   * default `createGameState()` path) that never call `MapEngine`. Both
-   * are legitimate; do not fabricate a `MapWorldState` for a hand-authored
-   * world just to make this field non-null.
-   */
-  mapWorld: MapWorldState | null;
-  /**
-   * Per-faction fog-of-war / visibility. Only populated when the world
-   * was built via `MapEngine.generateInitialWorld` (which is the only
-   * producer of `PlayerVisibilityMap` today — see
-   * `MapEngine.createVisibilityMapFor`/`recomputeVisibilityFor`). Empty
-   * `Map` (not fabricated entries) for worlds built without it.
-   */
-  visibility: Map<FactionId, PlayerVisibilityMap>;
   // Canonical continuous time is `worldTick` above. `turn` remains the
   // EventEngine adapter clock. Wall-clock/`Date.now()` time is not part
   // of GameState. See docs/CONTINUOUS_WORLD_ARCHITECTURE.md.
@@ -386,8 +388,8 @@ export interface GameState {
    */
   constructions: Map<ConstructionId, ConstructionProject>;
   /**
-   * One city per owned territory. Not a population/happiness simulation.
-   * Fortification level stays on `Territory.fortification`.
+   * Cities exist only after explicit CITY construction. Conquest destroys
+   * the previous city; the new owner receives bare land.
    */
   cities: Map<CityId, City>;
   /**

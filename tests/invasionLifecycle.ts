@@ -17,6 +17,7 @@ import {
   convertGameReward,
   createActiveInvasion,
   createGameState,
+  createLegacySampleMapGameState,
   defenseResponseTicks,
   defenseWorkoutMaxDurationTicks,
   failedDefenseContinuationTicks,
@@ -65,7 +66,7 @@ function cmdReq(commandId: string, parameters: Record<string, unknown> = {}, pla
 }
 
 function playerState(): GameState {
-  const state = createGameState({ seed: 17, playerFactionId: PLAYER_FACTION });
+  const state = createLegacySampleMapGameState({ seed: 17, playerFactionId: PLAYER_FACTION });
   state.playerFitness.lastWorkoutCompletedAtTick = state.worldTick;
   return state;
 }
@@ -212,10 +213,10 @@ export function registerInvasionLifecycleTests(api: InvasionLifecycleTestApi): v
 
   console.log('Phase 17K — invasion lifecycle & defense timeout');
 
-  test('schema version is 8 and completion timeout is 12 hours, separate from the 30-minute response window', () => {
+  test('schema version is 9 and completion timeout is 12 hours, separate from the 30-minute response window', () => {
     const state = playerState();
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 8);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 9);
     assert.strictEqual(GAMEPLAY_CONFIG.playerProtectionMinutes, 1440);
     assert.strictEqual(GAMEPLAY_CONFIG.defenseResponseMinutes, 30);
     assert.strictEqual(GAMEPLAY_CONFIG.defenseWorkoutMaxDurationMinutes, 12 * 60);

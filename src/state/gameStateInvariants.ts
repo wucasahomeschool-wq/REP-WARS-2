@@ -287,17 +287,19 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     push(`territory.neighbor_${issue.kind}`, `territory ${issue.territoryId} neighbor ${issue.neighborId} (${issue.kind})`);
   }
 
-  // ---- visibility maps reference real factions and territories ----
-  for (const [fid, vis] of state.visibility.entries()) {
-    if (!state.factions.has(fid)) {
-      push('visibility.unknown_faction', `visibility map exists for unknown faction ${fid}`);
+  // ---- authored world identity + region membership ----
+  for (const t of state.territories.values()) {
+    if (!t.regionId || !state.regions.has(t.regionId)) {
+      push('territory.unknown_region', `territory ${t.id} regionId ${t.regionId} is not in state.regions`);
     }
-    if (vis.owner !== fid) {
-      push('visibility.owner_mismatch', `visibility map key ${fid} has owner ${vis.owner}`);
+  }
+  for (const [rid, region] of state.regions.entries()) {
+    if (rid !== region.id) {
+      push('region.key_id_mismatch', `regions map key ${rid} does not match ${region.id}`);
     }
-    for (const tid of vis.visibility.keys()) {
+    for (const tid of region.territoryIds) {
       if (!state.territories.has(tid)) {
-        push('visibility.unknown_territory', `visibility[${fid}] references unknown territory ${tid}`);
+        push('region.unknown_territory', `region ${rid} lists unknown territory ${tid}`);
       }
     }
   }

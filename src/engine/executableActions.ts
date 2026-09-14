@@ -8,8 +8,6 @@ export const EXECUTABLE_COMMITMENT_ACTIONS: ReadonlySet<ActionType> = new Set([
   'ATTACK',
   'BUILD',
   'REINFORCE',
-  'EXPAND',
-  'SCOUT',
   'MOVE',
   'NEGOTIATE',
   'DECLARE_WAR',

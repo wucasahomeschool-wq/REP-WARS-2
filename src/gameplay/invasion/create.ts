@@ -85,7 +85,7 @@ export function beginInvasionAgainstPlayer(
     notifications: [{
       severity: 'warning',
       title: 'Invasion',
-      body: `Defend ${target.name} before tick ${invasion.responseDeadlineTick}`,
+      body: `Defend ${params.territoryId} before tick ${invasion.responseDeadlineTick}`,
     }],
     payload: {
       attackOutcome: 'invasion_created',

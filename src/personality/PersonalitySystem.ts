@@ -83,8 +83,6 @@ const ACTION_PERSONALITY_BIAS: Record<ActionType, TraitKey> = {
   ATTACK: 'aggression',
   DEFEND: 'defensiveness',
   REINFORCE: 'defensiveness',
-  EXPAND: 'expansionism',
-  SCOUT: 'opportunism',
   BUILD: 'economics',
   MOVE: 'aggression',
   NEGOTIATE: 'diplomacy',
@@ -101,6 +99,39 @@ export class PersonalitySystem {
       type,
       ...PERSONALITY_PRESETS[type],
     };
+  }
+
+  /** Authoritative world-JSON personality. Preset `type` is a compatibility label only. */
+  static fromTraits(
+    traits: PersonalityTraits,
+    opts: { type?: PersonalityType } = {},
+  ): Personality {
+    const clamped = { ...traits };
+    for (const key of Object.keys(clamped) as TraitKey[]) {
+      const value = clamped[key];
+      clamped[key] = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0.5));
+    }
+    return {
+      type: opts.type ?? PersonalitySystem.nearestPresetType(clamped),
+      ...clamped,
+    };
+  }
+
+  static nearestPresetType(traits: PersonalityTraits): PersonalityType {
+    let best: PersonalityType = 'defensive';
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const type of Object.keys(PERSONALITY_PRESETS) as PersonalityType[]) {
+      const preset = PERSONALITY_PRESETS[type];
+      let dist = 0;
+      for (const key of Object.keys(preset) as TraitKey[]) {
+        dist += Math.abs(traits[key] - preset[key]);
+      }
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = type;
+      }
+    }
+    return best;
   }
 
   static randomizePreset(base: PersonalityType, variance = 0.15, rng: { next: () => number }): Personality {

@@ -52,7 +52,7 @@ function reportFactionStatus(st: FactionState) {
   if (activeOnFaction.length > 0) {
     console.log(`  Active Events (${activeOnFaction.length}):`);
     for (const ev of activeOnFaction) {
-      const terr = ev.territoryId ? st.gameState.territories.get(ev.territoryId)?.name ?? ev.territoryId : '—';
+      const terr = ev.territoryId ? st.gameState.territories.get(ev.territoryId)?.id ?? ev.territoryId : '—';
       console.log(`    • [${ev.severity.toUpperCase()}] ${ev.title} @ ${terr}  (expires T${ev.expiresTurn})`);
       if (ev.choicesPending.length > 0) {
         console.log(`      ⚠ DECISION PENDING: ${ev.choicesPending.length} choices available`);
@@ -79,7 +79,7 @@ function printTurnOutput(st: FactionState, out: WorldStepOutput) {
     console.log(`[EVENT] ${inst.title}`);
     console.log(`  Severity: ${inst.severity.toUpperCase()}`);
     console.log(`  Category: ${te.definition.categoryLabel}`);
-    const terrName = te.territoryId ? st.gameState.territories.get(te.territoryId)?.name ?? '?' : '—';
+    const terrName = te.territoryId ? st.gameState.territories.get(te.territoryId)?.id ?? '?' : '—';
     console.log(`  Location: ${terrName}`);
     if (inst.causes.length > 0) console.log(`  Causes: ${inst.causes.filter((_, i) => i < 3).join(' • ')}`);
     console.log(`  Description: ${inst.description}`);
@@ -124,7 +124,7 @@ function printHistory(st: FactionState, limitPerTurn: number = 3) {
     const shown = entries.slice(0, limitPerTurn);
     for (const h of shown) {
       const sev = h.severity ? `[${h.severity.slice(0, 3).toUpperCase()}] ` : '';
-      const terr = h.territoryId ? st.gameState.territories.get(h.territoryId)?.name ?? '' : '';
+      const terr = h.territoryId ? st.gameState.territories.get(h.territoryId)?.id ?? '' : '';
       console.log(`  ${h.kind.padEnd(7)} ${sev}${h.title ?? h.typeId}${terr ? ' — ' + terr : ''}: ${h.message.slice(0, 120)}`);
     }
     if (entries.length > limitPerTurn) console.log(`  (+${entries.length - limitPerTurn} more)`);
@@ -178,7 +178,7 @@ function scenario_2_ForceDrought() {
   const st = createInitialEmpire(42, 'merchant_republic');
   // Pick a plains-owned farming territory of merchant_republic: western_reach or greenfields
   const targetTerr = 'western_reach';
-  console.log(`\nTarget farming territory: ${st.gameState.territories.get(targetTerr)?.name}`);
+  console.log(`\nTarget farming territory: ${st.gameState.territories.get(targetTerr)?.id}`);
   console.log(`Before — foodOutput: ${st.gameState.territories.get(targetTerr)?.resourceOutput?.food ?? 0}`);
   // Manually instantiate drought at moderate severity by using the simulator for several turns
   const sim = new WorldSimulator();
@@ -236,7 +236,7 @@ function scenario_3_DroughtChainInterrupted() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
   const st = createInitialEmpire(99, 'iron_kingdom');
   const targetTerr = 'iron_kingdom_east';
-  console.log(`Target territory: ${st.gameState.territories.get(targetTerr)?.name}`);
+  console.log(`Target territory: ${st.gameState.territories.get(targetTerr)?.id}`);
   const sim = new WorldSimulator();
   // Run turns with a known chain-prone seed until we get a food shortage
   let shortageFound = false;
@@ -407,7 +407,7 @@ function scenario_6_MultipleSimultaneousEvents() {
   // Merchant republic controls western_reach, crescent_harbor, salt_marshes, merchant_south
   // Let's confirm multiple territories exist:
   const mrTerritories = Array.from(st.gameState.territories.values()).filter(t => t.owner === 'merchant_republic');
-  console.log(`Merchant Republic territories: ${mrTerritories.map(t => t.name).join(', ')}`);
+  console.log(`Merchant Republic territories: ${mrTerritories.map(t => t.id).join(', ')}`);
   const sim = new WorldSimulator();
   let maxConcurrent = 0;
   for (let i = 0; i < 6; i++) {

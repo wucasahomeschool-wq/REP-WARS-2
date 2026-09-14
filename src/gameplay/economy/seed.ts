@@ -1,9 +1,8 @@
 import { GameState } from '../../types/GameState';
-import { ensureCity, syncCityFortification } from '../cities/city';
 import { emptyResources } from './config';
 
-/** Seeds city + accrual records for a freshly created canonical GameState. */
-export function seedEconomyAndCities(state: GameState): void {
+/** Seed per-territory accrual ledgers. Does not create cities. */
+export function seedTerritoryEconomy(state: GameState): void {
   for (const territory of state.territories.values()) {
     if (!state.territoryEconomy.has(territory.id)) {
       state.territoryEconomy.set(territory.id, {
@@ -12,11 +11,10 @@ export function seedEconomyAndCities(state: GameState): void {
         uncollected: emptyResources(),
       });
     }
-    if (territory.owner) {
-      ensureCity(state, territory.id, territory.owner);
-      if (territory.fortification > 0) {
-        syncCityFortification(state, territory.id, territory.fortification, state.worldTick);
-      }
-    }
   }
+}
+
+/** @deprecated Use seedTerritoryEconomy. Cities are never created at spawn. */
+export function seedEconomyAndCities(state: GameState): void {
+  seedTerritoryEconomy(state);
 }

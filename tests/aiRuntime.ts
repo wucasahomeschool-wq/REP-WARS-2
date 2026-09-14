@@ -8,7 +8,9 @@ import { SeededRNG } from '../src/utils/SeededRNG';
 import { MemorySystem } from '../src/memory/MemorySystem';
 import { GoalSystem } from '../src/goals/GoalSystem';
 import { Orchestrator } from '../src/orchestration/orchestrator';
-import { createGameState, cloneGameState } from '../src/state';
+import { createGameState,
+  createLegacySampleMapGameState, cloneGameState } from '../src/state';
+import { authoredWorldFields } from './worldTestHelpers';
 import { Army, Territory, GameStateSnapshot, AICommitment, WarlordSnapshot } from '../src/types';
 import type { CommandRequest } from '../src/orchestration';
 import type { WorldAdvanceResult } from '../src/world';
@@ -229,7 +231,7 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
   });
 
   test('ContinuousWorldEngine never runs AI_DECIDE for an already-eliminated faction', () => {
-    const state = createGameState({ seed: 5, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 5, playerFactionId: 'merchant_republic' });
     const ghost = makeSelf('ghost_empire', { territories: [], armies: [] });
     state.factions.set('ghost_empire', ghost);
     state.allFactionIds.push('ghost_empire');
@@ -297,7 +299,7 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
       id: 'goal_0', type: 'expand_to_resources', priority: 70, targetFaction: null, targetTerritory: null,
       targetRegion: null, targetResource: null, progress: 0, targetProgress: 100, deadlineTurn: null, createdTurn: 0,
     }] });
-    const commitment = makeCmt({ warlordId: ME, action: 'EXPAND', targetId: 'target', originatingGoalId: 'goal_0' });
+    const commitment = makeCmt({ warlordId: ME, action: 'ATTACK', targetId: 'target', originatingGoalId: 'goal_0' });
     applyCommitmentOutcomeFeedback(state, ME, commitment, 'completed');
     const cloned = cloneGameState(state);
     assert.strictEqual(cloned.factions.get(ME)!.goals.find((g) => g.id === 'goal_0')!.progress, 15);
@@ -308,7 +310,7 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
 
   test('applyCommitmentOutcomeFeedback: failed ATTACK/EXPAND/MOVE records an action_failed memory entry', () => {
     const { state, self } = stateWithSelf();
-    for (const action of ['ATTACK', 'EXPAND', 'MOVE'] as const) {
+    for (const action of ['ATTACK', 'MOVE', 'RETREAT'] as const) {
       const commitment = makeCmt({ warlordId: ME, action, targetId: 'target' });
       applyCommitmentOutcomeFeedback(state, ME, commitment, 'failed');
     }
@@ -355,7 +357,9 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     const state = createGameState({ seed: 3 });
     state.factions = new Map([[ME, selfSnap], [ENEMY, enemySnap]]);
     state.allFactionIds = [ME, ENEMY];
+    state.playerFactionId = null;
     state.territories = new Map([['home', home], ['target', target]]);
+    Object.assign(state, authoredWorldFields(state.territories));
     state.armies = new Map([[a.id, a]]);
     state.cities = new Map();
     state.territoryEconomy = new Map();

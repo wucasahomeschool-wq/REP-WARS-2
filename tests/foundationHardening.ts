@@ -5,7 +5,7 @@ import { WarlordState, isFactionEliminated } from '../src/engine/DecisionEngine'
 import { Orchestrator } from '../src/orchestration/orchestrator';
 import { ErrorCode } from '../src/orchestration/errors';
 import { isArmyVisibleTo, serializePublicGameState, serializeVisibleWorld } from '../src/orchestration/publicView';
-import { cloneGameState, checkGameStateInvariants, createGameState } from '../src/state';
+import { cloneGameState, checkGameStateInvariants, createGameState, createLegacySampleMapGameState } from '../src/state';
 import { Army, Territory, WarlordSnapshot, AICommitment, GameStateSnapshot } from '../src/types';
 import type { CommandRequest } from '../src/orchestration';
 import { MemorySystem } from '../src/memory/MemorySystem';
@@ -13,6 +13,7 @@ import { GoalSystem } from '../src/goals/GoalSystem';
 import { SeededRNG } from '../src/utils/SeededRNG';
 import { SAMPLE_MAP, WARLORD_SPECS } from '../src/simulation/SampleMap';
 import { runLongSimulation } from '../src/simulation/longRunHarness';
+import { plantOwnedCities } from './worldTestHelpers';
 import type { WorldAdvanceResult } from '../src/world';
 
 export interface FoundationHardeningTestApi {
@@ -37,14 +38,16 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   console.log('Phase 16.5A — player/faction authorization');
 
   test('player can act as their own faction', () => {
-    const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    plantOwnedCities(state);
+    const orch = new Orchestrator(state);
     const owned = orch.getState().factions.get('merchant_republic')!.territories[0]!;
     const res = orch.execute(cmdReq('BUILD', 'player_1', { territoryId: owned, factionId: 'merchant_republic' }));
     assert.strictEqual(res.success, true, res.errors[0]?.message);
   });
 
   test('player cannot act as another faction by passing factionId', () => {
-    const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+    const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
     const owned = orch.getState().factions.get('iron_kingdom')!.territories[0]!;
     const before = cloneGameState(orch.getState());
     const res = orch.execute(cmdReq('BUILD', 'attacker', { territoryId: owned, factionId: 'iron_kingdom' }));
@@ -55,7 +58,7 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   });
 
   test('invalid faction is rejected without granting another empire', () => {
-    const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+    const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
     const owned = orch.getState().factions.get('merchant_republic')!.territories[0]!;
     const missing = orch.execute(cmdReq('BUILD', 'player_1', { territoryId: owned, factionId: 'no_such_empire' }));
     assert.strictEqual(missing.success, false);
@@ -63,7 +66,8 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   });
 
   test('AI can still act as its own faction through RESOLVE_COMMITMENT', () => {
-    const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    plantOwnedCities(state);
     const owned = 'iron_kingdom_east';
     state.commitments.set('iron_kingdom', makeCmt({
       warlordId: 'iron_kingdom',
@@ -78,14 +82,14 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   });
 
   test('ADVANCE_WORLD continues to run as a system command', () => {
-    const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+    const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
     const res = orch.execute(cmdReq('ADVANCE_WORLD', 'player_1', { elapsedTicks: 1, factionId: 'iron_kingdom' }));
     assert.strictEqual(res.success, true, res.errors[0]?.message);
     assert.strictEqual(orch.getState().worldTick, 1);
   });
 
   test('authorization cannot be bypassed by changing only factionId on ATTACK', () => {
-    const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+    const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
     const before = cloneGameState(orch.getState());
     const res = orch.execute(cmdReq('ATTACK', 'player_1', {
       territoryId: 'iron_spire',
@@ -98,7 +102,7 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   });
 
   test('GET_VISIBLE_WORLD cannot be used to inspect another faction fog view', () => {
-    const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+    const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
     const res = orch.execute(cmdReq('GET_VISIBLE_WORLD', 'player_1', { factionId: 'ashen_horde' }));
     assert.strictEqual(res.success, false);
     assert.strictEqual(res.errors[0]!.code, ErrorCode.ACTION_NOT_ALLOWED);
@@ -107,7 +111,7 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   console.log('Phase 16.5A — fog of war / public view');
 
   test('player can see their own armies in GET_GAME_STATE', () => {
-    const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+    const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
     const ownArmy = [...orch.getState().armies.values()].find((a) => a.owner === 'merchant_republic')!;
     const res = orch.execute(cmdReq('GET_GAME_STATE', 'player_1'));
     assert.strictEqual(res.success, true);
@@ -115,59 +119,8 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
     assert.ok(armies.some((a) => a.id === ownArmy.id && a.location === ownArmy.location));
   });
 
-  test('hidden enemy armies are not exposed in public or visible-world payloads', () => {
-    const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
-    const hidden = [...orch.getState().armies.values()].find((a) => a.owner === 'ashen_horde')!;
-    assert.strictEqual(isArmyVisibleTo(orch.getState(), 'merchant_republic', hidden), false);
-    const pub = orch.execute(cmdReq('GET_GAME_STATE', 'player_1'));
-    const vis = orch.execute(cmdReq('GET_VISIBLE_WORLD', 'player_1'));
-    const blob = JSON.stringify(pub.payload) + JSON.stringify(vis.payload);
-    assert.ok(!blob.includes(hidden.id), 'hidden army id must not appear in player-facing payloads');
-    const pubArmies = armyList(publicState(pub));
-    assert.ok(!pubArmies.some((a) => a.id === hidden.id));
-    assert.ok(!pubArmies.some((a) => a.location === hidden.location && a.owner === 'ashen_horde'));
-    const visArmies = armyList(vis.payload.visibleWorld as Record<string, unknown>);
-    assert.ok(!visArmies.some((a) => a.id === hidden.id));
-  });
-
-  test('enemy army on a scouted/known tile is visible without leaking hidden ones', () => {
-    const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
-    const ashenArmy = [...state.armies.values()].find((a) => a.owner === 'ashen_horde')!;
-    const visibleLoc = 'central_plains';
-    ashenArmy.location = visibleLoc;
-    const hiddenLoc = 'frozen_peaks';
-    const extra: Army = {
-      ...ashenArmy,
-      id: 'hidden_ashen_host',
-      location: hiddenLoc,
-    };
-    state.armies.set(extra.id, extra);
-    const ashen = state.factions.get('ashen_horde')!;
-    ashen.armies.push(extra.id);
-    const orch = new Orchestrator(state);
-    const res = orch.execute(cmdReq('GET_GAME_STATE', 'player_1'));
-    const armies = armyList(publicState(res));
-    assert.ok(armies.some((a) => a.id === ashenArmy.id && a.location === visibleLoc));
-    assert.ok(!armies.some((a) => a.id === extra.id));
-    assert.ok(!JSON.stringify(res.payload).includes('hidden_ashen_host'));
-  });
-
-  test('public view does not leak hidden army strength or attack plans', () => {
-    const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
-    const hidden = [...orch.getState().armies.values()].find((a) => a.owner === 'ashen_horde')!;
-    const res = orch.execute(cmdReq('GET_GAME_STATE', 'player_1'));
-    const blob = JSON.stringify(res.payload);
-    assert.ok(!blob.includes(hidden.id));
-    for (const a of armyList(publicState(res))) {
-      if (a.owner !== 'merchant_republic') {
-        assert.strictEqual(a.pendingAttackTargetId, null);
-        assert.strictEqual(a.morale, null);
-      }
-    }
-  });
-
   test('serializePublicGameState without a viewer omits army details', () => {
-    const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
     const view = serializePublicGameState(state, null);
     assert.deepStrictEqual(view.armies, []);
     const visible = serializeVisibleWorld(state, 'merchant_republic');
@@ -177,7 +130,8 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   console.log('Phase 16.5A — BUILD gold and stone');
 
   test('enough gold and stone → build succeeds and deducts both', () => {
-    const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    plantOwnedCities(state);
     const fid = 'merchant_republic';
     const owned = state.factions.get(fid)!.territories[0]!;
     const { gold: costG, stone: costS } = BALANCE.territory.fortificationCostPerLevel;
@@ -193,7 +147,8 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   });
 
   test('enough gold + insufficient stone → build fails and does not mutate', () => {
-    const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    plantOwnedCities(state);
     const fid = 'merchant_republic';
     const owned = state.factions.get(fid)!.territories[0]!;
     state.factions.get(fid)!.resources.stone = BALANCE.territory.fortificationCostPerLevel.stone - 1;
@@ -206,7 +161,8 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   });
 
   test('insufficient gold + enough stone → build fails and does not mutate', () => {
-    const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    plantOwnedCities(state);
     const fid = 'merchant_republic';
     const owned = state.factions.get(fid)!.territories[0]!;
     state.factions.get(fid)!.resources.gold = BALANCE.territory.fortificationCostPerLevel.gold - 1;
@@ -219,7 +175,8 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   });
 
   test('insufficient gold and stone → build fails', () => {
-    const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    plantOwnedCities(state);
     const fid = 'merchant_republic';
     const owned = state.factions.get(fid)!.territories[0]!;
     state.factions.get(fid)!.resources.gold = 0;
@@ -231,7 +188,8 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   });
 
   test('maximum fortification rejects BUILD without charging resources', () => {
-    const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    plantOwnedCities(state);
     const fid = 'merchant_republic';
     const owned = state.factions.get(fid)!.territories[0]!;
     state.territories.get(owned)!.fortification = 5;
@@ -246,7 +204,7 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   console.log('Phase 16.5A — live totalMilitaryPower');
 
   test('initial military power matches live armies and garrisons', () => {
-    const state = createGameState({ seed: 42 });
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'iron_kingdom' });
     const fid = 'iron_kingdom';
     const snap = state.factions.get(fid)!;
     const ctx = WarlordState.buildContext(snap, {
@@ -341,7 +299,7 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   console.log('Phase 16.5A — sample map celestial theocracy');
 
   test('SAMPLE_MAP celestial_theocracy starts with consistent land and army', () => {
-    const state = createGameState({ seed: 1 });
+    const state = createLegacySampleMapGameState({ seed: 1, playerFactionId: 'celestial_theocracy' });
     const theo = state.factions.get('celestial_theocracy')!;
     assert.ok(theo.territories.length > 0);
     assert.ok(theo.armies.length > 0);
@@ -357,52 +315,30 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
     assert.ok(SAMPLE_MAP.some((t) => t.owner === 'celestial_theocracy'));
   });
 
-  console.log('Phase 16.5A — scout fallback visibility');
+  console.log('Phase 16.5A — current world is fully visible');
 
-  test('valid adjacent scout succeeds on a hand-authored world', () => {
-    const orch = new Orchestrator(createGameState({ seed: 5, playerFactionId: 'merchant_republic' }));
-    const res = orch.execute(cmdReq('SCOUT', 'p', { territoryId: 'central_plains' }));
-    assert.strictEqual(res.success, true, res.errors[0]?.message);
-    assert.ok(orch.getState().factions.get('merchant_republic')!.knownTerritories.includes('central_plains'));
-  });
-
-  test('non-adjacent hidden target cannot be revealed via missing mapWorld', () => {
-    const orch = new Orchestrator(createGameState({ seed: 5, playerFactionId: 'merchant_republic' }));
-    assert.strictEqual(orch.getState().mapWorld, null);
-    const before = cloneGameState(orch.getState());
-    const res = orch.execute(cmdReq('SCOUT', 'p', { territoryId: 'frozen_peaks' }));
-    assert.strictEqual(res.success, false);
-    assert.strictEqual(res.errors[0]!.code, ErrorCode.FOG_OF_WAR);
-    assert.deepStrictEqual(orch.getState().factions.get('merchant_republic')!.knownTerritories, before.factions.get('merchant_republic')!.knownTerritories);
-  });
-
-  test('invalid territory scout is rejected', () => {
-    const orch = new Orchestrator(createGameState({ seed: 5, playerFactionId: 'merchant_republic' }));
-    const res = orch.execute(cmdReq('SCOUT', 'p', { territoryId: 'no_such_tile' }));
-    assert.strictEqual(res.success, false);
-    assert.strictEqual(res.errors[0]!.code, ErrorCode.INVALID_TERRITORY);
-  });
-
-  test('arbitrary far territory ids cannot be learned from a null mapWorld', () => {
-    const orch = new Orchestrator(createGameState({ seed: 5, playerFactionId: 'merchant_republic' }));
-    const res = orch.execute(cmdReq('SCOUT', 'p', { territoryId: 'burning_desert' }));
-    assert.strictEqual(res.success, false);
-    assert.strictEqual(res.errors[0]!.code, ErrorCode.FOG_OF_WAR);
+  test('GET_GAME_STATE lists every current-world territory as visible', () => {
+    const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+    const res = orch.execute(cmdReq('GET_GAME_STATE', 'player_1'));
+    const territories = (publicState(res).territories ?? {}) as Record<string, { visibility: string }>;
+    assert.ok(Object.keys(territories).length > 0);
+    for (const t of Object.values(territories)) assert.strictEqual(t.visibility, 'visible');
+    assert.strictEqual(isArmyVisibleTo(orch.getState(), 'merchant_republic', [...orch.getState().armies.values()][0]!), true);
   });
 
   console.log('Phase 16.5A — GameState invariant gaps');
 
   test('allFactionIds must match the factions map', () => {
-    const state = createGameState({ seed: 1 });
+    const state = createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' });
     state.allFactionIds.push('merchant_republic');
     assert.ok(checkGameStateInvariants(state).some((v) => v.code === 'faction.duplicate_id'));
-    const extra = createGameState({ seed: 1 });
+    const extra = createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' });
     extra.factions.set('ghost', makeSelf('ghost'));
     assert.ok(checkGameStateInvariants(extra).some((v) => v.code === 'faction.missing_from_all_ids'));
   });
 
   test('army membership must agree in both directions', () => {
-    const state = createGameState({ seed: 1, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' });
     const army = [...state.armies.values()][0]!;
     const owner = state.factions.get(army.owner)!;
     owner.armies = owner.armies.filter((id) => id !== army.id);
@@ -410,40 +346,14 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   });
 
   test('territory neighbor ids must exist', () => {
-    const state = createGameState({ seed: 1 });
+    const state = createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' });
     const t = state.territories.get('central_plains')!;
     t.neighboring.push('missing_neighbor_tile');
     assert.ok(checkGameStateInvariants(state).some((v) => v.code === 'territory.neighbor_missing_neighbor'));
   });
 
-  test('visibility maps cannot reference unknown factions or territories', () => {
-    const state = createGameState({ seed: 1, playerFactionId: 'merchant_republic' });
-    state.visibility.set('nope', {
-      owner: 'nope',
-      visibility: new Map([['central_plains', {
-        state: 'scouted', lastUpdatedTurn: 0, turnsSinceSeen: null, revealedBy: 'scout',
-      }]]),
-      knownThemes: new Set(),
-      knownRegions: new Set(),
-    });
-    const codes = checkGameStateInvariants(state).map((v) => v.code);
-    assert.ok(codes.includes('visibility.unknown_faction'));
-    state.visibility.delete('nope');
-    state.visibility.set('merchant_republic', {
-      owner: 'ashen_horde',
-      visibility: new Map([['not_a_tile', {
-        state: 'scouted', lastUpdatedTurn: 0, turnsSinceSeen: null, revealedBy: 'scout',
-      }]]),
-      knownThemes: new Set(),
-      knownRegions: new Set(),
-    });
-    const more = checkGameStateInvariants(state).map((v) => v.code);
-    assert.ok(more.includes('visibility.owner_mismatch'));
-    assert.ok(more.includes('visibility.unknown_territory'));
-  });
-
   test('injected eliminated faction does not receive AI_DECIDE', () => {
-    const state = createGameState({ seed: 5, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 5, playerFactionId: 'merchant_republic' });
     const ghost = makeSelf('ghost_empire', { territories: [], armies: [] });
     state.factions.set('ghost_empire', ghost);
     state.allFactionIds.push('ghost_empire');

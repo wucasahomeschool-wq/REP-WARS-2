@@ -8,11 +8,13 @@ import {
   acceleratedRemainingTicks,
   beginWorkoutSession,
   checkGameStateInvariants,
+  GAME_STATE_SCHEMA_VERSION,
   cloneGameState,
   collectTerritoryYield,
   completeExercise,
   consumeConstructionEffect,
   createGameState,
+  createLegacySampleMapGameState,
   getCurrentExercise,
   peekCollectibleResources,
   productionAccrued,
@@ -32,6 +34,7 @@ import type {
   WorkoutSession,
 } from '../src';
 import { cityIdFor } from '../src/gameplay';
+import { plantCity, plantOwnedCities } from './worldTestHelpers';
 
 export interface EconomyCitiesTestApi {
   test: (name: string, fn: () => void) => void;
@@ -55,7 +58,7 @@ function cmdReq(commandId: string, parameters: Record<string, unknown> = {}): Co
 }
 
 function playerState(): GameState {
-  return createGameState({ seed: 17, playerFactionId: PLAYER_FACTION });
+  return createLegacySampleMapGameState({ seed: 17, playerFactionId: PLAYER_FACTION });
 }
 
 function tinyWorkout(): WorkoutDefinition {
@@ -193,26 +196,17 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
 
   console.log('Phase 17J — economy, cities, construction time');
 
-  test('createGameState seeds cities and territory economy for SAMPLE_MAP', () => {
+  test('legacy SAMPLE_MAP seeds territory economy and no cities', () => {
     const state = playerState();
-    assert.strictEqual(state.schemaVersion, 8);
-    assert.ok(state.cities.size > 0);
+    assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+    assert.strictEqual(state.cities.size, 0);
     assert.strictEqual(state.territoryEconomy.size, state.territories.size);
     for (const t of state.territories.values()) {
       const rec = state.territoryEconomy.get(t.id);
       assert.ok(rec);
       assert.strictEqual(rec.lastAccrualTick, 0);
       assert.strictEqual(rec.uncollected.gold, 0);
-      if (t.owner) {
-        const city = state.cities.get(cityIdFor(t.id));
-        assert.ok(city);
-        assert.strictEqual(city.factionId, t.owner);
-        if (t.fortification > 0) {
-          assert.ok(city.buildings.some((b) => b.type === 'FORTIFICATION' && b.level === t.fortification));
-        }
-      } else {
-        assert.ok(!state.cities.has(cityIdFor(t.id)));
-      }
+      assert.ok(!state.cities.has(cityIdFor(t.id)));
     }
     assert.deepStrictEqual(checkGameStateInvariants(state), []);
   });
@@ -359,10 +353,10 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
 
   test('cities belong to the owning faction and reject invalid relationships', () => {
     const state = playerState();
+    plantCity(state, SPIRE);
     const city = state.cities.get(cityIdFor(SPIRE))!;
     assert.strictEqual(city.factionId, PLAYER_FACTION);
     assert.strictEqual(city.territoryId, SPIRE);
-    assert.ok(city.buildings.some((b) => b.type === 'FORTIFICATION'));
     const clone = cloneGameState(state);
     clone.cities.get(cityIdFor(SPIRE))!.factionId = OTHER_FACTION;
     assert.ok(checkGameStateInvariants(clone).some((v) => v.code === 'city.owner_mismatch'));
@@ -375,7 +369,9 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
   });
 
   test('construction starts without a workout, deducts resources once, and rejects insufficient funds', () => {
-    const orch = new Orchestrator(playerState());
+    const ready = playerState();
+    plantOwnedCities(ready);
+    const orch = new Orchestrator(ready);
     const goldBefore = orch.getState().factions.get(PLAYER_FACTION)!.resources.gold;
     const stoneBefore = orch.getState().factions.get(PLAYER_FACTION)!.resources.stone;
     const started = orch.execute(cmdReq('START_CONSTRUCTION', { territoryId: HOME, constructionId: 'con_17j' }));
@@ -394,6 +390,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
     assert.ok(orch.getState().cities.has(cityIdFor(HOME)));
 
     const poor = playerState();
+    plantOwnedCities(poor);
     poor.factions.get(PLAYER_FACTION)!.resources.gold = 0;
     poor.factions.get(PLAYER_FACTION)!.resources.stone = 0;
     const poorOrch = new Orchestrator(poor);
@@ -405,7 +402,9 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
   });
 
   test('prototype allows only one in-progress construction per territory', () => {
-    const orch = new Orchestrator(playerState());
+    const ready = playerState();
+    plantOwnedCities(ready);
+    const orch = new Orchestrator(ready);
     assert.strictEqual(orch.execute(cmdReq('START_CONSTRUCTION', { territoryId: HOME, constructionId: 'con_a' })).success, true);
     const second = orch.execute(cmdReq('START_CONSTRUCTION', { territoryId: HOME, constructionId: 'con_b' }));
     assert.strictEqual(second.success, false);
@@ -414,7 +413,9 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
   });
 
   test('construction progresses with world time and completes exactly once', () => {
-    const orch = new Orchestrator(playerState());
+    const ready = playerState();
+    plantOwnedCities(ready);
+    const orch = new Orchestrator(ready);
     const fortBefore = orch.getState().territories.get(HOME)!.fortification;
     orch.execute(cmdReq('START_CONSTRUCTION', { territoryId: HOME, constructionId: 'con_time' }));
     advance(orch, 10);
@@ -435,6 +436,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
 
   test('Extra Construction Workers accelerate one project and are consumed once', () => {
     const state = playerState();
+    plantOwnedCities(state);
     startConstruction(state, { factionId: PLAYER_FACTION, territoryId: HOME, projectId: 'con_work' });
     const remainingBefore = state.constructions.get('con_work')!.remainingTicks;
     const session = completedSession('EXTRA_CONSTRUCTION_WORKERS', 'wses_17j_cw', { constructionId: 'con_work' });
@@ -452,7 +454,9 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
   });
 
   test('invalid or completed construction targets do not consume worker effects', () => {
-    const orch = new Orchestrator(playerState());
+    const ready = playerState();
+    plantOwnedCities(ready);
+    const orch = new Orchestrator(ready);
     orch.execute(cmdReq('START_CONSTRUCTION', { territoryId: HOME, constructionId: 'con_done' }));
     pushWorkers(orch.getState(), 50);
     const missing = orch.execute(cmdReq('APPLY_CONSTRUCTION_ACCELERATION', { constructionId: 'nope' }));
@@ -466,7 +470,9 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
   });
 
   test('worker acceleration plus world-time progression does not double-count', () => {
-    const orch = new Orchestrator(playerState());
+    const ready = playerState();
+    plantOwnedCities(ready);
+    const orch = new Orchestrator(ready);
     orch.execute(cmdReq('START_CONSTRUCTION', { territoryId: HOME, constructionId: 'con_mix' }));
     advance(orch, 5);
     assert.strictEqual(orch.getState().constructions.get('con_mix')!.remainingTicks, 15);
@@ -481,6 +487,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
 
   test('player cannot start or accelerate another faction\'s construction', () => {
     const state = playerState();
+    plantOwnedCities(state);
     startConstruction(state, { factionId: OTHER_FACTION, territoryId: OTHER_TILE, projectId: 'con_other' });
     pushWorkers(state, 5);
     const orch = new Orchestrator(state);
@@ -510,7 +517,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
     assert.strictEqual(peekCollectibleResources(state, SPIRE).gold, 0);
     assert.strictEqual(state.factions.get(PLAYER_FACTION)!.resources.gold, oldGold);
     assert.strictEqual(state.factions.get(OTHER_FACTION)!.resources.gold, newGold);
-    assert.strictEqual(state.cities.get(cityIdFor(SPIRE))!.factionId, OTHER_FACTION);
+    assert.ok(!state.cities.has(cityIdFor(SPIRE)));
     assert.strictEqual(previous, PLAYER_FACTION);
     state.worldTick += 60;
     progressWorldEconomy(state);
@@ -540,7 +547,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
     state.factions.get(PLAYER_FACTION)!.territories.push(UNOWNED);
     settleTerritoryOwnershipChange(state, UNOWNED, PLAYER_FACTION);
     assert.strictEqual(peekCollectibleResources(state, UNOWNED).gold, 0);
-    assert.strictEqual(state.cities.get(cityIdFor(UNOWNED))!.factionId, PLAYER_FACTION);
+    assert.ok(!state.cities.has(cityIdFor(UNOWNED)));
     state.worldTick += 60;
     progressWorldEconomy(state);
     const output = tile.resourceOutput;
@@ -548,7 +555,9 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
   });
 
   test('in-progress construction is cancelled without refund when a territory changes owner', () => {
-    const orch = new Orchestrator(playerState());
+    const ready = playerState();
+    plantOwnedCities(ready);
+    const orch = new Orchestrator(ready);
     const goldBefore = orch.getState().factions.get(PLAYER_FACTION)!.resources.gold;
     orch.execute(cmdReq('START_CONSTRUCTION', { territoryId: HOME, constructionId: 'con_lost' }));
     const spent = goldBefore - orch.getState().factions.get(PLAYER_FACTION)!.resources.gold;
@@ -564,7 +573,9 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
   });
 
   test('public views expose own economy and hide other factions\' private economy', () => {
-    const orch = new Orchestrator(playerState());
+    const ready = playerState();
+    plantOwnedCities(ready);
+    const orch = new Orchestrator(ready);
     jump(orch, 60);
     orch.execute(cmdReq('START_CONSTRUCTION', { territoryId: HOME, constructionId: 'con_view' }));
     pushGoldenYield(orch.getState(), 2);
@@ -596,7 +607,9 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
   });
 
   test('economy and city state JSON round-trips and satisfies invariants', () => {
-    const orch = new Orchestrator(playerState());
+    const ready = playerState();
+    plantOwnedCities(ready);
+    const orch = new Orchestrator(ready);
     jump(orch, 60);
     orch.execute(cmdReq('START_CONSTRUCTION', { territoryId: HOME, constructionId: 'con_json' }));
     const state = orch.getState();

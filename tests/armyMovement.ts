@@ -7,9 +7,10 @@ import { calculateMovementDuration, isArmyMoving, movementTicksRemaining } from 
 import { isActiveCommitmentStatus } from '../src/engine/DecisionEngine';
 import { ErrorCode } from '../src/orchestration';
 import { Orchestrator } from '../src/orchestration/orchestrator';
-import { cloneGameState, checkGameStateInvariants, createGameState } from '../src/state';
+import { cloneGameState, checkGameStateInvariants, createGameState, createLegacySampleMapGameState } from '../src/state';
 import { Army, Territory } from '../src/types';
 import { GAME_STATE_SCHEMA_VERSION, emptyWorldClock, emptyRewardApplicationState, type GameState } from '../src/types/GameState';
+import { authoredWorldFields } from './worldTestHelpers';
 import type { CommandRequest } from '../src/orchestration';
 import type { AICommitment } from '../src/types';
 import type { WorldAdvanceResult } from '../src/world';
@@ -47,8 +48,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       allFactionIds: [MARCH_FID],
       playerFactionId: MARCH_FID,
       territories: new Map([['home', home], ['near', near], ['far', far]]),
-      mapWorld: null,
-      visibility: new Map(),
+      ...authoredWorldFields(new Map([['home', home], ['near', near], ['far', far]])),
       armies: new Map([[army.id, army]]),
       commitments: new Map([[MARCH_FID, null]]),
       activeEvents: [],
@@ -66,7 +66,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
   console.log('Army logistics — location, MOVE command, world-tick travel');
 
   test('army location is explicit on canonical GameState', () => {
-    const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
     assert.ok(state.armies.size > 0);
     for (const a of state.armies.values()) {
       assert.ok(state.territories.has(a.location), `army ${a.id} location ${a.location}`);
@@ -275,8 +275,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       allFactionIds: [MARCH_FID],
       playerFactionId: MARCH_FID,
       territories: new Map([['home', home], ['dest_a', destA], ['dest_b', destB]]),
-      mapWorld: null,
-      visibility: new Map(),
+      ...authoredWorldFields(new Map([['home', home], ['dest_a', destA], ['dest_b', destB]])),
       armies: new Map([[armyA.id, armyA], [armyZ.id, armyZ]]),
       commitments: new Map([[MARCH_FID, null]]),
       activeEvents: [],
@@ -329,8 +328,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       allFactionIds: [MARCH_FID],
       playerFactionId: MARCH_FID,
       territories: new Map([['home', home], ['east', east], ['west', west]]),
-      mapWorld: null,
-      visibility: new Map(),
+      ...authoredWorldFields(new Map([['home', home], ['east', east], ['west', west]])),
       armies: new Map([[late.id, late], [early.id, early]]),
       commitments: new Map([[MARCH_FID, null]]),
       activeEvents: [],
@@ -346,7 +344,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
   });
 
   test('AI MOVE commitment stays executing while moving and AI does not re-decide', () => {
-    const state = createGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
     const fid = 'ashen_horde';
     const armyId = state.factions.get(fid)!.armies[0]!;
     const loc = state.armies.get(armyId)!.location;
@@ -389,8 +387,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       allFactionIds: [atk, def],
       playerFactionId: atk,
       territories: new Map([['home', home], ['front', front], ['side', side]]),
-      mapWorld: null,
-      visibility: new Map(),
+      ...authoredWorldFields(new Map([['home', home], ['front', front], ['side', side]])),
       armies: new Map([[army.id, army]]),
       commitments: new Map([[atk, null], [def, null]]),
       activeEvents: [],

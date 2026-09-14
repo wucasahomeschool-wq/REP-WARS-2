@@ -84,7 +84,7 @@ function transferTerritory(
     field: 'owner',
     from: oldOwner,
     to: newOwner,
-    summary: `${territory.name} ownership ${oldOwner ?? 'unclaimed'} → ${newOwner}`,
+    summary: `${territory.id} ownership ${oldOwner ?? 'unclaimed'} → ${newOwner}`,
   });
   territoryChanges.push({ territoryId: territory.id, field: 'owner', from: oldOwner, to: newOwner });
 }
@@ -132,8 +132,8 @@ export function applyBattleResultToGameState(
       transferTerritory(state, territory, attacker.id, changes, territoryChanges);
       for (const a of attackingArmies) a.location = territory.id;
       if (defender) {
-        pushMemory(attacker, turn, 'territory_gained', defender.id, territory.id, 12, { territory: territory.name, via: 'conquest' });
-        pushMemory(defender, turn, 'territory_lost', attacker.id, territory.id, 15, { territory: territory.name });
+        pushMemory(attacker, turn, 'territory_gained', defender.id, territory.id, 12, { territory: territory.id, via: 'conquest' });
+        pushMemory(defender, turn, 'territory_lost', attacker.id, territory.id, 15, { territory: territory.id });
       }
     }
     if (attacker && defender) {

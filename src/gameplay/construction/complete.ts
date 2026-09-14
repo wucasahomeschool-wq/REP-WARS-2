@@ -6,10 +6,14 @@ import { requireTerritory } from '../../orchestration/helpers';
 export function completeConstruction(state: GameState, project: ConstructionProject): void {
   if (project.status === 'completed') return;
   const territory = requireTerritory(state, project.territoryId);
-  ensureCity(state, project.territoryId, project.factionId);
-  if (project.projectType === 'FORTIFICATION' && territory.fortification < GAMEPLAY_CONFIG.maxFortificationLevel) {
-    territory.fortification += 1;
-    syncCityFortification(state, project.territoryId, territory.fortification, state.worldTick);
+  if (project.projectType === 'CITY') {
+    ensureCity(state, project.territoryId, project.factionId);
+  } else if (project.projectType === 'FORTIFICATION') {
+    const city = state.cities.get(`city_${project.territoryId}`);
+    if (city && territory.fortification < GAMEPLAY_CONFIG.maxFortificationLevel) {
+      territory.fortification += 1;
+      syncCityFortification(state, project.territoryId, territory.fortification, state.worldTick);
+    }
   }
   project.remainingTicks = 0;
   project.lastProgressTick = state.worldTick;
