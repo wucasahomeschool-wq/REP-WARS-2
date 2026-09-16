@@ -13,7 +13,18 @@ function readingFor(offset: number): RelativeDifficultyReading {
 }
 
 export function buildPerceivedDifficultyEvidence(record: CompletedWorkoutRecord): PerceivedDifficultyEvidence {
-  const feedback = record.feedback!;
+  const feedback = record.feedback;
+  if (!feedback) {
+    return {
+      source: 'PERCEIVED_DIFFICULTY',
+      quality: 'UNAVAILABLE',
+      intendedDifficulty: record.intendedDifficulty,
+      intendedDifficultyRank: workoutDifficultyRank(record.intendedDifficulty),
+      perceivedRelative: 'ABOUT_RIGHT',
+      relativeOffset: 0,
+      reading: 'AS_INTENDED',
+    };
+  }
   const relativeOffset = FEEDBACK_RELATIVE_OFFSET[feedback.value];
   return {
     source: 'PERCEIVED_DIFFICULTY',

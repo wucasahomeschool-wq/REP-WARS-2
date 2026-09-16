@@ -83,10 +83,33 @@ export function nextCatchUpElapsedTicks(state: GameState, targetWorldTick: numbe
   return Math.max(1, step);
 }
 
+function isPerTickWorldChange(change: StateChange): boolean {
+  return change.entity === 'world' && (change.id === 'worldTick' || change.field === 'worldTick');
+}
+
+function isCatchUpInspectableNoise(change: StateChange): boolean {
+  if (isPerTickWorldChange(change)) return true;
+  if (change.entity === 'commitment') return true;
+  return false;
+}
+
+function isCatchUpSummaryNoise(event: GameEvent): boolean {
+  return event.kind === 'world' && typeof event.id === 'string' && event.id.startsWith('sum_');
+}
+
 function mergeAdvance(into: { handler: HandlerResult }, inner: HandlerResult): void {
-  into.handler.stateChanges.push(...inner.stateChanges);
-  into.handler.events.push(...inner.events);
-  into.handler.notifications.push(...inner.notifications);
+  for (const change of inner.stateChanges) {
+    if (isCatchUpInspectableNoise(change)) continue;
+    into.handler.stateChanges.push(change);
+  }
+  for (const event of inner.events) {
+    if (isCatchUpSummaryNoise(event)) continue;
+    into.handler.events.push(event);
+  }
+  for (const note of inner.notifications) {
+    if (note.severity === 'info') continue;
+    into.handler.notifications.push(note);
+  }
   into.handler.resourcesChanged.push(...inner.resourcesChanged);
   if (inner.errors) {
     into.handler.errors = [...(into.handler.errors ?? []), ...inner.errors];
@@ -194,11 +217,17 @@ function appendAdvanceRecords(into: WorldAdvanceResult, payload: Record<string, 
   const raw = payload.worldAdvance;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
   const inner = raw as WorldAdvanceResult;
-  if (Array.isArray(inner.aiDecisions)) into.aiDecisions.push(...inner.aiDecisions);
-  if (Array.isArray(inner.commitmentProgress)) into.commitmentProgress.push(...inner.commitmentProgress);
   if (Array.isArray(inner.commitmentResolutions)) into.commitmentResolutions.push(...inner.commitmentResolutions);
-  if (Array.isArray(inner.eventResults)) into.eventResults.push(...inner.eventResults);
-  if (Array.isArray(inner.movementResults)) into.movementResults.push(...inner.movementResults);
+  if (Array.isArray(inner.eventResults)) {
+    for (const step of inner.eventResults) {
+      if (step.triggered > 0) into.eventResults.push(step);
+    }
+  }
+  if (Array.isArray(inner.movementResults)) {
+    for (const movement of inner.movementResults) {
+      if (movement.status !== 'moving') into.movementResults.push(movement);
+    }
+  }
   if (Array.isArray(inner.errors)) into.errors.push(...inner.errors);
 }
 
@@ -249,7 +278,7 @@ export function catchUpWorld(state: GameState, ctx: HandlerContext, targetWorldT
 
   while (state.worldTick < targetWorldTick) {
     const step = nextCatchUpElapsedTicks(state, targetWorldTick);
-    const inner = withRequestParameters(ctx.req, { elapsedTicks: step }, () => handleAdvanceWorld(state, ctx));
+    const inner = withRequestParameters(ctx.req, { elapsedTicks: step, catchUpCompact: true }, () => handleAdvanceWorld(state, ctx));
     mergeAdvance(result, inner);
     appendAdvanceRecords(worldAdvance, inner.payload);
     const chunkFood = parseFoodConsumption(inner.payload.foodConsumption);
@@ -260,6 +289,16 @@ export function catchUpWorld(state: GameState, ctx: HandlerContext, targetWorldT
 
   result.worldTick = state.worldTick;
   result.ticksAdvanced = state.worldTick - previousWorldTick;
+  if (result.ticksAdvanced > 0) {
+    result.handler.stateChanges.push({
+      entity: 'world',
+      id: 'worldTick',
+      field: 'worldTick',
+      from: previousWorldTick,
+      to: state.worldTick,
+      summary: `World tick ${previousWorldTick} → ${state.worldTick}`,
+    });
+  }
   worldAdvance.events = result.handler.events;
   worldAdvance.stateChanges = result.handler.stateChanges;
   worldAdvance.notifications = result.handler.notifications;

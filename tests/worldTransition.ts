@@ -6,10 +6,13 @@ import {
   InMemoryGameStateStore,
   InMemoryWorkoutHistoryStore,
   Orchestrator,
+  OrchestrationError,
   PRODUCTION_LEVEL_1_WORLD_ID,
   PRODUCTION_LEVEL_2_WORLD_ID,
+  PRODUCTION_WORLD_REGISTRATIONS,
   WorldCatalog,
   applyWorldCompletionCheck,
+  applyWorldTransition,
   buildNextWorldState,
   checkGameStateInvariants,
   cloneGameState,
@@ -20,6 +23,7 @@ import {
   ensureCity,
   evaluateWorldCompletion,
   evaluateWorldTransition,
+  findNextProductionWorldRegistration,
   hydratePersistedPayload,
   initializePlayerWorld,
   isLevel1TutorialAiSuppressed,
@@ -390,5 +394,49 @@ export function registerWorldTransitionTests(api: WorldTransitionTestApi): void 
     assert.strictEqual(orch.getState().cities.size, 0);
     assert.strictEqual(orch.getState().level1Tutorial, null);
     assert.ok(!orch.getState().territories.has(home) || orch.getState().definitionWorldId === PRODUCTION_LEVEL_2_WORLD_ID);
+  });
+
+  test('next-world lookup is unique: zero, one, or ambiguous matches', () => {
+    assert.strictEqual(findNextProductionWorldRegistration(2), null);
+    assert.strictEqual(findNextProductionWorldRegistration(99), null);
+    const only = findNextProductionWorldRegistration(1);
+    assert.ok(only);
+    assert.strictEqual(only!.worldId, PRODUCTION_LEVEL_2_WORLD_ID);
+    assert.strictEqual(only!.level, 2);
+
+    const ambiguous = [
+      ...PRODUCTION_WORLD_REGISTRATIONS,
+      {
+        worldId: 'Level 2 Duplicate',
+        relativePath: 'worlds/level-2.json',
+        role: 'production' as const,
+        level: 2,
+      },
+    ];
+    assert.throws(
+      () => findNextProductionWorldRegistration(1, ambiguous),
+      (err: unknown) => (
+        err instanceof OrchestrationError
+        && err.code === ErrorCode.INVALID_GAME_STATE
+        && err.details?.reason === 'next_world_ambiguous'
+      ),
+    );
+
+    const recorder = new IsolatedTelemetryRecorder();
+    const complete = completeLevel1(createGameState({ seed: 12 }));
+    const before = cloneGameState(complete);
+    assert.throws(
+      () => applyWorldTransition(complete, createProductionWorldCatalog(), ambiguous),
+      (err: unknown) => (
+        err instanceof OrchestrationError
+        && err.code === ErrorCode.INVALID_GAME_STATE
+        && err.details?.reason === 'next_world_ambiguous'
+      ),
+    );
+    assert.strictEqual(complete.definitionWorldId, PRODUCTION_LEVEL_1_WORLD_ID);
+    assert.strictEqual(complete.worldLevel, 1);
+    assert.deepStrictEqual([...complete.territories.keys()].sort(), [...before.territories.keys()].sort());
+    assert.strictEqual(complete.playerFitness.estimate?.level, before.playerFitness.estimate?.level);
+    assert.strictEqual(recorder.getEvents({ eventType: 'level.transitioned' }).length, 0);
   });
 }

@@ -56,7 +56,7 @@ export function evaluateFitnessEvidence(
     workoutId: typed.workoutId,
     purpose: typed.purpose,
     intendedDifficulty: typed.intendedDifficulty,
-    feedback: typed.feedback!.value,
+    feedback: typed.feedback?.value ?? null,
     completedAt: typed.completedAt,
     evaluatedAt: typeof context.evaluatedAt === 'number' && Number.isFinite(context.evaluatedAt)
       ? context.evaluatedAt
@@ -93,7 +93,7 @@ export function evaluateSessionFitnessEvidence(
     return notEligible(session.state);
   }
   if (!isEligibleForFitnessEvaluation(session)) {
-    return notEligible(session.state, 'Completed workouts require submitted feedback before evaluation');
+    return notEligible(session.state, 'Completed workouts require submitted feedback before evaluation unless the tutorial waived it');
   }
   const finalized = finalizeCompletedWorkout(session);
   if (!finalized.ok) {

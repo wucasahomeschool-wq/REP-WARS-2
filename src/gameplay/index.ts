@@ -87,6 +87,7 @@ export {
   isLevel1TutorialAiSuppressed,
   expectedActionForBeat,
   tutorialExpectedWorkoutPurpose,
+  shouldWaiveWorkoutFeedback,
   LEVEL1_SCRIPTED_RAID_TROOPS,
   LEVEL1_TUTORIAL_TILE_IDS,
 } from './tutorial/level1';

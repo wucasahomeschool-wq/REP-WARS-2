@@ -80,6 +80,7 @@ import { registerWorldDefinitionTests } from './worldDefinition';
 import { registerLevel1ProductionTests } from './level1Production';
 import { registerLevel1TutorialTests } from './level1Tutorial';
 import { registerWorkoutSelectionTests } from './workoutSelection';
+import { registerWorkoutPauseResumeTests } from './workoutPauseResume';
 import { registerAnalyticsTests } from './analytics';
 import { registerOrchestratorIntegrationTests } from './orchestratorIntegration';
 import { registerLevelAnchorTests } from './levelAnchors';
@@ -3240,6 +3241,8 @@ registerLevel1ProductionTests({ test });
 registerLevel1TutorialTests({ test });
 
 registerWorkoutSelectionTests({ test });
+
+registerWorkoutPauseResumeTests({ test });
 
 registerAnalyticsTests({ test });
 

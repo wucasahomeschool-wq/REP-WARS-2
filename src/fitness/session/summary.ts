@@ -8,7 +8,8 @@ import {
 } from './types';
 
 export function isEligibleForFitnessEvaluation(session: WorkoutSession): boolean {
-  return session.state === 'COMPLETED' && session.feedbackState === 'FEEDBACK_SUBMITTED';
+  if (session.state !== 'COMPLETED') return false;
+  return session.feedbackState === 'FEEDBACK_SUBMITTED' || session.feedbackState === 'NOT_APPLICABLE';
 }
 
 export function buildWorkoutSessionSummary(session: WorkoutSession, now?: number): WorkoutSessionSummary {

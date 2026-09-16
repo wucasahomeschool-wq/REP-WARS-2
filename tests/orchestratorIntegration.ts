@@ -96,6 +96,21 @@ export function registerOrchestratorIntegrationTests(api: OrchestratorIntegratio
     assert.ok(!MUTATING_HANDLERS.SYNC_PLAYER_WORLD);
   });
 
+  test('GET_COMMAND_INDEX payload matches COMMAND_INDEX', () => {
+    const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 1 }).state);
+    const res = orch.execute(cmd('GET_COMMAND_INDEX'));
+    assert.strictEqual(res.success, true);
+    const commands = res.payload.commands as { commandId: string }[];
+    assert.deepStrictEqual(
+      commands.map((c) => c.commandId),
+      COMMAND_INDEX.map((c) => c.commandId),
+    );
+    const summary = res.payload.summary as { count: number; implemented: number; unsupported: number };
+    assert.strictEqual(summary.count, COMMAND_INDEX.length);
+    assert.strictEqual(summary.implemented, COMMAND_INDEX.filter((c) => c.status === 'implemented').length);
+    assert.strictEqual(summary.unsupported, COMMAND_INDEX.filter((c) => c.status === 'unsupported').length);
+  });
+
   test('unsupported catalog commands fail closed without mutating', () => {
     const state = createGameState({ seed: 4 });
     const before = cloneGameState(state);

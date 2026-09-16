@@ -21,16 +21,22 @@ export function mergeEventStepOntoGameState(state: GameState, output: WorldStepO
   }
   for (const [id, f] of output.mutatedFactions) {
     const runtimeArmies = state.factions.get(id)?.armies;
+    const prev = state.factions.get(id);
     if (runtimeArmies) f.armies = [...runtimeArmies];
     f.territories = [...state.territories.values()]
       .filter((t) => t.owner === id)
       .map((t) => t.id);
     state.factions.set(id, f);
-    changes.push({
-      entity: 'faction',
-      id,
-      summary: `${f.name} updated by world events (stability ${f.stability})`,
-    });
+    if (prev && prev.stability !== f.stability) {
+      changes.push({
+        entity: 'faction',
+        id,
+        field: 'stability',
+        from: prev.stability,
+        to: f.stability,
+        summary: `${f.name} updated by world events (stability ${f.stability})`,
+      });
+    }
   }
   if (output.mutatedArmies) {
     for (const [id, a] of output.mutatedArmies) {

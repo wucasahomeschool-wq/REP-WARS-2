@@ -96,6 +96,15 @@ export interface WorldAdvanceResult {
   events: GameEvent[];
 }
 
+export interface WorldAdvanceOptions {
+  /**
+   * Catch-up inspectable mode. Simulation and GameState are unchanged.
+   * Drops per-tick worldTick / progress / empty event / in-flight movement
+   * records that a returning client does not need.
+   */
+  compactInspectable?: boolean;
+}
+
 /**
  * Host callbacks into existing Orchestrator handlers. The Continuous World
  * Engine must not implement a second AI execution path or event engine.
@@ -130,10 +139,21 @@ function emptyAdvanceResult(time: WorldTimeStamp, ticksAdvanced: number): WorldA
   };
 }
 
-function appendHandler(result: WorldAdvanceResult, inner: HandlerResult): void {
-  result.stateChanges.push(...inner.stateChanges);
+function appendHandler(result: WorldAdvanceResult, inner: HandlerResult, compactInspectable = false): void {
+  if (compactInspectable) {
+    for (const change of inner.stateChanges) {
+      if (change.entity === 'territory' || (change.entity === 'army' && change.field === 'location')) {
+        result.stateChanges.push(change);
+      }
+    }
+    for (const note of inner.notifications) {
+      if (note.severity !== 'info') result.notifications.push(note);
+    }
+  } else {
+    result.stateChanges.push(...inner.stateChanges);
+    result.notifications.push(...inner.notifications);
+  }
   result.events.push(...inner.events);
-  result.notifications.push(...inner.notifications);
   if (inner.errors) {
     result.errors.push(...inner.errors);
   }
@@ -250,7 +270,15 @@ function progressRecord(
  * docs/CONTINUOUS_WORLD_ARCHITECTURE.md.
  */
 export class ContinuousWorldEngine {
-  advance(state: GameState, elapsedTicks: number, host: WorldSimulationHost): WorldAdvanceResult {
+  private compactInspectable = false;
+
+  advance(
+    state: GameState,
+    elapsedTicks: number,
+    host: WorldSimulationHost,
+    options?: WorldAdvanceOptions,
+  ): WorldAdvanceResult {
+    this.compactInspectable = options?.compactInspectable === true;
     if (!Number.isInteger(elapsedTicks) || !Number.isFinite(elapsedTicks) || elapsedTicks < 0) {
       throw new OrchestrationError(
         ErrorCode.INVALID_PARAMETER,
@@ -269,27 +297,38 @@ export class ContinuousWorldEngine {
 
     for (let step = 0; step < elapsedTicks; step++) {
       state.worldTick += 1;
-      result.stateChanges.push({
-        entity: 'world',
-        id: 'worldTick',
-        field: 'worldTick',
-        from: state.worldTick - 1,
-        to: state.worldTick,
-        summary: `World tick ${state.worldTick - 1} → ${state.worldTick}`,
-      });
+      if (!this.compactInspectable) {
+        result.stateChanges.push({
+          entity: 'world',
+          id: 'worldTick',
+          field: 'worldTick',
+          from: state.worldTick - 1,
+          to: state.worldTick,
+          summary: `World tick ${state.worldTick - 1} → ${state.worldTick}`,
+        });
+      }
 
       if (ticksPerEventTurn > 0 && state.worldTick % ticksPerEventTurn === 0) {
         const eventStep = host.runEventTurn();
-        result.eventResults.push({
-          turn: eventStep.turn,
-          worldTick: state.worldTick,
-          triggered: eventStep.triggered,
-          summary: eventStep.summary,
-          historyLength: eventStep.historyLength,
-        });
+        if (!this.compactInspectable || eventStep.triggered > 0) {
+          result.eventResults.push({
+            turn: eventStep.turn,
+            worldTick: state.worldTick,
+            triggered: eventStep.triggered,
+            summary: eventStep.summary,
+            historyLength: eventStep.historyLength,
+          });
+        }
         result.stateChanges.push(...eventStep.stateChanges);
-        result.events.push(...eventStep.events);
-        if (eventStep.triggered > 0) {
+        if (this.compactInspectable) {
+          for (const event of eventStep.events) {
+            if (event.kind === 'world' && String(event.id).startsWith('sum_')) continue;
+            result.events.push(event);
+          }
+        } else {
+          result.events.push(...eventStep.events);
+        }
+        if (eventStep.triggered > 0 && !this.compactInspectable) {
           result.notifications.push({
             severity: 'info',
             title: 'World events',
@@ -302,6 +341,17 @@ export class ContinuousWorldEngine {
       this.advanceArmyMovements(state, host, result);
       this.advanceAiFactions(state, host, result);
       this.reconcileOrphanMovementCommitments(state, host, result);
+    }
+
+    if (this.compactInspectable && state.worldTick !== previous.worldTick) {
+      result.stateChanges.push({
+        entity: 'world',
+        id: 'worldTick',
+        field: 'worldTick',
+        from: previous.worldTick,
+        to: state.worldTick,
+        summary: `World tick ${previous.worldTick} → ${state.worldTick}`,
+      });
     }
 
     result.newWorldTime = { worldTick: state.worldTick, turn: state.turn };
@@ -337,9 +387,11 @@ export class ContinuousWorldEngine {
     const existing = state.commitments.get(factionId);
     if (existing && isActiveCommitmentStatus(existing.status)) {
       stampCommitmentTiming(existing, state.worldTick);
-      const progress = progressRecord(state, factionId);
-      if (progress) {
-        result.commitmentProgress.push(progress);
+      if (!this.compactInspectable) {
+        const progress = progressRecord(state, factionId);
+        if (progress) {
+          result.commitmentProgress.push(progress);
+        }
       }
       if ((existing.action === 'MOVE' || existing.action === 'RETREAT') && isMovementCommitmentInFlight(state, existing.id)) {
         return;
@@ -374,27 +426,29 @@ export class ContinuousWorldEngine {
     }
 
     const inner = host.decide(factionId);
-    appendHandler(result, inner);
+    appendHandler(result, inner, this.compactInspectable);
     markLastDecision(state, factionId, state.worldTick);
 
     const created = state.commitments.get(factionId);
     if (created && isActiveCommitmentStatus(created.status)) {
       stampCommitmentTiming(created, state.worldTick);
-      result.aiDecisions.push({
-        factionId,
-        commitmentId: created.id,
-        action: created.action,
-        targetId: created.targetId,
-        worldTick: state.worldTick,
-      });
-      result.notifications.push({
-        severity: 'info',
-        title: 'AI decision',
-        body: `${factionId} committed ${created.action}`,
-      });
-      const progress = progressRecord(state, factionId);
-      if (progress) {
-        result.commitmentProgress.push(progress);
+      if (!this.compactInspectable) {
+        result.aiDecisions.push({
+          factionId,
+          commitmentId: created.id,
+          action: created.action,
+          targetId: created.targetId,
+          worldTick: state.worldTick,
+        });
+        result.notifications.push({
+          severity: 'info',
+          title: 'AI decision',
+          body: `${factionId} committed ${created.action}`,
+        });
+        const progress = progressRecord(state, factionId);
+        if (progress) {
+          result.commitmentProgress.push(progress);
+        }
       }
       if (isCommitmentReady(created, state.worldTick) || isUnsupportedCommitmentAction(created.action)) {
         this.resolveFaction(state, factionId, host, result);
@@ -415,7 +469,7 @@ export class ContinuousWorldEngine {
     const commitmentId = before.id;
     const action = before.action;
     const inner = host.resolve(factionId);
-    appendHandler(result, inner);
+    appendHandler(result, inner, this.compactInspectable);
     markLastDecision(state, factionId, state.worldTick);
     const after = state.commitments.get(factionId);
     const outcome = typeof inner.payload.commitmentOutcome === 'string'
@@ -440,9 +494,14 @@ export class ContinuousWorldEngine {
     this.failStaleStrategicAttacks(state, host, result);
     const ticks = progressArmyMovements(state, state.worldTick);
     if (ticks.length > 0) {
-      result.movementResults.push(...ticks);
-      const bits = movementResultsToHandlerBits(ticks);
-      result.stateChanges.push(...bits.stateChanges);
+      const inspectableMovements = this.compactInspectable
+        ? ticks.filter((ev) => ev.status !== 'moving')
+        : ticks;
+      result.movementResults.push(...inspectableMovements);
+      if (inspectableMovements.length > 0) {
+        const bits = movementResultsToHandlerBits(inspectableMovements);
+        result.stateChanges.push(...bits.stateChanges);
+      }
       for (const ev of ticks) {
         if (ev.status === 'arrived') {
           const army = state.armies.get(ev.armyId);
@@ -461,7 +520,7 @@ export class ContinuousWorldEngine {
           : ev.status === 'interrupted'
             ? host.interruptCommitment(factionId, ev.reason ?? 'movement interrupted')
             : host.failCommitment(factionId, ev.reason ?? 'movement failed');
-        appendHandler(result, inner);
+        appendHandler(result, inner, this.compactInspectable);
         markLastDecision(state, factionId, state.worldTick);
         result.commitmentResolutions.push({
           factionId,
@@ -486,7 +545,7 @@ export class ContinuousWorldEngine {
       if (!isActiveAttackIntent(army)) continue;
       const intent = { ...army.attackIntent! };
       const inner = host.executePendingAttack(army.id);
-      appendHandler(result, inner);
+      appendHandler(result, inner, this.compactInspectable);
       if (inner.payload.skipped === true || inner.payload.attackOutcome === 'skipped') continue;
       markLastDecision(state, army.owner, state.worldTick);
       const outcome = typeof inner.payload.commitmentOutcome === 'string'
@@ -539,7 +598,7 @@ export class ContinuousWorldEngine {
         continue;
       }
       const inner = host.failCommitment(item.owner, item.reason);
-      appendHandler(result, inner);
+      appendHandler(result, inner, this.compactInspectable);
       markLastDecision(state, item.owner, state.worldTick);
       result.commitmentResolutions.push({
         factionId: item.owner,
@@ -569,7 +628,7 @@ export class ContinuousWorldEngine {
       }
       if (c.status !== 'executing') continue;
       const inner = host.failCommitment(factionId, 'moving army is gone; commitment cannot stay active');
-      appendHandler(result, inner);
+      appendHandler(result, inner, this.compactInspectable);
       markLastDecision(state, factionId, state.worldTick);
       result.commitmentResolutions.push({
         factionId,

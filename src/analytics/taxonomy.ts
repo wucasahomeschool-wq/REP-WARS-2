@@ -13,8 +13,7 @@
  * - in-flight movement tick updates while status remains `moving`
  * - per-territory economy accrual during ADVANCE_WORLD
  *
- * Domain pause/resume exists on WorkoutSession but has no orchestrator
- * command yet, so those types are catalogued for when a command lands.
+ * Workout pause/resume is exposed as PAUSE_WORKOUT / RESUME_WORKOUT.
  */
 
 export type CatalogImportance = 'CRITICAL' | 'IMPORTANT' | 'INFORMATIONAL' | 'DEBUG';

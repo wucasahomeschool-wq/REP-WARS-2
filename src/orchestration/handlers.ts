@@ -81,8 +81,10 @@ import {
   handleCollectResources,
   handleFinalizeWorkout,
   handleGetWorkoutSelection,
+  handlePauseWorkout,
   handleRecordExercise,
   handleRecordIntegrityFlag,
+  handleResumeWorkout,
   handleSetPlayerPause,
   handleSkipRest,
   handleStartConstruction,
@@ -581,7 +583,10 @@ export function handleAdvanceWorld(state: GameState, ctx: HandlerContext): Handl
     executePendingAttack: (armyId) => executePendingStrategicAttack(state, ctx, armyId),
   };
 
-  const worldAdvance = new ContinuousWorldEngine().advance(state, elapsedTicks, host);
+  const compactInspectable = ctx.req.parameters?.catchUpCompact === true;
+  const worldAdvance = new ContinuousWorldEngine().advance(state, elapsedTicks, host, {
+    compactInspectable,
+  });
   try {
     const expired = progressExpiredInvasions(state, ctx.registry.requireBattle());
     for (const extra of expired) {
@@ -848,6 +853,8 @@ export const MUTATING_HANDLERS: Record<string, MutatingHandler> = {
   COLLECT_RESOURCES: handleCollectResources,
   SET_PLAYER_PAUSE: handleSetPlayerPause,
   START_WORKOUT: handleStartWorkout,
+  PAUSE_WORKOUT: handlePauseWorkout,
+  RESUME_WORKOUT: handleResumeWorkout,
   RECORD_EXERCISE: handleRecordExercise,
   SKIP_REST: handleSkipRest,
   SUBMIT_WORKOUT_FEEDBACK: handleSubmitWorkoutFeedback,

@@ -10,6 +10,8 @@ import {
   skipExercise,
   submitWorkoutFeedback,
   abandonWorkoutSession,
+  pauseWorkoutSession,
+  resumeWorkoutSession,
   recordIntegrityFlag,
   INTEGRITY_FLAG_TYPES,
 } from '../fitness/session';
@@ -26,7 +28,10 @@ import { playerFacingTick } from '../gameplay/invasion/eligibility';
 import { setPlayerEmpirePause } from '../gameplay/invasion/pause';
 import { resolveInvasionBattle } from '../gameplay/invasion/resolve';
 import { attachDefenseWorkoutToInvasion } from '../gameplay/invasion/session';
-import { assertLevel1TutorialWorkoutAllowed } from '../gameplay/tutorial/level1';
+import {
+  assertLevel1TutorialWorkoutAllowed,
+  shouldWaiveWorkoutFeedback,
+} from '../gameplay/tutorial/level1';
 import {
   resolveStartWorkoutId,
   serializeWorkoutSelectionView,
@@ -68,6 +73,15 @@ function emptyResult(): HandlerResult {
 
 function sessionNow(state: GameState, ctx: GameplayHandlerContext): number {
   return paramNumber(ctx.req, 'now') ?? state.worldTick * 60_000;
+}
+
+function applyFirstWorkoutFeedbackWaiver(state: GameState, session: typeof state.playerFitness.activeSession): typeof session {
+  if (!session) return session;
+  if (session.state !== 'COMPLETED') return session;
+  if (session.feedbackState !== 'FEEDBACK_REQUIRED') return session;
+  if (!shouldWaiveWorkoutFeedback(state, session)) return session;
+  session.feedbackState = 'NOT_APPLICABLE';
+  return session;
 }
 
 function fail(code: ErrorCode, message: string): HandlerResult {
@@ -301,7 +315,7 @@ export function handleRecordExercise(state: GameState, ctx: GameplayHandlerConte
   if (!next.ok) {
     throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, next.error.message);
   }
-  state.playerFitness.activeSession = next.value;
+  state.playerFitness.activeSession = applyFirstWorkoutFeedbackWaiver(state, next.value) ?? next.value;
   return {
     ...emptyResult(),
     payload: { sessionId: next.value.sessionId, state: next.value.state, currentExerciseIndex: next.value.currentExerciseIndex },
@@ -321,10 +335,50 @@ export function handleSkipRest(state: GameState, ctx: GameplayHandlerContext): H
   if (!next.ok) {
     throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, next.error.message);
   }
-  state.playerFitness.activeSession = next.value;
+  state.playerFitness.activeSession = applyFirstWorkoutFeedbackWaiver(state, next.value) ?? next.value;
   return {
     ...emptyResult(),
     payload: { sessionId: next.value.sessionId, state: next.value.state },
+  };
+}
+
+export function handlePauseWorkout(state: GameState, ctx: GameplayHandlerContext): HandlerResult {
+  const session = state.playerFitness.activeSession;
+  if (!session) {
+    throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, 'No active workout session');
+  }
+  const next = pauseWorkoutSession(session, sessionNow(state, ctx));
+  if (!next.ok) {
+    throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, next.error.message);
+  }
+  state.playerFitness.activeSession = next.value;
+  return {
+    ...emptyResult(),
+    payload: {
+      sessionId: next.value.sessionId,
+      state: next.value.state,
+      pauseCount: next.value.pauseCount,
+    },
+  };
+}
+
+export function handleResumeWorkout(state: GameState, ctx: GameplayHandlerContext): HandlerResult {
+  const session = state.playerFitness.activeSession;
+  if (!session) {
+    throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, 'No active workout session');
+  }
+  const next = resumeWorkoutSession(session, sessionNow(state, ctx));
+  if (!next.ok) {
+    throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, next.error.message);
+  }
+  state.playerFitness.activeSession = next.value;
+  return {
+    ...emptyResult(),
+    payload: {
+      sessionId: next.value.sessionId,
+      state: next.value.state,
+      pauseCount: next.value.pauseCount,
+    },
   };
 }
 

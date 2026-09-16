@@ -216,7 +216,7 @@ export interface FitnessEvidence {
   workoutId: WorkoutId;
   purpose: WorkoutPurpose;
   intendedDifficulty: WorkoutDifficulty;
-  feedback: WorkoutFeedbackValue;
+  feedback: WorkoutFeedbackValue | null;
   completedAt: number;
   evaluatedAt: number | null;
   integrityFlagCount: number;

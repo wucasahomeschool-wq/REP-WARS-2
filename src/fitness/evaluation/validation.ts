@@ -177,11 +177,12 @@ export function validateCompletedWorkoutRecord(raw: unknown): FitnessEvaluationI
 
 export function isEligibleCompletedWorkoutRecord(raw: unknown): boolean {
   if (!isRecord(raw) || !isRecord(raw.summary)) return false;
+  const feedbackSubmitted = raw.feedbackState === 'FEEDBACK_SUBMITTED' && raw.feedback !== null;
+  const feedbackWaived = raw.feedbackState === 'NOT_APPLICABLE' && (raw.feedback === null || raw.feedback === undefined);
   return (
     raw.kind === 'completed_workout_record'
     && raw.eligibleForFitnessEvaluation === true
-    && raw.feedbackState === 'FEEDBACK_SUBMITTED'
-    && raw.feedback !== null
+    && (feedbackSubmitted || feedbackWaived)
     && raw.summary.state === 'COMPLETED'
     && raw.summary.abandonedAt === null
     && raw.summary.abandonmentReason === null

@@ -660,6 +660,55 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     assert.strictEqual(result.state.worldTick, weeks);
     assert.ok(savesDuringSync === 1);
     assert.ok(result.catchUp.chunks < weeks);
+    assert.ok(result.catchUp.worldAdvance.aiDecisions.length === 0);
+    assert.ok(result.catchUp.worldAdvance.commitmentProgress.length === 0);
+    assert.ok(result.catchUp.stateChanges.length < weeks);
+    assert.ok(
+      result.state.eventHistory.length < 500,
+      `eventHistory must stay bounded, got ${result.state.eventHistory.length}`,
+    );
+  });
+
+  test('10,000-tick paused catch-up is deterministic and does not keep per-tick history', () => {
+    const ticks = 10_000;
+    const started = Date.now();
+    const a = playerState(10);
+    setPlayerEmpirePause(a, true);
+    const first = syncTo(a, ticks);
+    const elapsedMs = Date.now() - started;
+    assert.strictEqual(first.result.state.worldTick, ticks);
+    assert.strictEqual(first.result.catchUp.ticksAdvanced, ticks);
+    assert.deepStrictEqual(checkGameStateInvariants(first.result.state), []);
+    const advance = first.result.catchUp.worldAdvance;
+    assert.strictEqual(advance.aiDecisions.length, 0);
+    assert.strictEqual(advance.commitmentProgress.length, 0);
+    assert.ok(first.result.catchUp.stateChanges.length < ticks);
+    assert.ok(
+      first.result.state.eventHistory.length < 500,
+      `eventHistory grew to ${first.result.state.eventHistory.length}`,
+    );
+    console.log(
+      `    10,000-tick catch-up: ${elapsedMs}ms, chunks=${first.result.catchUp.chunks}, `
+      + `stateChanges=${first.result.catchUp.stateChanges.length}, `
+      + `eventHistory=${first.result.state.eventHistory.length}, `
+      + `resolutions=${advance.commitmentResolutions.length}, `
+      + `events=${first.result.catchUp.events.length}`,
+    );
+
+    const b = playerState(10);
+    setPlayerEmpirePause(b, true);
+    const second = syncTo(b, ticks);
+    assert.strictEqual(second.result.state.worldTick, first.result.state.worldTick);
+    assert.strictEqual(second.result.state.turn, first.result.state.turn);
+    assert.deepStrictEqual(
+      [...first.result.state.territories.entries()].map(([id, t]) => [id, t.owner]),
+      [...second.result.state.territories.entries()].map(([id, t]) => [id, t.owner]),
+    );
+
+    const reloaded = reloadRoundTrip(first.result.state);
+    assert.strictEqual(reloaded.worldTick, ticks);
+    assert.strictEqual(reloaded.playerEmpirePause.paused, true);
+    assert.deepStrictEqual(checkGameStateInvariants(reloaded), []);
   });
 
   test('catch-up of 100 ticks matches the same ADVANCE_WORLD chunks', () => {

@@ -334,4 +334,60 @@ export function registerLevel1TutorialTests(api: Level1TutorialTestApi): void {
     assert.strictEqual(orch.getState().activeInvasions.size, 0);
     assert.strictEqual(orch.getState().level1Tutorial?.scriptedInvasionId, invasionId);
   });
+
+  test('Level 1 first workout finalizes without feedback, awards Troops, and advances the tutorial', () => {
+    const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 11 }).state);
+    const started = orch.execute(cmd('START_WORKOUT', {
+      purpose: 'NORMAL_TROOPS',
+      sessionId: 'wses_first_nofb',
+      now: 1_000,
+    }, 'first_nofb_start'));
+    assert.strictEqual(started.success, true, started.errors[0]?.message);
+    finishActiveWorkout(orch, 2_000);
+    const session = orch.getState().playerFitness.activeSession!;
+    assert.strictEqual(session.state, 'COMPLETED');
+    assert.strictEqual(session.feedbackState, 'NOT_APPLICABLE');
+    assert.strictEqual(session.feedback, null);
+
+    const deniedFeedbackPath = orch.execute(cmd('FINALIZE_WORKOUT', { now: 11_000 }, 'first_nofb_fin'));
+    assert.strictEqual(deniedFeedbackPath.success, true, deniedFeedbackPath.errors[0]?.message);
+    assert.ok(orch.getState().playerRewards.bankedTroops > MIN_ATTACKING_TROOPS);
+    assert.strictEqual(tutorialOf(orch).beat, 'FIRST_ATTACK_AVAILABLE');
+    assert.strictEqual(orch.getState().level1Tutorial?.firstWorkoutSessionId, 'wses_first_nofb');
+    assert.strictEqual(orch.getState().playerFitness.activeSession, null);
+  });
+
+  test('later Level 1 troops workouts still require SUBMIT_WORKOUT_FEEDBACK', () => {
+    const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 12 }).state);
+    completeTroopsWorkout(orch, 'wses_later_first', 1_000);
+    const firstTroops = orch.getState().playerRewards.bankedTroops;
+    assert.strictEqual(orch.execute(cmd('ATTACK', {
+      territoryId: FIRST_ENEMY,
+      commitAmount: Math.min(firstTroops, MIN_ATTACKING_TROOPS + 20),
+      seed: 12,
+    }, 'atk_later')).success, true);
+    const invasionId = [...orch.getState().activeInvasions.keys()][0]!;
+    completeDefenseWorkout(orch, invasionId, 'wses_later_def', 40_000);
+    assert.strictEqual(tutorialOf(orch).beat, 'FINAL_WORKOUT_PENDING');
+
+    const started = orch.execute(cmd('START_WORKOUT', {
+      purpose: 'NORMAL_TROOPS',
+      sessionId: 'wses_later_second',
+      now: 50_000,
+    }, 'later_start'));
+    assert.strictEqual(started.success, true, started.errors[0]?.message);
+    finishActiveWorkout(orch, 51_000);
+    const session = orch.getState().playerFitness.activeSession!;
+    assert.strictEqual(session.state, 'COMPLETED');
+    assert.strictEqual(session.feedbackState, 'FEEDBACK_REQUIRED');
+    const withoutFeedback = orch.execute(cmd('FINALIZE_WORKOUT', { now: 60_000 }, 'later_fin_denied'));
+    assert.strictEqual(withoutFeedback.success, false);
+    assert.strictEqual(withoutFeedback.errors[0]?.code, ErrorCode.WORKOUT_SESSION_INVALID);
+    assert.strictEqual(orch.getState().playerFitness.activeSession?.state, 'COMPLETED');
+
+    assert.strictEqual(orch.execute(cmd('SUBMIT_WORKOUT_FEEDBACK', { value: 'ABOUT_RIGHT', now: 61_000 }, 'later_fb')).success, true);
+    const finalized = orch.execute(cmd('FINALIZE_WORKOUT', { now: 62_000 }, 'later_fin'));
+    assert.strictEqual(finalized.success, true, finalized.errors[0]?.message);
+    assert.strictEqual(tutorialOf(orch).beat, 'FINAL_ATTACK_AVAILABLE');
+  });
 }

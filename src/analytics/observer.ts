@@ -1146,6 +1146,32 @@ function emitSuccess(builder: ObservationBuilder, observation: CommandObservatio
       });
       return;
     }
+    case 'PAUSE_WORKOUT':
+      builder.emit({
+        eventType: 'workout.paused',
+        correlationId: sessionId ?? requestCorr,
+        sourceSystem: 'fitness',
+        sessionId,
+        payload: omitUndefined({
+          sessionId,
+          state: str(payload.state),
+          pauseCount: num(payload.pauseCount),
+        }),
+      });
+      return;
+    case 'RESUME_WORKOUT':
+      builder.emit({
+        eventType: 'workout.resumed',
+        correlationId: sessionId ?? requestCorr,
+        sourceSystem: 'fitness',
+        sessionId,
+        payload: omitUndefined({
+          sessionId,
+          state: str(payload.state),
+          pauseCount: num(payload.pauseCount),
+        }),
+      });
+      return;
     case 'RECORD_EXERCISE':
       builder.emit({
         eventType: 'workout.exercise_recorded',

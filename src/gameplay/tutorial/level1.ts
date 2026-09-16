@@ -584,6 +584,23 @@ export function assertLevel1TutorialWorkoutAllowed(state: GameState, purpose: st
   }
 }
 
+/**
+ * Level 1's first onboarding workout is intentionally short and skips the
+ * normal post-workout feedback screen. Later Level 1 workouts still require
+ * SUBMIT_WORKOUT_FEEDBACK.
+ */
+export function shouldWaiveWorkoutFeedback(
+  state: GameState,
+  session: { purpose: string; sessionId: string },
+): boolean {
+  if (!isLevel1TutorialGating(state)) return false;
+  const tut = state.level1Tutorial;
+  if (!tut || tut.beat !== 'FIRST_WORKOUT_PENDING') return false;
+  if (session.purpose !== 'NORMAL_TROOPS') return false;
+  if (tut.firstWorkoutSessionId && tut.firstWorkoutSessionId !== session.sessionId) return false;
+  return true;
+}
+
 export function coerceLevel1TutorialState(raw: unknown): Level1TutorialState | null {
   if (raw == null) return null;
   if (typeof raw !== 'object' || Array.isArray(raw)) return null;

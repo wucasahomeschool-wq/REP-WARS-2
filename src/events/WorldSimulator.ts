@@ -240,6 +240,12 @@ export class ConsequenceApplier {
   }
 }
 
+function retainRecentEventHistory(history: HistoryEntry[], turn: number): HistoryEntry[] {
+  const window = BW.sameEventCooldownTurns;
+  if (window <= 0) return history;
+  return history.filter((entry) => (turn - entry.turn) < window);
+}
+
 export class WorldSimulator {
   private applier: ConsequenceApplier | null = null;
 
@@ -247,7 +253,7 @@ export class WorldSimulator {
     const turn = input.turn;
     const rng = new SeededRNG(input.seed ^ BW.rngSalt);
     const newActiveEvents: ActiveEvent[] = input.activeEvents.map(cloneActiveEvent);
-    const newEventHistory: HistoryEntry[] = [...input.eventHistory];
+    const newEventHistory: HistoryEntry[] = retainRecentEventHistory(input.eventHistory, turn);
     const triggeredEvents: TriggeredEvent[] = [];
     const perTurnConsequences: ConsequenceDelta[] = [];
     const expiredEvents: ActiveEvent[] = [];

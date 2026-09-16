@@ -11,6 +11,7 @@ import {
   isLegacyDefinitionWorldId,
 } from '../worldDefinition/catalog';
 import { createGameStateFromWorld } from '../worldDefinition/instantiate';
+import { WorldFileRegistration } from '../worldDefinition/worldConfig';
 import { evaluateWorldCompletion } from './completion';
 
 export interface WorldTransitionView {
@@ -49,10 +50,11 @@ export function carryPlayerScopedFitness(from: PlayerFitnessState, onto: PlayerF
 export function evaluateWorldTransition(
   state: GameState,
   catalog: WorldCatalog = getDefaultWorldCatalog(),
+  registrations?: readonly WorldFileRegistration[],
 ): WorldTransitionView {
   const currentLevel = state.worldLevel;
   const nextReg = typeof currentLevel === 'number'
-    ? findNextProductionWorldRegistration(currentLevel)
+    ? findNextProductionWorldRegistration(currentLevel, registrations)
     : null;
   if (!nextReg) {
     return {
@@ -67,7 +69,7 @@ export function evaluateWorldTransition(
       eligible: false,
       nextWorldId: nextReg.worldId,
       nextWorldLevel: nextReg.level,
-      alreadyOnLatestRegistered: findNextProductionWorldRegistration(nextReg.level) === null,
+      alreadyOnLatestRegistered: findNextProductionWorldRegistration(nextReg.level, registrations) === null,
     };
   }
   const loaded = catalog.load(nextReg.worldId);
@@ -95,6 +97,7 @@ export function evaluateWorldTransition(
 export function buildNextWorldState(
   state: GameState,
   catalog: WorldCatalog = getDefaultWorldCatalog(),
+  registrations?: readonly WorldFileRegistration[],
 ): WorldTransitionApplyResult & { next?: GameState } {
   const currentId = state.definitionWorldId;
   if (!currentId || isLegacyDefinitionWorldId(currentId)) {
@@ -107,7 +110,7 @@ export function buildNextWorldState(
   if (typeof currentLevel !== 'number' || !Number.isInteger(currentLevel)) {
     throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE, 'Current world level is missing');
   }
-  const nextReg = findNextProductionWorldRegistration(currentLevel);
+  const nextReg = findNextProductionWorldRegistration(currentLevel, registrations);
   if (!nextReg || currentId === nextReg.worldId) {
     return {
       status: 'already_completed',
@@ -156,8 +159,9 @@ export function buildNextWorldState(
 export function applyWorldTransition(
   draft: GameState,
   catalog: WorldCatalog = getDefaultWorldCatalog(),
+  registrations?: readonly WorldFileRegistration[],
 ): WorldTransitionApplyResult {
-  const built = buildNextWorldState(draft, catalog);
+  const built = buildNextWorldState(draft, catalog, registrations);
   if (built.status === 'already_completed') {
     return built;
   }
