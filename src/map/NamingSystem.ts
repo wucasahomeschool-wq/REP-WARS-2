@@ -1,3 +1,7 @@
+/**
+ * LEGACY / TEST / DEMO ONLY.
+ * Procedural territory names for MapEngine. Production territories are unnamed IDs.
+ */
 import { SeededRNG } from '../utils/SeededRNG';
 import { BALANCE } from '../constants/balance';
 import { ThemeDefinition } from '../types';

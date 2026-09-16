@@ -3,13 +3,14 @@ import { GameState } from '../../types/GameState';
 import { BattleEngine, BattleInput } from '../../battle/BattleEngine';
 import { applyBattleResultToGameState } from '../../orchestration/applyBattle';
 import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
-import { HandlerResult } from '../../orchestration/protocol';
+import { GameEvent, HandlerResult } from '../../orchestration/protocol';
 import { armiesInTerritory, requireFactionSnapshot, requireTerritory } from '../../orchestration/helpers';
 import { clearAttackIntent } from '../../army/strategicAttack';
 import { failedDefenseContinuationTicks, successfulDefenseRecoveryTicks } from '../config';
 import { isOpenInvasion } from './deadlines';
-import { withTerritoryBattleLabel } from '../../worldDefinition/display';
+import { defenseWorkoutMultiplier, withTerritoryCombatView } from '../defense/territoryDefense';
 import { abandonLinkedDefenseSession } from './session';
+import { isPlayerAnchorProtected } from '../anchors';
 
 export type InvasionResolveReason =
   | 'defense_battle'
@@ -66,6 +67,34 @@ function closeCommitment(state: GameState, invasion: { attackerFactionId: string
   }
 }
 
+function invasionResolveEvent(params: {
+  invasionId: string;
+  territoryId: string;
+  attackerFactionId: string;
+  invasionOutcome: string;
+  winner: unknown;
+  territoryOutcome: unknown;
+  resolveReason: InvasionResolveReason;
+  resolvedWithoutBattle?: boolean;
+}): GameEvent {
+  return {
+    kind: 'battle',
+    id: `invasion_${params.invasionId}`,
+    title: params.invasionOutcome,
+    summary: `Invasion ${params.invasionId} ${params.invasionOutcome}`,
+    territoryId: params.territoryId,
+    factionId: params.attackerFactionId,
+    data: {
+      winner: params.winner,
+      territoryOutcome: params.territoryOutcome,
+      invasionId: params.invasionId,
+      invasionOutcome: params.invasionOutcome,
+      resolveReason: params.resolveReason,
+      resolvedWithoutBattle: params.resolvedWithoutBattle === true,
+    },
+  };
+}
+
 function outcomeForReason(reason: InvasionResolveReason, battleSuccess: boolean | null): string {
   if (reason === 'undefended') return 'undefended';
   if (reason === 'defense_timeout') return 'defense_timeout';
@@ -101,11 +130,22 @@ export function resolveInvasionBattle(
     closeCommitment(state, invasion, false);
     releaseInvasionArmies(state, invasion);
     state.activeInvasions.delete(invasionId);
+    const invasionOutcome = outcomeForReason(reason, false);
     return {
       ...emptyResult(),
+      events: [invasionResolveEvent({
+        invasionId,
+        territoryId: invasion.territoryId,
+        attackerFactionId: invasion.attackerFactionId,
+        invasionOutcome,
+        winner: 'defender',
+        territoryOutcome: 'unchanged',
+        resolveReason: reason,
+        resolvedWithoutBattle: true,
+      })],
       payload: {
         attackOutcome: 'battle_resolved',
-        invasionOutcome: outcomeForReason(reason, false),
+        invasionOutcome,
         invasionId,
         winner: 'defender',
         territoryOutcome: 'unchanged',
@@ -118,11 +158,43 @@ export function resolveInvasionBattle(
   }
 
   const target = requireTerritory(state, invasion.territoryId);
+  if (isPlayerAnchorProtected(state, invasion.territoryId)) {
+    setCooldown(state, invasion.attackerFactionId, 'continuationUntilTick', state.worldTick + failedDefenseContinuationTicks());
+    closeCommitment(state, invasion, false);
+    releaseInvasionArmies(state, invasion);
+    state.activeInvasions.delete(invasionId);
+    return {
+      ...emptyResult(),
+      events: [invasionResolveEvent({
+        invasionId,
+        territoryId: invasion.territoryId,
+        attackerFactionId: invasion.attackerFactionId,
+        invasionOutcome: 'anchor_protected',
+        winner: 'defender',
+        territoryOutcome: 'unchanged',
+        resolveReason: reason,
+        resolvedWithoutBattle: true,
+      })],
+      payload: {
+        attackOutcome: 'failed',
+        invasionOutcome: 'anchor_protected',
+        invasionId,
+        winner: 'defender',
+        territoryOutcome: 'unchanged',
+        defensePower: 0,
+        territoryId: invasion.territoryId,
+        resolvedWithoutBattle: true,
+        resolveReason: reason,
+        reason: 'anchor_protected',
+      },
+    };
+  }
   const attackerSnap = requireFactionSnapshot(state, invasion.attackerFactionId);
   const defenderSnap = requireFactionSnapshot(state, invasion.defenderFactionId);
   const realDefenders = armiesInTerritory(state, invasion.territoryId).filter((a) => a.owner === invasion.defenderFactionId);
+  const workoutFactor = defenseWorkoutMultiplier(state, invasion.territoryId);
   const defensePower = useMobilization && invasion.defenseMobilization
-    ? Math.max(0, Math.round(invasion.defenseMobilization.defensePower))
+    ? Math.max(0, Math.round(invasion.defenseMobilization.defensePower * workoutFactor))
     : 0;
   const virtualDefender = defensePower > 0
     ? [{ soldiers: defensePower, knights: 0, siegeEngines: 0, morale: 80, supply: 80 }]
@@ -137,7 +209,7 @@ export function resolveInvasionBattle(
     attackerArmies: attackers,
     defenderArmies: [...realDefenders, ...virtualDefender],
     defenderGarrison: target.garrison,
-    territory: withTerritoryBattleLabel(state, target),
+    territory: withTerritoryCombatView(state, target),
   };
   const validation = battle.validate(input);
   if (!validation.valid) {
@@ -154,14 +226,27 @@ export function resolveInvasionBattle(
   closeCommitment(state, invasion, success && reason === 'defense_battle');
   releaseInvasionArmies(state, invasion);
   state.activeInvasions.delete(invasionId);
+  const invasionOutcome = outcomeForReason(reason, success);
   return {
     ...emptyResult(),
     stateChanges: applied.stateChanges,
     territoriesChanged: applied.territoryChanges,
     armiesChanged: applied.armyChanges,
+    events: [
+      invasionResolveEvent({
+        invasionId,
+        territoryId: invasion.territoryId,
+        attackerFactionId: invasion.attackerFactionId,
+        invasionOutcome,
+        winner: result.winner,
+        territoryOutcome: result.territoryOutcome,
+        resolveReason: reason,
+      }),
+      ...applied.events,
+    ],
     payload: {
       attackOutcome: 'battle_resolved',
-      invasionOutcome: outcomeForReason(reason, success),
+      invasionOutcome,
       invasionId,
       winner: result.winner,
       territoryOutcome: result.territoryOutcome,

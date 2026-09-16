@@ -11,6 +11,10 @@ export interface ArmyLike {
 export interface TerritoryLike {
   terrain: string;
   fortification?: number;
+  /** When true, CombatPower applies the City presence factor (1.25). */
+  hasCity?: boolean;
+  /** Optional explicit City factor. Defaults to 1.25 when `hasCity`, else 1. */
+  cityDefenseFactor?: number;
 }
 
 export interface UnitBreakdown {
@@ -91,6 +95,13 @@ export function computeRawUnitPower(units: UnitBreakdown): {
   };
 }
 
+export function cityPresenceDefenseFactor(territory: TerritoryLike): number {
+  if (typeof territory.cityDefenseFactor === 'number' && Number.isFinite(territory.cityDefenseFactor)) {
+    return territory.cityDefenseFactor;
+  }
+  return territory.hasCity ? 1.25 : 1.0;
+}
+
 export function terrainAndFortToDefenseBonus(territory: TerritoryLike): number {
   let defenseBonus = BALANCE.combat.terrainToDefenseBonus[territory.terrain] ?? 1.0;
   const fortLvl = Math.max(0, territory.fortification ?? 0);
@@ -136,7 +147,8 @@ export function computeDefenderPower(
   const morale0_100 = averageMorale(armiesForMorale);
   const moraleMult = morale0_100ToMultiplier(morale0_100);
   const defenseBonus = terrainAndFortToDefenseBonus(territory);
-  const effectivePower = rawTotal * quality * moraleMult * defenseBonus;
+  const cityFactor = cityPresenceDefenseFactor(territory);
+  const effectivePower = rawTotal * quality * moraleMult * defenseBonus * cityFactor;
   return {
     rawTroops: units.soldiers + units.knights + (units.garrison ?? 0),
     quality,

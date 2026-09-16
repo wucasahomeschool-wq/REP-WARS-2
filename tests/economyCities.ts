@@ -374,6 +374,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
     const orch = new Orchestrator(ready);
     const goldBefore = orch.getState().factions.get(PLAYER_FACTION)!.resources.gold;
     const stoneBefore = orch.getState().factions.get(PLAYER_FACTION)!.resources.stone;
+    const ironBefore = orch.getState().factions.get(PLAYER_FACTION)!.resources.iron;
     const started = orch.execute(cmdReq('START_CONSTRUCTION', { territoryId: HOME, constructionId: 'con_17j' }));
     assert.strictEqual(started.success, true, started.errors[0]?.message);
     assert.strictEqual(
@@ -384,6 +385,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
       orch.getState().factions.get(PLAYER_FACTION)!.resources.stone,
       stoneBefore - GAMEPLAY_CONFIG.constructionStoneCost,
     );
+    assert.strictEqual(orch.getState().factions.get(PLAYER_FACTION)!.resources.iron, ironBefore);
     const project = orch.getState().constructions.get('con_17j')!;
     assert.strictEqual(project.status, 'in_progress');
     assert.strictEqual(project.remainingTicks, GAMEPLAY_CONFIG.defaultConstructionDurationTicks);

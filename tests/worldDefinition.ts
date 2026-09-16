@@ -3,30 +3,50 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   COMMAND_INDEX,
+  DEFAULT_PRODUCTION_WORLD_ID,
+  FIXTURE_TINY_WORLD_ID,
+  FIXTURE_WORLD_REGISTRATIONS,
+  PRODUCTION_LEVEL_1_WORLD_ID,
+  PRODUCTION_WORLD_REGISTRATIONS,
   ErrorCode,
   GAMEPLAY_CONFIG,
   GAME_STATE_SCHEMA_VERSION,
+  InMemoryGameStateStore,
   Orchestrator,
   WORLD_FORMAT_VERSION,
+  WorldCatalog,
   checkGameStateInvariants,
   cloneGameState,
+  createDefaultRegistry,
   createGameState,
   createGameStateFromWorld,
+  applyImmutableWorldDefinition,
   createLegacySampleMapGameState,
+  createProductionWorldCatalog,
+  createWorldCatalog,
+  getDefaultWorldCatalog,
   hydratePersistedPayload,
+  identityFromDefinition,
+  identityFromGameState,
+  initializePlayerWorld,
   loadTinyWorldDefinition,
   loadWorldDefinition,
   parseWorldJson,
   progressWorldEconomy,
+  resolveWorldDefinition,
   serializeToJson,
   snapshotGameState,
   startConstruction,
+  tinyWorldJsonPath,
   validateWorldDefinition,
+  worldIdentitiesEqual,
+  worldRecordToRow,
+  rowToWorldRecord,
 } from '../src';
 import { GoalSystem } from '../src/goals/GoalSystem';
 import { plantCity } from './worldTestHelpers';
 import type { CommandRequest } from '../src';
-import type { WorldDefinition } from '../src';
+import type { AICommitment, WorldDefinition } from '../src';
 
 export interface WorldDefinitionTestApi {
   test: (name: string, fn: () => void) => void;
@@ -162,13 +182,13 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
 
   console.log('Phase 17N.2 — createGameStateFromWorld');
 
-  test('production createGameState() uses the tiny authored world, not SAMPLE_MAP', () => {
+  test('createGameState() uses the selected world from worldConfig, not SAMPLE_MAP', () => {
     const state = createGameState({ seed: 1 });
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
-    assert.strictEqual(state.definitionWorldId, 'w_ember_atoll');
+    assert.strictEqual(state.definitionWorldId, PRODUCTION_LEVEL_1_WORLD_ID);
     assert.strictEqual(state.definitionFormatVersion, WORLD_FORMAT_VERSION);
     assert.strictEqual(state.worldLevel, 1);
-    assert.strictEqual(state.worldName, 'Ember Atoll');
+    assert.strictEqual(state.worldName, 'Level 1');
     assert.strictEqual(state.playerFactionId, 'f_player');
     assert.ok(!state.allFactionIds.includes('iron_kingdom'));
     assert.deepStrictEqual(checkGameStateInvariants(state), []);
@@ -220,7 +240,7 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
   console.log('Phase 17N.2 — cities, visibility, commands, region AI');
 
   test('explicit CITY construction founds a city; fortification is not founding', () => {
-    const orch = new Orchestrator(createGameState({ seed: 1 }));
+    const orch = new Orchestrator(createGameState({ seed: 1, worldId: FIXTURE_TINY_WORLD_ID }));
     assert.strictEqual(orch.getState().cities.size, 0);
     const started = orch.execute(cmdReq('START_CONSTRUCTION', {
       territoryId: 't_01', constructionId: 'con_city', projectType: 'CITY',
@@ -239,7 +259,7 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
   });
 
   test('conquest destroys the previous city and leaves the conqueror with empty land', () => {
-    const state = createGameState({ seed: 1 });
+    const state = createGameState({ seed: 1, worldId: FIXTURE_TINY_WORLD_ID });
     plantCity(state, 't_02');
     state.territories.get('t_02')!.garrison = 40;
     assert.ok(state.cities.has('city_t_02'));
@@ -255,7 +275,7 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
   });
 
   test('the current world is fully visible; SCOUT and EXPAND are not production commands', () => {
-    const orch = new Orchestrator(createGameState({ seed: 1 }));
+    const orch = new Orchestrator(createGameState({ seed: 1, worldId: FIXTURE_TINY_WORLD_ID }));
     const view = orch.execute(cmdReq('GET_VISIBLE_WORLD'));
     assert.strictEqual(view.success, true, view.errors[0]?.message);
     const world = view.payload.visibleWorld as { territories: Record<string, { visibility: string }>; currentWorldFullyVisible?: boolean };
@@ -280,7 +300,7 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
   });
 
   test('control_region uses Territory.regionId membership, not id-prefix guessing', () => {
-    const state = createGameState({ seed: 1 });
+    const state = createGameState({ seed: 1, worldId: FIXTURE_TINY_WORLD_ID });
     const goals = new GoalSystem([]);
     goals.addGoal({
       type: 'control_region',
@@ -335,13 +355,299 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
     state.playerFactionId = 'f_player';
     const json = serializeToJson(snapshotGameState(state));
     const loaded = hydratePersistedPayload(JSON.parse(json));
-    assert.strictEqual(loaded.definitionWorldId, 'w_ember_atoll');
+    assert.strictEqual(loaded.definitionWorldId, PRODUCTION_LEVEL_1_WORLD_ID);
     assert.strictEqual(loaded.worldLevel, 1);
     assert.strictEqual(loaded.definitionFormatVersion, WORLD_FORMAT_VERSION);
     assert.strictEqual(loaded.playerFactionId, 'f_player');
     assert.ok(loaded.factions.has('f_player'));
     assert.deepStrictEqual(checkGameStateInvariants(loaded), []);
     const cloned = cloneGameState(loaded);
-    assert.strictEqual(cloned.definitionWorldId, 'w_ember_atoll');
+    assert.strictEqual(cloned.definitionWorldId, PRODUCTION_LEVEL_1_WORLD_ID);
+  });
+
+  console.log('Phase 17P — catalog boundary, gameplay, persistence identity');
+
+  test('WorldCatalog is the production load boundary; missing worlds fail closed', () => {
+    const catalog = getDefaultWorldCatalog();
+    const loaded = catalog.load(DEFAULT_PRODUCTION_WORLD_ID);
+    assert.ok(loaded.ok);
+    if (loaded.ok) {
+      assert.strictEqual(loaded.definition.worldId, PRODUCTION_LEVEL_1_WORLD_ID);
+      assert.strictEqual(loaded.definition.territories.length, 3);
+    }
+    const missing = catalog.load('w_does_not_exist');
+    assert.strictEqual(missing.ok, false);
+    assert.throws(
+      () => createGameState({ worldId: 'w_does_not_exist' }),
+      /rejected|not registered/,
+    );
+    const empty = new WorldCatalog();
+    assert.throws(
+      () => createGameState({ catalog: empty, worldId: DEFAULT_PRODUCTION_WORLD_ID }),
+      /rejected|not registered/,
+    );
+    assert.notStrictEqual(createGameState({ seed: 1 }).definitionWorldId, 'legacy:sample-map');
+    const registry = createDefaultRegistry();
+    const mapEngine = registry.list().find((e) => e.id === 'map');
+    assert.ok(mapEngine);
+    assert.strictEqual(mapEngine.status, 'unavailable');
+    const legacyResolve = resolveWorldDefinition('legacy:sample-map');
+    assert.strictEqual(legacyResolve.ok, false);
+    if (!legacyResolve.ok) assert.ok(legacyResolve.issues.some((i) => i.code === 'catalog.legacy'));
+  });
+
+  test('createGameState(worldId) initializes authored ownership, regions, adjacency, and personalities', () => {
+    const def = requireTiny();
+    const state = createGameState({ seed: 4, worldId: 'w_ember_atoll' });
+    const owners = Object.fromEntries([...state.territories.values()].map((t) => [t.id, t.owner]));
+    const expected = Object.fromEntries(def.territories.map((t) => [t.id, t.startingOwnerFactionId]));
+    assert.deepStrictEqual(owners, expected);
+    assert.strictEqual(state.playerFactionId, 'f_player');
+    assert.strictEqual([...state.territories.values()].filter((t) => t.owner === 'f_player').length, 1);
+    assert.strictEqual(state.cities.size, 0);
+    assert.deepStrictEqual(state.territories.get('t_01')!.neighboring.slice().sort(), ['t_02', 't_03']);
+    assert.strictEqual(state.regions.get('r_salt_margin')!.name, 'Salt Margin');
+    assert.ok(state.regions.get('r_salt_margin')!.territoryIds.includes('t_06'));
+    for (const t of state.territories.values()) {
+      assert.ok(!('name' in t));
+      assert.ok(!('polygon' in t));
+      assert.ok(!('isCapital' in t));
+      assert.ok(!('isKnown' in t));
+      assert.ok(!('scoutedTurnsAgo' in t));
+    }
+    assert.strictEqual(state.factions.get('f_salt_raiders')!.personality.aggression, 0.9);
+  });
+
+  test('authored Ember Atoll supports banked-troop attack, city destruction, collect, and AI decide', () => {
+    const state = createGameState({ seed: 11, worldId: FIXTURE_TINY_WORLD_ID });
+    plantCity(state, 't_02');
+    state.territories.get('t_02')!.garrison = 40;
+    state.playerRewards.bankedTroops = 900;
+    const orch = new Orchestrator(state);
+    const attack = orch.execute(cmdReq('ATTACK', {
+      territoryId: 't_02', factionId: 'f_player', commitAmount: 900, seed: 3,
+    }));
+    assert.strictEqual(attack.success, true, attack.errors[0]?.message);
+    if (orch.getState().territories.get('t_02')!.owner !== 'f_player') {
+      orch.execute(cmdReq('ADVANCE_WORLD', { elapsedTicks: 8 }));
+    }
+    assert.strictEqual(orch.getState().territories.get('t_02')!.owner, 'f_player');
+    assert.ok(!orch.getState().cities.has('city_t_02'));
+    assert.strictEqual(orch.getState().playerRewards.bankedTroops, 0);
+    const founded = startConstruction(orch.getState(), {
+      factionId: 'f_player', territoryId: 't_02', projectType: 'CITY', projectId: 'con_p17',
+    });
+    assert.strictEqual(founded.projectType, 'CITY');
+    const goldBefore = orch.getState().factions.get('f_player')!.resources.gold;
+    orch.getState().worldTick += 4;
+    progressWorldEconomy(orch.getState());
+    const collect = orch.execute(cmdReq('COLLECT_RESOURCES', { territoryId: 't_01', factionId: 'f_player' }));
+    assert.strictEqual(collect.success, true, collect.errors[0]?.message);
+    assert.ok(orch.getState().factions.get('f_player')!.resources.gold >= goldBefore);
+    const decide = orch.execute(cmdReq('AI_DECIDE', {}));
+    assert.strictEqual(decide.success, true, decide.errors[0]?.message);
+    const aiCommitments = [...orch.getState().commitments.entries()].filter(([id, c]) => id !== 'f_player' && c);
+    assert.ok(aiCommitments.length >= 1);
+  });
+
+  test('authored world AI can open an invasion; player can start DEFENSE', () => {
+    const state = createGameState({ seed: 8, worldId: FIXTURE_TINY_WORLD_ID });
+    const army = [...state.armies.values()].find((a) => a.owner === 'f_cinder_court');
+    assert.ok(army);
+    army.location = 't_02';
+    army.soldiers = 800;
+    const commitment: AICommitment = {
+      id: 'cmt_p17_inv',
+      warlordId: 'f_cinder_court',
+      action: 'ATTACK',
+      targetId: 't_01',
+      targetName: 't_01',
+      status: 'committed',
+      createdTurn: 0,
+      originatingGoalId: null,
+      reason: ['test'],
+      priority: 80,
+      score: 80,
+      confidence: 1,
+      personalityBias: 0,
+      ambitionInfluence: 0,
+      factorBreakdown: [],
+      statusReason: null,
+    };
+    state.commitments.set('f_cinder_court', commitment);
+    const orch = new Orchestrator(state);
+    const resolve = orch.execute(cmdReq('RESOLVE_COMMITMENT', { factionId: 'f_cinder_court', seed: 9 }));
+    assert.strictEqual(resolve.success, true, resolve.errors[0]?.message);
+    assert.ok(
+      resolve.payload.attackOutcome === 'invasion_created'
+      || resolve.payload.attackOutcome === 'awaiting_defense'
+      || orch.getState().activeInvasions.size === 1,
+      JSON.stringify(resolve.payload),
+    );
+    const invasionId = [...orch.getState().activeInvasions.keys()][0];
+    assert.ok(invasionId);
+    const defense = orch.execute(cmdReq('START_WORKOUT', {
+      purpose: 'DEFENSE',
+      workoutId: 'wk_very_easy_mobility',
+      invasionId,
+      sessionId: 'wses_p17_def',
+      now: 1_000,
+    }));
+    assert.strictEqual(defense.success, true, defense.errors[0]?.message);
+    assert.strictEqual(orch.getState().activeInvasions.get(invasionId)!.status, 'defense_in_progress');
+  });
+
+  test('persistence envelope retains authored world identity without embedding WorldDefinition', () => {
+    const store = new InMemoryGameStateStore();
+    const state = createGameState({ seed: 2, worldId: FIXTURE_TINY_WORLD_ID });
+    const saved = store.save('player_p17', state, 0);
+    assert.ok(saved.ok, saved.ok ? '' : saved.message);
+    assert.strictEqual(saved.record.worldId, 'local');
+    assert.strictEqual(saved.record.definitionWorldId, 'w_ember_atoll');
+    assert.strictEqual(saved.record.definitionFormatVersion, WORLD_FORMAT_VERSION);
+    assert.strictEqual(saved.record.worldLevel, 1);
+    assert.strictEqual(saved.record.playerFactionId, 'f_player');
+    const blob = JSON.stringify(saved.record.payload);
+    assert.ok(!blob.includes('"rings"'), 'payload must not embed island/territory polygons');
+    const sqlRound = rowToWorldRecord(worldRecordToRow(saved.record));
+    assert.strictEqual(sqlRound.definitionWorldId, 'w_ember_atoll');
+    assert.strictEqual(sqlRound.worldLevel, 1);
+    assert.strictEqual(sqlRound.playerFactionId, 'f_player');
+    state.factions.get('f_salt_raiders')!.personality.aggression = 0.01;
+    const tampered = store.save('player_p17_tamper', state, 0);
+    assert.ok(tampered.ok, tampered.ok ? '' : tampered.message);
+    const restored = store.load('player_p17_tamper');
+    assert.ok(restored.ok);
+    if (restored.ok) {
+      assert.strictEqual(restored.state.factions.get('f_salt_raiders')!.personality.aggression, 0.9);
+    }
+    const graph = createGameState({ seed: 2, worldId: FIXTURE_TINY_WORLD_ID });
+    graph.territories.get('t_01')!.neighboring = ['t_02'];
+    applyImmutableWorldDefinition(graph, requireTiny());
+    assert.deepStrictEqual(graph.territories.get('t_01')!.neighboring.slice().sort(), ['t_02', 't_03']);
+    const loaded = store.load('player_p17');
+    assert.ok(loaded.ok);
+    if (!loaded.ok) return;
+    assert.strictEqual(loaded.state.definitionWorldId, 'w_ember_atoll');
+    assert.strictEqual(loaded.state.worldName, 'Ember Atoll');
+    assert.strictEqual(loaded.state.territories.get('t_01')!.owner, 'f_player');
+    const resolved = resolveWorldDefinition(loaded.state.definitionWorldId!);
+    assert.ok(resolved.ok);
+    if (resolved.ok) {
+      assert.ok(resolved.definition.island.rings[0]!.length >= 3);
+      assert.strictEqual(resolved.definition.containedWorlds.length, 0);
+    }
+  });
+
+  test('contained-world references stay off the playable graph', () => {
+    const def = cloneWorld(requireTiny());
+    def.containedWorlds = [{
+      worldId: 'w_prior_level',
+      regionId: 'r_cinder_highlands',
+      placement: { origin: { x: 10, y: 20 }, rotationDegrees: 0, scale: 0.25 },
+    }];
+    const state = createGameStateFromWorld(def);
+    assert.ok(!state.territories.has('w_prior_level'));
+    for (const t of state.territories.values()) {
+      assert.ok(!t.neighboring.includes('w_prior_level'));
+    }
+    assert.strictEqual(resolveWorldDefinition('w_prior_level').ok, false);
+  });
+
+  console.log('Phase 17Q — production world registration / authoring readiness');
+
+  test('world selection is centralized; production catalog ships Level 1 and not the tiny fixture', () => {
+    assert.strictEqual(DEFAULT_PRODUCTION_WORLD_ID, PRODUCTION_LEVEL_1_WORLD_ID);
+    assert.strictEqual(FIXTURE_WORLD_REGISTRATIONS.length, 1);
+    assert.strictEqual(FIXTURE_WORLD_REGISTRATIONS[0]!.worldId, FIXTURE_TINY_WORLD_ID);
+    assert.ok(PRODUCTION_WORLD_REGISTRATIONS.every((r) => r.role === 'production'));
+    assert.ok(!PRODUCTION_WORLD_REGISTRATIONS.some((r) => r.worldId === FIXTURE_TINY_WORLD_ID));
+    const productionOnly = createProductionWorldCatalog();
+    assert.deepStrictEqual(productionOnly.registeredIds(), [PRODUCTION_LEVEL_1_WORLD_ID]);
+    const missingFixture = productionOnly.load(FIXTURE_TINY_WORLD_ID);
+    assert.strictEqual(missingFixture.ok, false);
+    const prodState = createGameState({ catalog: productionOnly, seed: 1 });
+    assert.strictEqual(prodState.definitionWorldId, PRODUCTION_LEVEL_1_WORLD_ID);
+    const runtime = createWorldCatalog({ includeProduction: true, includeFixtures: true });
+    const loaded = runtime.load(DEFAULT_PRODUCTION_WORLD_ID);
+    assert.ok(loaded.ok);
+    assert.ok(runtime.load(FIXTURE_TINY_WORLD_ID).ok);
+  });
+
+  test('missing, malformed, and unsupported worlds fail closed with the configured id', () => {
+    const empty = new WorldCatalog();
+    assert.throws(
+      () => createGameState({ catalog: empty, worldId: 'w_level_1' }),
+      /configured world w_level_1 could not be loaded: catalog.missing/,
+    );
+    const malformed = parseWorldJson('{');
+    assert.strictEqual(malformed.ok, false);
+    const unsupported = parseWorldJson(JSON.stringify({ formatVersion: 'rep-wars-world.v0', worldId: 'w_x' }));
+    assert.strictEqual(unsupported.ok, false);
+    if (!unsupported.ok) assert.ok(unsupported.issues.some((i) => i.code === 'format.unsupported'));
+    const mismatch = new WorldCatalog().registerFile(tinyWorldJsonPath(), 'w_not_this_file');
+    assert.strictEqual(mismatch.ok, false);
+    if (!mismatch.ok) assert.ok(mismatch.issues.some((i) => i.code === 'catalog.world_id_mismatch'));
+    assert.notStrictEqual(createGameState({ seed: 1 }).definitionWorldId, 'legacy:sample-map');
+  });
+
+  test('world identity is consistent across definition, GameState, catalog, and persistence', () => {
+    const def = requireTiny();
+    const fromDef = identityFromDefinition(def);
+    const state = createGameState({ worldId: FIXTURE_TINY_WORLD_ID, seed: 2 });
+    const fromState = identityFromGameState(state);
+    assert.ok(fromState);
+    assert.ok(worldIdentitiesEqual(fromDef, fromState!));
+    const cataloged = getDefaultWorldCatalog().load(fromDef.worldId);
+    assert.ok(cataloged.ok);
+    if (cataloged.ok) {
+      assert.ok(worldIdentitiesEqual(fromDef, identityFromDefinition(cataloged.definition)));
+    }
+    const created = initializePlayerWorld({
+      playerId: 'player_17q',
+      store: new InMemoryGameStateStore(),
+      seed: 2,
+      worldId: FIXTURE_TINY_WORLD_ID,
+    });
+    assert.strictEqual(created.record?.definitionWorldId, fromDef.worldId);
+    assert.strictEqual(created.record?.definitionFormatVersion, fromDef.formatVersion);
+    assert.strictEqual(created.record?.worldLevel, fromDef.level);
+    assert.strictEqual(created.state.definitionWorldId, fromDef.worldId);
+  });
+
+  test('Map Assistant JSON contract: tiny fixture loads through WorldCatalog into GameState', () => {
+    const catalog = new WorldCatalog();
+    const registered = catalog.registerFile(tinyWorldJsonPath(), FIXTURE_TINY_WORLD_ID);
+    assert.ok(registered.ok, registered.ok ? '' : registered.issues.map((i) => `${i.code}: ${i.message}`).join('; '));
+    if (!registered.ok) return;
+    const def = registered.definition;
+    assert.strictEqual(def.formatVersion, WORLD_FORMAT_VERSION);
+    assert.strictEqual(def.worldId, FIXTURE_TINY_WORLD_ID);
+    assert.strictEqual(def.level, 1);
+    assert.strictEqual(def.territories.length, 6);
+    assert.strictEqual(def.regions.length, 2);
+    assert.deepStrictEqual(validateWorldDefinition(def), []);
+    const state = createGameStateFromWorld(def);
+    assert.strictEqual(state.definitionWorldId, def.worldId);
+    assert.strictEqual(state.definitionFormatVersion, def.formatVersion);
+    assert.strictEqual(state.worldLevel, def.level);
+    assert.strictEqual(state.territories.size, def.territories.length);
+    assert.strictEqual(state.regions.size, def.regions.length);
+    assert.strictEqual(state.cities.size, 0);
+    const owners = Object.fromEntries([...state.territories.values()].map((t) => [t.id, t.owner]));
+    const expectedOwners = Object.fromEntries(def.territories.map((t) => [t.id, t.startingOwnerFactionId]));
+    assert.deepStrictEqual(owners, expectedOwners);
+    for (const tDef of def.territories) {
+      assert.deepStrictEqual(state.territories.get(tDef.id)!.neighboring.slice().sort(), [...tDef.neighborIds].sort());
+    }
+    const salt = def.factions.find((f) => f.id === 'f_salt_raiders')!;
+    assert.strictEqual(state.factions.get('f_salt_raiders')!.personality.aggression, salt.personality!.traits.aggression);
+    assert.strictEqual(state.factions.get('f_salt_raiders')!.ambition, salt.personality!.ambition);
+    for (const t of state.territories.values()) {
+      assert.ok(!('name' in t));
+      assert.ok(!('isCapital' in t));
+      assert.ok(!('isKnown' in t));
+      assert.ok(!('scoutedTurnsAgo' in t));
+    }
   });
 }

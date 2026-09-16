@@ -2,6 +2,7 @@ import assert from 'assert';
 import {
   AdjustableClock,
   COMMAND_INDEX,
+  ECONOMY_CONFIG,
   ErrorCode,
   FixedWorldTimeAuthority,
   GAME_STATE_PERSISTENCE_FORMAT,
@@ -276,8 +277,12 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     const loaded = reloadRoundTrip(state);
     loaded.playerRewards.bankedTroops = 99;
     loaded.factions.get(PLAYER_FACTION)!.resources.gold = 1;
+    loaded.lastFoodConsumptionTick = 999;
+    loaded.territoryInfrastructure.get(HOME)!.farmCompletedAtTick = 42;
     assert.notStrictEqual(state.playerRewards.bankedTroops, 99);
     assert.notStrictEqual(state.factions.get(PLAYER_FACTION)!.resources.gold, 1);
+    assert.strictEqual(state.lastFoodConsumptionTick, 0);
+    assert.strictEqual(state.territoryInfrastructure.get(HOME)!.farmCompletedAtTick, null);
   });
 
   test('stale concurrent writes are rejected', () => {
@@ -376,6 +381,8 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     const decoded = decodePersistable(snapshotGameState(state)) as Record<string, unknown>;
     delete decoded.cities;
     delete decoded.territoryEconomy;
+    delete decoded.territoryInfrastructure;
+    delete decoded.lastFoodConsumptionTick;
     delete decoded.constructions;
     delete decoded.playerFitness;
     delete decoded.playerEmpirePause;
@@ -396,6 +403,8 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
     assert.ok(loaded.state.cities instanceof Map);
     assert.ok(loaded.state.playerFitness);
+    assert.strictEqual(loaded.state.lastFoodConsumptionTick, loaded.state.worldTick);
+    assert.ok(loaded.state.territoryInfrastructure instanceof Map);
   });
 
   test('schema 6 and 7 snapshots migrate invasion and construction stamps', () => {
@@ -432,6 +441,156 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     decoded.schemaVersion = 7;
     const migrated7 = migrateGameStatePayload(decoded);
     assert.strictEqual(migrated7.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+  });
+
+  test('schema 10 snapshots migrate to schema 11 food clock and empty infrastructure', () => {
+    const state = playerState();
+    state.worldTick = 40;
+    state.lastFoodConsumptionTick = 40;
+    const decoded = decodePersistable(snapshotGameState(state)) as Record<string, unknown>;
+    delete decoded.lastFoodConsumptionTick;
+    delete decoded.territoryInfrastructure;
+    decoded.schemaVersion = 10;
+    const store = new InMemoryGameStateStore();
+    store.putRaw({
+      formatVersion: GAME_STATE_PERSISTENCE_FORMAT,
+      playerId: PLAYER_ID,
+      worldId: 'local',
+      schemaVersion: 10,
+      worldTick: 40,
+      stateVersion: 1,
+      payload: encodePersistable(decoded),
+    });
+    const loaded = store.load(PLAYER_ID);
+    assert.ok(loaded.ok, loaded.ok ? '' : loaded.message);
+    assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 12);
+    assert.strictEqual(loaded.state.lastFoodConsumptionTick, 40);
+    assert.ok(loaded.state.territoryInfrastructure instanceof Map);
+    assert.strictEqual(loaded.state.territoryInfrastructure.size, 0);
+    assert.deepStrictEqual(checkGameStateInvariants(loaded.state), []);
+  });
+
+  test('schema 11 round-trips food clock, developments, construction stamps, and stability', () => {
+    const state = playerState();
+    state.worldTick = 90;
+    state.lastFoodConsumptionTick = 60;
+    state.factions.get(PLAYER_FACTION)!.stability = 64;
+    state.factions.get(PLAYER_FACTION)!.resources.food = 321;
+    const home = state.territories.get(HOME)!;
+    home.resourceOutput = { ...home.resourceOutput, food: 9, gold: 3 };
+    const infra = state.territoryInfrastructure.get(HOME)!;
+    infra.farmCompletedAtTick = 12;
+    infra.mineCompletedAtTick = 18;
+    infra.lumberCompletedAtTick = null;
+    startConstruction(state, {
+      factionId: PLAYER_FACTION,
+      territoryId: SPIRE,
+      projectType: 'FARM',
+      projectId: 'con_farm_rt',
+    });
+    const project = state.constructions.get('con_farm_rt')!;
+    project.lastProgressTick = 90;
+    project.remainingTicks = 7;
+    const loaded = reloadRoundTrip(state);
+    assert.strictEqual(loaded.schemaVersion, 12);
+    assert.strictEqual(loaded.lastFoodConsumptionTick, 60);
+    assert.strictEqual(loaded.factions.get(PLAYER_FACTION)!.stability, 64);
+    assert.strictEqual(loaded.factions.get(PLAYER_FACTION)!.resources.food, 321);
+    assert.strictEqual(loaded.territories.get(HOME)!.resourceOutput.food, 9);
+    assert.strictEqual(loaded.territoryInfrastructure.get(HOME)!.farmCompletedAtTick, 12);
+    assert.strictEqual(loaded.territoryInfrastructure.get(HOME)!.mineCompletedAtTick, 18);
+    assert.strictEqual(loaded.territoryInfrastructure.get(HOME)!.lumberCompletedAtTick, null);
+    const farm = loaded.constructions.get('con_farm_rt')!;
+    assert.strictEqual(farm.projectType, 'FARM');
+    assert.strictEqual(farm.lastProgressTick, 90);
+    assert.strictEqual(farm.remainingTicks, 7);
+    assert.strictEqual(farm.status, 'in_progress');
+  });
+
+  test('migrate coerces incomplete infrastructure stamps to null and keeps FARM projects', () => {
+    const state = playerState();
+    startConstruction(state, {
+      factionId: PLAYER_FACTION,
+      territoryId: HOME,
+      projectType: 'FARM',
+      projectId: 'con_farm_mig',
+    });
+    const decoded = decodePersistable(snapshotGameState(state)) as Record<string, unknown>;
+    decoded.schemaVersion = 10;
+    const infra = decoded.territoryInfrastructure as Map<string, Record<string, unknown>>;
+    infra.set(HOME, { territoryId: HOME, farmCompletedAtTick: 'soon' });
+    const constructions = decoded.constructions as Map<string, Record<string, unknown>>;
+    constructions.set('con_road_legacy', {
+      ...constructions.get('con_farm_mig')!,
+      id: 'con_road_legacy',
+      projectType: 'ROAD',
+    });
+    const migrated = migrateGameStatePayload(decoded);
+    const nextInfra = migrated.territoryInfrastructure as Map<string, Record<string, unknown>>;
+    assert.strictEqual(nextInfra.get(HOME)!.farmCompletedAtTick, null);
+    assert.strictEqual(nextInfra.get(HOME)!.mineCompletedAtTick, null);
+    assert.strictEqual(nextInfra.get(HOME)!.lumberCompletedAtTick, null);
+    const nextProjects = migrated.constructions as Map<string, Record<string, unknown>>;
+    assert.strictEqual(nextProjects.get('con_farm_mig')!.projectType, 'FARM');
+    assert.strictEqual(nextProjects.get('con_road_legacy')!.projectType, 'FORTIFICATION');
+  });
+
+  test('Level 1 catch-up advances the food clock without debiting Food or Stability', () => {
+    const state = playerState();
+    assert.strictEqual(state.worldLevel, 1);
+    const { result } = syncTo(state, 120);
+    assert.strictEqual(result.state.worldTick, 120);
+    assert.strictEqual(result.state.lastFoodConsumptionTick, 120);
+    assert.strictEqual(result.catchUp.foodConsumption.gated, true);
+    assert.ok(result.catchUp.foodConsumption.cycles >= 1);
+    assert.strictEqual(result.catchUp.foodConsumption.factions.length, 0);
+  });
+
+  test('ungated catch-up consumes Food by cycle stamps and does not double-charge on a second sync', () => {
+    const state = playerState();
+    state.worldLevel = 2;
+    const player = state.factions.get(PLAYER_FACTION)!;
+    player.resources.food = 50_000;
+    const store = new InMemoryGameStateStore();
+    const { result } = syncTo(state, ECONOMY_CONFIG.ticksPerProductionCycle, { store });
+    assert.strictEqual(result.state.worldTick, 60);
+    assert.strictEqual(result.state.lastFoodConsumptionTick, 60);
+    assert.strictEqual(result.catchUp.foodConsumption.gated, false);
+    assert.ok(result.catchUp.foodConsumption.cycles >= 1);
+    const foodRow = result.catchUp.foodConsumption.factions.find((row) => row.factionId === PLAYER_FACTION);
+    assert.ok(foodRow);
+    assert.ok(foodRow!.paid > 0 || foodRow!.failedCycles > 0);
+    const afterFirst = result.state.factions.get(PLAYER_FACTION)!.resources.food;
+    const second = syncPlayerWorld({
+      playerId: PLAYER_ID,
+      requestedTick: 60,
+      authority: new FixedWorldTimeAuthority(60),
+      store,
+    });
+    assert.ok(second.ok, second.ok ? '' : second.message);
+    assert.strictEqual(second.catchUp.ticksAdvanced, 0);
+    assert.strictEqual(second.state.lastFoodConsumptionTick, 60);
+    assert.strictEqual(second.state.factions.get(PLAYER_FACTION)!.resources.food, afterFirst);
+  });
+
+  test('offline catch-up completes Farm construction by world-tick stamps', () => {
+    const state = playerState();
+    startConstruction(state, {
+      factionId: PLAYER_FACTION,
+      territoryId: HOME,
+      projectType: 'FARM',
+      projectId: 'con_farm_catchup',
+    });
+    assert.strictEqual(state.territoryInfrastructure.get(HOME)!.farmCompletedAtTick, null);
+    const { result } = syncTo(state, GAMEPLAY_CONFIG.farmConstructionDurationTicks);
+    const project = result.state.constructions.get('con_farm_catchup')!;
+    assert.strictEqual(project.status, 'completed');
+    assert.strictEqual(project.remainingTicks, 0);
+    assert.strictEqual(
+      result.state.territoryInfrastructure.get(HOME)!.farmCompletedAtTick,
+      GAMEPLAY_CONFIG.farmConstructionDurationTicks,
+    );
   });
 
   test('Fitness estimate and pending reward survive reload', () => {

@@ -18,13 +18,18 @@ export {
   computeRawUnitPower,
   computeAttackerPower,
   computeDefenderPower,
+  cityPresenceDefenseFactor,
+  terrainAndFortToDefenseBonus,
   computeWinProbability,
   computeMilitaryAdvantageRatio,
 } from './battle/CombatPower';
+/** LEGACY TEST/DEMO ONLY. Not a production world authority. */
 export { MapEngine } from './map/MapEngine';
 export { collectNeighborGraphIssues, NeighborGraphIssue } from './map/graphInvariants';
+/** LEGACY TEST/DEMO ONLY. Not production geography. */
 export { NamingSystem } from './map/NamingSystem';
 export { DEFAULT_THEME_LIBRARY, IRON_HILLS, CHRISTMAS_TREE_MOUNTAINS, TUNA_ISLES, EMBER_PLAINS, CRYSTAL_COAST, MISTWOOD, GOLDEN_DESERT } from './map/Themes';
+/** LEGACY TEST FIXTURE. Production worlds use WorldCatalog + WorldDefinition. */
 export { SimulationBuilder, SAMPLE_MAP, WARLORD_SPECS, MapTerritorySpec, WarlordSpec } from './simulation/SampleMap';
 export {
   LabParams,
@@ -72,7 +77,7 @@ export {
 export { WorldSimulator, ConsequenceApplier } from './events/WorldSimulator';
 
 // ====== AUTHORITATIVE RUNTIME GAMESTATE ======
-export { GameState, GAME_STATE_SCHEMA_VERSION, emptyWorldClock, emptyPlayerRewardState, emptyRewardApplicationState, createActiveInvasion } from './types/GameState';
+export { GameState, GAME_STATE_SCHEMA_VERSION, emptyWorldClock, emptyPlayerRewardState, emptyRewardApplicationState, emptyLevelDefeatState, emptyLevel1TutorialState, emptyTerritoryInfrastructure, createActiveInvasion } from './types/GameState';
 export type {
   PlayerRewardState,
   PendingConstructionEffect,
@@ -86,14 +91,21 @@ export type {
   City,
   CityBuilding,
   TerritoryEconomy,
+  TerritoryInfrastructure,
   PlayerFitnessState,
   PlayerEmpirePause,
   AttackerCooldown,
+  LevelDefeatState,
+  LevelDefeatStatus,
+  Level1TutorialState,
+  Level1TutorialBeat,
+  Level1TutorialExpectedAction,
 } from './types/GameState';
 export {
   createGameState,
   createLegacySampleMapGameState,
   CreateGameStateOptions,
+  CreateLegacySampleMapOptions,
   cloneGameState,
   checkGameStateInvariants,
   isGameStateStructurallyValid,
@@ -108,13 +120,36 @@ export {
 export {
   WORLD_FORMAT_VERSION,
   WorldCatalog,
+  DEFAULT_PRODUCTION_WORLD_ID,
+  FIXTURE_TINY_WORLD_ID,
+  FIXTURE_TINY_WORLD_RELATIVE_PATH,
+  PRODUCTION_LEVEL_1_WORLD_ID,
+  PRODUCTION_LEVEL_1_RELATIVE_PATH,
+  FIXTURE_WORLD_REGISTRATIONS,
+  PRODUCTION_WORLD_REGISTRATIONS,
+  createWorldCatalog,
+  createProductionWorldCatalog,
+  formatWorldLoadFailure,
+  identityFromDefinition,
+  identityFromGameState,
+  worldIdentitiesEqual,
+  assertWorldIdentity,
   loadWorldDefinition,
   parseWorldJson,
   validateWorldDefinition,
   createGameStateFromWorld,
+  applyImmutableWorldDefinition,
   loadTinyWorldDefinition,
+  loadProductionLevel1Definition,
   requireWorldDefinition,
+  resolveWorldDefinition,
+  resolveWorldFilePath,
+  getDefaultWorldCatalog,
+  isLegacyDefinitionWorldId,
   regionDisplayName,
+  tinyWorldJsonPath,
+  productionLevel1JsonPath,
+  serializeWorldDefinitionForClient,
 } from './worldDefinition';
 export type {
   WorldDefinition,
@@ -125,6 +160,8 @@ export type {
   WorldPolygon,
   ContainedWorldDefinition,
   WorldLoadResult,
+  WorldFileRegistration,
+  AuthoredWorldIdentity,
 } from './worldDefinition';
 
 // ====== ORCHESTRATOR (Phase 10) ======
@@ -135,10 +172,45 @@ export {
   COMMAND_INDEX,
   getCommandDefinition,
   commandIndexSummary,
+  MUTATING_HANDLERS,
+  READ_ONLY_HANDLERS,
   ErrorCode,
   OrchestrationError,
 } from './orchestration';
 export type { CommandRequest, CommandResponse, StateChange } from './orchestration';
+
+// ====== GAMEPLAY TELEMETRY (observes GameState; not a source of truth) ======
+export {
+  TELEMETRY_SCHEMA_VERSION,
+  TELEMETRY_IMPORTANCE,
+  TELEMETRY_EVENT_TYPES,
+  importanceFor,
+  isTelemetryEventType,
+  createTelemetryEvent,
+  validateTelemetryEvent,
+  InMemoryTelemetryStore,
+  IsolatedTelemetryRecorder,
+  createTelemetryRecorder,
+  collectCommandTelemetry,
+  getEvents,
+  eventsCausedBy,
+  reconstructChain,
+  summarizeGame,
+  summarizePlayer,
+  summarizeAi,
+  derivedMetrics,
+} from './analytics';
+export type {
+  TelemetryEvent,
+  TelemetryEventType,
+  TelemetryImportance,
+  TelemetryQuery,
+  TelemetryStore,
+  TelemetryRecorder,
+  GameTelemetrySummary,
+  PlayerTelemetrySummary,
+  AiTelemetrySummary,
+} from './analytics';
 
 // ====== CONTINUOUS WORLD (Phase 13) ======
 export {
@@ -187,6 +259,10 @@ export {
   isBodySection,
   isWorkoutExerciseRole,
   isWorkoutPurpose,
+  DEFAULT_SELECTED_WORKOUT_ID,
+  WORKOUT_SELECTION_BY_PURPOSE,
+  selectedWorkoutIdForPurpose,
+  listPurposeWorkoutSelections,
   clonePrescription,
   skippableForExerciseType,
   expectedPrescriptionKind,
@@ -201,6 +277,13 @@ export {
   exerciseCatalogById,
   listWorkoutDefinitions,
   getWorkoutDefinition,
+  LIBRARY_DEFAULT_REPETITIONS,
+  LIBRARY_DEFAULT_DURATION_SECONDS,
+  LIBRARY_EXERCISES,
+  LIBRARY_TEMPLATES,
+  LIBRARY_REUSED_EXERCISE_IDS,
+  LIBRARY_STRETCH_EXERCISE_IDS,
+  ALL_STRETCH_EXERCISE_IDS,
   prescribeWorkoutBaseline,
   baselinePrescriptionResolver,
   clonePrescribedWorkout,
@@ -347,13 +430,27 @@ export {
   acceleratedRemainingTicks,
   startConstruction,
   consumeConstructionEffect,
+  getConstructionProjectDefinition,
+  listConstructionProjectTypes,
+  isConstructionProjectType,
+  syncAllFactionResourceIncome,
+  deriveFactionResourceIncome,
   cityIdFor,
   ensureCity,
+  cityCombatModifiersEnabled,
+  territoryHasCity,
+  combatDefenseMultiplier,
+  defenseWorkoutMultiplier,
+  withTerritoryCombatView,
   collectTerritoryYield,
   peekCollectibleResources,
   productionAccrued,
+  effectiveResourceOutput,
   progressWorldEconomy,
+  consumeEmpireFood,
+  foodConsumptionDisabled,
   settleTerritoryOwnershipChange,
+  territoryDestructionHasLosses,
   beginInvasionAgainstPlayer,
   resolveInvasionBattle,
   processInvasionTimeouts,
@@ -364,6 +461,32 @@ export {
   canAiAttackPlayer,
   isPlayerProtected,
   setPlayerEmpirePause,
+  isPlayerAnchorProtected,
+  isPlayerAnchorProtectedOnSnapshot,
+  isPlayerAnchorTerritory,
+  playerOwnedAnchorTerritoryIds,
+  playerOwnedNonAnchorTerritoryIds,
+  assertAnchorAttackAllowed,
+  bindLevelAnchors,
+  applyPlayerTerritoryLoss,
+  evaluateWorldCompletion,
+  applyWorldCompletionCheck,
+  bindLevel1Tutorial,
+  syncLevel1Tutorial,
+  serializeLevel1TutorialView,
+  isLevel1TutorialApplicable,
+  isLevel1TutorialAiSuppressed,
+  tutorialExpectedWorkoutPurpose,
+  LEVEL1_SCRIPTED_RAID_TROOPS,
+  ANCHOR_PROTECTED_REASON,
+  ANCHOR_PROTECTED_MESSAGE,
+} from './gameplay';
+export type {
+  WorldCompletionView,
+  FoodConsumptionResult,
+  FoodConsumptionFactionResult,
+  TerritoryDestructionReport,
+  Level1TutorialPublicView,
 } from './gameplay';
 export type {
   GameRewardKind,
@@ -404,8 +527,14 @@ export {
   resolveAuthoritativeTargetTick,
   commitAuthoritativePlayerWorld,
   syncPlayerWorld,
+  initializePlayerWorld,
+  ensurePlayerWorld,
   SUPABASE_DDL,
   SupabaseGameStateStore,
+  worldRecordToRow,
+  rowToWorldRecord,
+  telemetryEventToRow,
+  rowToTelemetryEvent,
 } from './persistence';
 export type {
   PersistedWorldRecord,
@@ -415,6 +544,10 @@ export type {
   WorldTimeAuthority,
   SyncPlayerWorldInput,
   SyncPlayerWorldResult,
+  InitializePlayerWorldOptions,
+  InitializePlayerWorldResult,
+  EnsurePlayerWorldOptions,
+  EnsurePlayerWorldResult,
 } from './persistence';
 
 export {

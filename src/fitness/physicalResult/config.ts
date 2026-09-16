@@ -31,6 +31,7 @@
 
 import { WorkoutDifficulty } from '../types';
 import { WORKOUT_DIFFICULTY_RANK } from '../types';
+import { ALL_STRETCH_EXERCISE_IDS } from '../catalog/library';
 
 export const PHYSICAL_RESULT_MODEL_VERSION_REF = 'physical-result.v1' as const;
 export const PHYSICAL_OUTPUT_VERSION_REF = 'physical-output.v1' as const;
@@ -51,13 +52,7 @@ export const PHYSICAL_RESULT_CONFIG = Object.freeze({
   } as Record<string, number>),
   restFactor: 0,
   stretchFactor: 0,
-  stretchExerciseIds: Object.freeze([
-    'ex_neck_rolls',
-    'ex_arm_circles',
-    'ex_shoulder_stretch',
-    'ex_quad_stretch',
-    'ex_child_pose',
-  ]),
+  stretchExerciseIds: Object.freeze([...ALL_STRETCH_EXERCISE_IDS]),
   referenceDifficultyRank: WORKOUT_DIFFICULTY_RANK.MODERATE,
   difficultyStepPerRank: 0.04,
   difficultyFactorMin: 0.88,

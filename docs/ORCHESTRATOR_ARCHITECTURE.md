@@ -1,51 +1,51 @@
 # Orchestrator architecture (Phase 10)
 
-Phase 10 introduces the first real orchestration layer on top of Phase 9
-authoritative `GameState`. Phase 13 routes `ADVANCE_WORLD` through the
-Continuous World Engine (see `docs/CONTINUOUS_WORLD_ARCHITECTURE.md`).
-**No persistence, frontend, workout/fitness engine, or Supabase integration
-was built.**
+> **Current:** Production `GameState` is initialized from authored
+> `WorldDefinition` via `WorldCatalog`. MapEngine is unavailable in
+> `EngineRegistry`. `SCOUT` and `EXPAND` are not catalog commands.
+> Workout/fitness, economy, invasions, persistence/sync, pause, and
+> gameplay telemetry are routed through this same Orchestrator.
+
+The Orchestrator is the authoritative command-routing and mutation
+boundary on top of canonical `GameState`. Phase 13 routes
+`ADVANCE_WORLD` through the Continuous World Engine (see
+`docs/CONTINUOUS_WORLD_ARCHITECTURE.md`).
+
+**Level 1** is `worlds/level-1.json`. A tutorial controller is not in the
+command catalog. `GET_WORLD_DEFINITION` returns polygons;
+`GET_FITNESS_CATALOG` returns prescribed workouts and purpose selections;
+`GET_WORKOUT_SELECTION` is the authoritative purpose → workout prescription.
 
 ## Principle
 
 **The Orchestrator coordinates. The engines calculate. `GameState` is authoritative.**
+Analytics observes committed results. Analytics never decides success.
 
 ```
 CommandRequest
       ↓
-validate command + parameters
+validate command + parameters + authorization
       ↓
-route to handler
+route to handler (`READ_ONLY_HANDLERS` / `MUTATING_HANDLERS` / `SYNC_PLAYER_WORLD`)
       ↓
-handler reads GameState (or clone for mutating commands)
-      ↓
-engine calculation (BattleEngine / WorldSimulator / DecisionEngine / MapEngine)
-      ↓
-apply result onto GameState draft
-      ↓
-checkGameStateInvariants()
-      ↓
-commit draft → authoritative GameState
+mutating: clone → handler/engine → checkGameStateInvariants → commit
       ↓
 CommandResponse
+      ↓
+IsolatedTelemetryRecorder (best-effort; cannot fail gameplay)
 ```
 
-## Reconciliation with old `src/orchestration/` draft
-
-| Artifact | Fate |
-| --- | --- |
-| Phase 9 `GameState` (`src/types/GameState.ts`) | **Authoritative** — sole runtime world |
-| Old `AuthoritativeGameState` (`gameState.ts`) | **Deprecated** — type alias to `GameState` only; wall-clock fields removed |
-| Old 100+ command frontend catalog | **Replaced** by focused Phase 10 catalog (`commandIndex.ts`, ~16 commands) |
-| `applyBattle.ts` / `applyEvents.ts` / `publicView.ts` | **Adapted** to operate on `GameState`, not the old draft |
-| `engineRegistry.ts` | **Reused** — registers Battle/AI/Event/Map engines |
-| Workout/fitness commands | **Not implemented** — fitness port remains optional stub |
+Persistence is a **sibling** of `execute()`, not an inner step of it.
+Callers persist with `commitAuthoritativePlayerWorld` / `syncPlayerWorld`
+after a command. Offline catch-up uses the same `handleAdvanceWorld` path
+inside `catchUpWorld`.
 
 ## Command contract
 
 **Input — `CommandRequest`** (`src/orchestration/protocol.ts`):
 
 - `commandId`, `playerId`, optional `timestamp`, `parameters`, `clientContext`, `requestId`
+- `requestId` is a **correlation** id for responses and telemetry. It is not a global execution ledger. Domain idempotency uses `applicationId` / `sessionId` / invasion identity / construction status.
 
 **Output — `CommandResponse`**:
 
@@ -54,38 +54,54 @@ CommandResponse
 - `resourcesChanged`, `territoriesChanged`, `armiesChanged`, `newlyAvailableActions`
 - `errors`, `payload`
 
-Acting faction resolution: `parameters.factionId` → else `GameState.playerFactionId` → else error.
+`success: false` with handler `commandSuccess: false` still **commits** the transaction. That is used for bookkeeping failures (failed AI commitment, pending workout reward). Thrown `OrchestrationError` rolls back.
+
+Acting faction resolution: `parameters.factionId` → else `GameState.playerFactionId` → else error. Player commands cannot impersonate another faction. `AI` / `WORLD` / `SYSTEM` categories skip that gate.
 
 ## Command catalog (`COMMAND_INDEX`)
 
-Machine-readable entries in `src/orchestration/commandIndex.ts`. Each entry includes category, description, parameters, validation notes, `routesTo`, `changesState`, sync/async classification, `status` (`implemented` | `unsupported`), and possible errors.
+Machine-readable entries in `src/orchestration/commandIndex.ts`. Handlers live in `src/orchestration/handlers.ts` and `gameplayCommands.ts`. `SYNC_PLAYER_WORLD` is wired in `orchestrator.ts`.
 
-### Implemented in Phase 10
+### Implemented
 
 | Command | Routes to | Mutates state |
 | --- | --- | --- |
 | `GET_COMMAND_INDEX` | orchestrator | no |
-| `GET_GAME_STATE` | state (cloned public view) | no |
-| `GET_VISIBLE_WORLD` | state (full current-world view; no tile fog) | no |
-| `ATTACK` | BattleEngine → applyBattle | yes |
-| `MOVE` | state (adjacent army move) | yes |
-| `BUILD` | state (fortify an existing city) | yes |
-| `REINFORCE` | state (`BALANCE.economy.reinforcementCost`) | yes |
-| `START_CONSTRUCTION` | state (`CITY` or `FORTIFICATION`) | yes |
-| `DECLARE_WAR` | state (relationship → `at_war`) | yes |
-| `NEGOTIATE` | state (small opinion bump) | yes |
-| `ADVANCE_WORLD` | ContinuousWorldEngine → AI_DECIDE / RESOLVE_COMMITMENT / WorldSimulator | yes |
-| `AI_DECIDE` | DecisionEngine → sync commitments | yes (commitments only) |
-| `RESOLVE_COMMITMENT` | handler delegates to ATTACK/BUILD/… | yes |
+| `GET_GAME_STATE` | state (cloned public view; includes `worldCompletion`, `playerGameplay.activeWorkout`, anchors, invasions) | no |
+| `GET_VISIBLE_WORLD` | state (full current-world view; no tile fog; no polygons) | no |
+| `GET_WORLD_DEFINITION` | authored WorldDefinition including polygons | no |
+| `GET_FITNESS_CATALOG` | workout/exercise catalog plus purpose → selectedWorkoutId | no |
+| `GET_WORKOUT_SELECTION` | authoritative selected workout + prescribed snapshot for a purpose | no |
+| `ATTACK` | BattleEngine / invasion hold / banked-troop commit | yes |
+| `MOVE` | army movement | yes |
+| `BUILD` | fortify an existing city | yes |
+| `REINFORCE` | garrison spend | yes |
+| `DECLARE_WAR` | relationship → `at_war` | yes |
+| `NEGOTIATE` | opinion bump | yes |
+| `SYNC_PLAYER_WORLD` | catch-up via `ADVANCE_WORLD` chunks + time authority | yes |
+| `ADVANCE_WORLD` | ContinuousWorldEngine → AI / events / economy | yes |
+| `AI_DECIDE` | DecisionEngine → commitments | yes |
+| `RESOLVE_COMMITMENT` | shared domain ops (including strategic RETREAT) | yes |
+| `START_CONSTRUCTION` | CITY or FORTIFICATION | yes |
+| `APPLY_CONSTRUCTION_ACCELERATION` | consume Extra Construction Workers | yes |
+| `COLLECT_RESOURCES` | territory yield; optional Golden Yield | yes |
+| `SET_PLAYER_PAUSE` | player empire pause | yes |
+| `START_WORKOUT` | WorkoutSession (workoutId optional; defaults to selection) | yes |
+| `RECORD_EXERCISE` | session performance | yes |
+| `SKIP_REST` | skip REST step | yes |
+| `SUBMIT_WORKOUT_FEEDBACK` | required feedback | yes |
+| `FINALIZE_WORKOUT` | fitness → PhysicalResult → GameRewardResult → applyGameReward | yes |
+| `ABANDON_WORKOUT` | abandon; DEFENSE resolves invasion as failed | yes |
+| `RECORD_INTEGRITY_FLAG` | integrity flag; second flag abandons | yes |
 
 ### Intentionally unsupported (`FEATURE_NOT_IMPLEMENTED`)
 
 | Command | Reason |
 | --- | --- |
-| `OFFER_PEACE` | Current model records offers in memory but does not transition war state |
-| `TRADE` | Current model adjusts opinion/memory but does not exchange resources |
+| `OFFER_PEACE` | Current model does not transition war state |
+| `TRADE` | Current model does not exchange resources |
 
-Commitment actions `RETREAT` and `MOVE` are executable through `RESOLVE_COMMITMENT` (see `docs/AI_COMMITMENT_EXECUTION.md`). `SCOUT` and `EXPAND` are not production commands. Unsupported catalog entries (`TRADE`, `OFFER_PEACE`) still fail with `FEATURE_NOT_IMPLEMENTED`.
+Commitment `RETREAT` is **not** a catalog command. It executes only through `RESOLVE_COMMITMENT`. `SCOUT` and `EXPAND` are not production commands.
 
 Production geography is an authored `WorldDefinition` (`docs/WORLD_DEFINITION.md`). `SAMPLE_MAP` / MapEngine are legacy test fixtures only.
 
@@ -93,13 +109,15 @@ Production geography is an authored `WorldDefinition` (`docs/WORLD_DEFINITION.md
 
 | Layer | Owns |
 | --- | --- |
-| **GameState** | Territories, armies, factions, resources, diplomacy, events, commitments, authored-world identity |
+| **GameState** | Territories, armies, factions, resources, diplomacy, events, commitments, authored-world identity, rewards, invasions, constructions, fitness compact state |
 | **BattleEngine** | Battle math, `BattleResult` |
 | **WorldSimulator** | Event step output (`WorldStepOutput`) |
 | **DecisionEngine** | AI scoring, commitment lifecycle calculation |
 | **WorldDefinition** | Immutable authored geometry, regions, starting owners, AI personalities |
 | **Orchestrator** | Validation, routing, transaction, applying engine results, invariant gate, response packaging |
 | **Handlers** | Per-command glue — no battle formulas, no event generation logic |
+| **Persistence** | Envelope save/load/sync; not a second world authority |
+| **Telemetry** | Append-only observation of committed commands |
 
 ## State mutation boundary
 
@@ -112,35 +130,38 @@ Mutating commands use `runStateTransaction()` (`src/orchestration/transaction.ts
 
 Read-only commands never enter the transaction path. `GET_*` handlers serialize from `cloneGameState()` internally where needed.
 
+Intentional non-`execute()` mutations:
+
+- `createGameState` / `initializePlayerWorld` / `ensurePlayerWorld` (boot;
+  `ensurePlayerWorld` is the persisted load-or-create-once path.
+  See `docs/PLAYER_IDENTITY.md`)
+- `syncPlayerWorld` catch-up (clones, runs `catchUpWorld` → `handleAdvanceWorld`, then invariants + save)
+- Domain helpers invoked **from** handlers (`applyGameReward` uses a nested transaction)
+- CLI/MapEngine demos and tests (not production command path)
+
 No second `WorldState`, no parallel faction/territory/army collections.
 
 ## Error contract
 
-Uses `ErrorCode` in `src/orchestration/errors.ts`, including:
-
-`INVALID_COMMAND`, `MISSING_PARAMETER`, `INVALID_TARGET`, `INSUFFICIENT_RESOURCES`, `INSUFFICIENT_TROOPS`, `INVALID_TERRITORY`, `ACTION_NOT_ALLOWED`, `ENGINE_UNAVAILABLE`, `ENGINE_ERROR`, `INVALID_GAME_STATE`, `FEATURE_NOT_IMPLEMENTED`
+Uses `ErrorCode` in `src/orchestration/errors.ts`.
 
 Unsupported commands **never return `success: true`.**
 
 ## Determinism
 
-- Battle seeds: `deriveBattleSeed(worldSeed, turn, attacker, defender, territory)` (same as CLI harness)
+- Battle seeds: `deriveBattleSeed(worldSeed, turn, attacker, defender, territory)`
 - Optional `parameters.seed` on `ATTACK`
 - `AI_DECIDE` uses `GameState.worldSeed` and integer `turn`
-- `ADVANCE_WORLD` advances `worldTick` (and `turn` via the EventEngine adapter); uses `worldSeed` for events/battles
-- No `Math.random()` or `Date.now()` in gameplay paths (trace/debug only)
+- `ADVANCE_WORLD` advances `worldTick`
+- No `Math.random()` or `Date.now()` in gameplay paths (session `now` is a caller-supplied session clock)
 
 ## What remains intentionally NOT implemented
 
-- Supabase / persistence / replay save files
+- Live Supabase network adapter (DDL/mapper contract only)
 - Frontend / WebSocket API
-- Continuous 24/7 wall-clock timers, offline catch-up rates, `WORLD.CATCH_UP`
-  (Phase 13 added **simulation ticks** / `ADVANCE_WORLD` elapsed-time
-  infrastructure only — see `docs/CONTINUOUS_WORLD_ARCHITECTURE.md`)
-- Player fitness / workout processing
-- Full old frontend command surface (100+ commands)
-- `cli.ts` rewiring to Orchestrator (CLI remains a separate harness)
-- New battle/event/diplomacy/map mechanics
+- Workout pause/resume **commands** (session domain has PAUSED; no catalog command yet)
+- `OFFER_PEACE` / `TRADE` gameplay
+- `requestId` as a durable exactly-once execution log
 
 ## Entry point
 
@@ -148,17 +169,17 @@ Unsupported commands **never return `success: true`.**
 import { createGameState } from './state';
 import { Orchestrator } from './orchestration';
 
-const orch = new Orchestrator(createGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+const orch = new Orchestrator(createGameState({ seed: 42 }));
 const res = orch.execute({
   commandId: 'ATTACK',
   playerId: 'player_1',
-  parameters: { territoryId: 'central_plains' },
+  parameters: { territoryId: 't_02', commitAmount: 120 },
 });
 ```
 
-See `tests/run.ts` — "Orchestrator foundation" and "Player/AI interaction architecture".
+See `tests/run.ts` orchestrator suites and `tests/orchestratorIntegration.ts`.
 
-Player and AI share domain engines (BattleEngine, WorldSimulator, MapEngine).
+Player and AI share domain engines (BattleEngine, WorldSimulator).
 AI-only reasoning stays in DecisionEngine. See
 `docs/PLAYER_AI_INTERACTION_ARCHITECTURE.md` and
 `docs/AI_COMMITMENT_EXECUTION.md`.

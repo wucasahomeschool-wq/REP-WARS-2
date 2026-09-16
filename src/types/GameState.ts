@@ -9,8 +9,8 @@
  * authored-world identity (`definitionWorldId` / level). Geometry stays
  * on WorldDefinition. The current world is fully visible.
  *
- * Engines (BattleEngine, WorldSimulator/EventEngine, DecisionEngine,
- * MapEngine) calculate/propose results from a narrow, engine-specific
+ * Engines (BattleEngine, WorldSimulator/EventEngine, DecisionEngine)
+ * calculate/propose results from a narrow, engine-specific
  * read view of this state (see `src/state/gameStateAdapters.ts`). They do
  * not hold a second authoritative copy of the world. The Orchestrator
  * (`src/orchestration/`) applies engine results back onto `GameState`.
@@ -66,10 +66,17 @@ import { GameRewardResult } from '../rewards/types';
  *     lastProgressTick).
  * 8 = Phase 17K invasion lifecycle (pending_response / defense_in_progress,
  *     defense completion timeout).
- * 9 = Phase 17N.2 authored worlds (definition identity, regions, no tile fog,
- *     no territory names/capitals, CITY construction).
+ * 9 = Phase 17N.2 / 17P authored worlds (definition identity, regions, no
+ *     tile fog, no territory names/capitals, CITY construction). Persistence
+ *     envelope also copies definitionWorldId / format / level / playerFactionId.
+ * 10 = Level-anchor territories and level-defeat hook. Anchors are the
+ *     player's starting tiles for the current world; they are not capitals.
+ * 11 = Economy v1 foundations: lastFoodConsumptionTick + territoryInfrastructure
+ *     (Farm/Mine/Lumber occupancy). Consumption and developments are not
+ *     executed in this schema bump.
+ * 12 = Level 1 tutorial controller (`level1Tutorial` beat + scripted-invasion stamps).
  */
-export const GAME_STATE_SCHEMA_VERSION = 9;
+export const GAME_STATE_SCHEMA_VERSION = 12;
 
 export type InvasionId = string;
 
@@ -166,7 +173,7 @@ export interface ActiveInvasion {
 }
 
 export type ConstructionId = string;
-export type ConstructionProjectType = 'CITY' | 'FORTIFICATION';
+export type ConstructionProjectType = 'CITY' | 'FORTIFICATION' | 'FARM' | 'MINE' | 'LUMBER';
 export type ConstructionProjectStatus = 'in_progress' | 'completed';
 export type CityId = string;
 export type CityBuildingType = 'CITY' | 'FORTIFICATION';
@@ -202,6 +209,27 @@ export interface TerritoryEconomy {
   territoryId: TerritoryId;
   lastAccrualTick: number;
   uncollected: Resources;
+}
+
+/**
+ * Completed resource-development occupancy. Null ticks mean the
+ * development is absent. Production reads these flags at collect/accrual
+ * time; they never rewrite `Territory.resourceOutput`.
+ */
+export interface TerritoryInfrastructure {
+  territoryId: TerritoryId;
+  farmCompletedAtTick: number | null;
+  mineCompletedAtTick: number | null;
+  lumberCompletedAtTick: number | null;
+}
+
+export function emptyTerritoryInfrastructure(territoryId: TerritoryId): TerritoryInfrastructure {
+  return {
+    territoryId,
+    farmCompletedAtTick: null,
+    mineCompletedAtTick: null,
+    lumberCompletedAtTick: null,
+  };
 }
 
 export interface ConstructionProject {
@@ -261,6 +289,61 @@ export interface AttackerCooldown {
   continuationUntilTick: number | null;
 }
 
+export type LevelDefeatStatus = 'active' | 'defeated';
+
+/**
+ * Authoritative Level 1 tutorial beats. Only used when
+ * `definitionWorldId` is the production Level 1 world and a player faction exists.
+ * Not a general narrative engine.
+ */
+export const LEVEL1_TUTORIAL_BEATS = [
+  'FIRST_WORKOUT_PENDING',
+  'FIRST_ATTACK_AVAILABLE',
+  'SCRIPTED_ATTACK_PENDING',
+  'DEFENSE_PENDING',
+  'FINAL_WORKOUT_PENDING',
+  'FINAL_ATTACK_AVAILABLE',
+  'COMPLETE',
+] as const;
+
+export type Level1TutorialBeat = (typeof LEVEL1_TUTORIAL_BEATS)[number];
+
+export type Level1TutorialExpectedAction =
+  | 'START_WORKOUT_NORMAL_TROOPS'
+  | 'ATTACK'
+  | 'START_WORKOUT_DEFENSE'
+  | 'NONE';
+
+/**
+ * Persisted Level 1 tutorial overlay. Null on non-tutorial worlds.
+ * Flags are the source of truth; `beat` is the last computed public step.
+ */
+export interface Level1TutorialState {
+  active: boolean;
+  beat: Level1TutorialBeat;
+  firstWorkoutSessionId: string | null;
+  firstConquestTerritoryId: TerritoryId | null;
+  scriptedInvasionId: InvasionId | null;
+  scriptedInvasionTargetId: TerritoryId | null;
+  defenseResolved: boolean;
+  secondWorkoutSessionId: string | null;
+  completed: boolean;
+}
+
+/**
+ * Current-level foothold / defeat hook. Not a capital system.
+ * Previous-level player worlds are not stored here.
+ */
+export interface LevelDefeatState {
+  status: LevelDefeatStatus;
+  defeatedAtTick: number | null;
+  defeatedLevel: number | null;
+  defeatedWorldId: string | null;
+  lastLostAnchorTerritoryId: TerritoryId | null;
+  /** WorldDefinition.containedWorlds worldIds at init. Demotion is future work. */
+  previousWorldIds: string[];
+}
+
 export interface GameState {
   /** Schema/version marker for this shape. See `GAME_STATE_SCHEMA_VERSION`. */
   schemaVersion: number;
@@ -278,6 +361,13 @@ export interface GameState {
    * time from start is this value.
    */
   worldTick: number;
+  /**
+   * Last world tick at which Food consumption was applied (or skipped
+   * while Level 1-gated). Schema 11 stores the stamp only — consume is
+   * not executed yet. Initialized to `worldTick` so later enablement
+   * does not back-charge missed cycles.
+   */
+  lastFoodConsumptionTick: number;
   /**
    * Last world tick on which each faction ran `AI_DECIDE` or resolved a
    * commitment. Used for reassessment cadence. Missing key = never.
@@ -318,6 +408,25 @@ export interface GameState {
   definitionFormatVersion: string | null;
   worldLevel: number | null;
   worldName: string | null;
+  /**
+   * Player foothold for the CURRENT world level. Assigned once from
+   * starting ownership at world init. Ordinary conquest never adds IDs.
+   * Empty when there is no player faction.
+   */
+  levelAnchorTerritoryIds: TerritoryId[];
+  /**
+   * Current-level survival status. Demotion to a previous playable world
+   * is NOT applied here — previous-level player GameState is not persisted
+   * yet. `previousWorldIds` copies WorldDefinition.containedWorlds ids as
+   * the future return hook.
+   */
+  levelDefeat: LevelDefeatState;
+  /**
+   * Level 1 tutorial/scenario overlay. Null when this instance is not the
+   * production Level 1 tutorial world. Authoritative for beat, gating, and
+   * scripted-invasion idempotency. Not a second GameState.
+   */
+  level1Tutorial: Level1TutorialState | null;
   regions: Map<RegionId, RuntimeRegion>;
 
   // ---- world (territories, armies) ----
@@ -398,6 +507,11 @@ export interface GameState {
    */
   territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
   /**
+   * Completed Farm/Mine/Lumber occupancy. Missing tile = no developments.
+   * Schema 11 stores flags only; production modifiers are not applied yet.
+   */
+  territoryInfrastructure: Map<TerritoryId, TerritoryInfrastructure>;
+  /**
    * Compact local-player fitness estimate and at most one active session.
    * Not a competing GameState and not an unbounded session dump.
    */
@@ -417,9 +531,10 @@ export interface GameState {
 /** Initial continuous-clock fields. `worldTick` 0 means no simulation time has elapsed. */
 export function emptyWorldClock(): {
   worldTick: number;
+  lastFoodConsumptionTick: number;
   lastAiDecisionTick: Map<FactionId, number>;
 } {
-  return { worldTick: 0, lastAiDecisionTick: new Map() };
+  return { worldTick: 0, lastFoodConsumptionTick: 0, lastAiDecisionTick: new Map() };
 }
 
 export function emptyPlayerRewardState(): PlayerRewardState {
@@ -445,15 +560,48 @@ export function emptyPlayerEmpirePause(): PlayerEmpirePause {
   return { paused: false, pausedAtTick: null };
 }
 
+export function emptyLevelDefeatState(previousWorldIds: string[] = []): LevelDefeatState {
+  return {
+    status: 'active',
+    defeatedAtTick: null,
+    defeatedLevel: null,
+    defeatedWorldId: null,
+    lastLostAnchorTerritoryId: null,
+    previousWorldIds: [...previousWorldIds],
+  };
+}
+
+export function isLevel1TutorialBeat(value: unknown): value is Level1TutorialBeat {
+  return typeof value === 'string' && (LEVEL1_TUTORIAL_BEATS as readonly string[]).includes(value);
+}
+
+export function emptyLevel1TutorialState(): Level1TutorialState {
+  return {
+    active: true,
+    beat: 'FIRST_WORKOUT_PENDING',
+    firstWorkoutSessionId: null,
+    firstConquestTerritoryId: null,
+    scriptedInvasionId: null,
+    scriptedInvasionTargetId: null,
+    defenseResolved: false,
+    secondWorkoutSessionId: null,
+    completed: false,
+  };
+}
+
 export function emptyRewardApplicationState(): {
   playerRewards: PlayerRewardState;
   activeInvasions: Map<InvasionId, ActiveInvasion>;
   constructions: Map<ConstructionId, ConstructionProject>;
   cities: Map<CityId, City>;
   territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
+  territoryInfrastructure: Map<TerritoryId, TerritoryInfrastructure>;
   playerFitness: PlayerFitnessState;
   playerEmpirePause: PlayerEmpirePause;
   attackerCooldowns: Map<FactionId, AttackerCooldown>;
+  levelAnchorTerritoryIds: TerritoryId[];
+  levelDefeat: LevelDefeatState;
+  level1Tutorial: Level1TutorialState | null;
 } {
   return {
     playerRewards: emptyPlayerRewardState(),
@@ -461,9 +609,13 @@ export function emptyRewardApplicationState(): {
     constructions: new Map(),
     cities: new Map(),
     territoryEconomy: new Map(),
+    territoryInfrastructure: new Map(),
     playerFitness: emptyPlayerFitnessState(),
     playerEmpirePause: emptyPlayerEmpirePause(),
     attackerCooldowns: new Map(),
+    levelAnchorTerritoryIds: [],
+    levelDefeat: emptyLevelDefeatState(),
+    level1Tutorial: null,
   };
 }
 

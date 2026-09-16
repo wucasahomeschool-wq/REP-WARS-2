@@ -46,7 +46,15 @@ export {
   exerciseCatalogById,
   listWorkoutDefinitions,
   getWorkoutDefinition,
+  LIBRARY_DEFAULT_REPETITIONS,
+  LIBRARY_DEFAULT_DURATION_SECONDS,
+  LIBRARY_EXERCISES,
+  LIBRARY_TEMPLATES,
+  LIBRARY_REUSED_EXERCISE_IDS,
+  LIBRARY_STRETCH_EXERCISE_IDS,
+  ALL_STRETCH_EXERCISE_IDS,
 } from './catalog';
+export type { LibraryExerciseSpec, LibraryTemplateSpec } from './catalog';
 export {
   WorkoutPrescriptionResolver,
   prescribeWorkoutBaseline,
@@ -55,6 +63,13 @@ export {
   clonePersonalizationMetadata,
 } from './prescription';
 export { WORKOUT_PURPOSE_AWARDS_REWARDS, isWorkoutPurpose } from './purpose';
+export {
+  DEFAULT_SELECTED_WORKOUT_ID,
+  WORKOUT_SELECTION_BY_PURPOSE,
+  selectedWorkoutIdForPurpose,
+  listPurposeWorkoutSelections,
+} from './selection';
+export type { PurposeWorkoutSelection } from './selection';
 export { systemClock, AdjustableClock } from './clock';
 export type { SessionClock } from './clock';
 export {

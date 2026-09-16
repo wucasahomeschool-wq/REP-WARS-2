@@ -1,9 +1,14 @@
 import { Army, ArmyId, FactionId, Territory, TerritoryId } from '../types';
 import { BattleResult } from '../battle/BattleEngine';
 import { GameState } from '../types/GameState';
-import { settleTerritoryOwnershipChange } from '../gameplay/economy/ownership';
+import {
+  settleTerritoryOwnershipChange,
+  territoryDestructionHasLosses,
+} from '../gameplay/economy/ownership';
 import { pushMemory } from './helpers';
-import { ArmyChange, StateChange, TerritoryChange } from './protocol';
+import { TerritoryChange, StateChange, ArmyChange, GameEvent } from './protocol';
+import { applyPlayerTerritoryLoss, assertAnchorAttackAllowed } from '../gameplay/anchors';
+import { applyWorldCompletionCheck } from '../gameplay/completion';
 
 function clampMorale(n: number): number {
   return Math.max(0, Math.min(100, n));
@@ -67,6 +72,7 @@ function transferTerritory(
   newOwner: FactionId,
   changes: StateChange[],
   territoryChanges: TerritoryChange[],
+  events: GameEvent[],
 ): void {
   const oldOwner = territory.owner;
   if (oldOwner === newOwner) return;
@@ -77,7 +83,29 @@ function transferTerritory(
   const winner = state.factions.get(newOwner);
   if (winner && !winner.territories.includes(territory.id)) winner.territories.push(territory.id);
   territory.owner = newOwner;
-  settleTerritoryOwnershipChange(state, territory.id, newOwner);
+  const destruction = settleTerritoryOwnershipChange(state, territory.id, newOwner, oldOwner);
+  if (territoryDestructionHasLosses(destruction)) {
+    events.push({
+      kind: 'territory',
+      id: `building_destroyed_${territory.id}_${state.worldTick}`,
+      title: 'Buildings destroyed',
+      summary: `Conquest razed works on ${territory.id}`,
+      territoryId: territory.id,
+      factionId: oldOwner,
+      data: {
+        buildingDestroyed: true,
+        previousOwner: destruction.previousOwner,
+        newOwner: destruction.newOwner,
+        cityDestroyed: destruction.cityDestroyed,
+        cityId: destruction.cityId,
+        fortificationDestroyed: destruction.fortificationDestroyed,
+        farmDestroyed: destruction.farmDestroyed,
+        mineDestroyed: destruction.mineDestroyed,
+        lumberDestroyed: destruction.lumberDestroyed,
+        constructionCancelled: destruction.constructionCancelled,
+      },
+    });
+  }
   changes.push({
     entity: 'territory',
     id: territory.id,
@@ -87,6 +115,71 @@ function transferTerritory(
     summary: `${territory.id} ownership ${oldOwner ?? 'unclaimed'} → ${newOwner}`,
   });
   territoryChanges.push({ territoryId: territory.id, field: 'owner', from: oldOwner, to: newOwner });
+  if (oldOwner && oldOwner === state.playerFactionId) {
+    events.push(...applyPlayerTerritoryLoss(state, territory.id));
+  }
+  if (newOwner === state.playerFactionId) {
+    events.push(...applyWorldCompletionCheck(state));
+  }
+}
+
+/**
+ * Occupy a foreign-owned territory that has no field army and no garrison.
+ * BattleEngine cannot resolve a 0-defender fight; occupation is still a
+ * legal ATTACK outcome and uses the same ownership settlement as capture.
+ */
+export function applyUnopposedOccupationToGameState(
+  state: GameState,
+  territory: Territory,
+  attackerId: FactionId,
+  attackingArmies: Army[],
+  turn: number,
+): {
+  stateChanges: StateChange[];
+  territoryChanges: TerritoryChange[];
+  armyChanges: ArmyChange[];
+  events: GameEvent[];
+} {
+  const changes: StateChange[] = [];
+  const territoryChanges: TerritoryChange[] = [];
+  const armyChanges: ArmyChange[] = [];
+  const events: GameEvent[] = [];
+  const defenderId = territory.owner;
+  if (!defenderId || defenderId === attackerId) {
+    return { stateChanges: changes, territoryChanges, armyChanges, events };
+  }
+  if (defenderId === state.playerFactionId) {
+    assertAnchorAttackAllowed(state, territory.id);
+  }
+  const gFrom = territory.garrison;
+  if (gFrom !== 0) {
+    territory.garrison = 0;
+    changes.push({
+      entity: 'territory',
+      id: territory.id,
+      field: 'garrison',
+      from: gFrom,
+      to: 0,
+      summary: `Garrison ${gFrom} → 0`,
+    });
+    territoryChanges.push({ territoryId: territory.id, field: 'garrison', from: gFrom, to: 0 });
+  }
+  transferTerritory(state, territory, attackerId, changes, territoryChanges, events);
+  for (const a of attackingArmies) {
+    const from = a.location;
+    a.location = territory.id;
+    armyChanges.push({ armyId: a.id, field: 'location', from, to: territory.id });
+  }
+  const attacker = state.factions.get(attackerId);
+  const defender = state.factions.get(defenderId);
+  if (attacker && defender) {
+    pushMemory(attacker, turn, 'territory_gained', defender.id, territory.id, 12, {
+      territory: territory.id,
+      via: 'unopposed_occupation',
+    });
+    pushMemory(defender, turn, 'territory_lost', attacker.id, territory.id, 15, { territory: territory.id });
+  }
+  return { stateChanges: changes, territoryChanges, armyChanges, events };
 }
 
 /**
@@ -103,15 +196,26 @@ export function applyBattleResultToGameState(
   stateChanges: StateChange[];
   territoryChanges: TerritoryChange[];
   armyChanges: ArmyChange[];
+  events: GameEvent[];
 } {
   const changes: StateChange[] = [];
   const territoryChanges: TerritoryChange[] = [];
   const armyChanges: ArmyChange[] = [];
+  const events: GameEvent[] = [];
   const territory = state.territories.get(result.territoryId);
-  if (!territory) return { stateChanges: changes, territoryChanges, armyChanges };
+  if (!territory) return { stateChanges: changes, territoryChanges, armyChanges, events };
 
   const attacker = state.factions.get(result.attacker.factionId);
   const defender = state.factions.get(result.defender.factionId);
+
+  if (
+    result.winner === 'attacker'
+    && result.territoryOutcome === 'captured'
+    && territory.owner === state.playerFactionId
+    && result.attacker.factionId !== state.playerFactionId
+  ) {
+    assertAnchorAttackAllowed(state, territory.id);
+  }
 
   const gFrom = territory.garrison;
   territory.garrison = Math.max(0, result.defender.remaining.garrison ?? 0);
@@ -129,7 +233,7 @@ export function applyBattleResultToGameState(
     eliminateArmies(state, defendingArmies, armyChanges);
     applySurvivingArmies(attackingArmies, result.attacker.remaining, result.attacker.moraleChange, armyChanges);
     if (result.territoryOutcome === 'captured' && attacker) {
-      transferTerritory(state, territory, attacker.id, changes, territoryChanges);
+      transferTerritory(state, territory, attacker.id, changes, territoryChanges, events);
       for (const a of attackingArmies) a.location = territory.id;
       if (defender) {
         pushMemory(attacker, turn, 'territory_gained', defender.id, territory.id, 12, { territory: territory.id, via: 'conquest' });
@@ -152,7 +256,7 @@ export function applyBattleResultToGameState(
     applySurvivingArmies(defendingArmies, result.defender.remaining, result.defender.moraleChange, armyChanges);
   }
 
-  return { stateChanges: changes, territoryChanges, armyChanges };
+  return { stateChanges: changes, territoryChanges, armyChanges, events };
 }
 
 export function collectAttackerArmyIds(armies: Army[]): ArmyId[] {

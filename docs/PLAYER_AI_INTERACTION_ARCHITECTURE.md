@@ -1,5 +1,8 @@
 # Player / AI interaction architecture (Phase 11)
 
+> **Phase 17P:** Production initialization is WorldCatalog →
+> `createGameStateFromWorld`. `MapEngine` is not a production engine.
+>
 > **Phase 17N.2:** Production worlds are authored `WorldDefinition` JSON
 > (`docs/WORLD_DEFINITION.md`). `SCOUT` and `EXPAND` are not production
 > commands. The current world is fully visible. `SAMPLE_MAP` is a legacy
@@ -18,6 +21,12 @@ frontend, fitness, or TRADE/OFFER_PEACE.
 > The Orchestrator coordinates both.
 > Domain engines resolve the actual game rules.
 > `GameState` remains the single source of truth.
+
+**Level 1** is a scripted tutorial on those same engines. **Level 2+** is
+where true autonomous AI is intended. Scripted tutorial attacks should use
+`RESOLVE_COMMITMENT` / `executeAttack`, not a second combat path. A
+tutorial/scenario controller is not implemented; `ADVANCE_WORLD` still
+runs `AI_DECIDE`. That controller is a future vertical-slice task.
 
 ---
 
@@ -73,10 +82,12 @@ GAMESTATE  (invariants, then commit)
 CommandResponse  (shared BattleResult / state-change fields)
 ```
 
-The command envelope has a `playerId`. Gameplay faction for player-originated
-commands is `GameState.playerFactionId`. A client-supplied `parameters.factionId`
-cannot select another faction. AI factions act through `AI_DECIDE` /
-`RESOLVE_COMMITMENT` / `ADVANCE_WORLD`. Engines never see `playerId`.
+The command envelope has a `playerId`. That value is the **durable game
+identity** used by persistence (`docs/PLAYER_IDENTITY.md`). Gameplay faction
+for player-originated commands is `GameState.playerFactionId`. A client-supplied
+`parameters.factionId` cannot select another faction. AI factions act through
+`AI_DECIDE` / `RESOLVE_COMMITMENT` / `ADVANCE_WORLD`. Engines never see
+`playerId`.
 
 ### 2. AI vs player / AI vs AI
 
@@ -147,7 +158,7 @@ affected territory.
 | --- | --- |
 | **BattleEngine** | `BattleInput` / `BattleResult` have attacker/defender faction ids only. No `playerFactionId`. PLAYER→AI, AI→PLAYER, AI→AI all call `battle.resolve()`. |
 | **WorldSimulator** (Event Engine) | Territory/faction-owned effects. Does not read `playerFactionId` for rules. |
-| **MapEngine** | Fog/reveal/generation. `InitialWorldParams.playerFactionIds` is a **historical name for starting faction slots**, not "humans vs AI". |
+| **MapEngine** | **LEGACY / TEST ONLY.** Hex generation, fog, and scout/expand. Not registered in the production EngineRegistry. Authored WorldDefinition is geography authority. |
 
 Shared apply helpers (not engines): `applyBattleResultToGameState`,
 `mergeEventStepOntoGameState`. One `BattleResult` type; no player- or

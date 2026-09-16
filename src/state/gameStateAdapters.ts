@@ -37,6 +37,7 @@ export function toDecisionEngineSnapshot(state: GameState): GameStateSnapshot {
     territories: state.territories,
     armies: state.armies,
     allFactionIds: state.allFactionIds,
+    levelAnchorTerritoryIds: [...state.levelAnchorTerritoryIds],
     attackRestrictions: {
       playerFactionId: state.playerFactionId,
       worldTick: state.playerEmpirePause.paused && state.playerEmpirePause.pausedAtTick !== null

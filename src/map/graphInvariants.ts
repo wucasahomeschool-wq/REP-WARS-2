@@ -1,3 +1,8 @@
+/**
+ * Reciprocal-neighbor checks. Used by the LEGACY SAMPLE_MAP / MapEngine
+ * fixture path. Production authored worlds validate adjacency in
+ * WorldValidator (`src/worldDefinition/validate.ts`).
+ */
 import { Territory, TerritoryId } from '../types';
 
 export type NeighborGraphIssueKind =

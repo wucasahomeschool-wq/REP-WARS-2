@@ -1,5 +1,7 @@
 # AI commitment execution (Phase 12)
 
+> **Phase 17P:** Production GameState is initialized from authored worlds.
+>
 > **Phase 17N.2:** `SCOUT` and `EXPAND` are not executable production
 > commitments. Shared domain operations that remain: ATTACK, MOVE, BUILD,
 > REINFORCE, NEGOTIATE, DECLARE_WAR, RETREAT, WAIT, DEFEND.

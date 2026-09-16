@@ -8,11 +8,18 @@ import {
 } from '../state/gameStateAdapters';
 import { cloneGameState } from '../state/cloneGameState';
 import { GameState } from '../types/GameState';
-import { GAMEPLAY_CONFIG } from '../gameplay/config';
-import { cityIdFor, syncCityFortification } from '../gameplay/cities/city';
+import { startConstruction } from '../gameplay/construction/consume';
+import { handlerResultForConstructionStart } from '../gameplay/construction/handlerResult';
+import { cloneResources } from '../gameplay/economy/config';
 import { progressWorldEconomy } from '../gameplay/economy/worldProgress';
 import { WarlordState, isActiveCommitmentStatus, validateCommitmentTarget } from '../engine/DecisionEngine';
 import { isUnsupportedCommitmentAction } from '../engine/executableActions';
+import { ANCHOR_PROTECTED_REASON } from '../gameplay/anchors';
+import {
+  assertLevel1TutorialPlayerAttackAllowed,
+  isLevel1TutorialAiSuppressed,
+  syncLevel1Tutorial,
+} from '../gameplay/tutorial/level1';
 import { COMMAND_INDEX, commandIndexSummary } from './commandIndex';
 import { EngineRegistry } from './engineRegistry';
 import { OrchestrationError, ErrorCode } from './errors';
@@ -42,6 +49,11 @@ import {
 } from './protocol';
 import { serializePublicGameState, serializeVisibleWorld } from './publicView';
 import { resolveViewerFactionId } from './authorization';
+import { formatWorldLoadFailure, isLegacyDefinitionWorldId, resolveWorldDefinition } from '../worldDefinition/catalog';
+import { serializeWorldDefinitionForClient } from '../worldDefinition/clientView';
+import { listExerciseDefinitions, listWorkoutDefinitions } from '../fitness/catalog';
+import { listPurposeWorkoutSelections } from '../fitness/selection';
+import { WORKOUT_PURPOSES } from '../fitness/types';
 import { ContinuousWorldEngine, WorldAdvanceResult, WorldSimulationHost } from '../world/ContinuousWorldEngine';
 import { parseElapsedTicks } from '../world/worldTime';
 import { runEventEngineTurn } from '../world/eventTick';
@@ -64,6 +76,7 @@ import {
   handleApplyConstructionAcceleration,
   handleCollectResources,
   handleFinalizeWorkout,
+  handleGetWorkoutSelection,
   handleRecordExercise,
   handleRecordIntegrityFlag,
   handleSetPlayerPause,
@@ -122,6 +135,33 @@ export function handleGetVisibleWorld(state: GameState, ctx: HandlerContext): Ha
   };
 }
 
+export function handleGetWorldDefinition(state: GameState, _ctx: HandlerContext): HandlerResult {
+  const worldId = state.definitionWorldId;
+  if (!worldId || isLegacyDefinitionWorldId(worldId)) {
+    throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE, 'No authored WorldDefinition for this instance');
+  }
+  const loaded = resolveWorldDefinition(worldId);
+  if (!loaded.ok) {
+    throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE, formatWorldLoadFailure(worldId, loaded));
+  }
+  return {
+    ...emptyResult(),
+    payload: { worldDefinition: serializeWorldDefinitionForClient(loaded.definition) },
+  };
+}
+
+export function handleGetFitnessCatalog(_state: GameState, _ctx: HandlerContext): HandlerResult {
+  return {
+    ...emptyResult(),
+    payload: {
+      workouts: listWorkoutDefinitions(),
+      exercises: listExerciseDefinitions(),
+      purposes: [...WORKOUT_PURPOSES],
+      purposeSelections: listPurposeWorkoutSelections(),
+    },
+  };
+}
+
 /** Shared domain operation: player ATTACK and AI RESOLVE_COMMITMENT(ATTACK) both call this. */
 export function executeAttack(state: GameState, ctx: HandlerContext, territoryId: string, factionId?: string): HandlerResult {
   const attackerId = factionId ?? resolveActingFactionId(state, ctx.req);
@@ -129,9 +169,10 @@ export function executeAttack(state: GameState, ctx: HandlerContext, territoryId
   const commitmentId = paramString(ctx.req, 'commitmentId')
     ?? (commitment && commitment.action === 'ATTACK' ? commitment.id : null);
   requireTerritory(state, territoryId);
+  const commitAmount = paramNumber(ctx.req, 'commitAmount');
+  assertLevel1TutorialPlayerAttackAllowed(state, attackerId, territoryId, commitAmount);
 
   if (state.playerFactionId && attackerId === state.playerFactionId) {
-    const commitAmount = paramNumber(ctx.req, 'commitAmount');
     if (commitAmount !== undefined) {
       return commitBankedTroopsAndAttack(state, ctx, {
         factionId: attackerId,
@@ -183,7 +224,7 @@ export function executePendingStrategicAttack(state: GameState, ctx: HandlerCont
         inner = {
           ...emptyResult(),
           commandSuccess: false,
-          errors: [{ code: err.code, message: err.message }],
+          errors: [err.toBody()],
           payload: { attackOutcome: 'failed', arrivalPending: false },
         };
         return wrapPendingAttackCommitment(state, ctx, factionId, commitmentId, inner);
@@ -245,47 +286,20 @@ export function handleMove(state: GameState, ctx: HandlerContext): HandlerResult
 export function handleBuild(state: GameState, ctx: HandlerContext): HandlerResult {
   const factionId = resolveActingFactionId(state, ctx.req);
   const territoryId = requireString(ctx.req, 'territoryId');
-  const t = requireTerritory(state, territoryId);
-  if (t.owner !== factionId) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Can only build on owned territory');
-  }
-  if (!state.cities.get(cityIdFor(territoryId))) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Fortification requires a city on the territory');
-  }
   const faction = requireFactionSnapshot(state, factionId);
-  const { gold: costG, stone: costS } = BALANCE.territory.fortificationCostPerLevel;
-  const maxFortification = GAMEPLAY_CONFIG.maxFortificationLevel;
-  if (t.fortification >= maxFortification) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Territory is already at maximum fortification');
-  }
-  if (faction.resources.gold < costG || faction.resources.stone < costS) {
-    throw new OrchestrationError(ErrorCode.INSUFFICIENT_RESOURCES, 'Insufficient resources');
-  }
-  const resourcesChanged: ResourceChange[] = [];
-  const goldFrom = faction.resources.gold;
-  const stoneFrom = faction.resources.stone;
-  faction.resources.gold -= costG;
-  faction.resources.stone -= costS;
-  recordResourceChange(resourcesChanged, factionId, 'gold', goldFrom, faction.resources.gold);
-  recordResourceChange(resourcesChanged, factionId, 'stone', stoneFrom, faction.resources.stone);
-  const fortFrom = t.fortification;
-  t.fortification = fortFrom + 1;
-  syncCityFortification(state, territoryId, t.fortification, state.worldTick);
-  const territoryChanges: TerritoryChange[] = [{ territoryId, field: 'fortification', from: fortFrom, to: t.fortification }];
-  return {
-    ...emptyResult(),
-    stateChanges: [{
-      entity: 'territory',
-      id: territoryId,
-      field: 'fortification',
-      from: fortFrom,
-      to: t.fortification,
-      summary: `${territoryId} fortification ${fortFrom} → ${t.fortification}`,
-    }],
-    resourcesChanged,
-    territoriesChanged: territoryChanges,
-    payload: { territoryId, fortification: t.fortification },
-  };
+  const resourcesBefore = cloneResources(faction.resources);
+  const project = startConstruction(state, {
+    factionId,
+    territoryId,
+    projectType: 'FORTIFICATION',
+  });
+  return handlerResultForConstructionStart(
+    project,
+    territoryId,
+    resourcesBefore,
+    cloneResources(faction.resources),
+    factionId,
+  );
 }
 
 export function handleReinforce(state: GameState, ctx: HandlerContext): HandlerResult {
@@ -531,17 +545,40 @@ export function handleAdvanceWorld(state: GameState, ctx: HandlerContext): Handl
     if (!(err instanceof OrchestrationError)) throw err;
     worldAdvance.errors.push({ code: err.code, message: err.message });
   }
-  progressWorldEconomy(state);
+  const food = progressWorldEconomy(state);
+  const resourcesChanged: HandlerResult['resourcesChanged'] = [];
+  for (const row of food.factions) {
+    recordResourceChange(resourcesChanged, row.factionId, 'food', row.foodBefore, row.foodAfter);
+  }
+  const tutorial = syncLevel1Tutorial(state);
+  worldAdvance.stateChanges.push(...tutorial.stateChanges);
+  worldAdvance.events.push(...tutorial.events);
+  worldAdvance.notifications.push(...tutorial.notifications);
   return {
     ...emptyResult(),
     stateChanges: worldAdvance.stateChanges,
     events: worldAdvance.events,
     notifications: worldAdvance.notifications,
+    resourcesChanged,
     payload: {
       turn: state.turn,
       worldTick: state.worldTick,
       ticksAdvanced: worldAdvance.ticksAdvanced,
       worldAdvance,
+      foodConsumption: {
+        cycles: food.cycles,
+        gated: food.gated,
+        fromTick: food.fromTick,
+        toTick: food.toTick,
+        factions: food.factions,
+      },
+      ...(tutorial.payload.tutorial ? { tutorial: tutorial.payload.tutorial } : {}),
+      ...(typeof tutorial.payload.scriptedInvasionId === 'string'
+        ? {
+          scriptedInvasionId: tutorial.payload.scriptedInvasionId,
+          scriptedInvasionTargetId: tutorial.payload.scriptedInvasionTargetId,
+        }
+        : {}),
     },
   };
 }
@@ -556,7 +593,14 @@ export function handleAiDecide(state: GameState, ctx: HandlerContext): HandlerRe
       'AI_DECIDE does not run DecisionEngine for the player faction',
     );
   }
-  const order = single ? [single] : state.allFactionIds.filter((id) => id !== state.playerFactionId);
+  if (single && isLevel1TutorialAiSuppressed(state, single)) {
+    return {
+      ...emptyResult(),
+      payload: { commitments: [], tutorialAiSuppressed: true },
+    };
+  }
+  const order = (single ? [single] : state.allFactionIds.filter((id) => id !== state.playerFactionId))
+    .filter((id) => !isLevel1TutorialAiSuppressed(state, id));
   if (!ctx.runtime.aiWarlordStates.size) {
     ctx.runtime.aiWarlordStates = buildWarlordStates(state);
   }
@@ -596,11 +640,11 @@ export function handleResolveCommitment(state: GameState, ctx: HandlerContext): 
   }
   ws.activeCommitment = commitment;
 
-  const fail = (code: ErrorCode, message: string): HandlerResult => {
+  const fail = (code: ErrorCode, message: string, details?: Record<string, unknown>): HandlerResult => {
     ai.failCommitment(ws, message);
     applyCommitmentOutcomeFeedback(state, factionId, commitment, 'failed');
     syncCommitmentsFromWarlordStates(state, ctx.runtime.aiWarlordStates);
-    const errors: OrchestrationErrorBody[] = [{ code, message }];
+    const errors: OrchestrationErrorBody[] = [{ code, message, details }];
     return {
       ...emptyResult(),
       commandSuccess: false,
@@ -628,7 +672,10 @@ export function handleResolveCommitment(state: GameState, ctx: HandlerContext): 
 
   const validity = validateCommitmentTarget(commitment, toDecisionEngineSnapshot(state));
   if (!validity.valid) {
-    return fail(ErrorCode.INVALID_TARGET, validity.reason);
+    const details = validity.reason.includes('anchor')
+      ? { reason: ANCHOR_PROTECTED_REASON, territoryId: commitment.targetId }
+      : undefined;
+    return fail(ErrorCode.INVALID_TARGET, validity.reason, details);
   }
 
   ai.beginExecution(ws, 'orchestrator resolve');
@@ -693,7 +740,7 @@ export function handleResolveCommitment(state: GameState, ctx: HandlerContext): 
     }
   } catch (err) {
     if (err instanceof OrchestrationError) {
-      return fail(err.code, err.message);
+      return fail(err.code, err.message, err.details);
     }
     throw err;
   }
@@ -766,4 +813,7 @@ export const READ_ONLY_HANDLERS: Record<string, ReadOnlyHandler> = {
   GET_COMMAND_INDEX: handleGetCommandIndex,
   GET_GAME_STATE: handleGetGameState,
   GET_VISIBLE_WORLD: handleGetVisibleWorld,
+  GET_WORLD_DEFINITION: handleGetWorldDefinition,
+  GET_FITNESS_CATALOG: handleGetFitnessCatalog,
+  GET_WORKOUT_SELECTION: handleGetWorkoutSelection,
 };

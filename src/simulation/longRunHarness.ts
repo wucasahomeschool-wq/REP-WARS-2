@@ -11,7 +11,7 @@
  * directly and does not re-implement any of their logic.
  */
 import { Orchestrator } from '../orchestration/orchestrator';
-import { createGameState, CreateGameStateOptions } from '../state/createGameState';
+import { createGameState, createLegacySampleMapGameState, CreateLegacySampleMapOptions } from '../state/createGameState';
 import { GameState } from '../types/GameState';
 import { ensureCity } from '../gameplay/cities/city';
 import { WorldAdvanceResult } from '../world/ContinuousWorldEngine';
@@ -23,8 +23,8 @@ export interface LongSimulationOptions {
   seed?: number;
   ticks: number;
   playerFactionId?: string | null;
-  mapSpecs?: CreateGameStateOptions['mapSpecs'];
-  warlordSpecs?: CreateGameStateOptions['warlordSpecs'];
+  mapSpecs?: CreateLegacySampleMapOptions['mapSpecs'];
+  warlordSpecs?: CreateLegacySampleMapOptions['warlordSpecs'];
 }
 
 export interface LongSimulationStats {
@@ -60,16 +60,22 @@ export interface LongSimulationStats {
  */
 export function runLongSimulation(opts: LongSimulationOptions): LongSimulationStats {
   const seed = opts.seed ?? 42;
-  const state = createGameState({
-    seed,
-    playerFactionId: opts.playerFactionId ?? null,
-    mapSpecs: opts.mapSpecs,
-    warlordSpecs: opts.warlordSpecs,
-  });
+  const useLegacy = Boolean(opts.mapSpecs || opts.warlordSpecs);
+  const state = useLegacy
+    ? createLegacySampleMapGameState({
+      seed,
+      playerFactionId: opts.playerFactionId ?? null,
+      mapSpecs: opts.mapSpecs,
+      warlordSpecs: opts.warlordSpecs,
+    })
+    : createGameState({
+      seed,
+      playerFactionId: opts.playerFactionId ?? null,
+    });
   // SAMPLE_MAP / warlordSpecs is a legacy simulation fixture. Production
   // authored worlds start with no cities; this path plants cities so
   // historical BUILD personality tests can still execute fortification.
-  if (opts.mapSpecs || opts.warlordSpecs) {
+  if (useLegacy) {
     for (const territory of state.territories.values()) {
       if (territory.owner) ensureCity(state, territory.id, territory.owner);
     }

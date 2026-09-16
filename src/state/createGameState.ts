@@ -1,35 +1,51 @@
 /**
  * DETERMINISTIC GAMESTATE INITIALIZATION.
  *
- * Production default: authored WorldDefinition (docs/examples/world-level1-tiny.json).
+ * Production path:
+ *   WorldCatalog.load(worldId)
+ *     → WorldValidator
+ *     → createGameStateFromWorld()
+ *
+ * There is no SAMPLE_MAP fallback. Missing/invalid authored worlds throw.
  * SAMPLE_MAP remains an explicit LEGACY TEST FIXTURE via
- * `createLegacySampleMapGameState` / `mapSpecs`+`warlordSpecs`.
+ * `createLegacySampleMapGameState`.
  */
 import { AICommitment, FactionId } from '../types';
 import { GameState, GAME_STATE_SCHEMA_VERSION, RuntimeRegion, emptyWorldClock, emptyRewardApplicationState } from '../types/GameState';
 import { BALANCE } from '../constants/balance';
 import { MapTerritorySpec, SAMPLE_MAP, SimulationBuilder, WARLORD_SPECS, WarlordSpec } from '../simulation/SampleMap';
 import { seedTerritoryEconomy } from '../gameplay/economy/seed';
+import { syncAllFactionResourceIncome } from '../gameplay/economy/resourceIncome';
+import { bindLevelAnchors } from '../gameplay/anchors';
 import {
   createGameStateFromWorld,
+  DEFAULT_PRODUCTION_WORLD_ID,
   LEGACY_SAMPLE_REGION_ID,
   LEGACY_SAMPLE_WORLD_ID,
-  loadTinyWorldDefinition,
-  requireWorldDefinition,
+  formatWorldLoadFailure,
+  WorldCatalog,
   WorldDefinition,
+  getDefaultWorldCatalog,
 } from '../worldDefinition';
 
 export interface CreateGameStateOptions {
   seed?: number;
-  /** Defaults to the authored world player faction when using WorldDefinition. */
+  /** Defaults to the authored world player faction. */
   playerFactionId?: FactionId | null;
-  /**
-   * LEGACY TEST FIXTURE ONLY. Providing mapSpecs/warlordSpecs uses SAMPLE_MAP
-   * simulation builder instead of authored JSON.
-   */
+  /** Authored world id. Defaults to `DEFAULT_PRODUCTION_WORLD_ID` from worldConfig. */
+  worldId?: string;
+  /** Explicit definition (tests). Still must be a valid WorldDefinition. */
+  world?: WorldDefinition;
+  /** Override the default catalog. Callers must not parse JSON ad hoc. */
+  catalog?: WorldCatalog;
+}
+
+/** LEGACY TEST FIXTURE ONLY. Not accepted by production `createGameState()`. */
+export interface CreateLegacySampleMapOptions {
+  seed?: number;
+  playerFactionId?: FactionId | null;
   mapSpecs?: MapTerritorySpec[];
   warlordSpecs?: WarlordSpec[];
-  world?: WorldDefinition;
 }
 
 function attachLegacyRegions(state: GameState): void {
@@ -51,8 +67,9 @@ function attachLegacyRegions(state: GameState): void {
 
 /**
  * LEGACY TEST FIXTURE. Not the production authored-world path.
+ * Isolated regression geography (SAMPLE_MAP / WARLORD_SPECS).
  */
-export function createLegacySampleMapGameState(options: CreateGameStateOptions = {}): GameState {
+export function createLegacySampleMapGameState(options: CreateLegacySampleMapOptions = {}): GameState {
   const seed = options.seed ?? BALANCE.simulate.defaultSeed;
   const mapSpecs = options.mapSpecs ?? SAMPLE_MAP;
   const warlordSpecs = options.warlordSpecs ?? WARLORD_SPECS;
@@ -83,20 +100,24 @@ export function createLegacySampleMapGameState(options: CreateGameStateOptions =
   };
   attachLegacyRegions(state);
   seedTerritoryEconomy(state);
+  syncAllFactionResourceIncome(state);
+  bindLevelAnchors(state);
   return state;
 }
 
 /**
- * Production initializer. Uses authored WorldDefinition unless SAMPLE_MAP
- * fixture specs are explicitly passed.
+ * Production initializer. Always uses WorldCatalog + WorldDefinition.
+ * Never falls back to SAMPLE_MAP or an empty replacement world.
  */
 export function createGameState(options: CreateGameStateOptions = {}): GameState {
-  if (options.mapSpecs || options.warlordSpecs) {
-    return createLegacySampleMapGameState(options);
-  }
   if (options.world) {
     return createGameStateFromWorld(options.world, options);
   }
-  const definition = requireWorldDefinition(loadTinyWorldDefinition(), 'production world');
-  return createGameStateFromWorld(definition, options);
+  const catalog = options.catalog ?? getDefaultWorldCatalog();
+  const worldId = options.worldId ?? DEFAULT_PRODUCTION_WORLD_ID;
+  const loaded = catalog.load(worldId);
+  if (!loaded.ok) {
+    throw new Error(formatWorldLoadFailure(worldId, loaded));
+  }
+  return createGameStateFromWorld(loaded.definition, options);
 }

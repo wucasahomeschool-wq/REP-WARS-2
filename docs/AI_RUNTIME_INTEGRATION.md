@@ -1,5 +1,10 @@
 # AI Runtime Integration (Phase 16)
 
+> **Phase 17P:** Runtime AI personalities are taken from WorldDefinition
+> (`PersonalitySystem.fromTraits`) at `createGameStateFromWorld` and
+> rebound from WorldCatalog on persistence hydrate. SAMPLE_MAP's
+> `randomizePreset` is legacy-fixture only.
+>
 > **Phase 17N.2:** AI personalities come from authored world JSON.
 > `SCOUT`/`EXPAND` are removed from the production action set. Region goals
 > use `Territory.regionId`. See `docs/WORLD_DEFINITION.md`.

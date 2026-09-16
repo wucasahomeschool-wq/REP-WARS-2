@@ -1,5 +1,7 @@
 # AI Commitment & Ambition Pass (Phase 8)
 
+> **Phase 17P:** Production worlds and personalities load from WorldDefinition.
+>
 > **Phase 17N.2:** `EXPAND`/`SCOUT` are not production actions. Ambition still
 > layers onto ATTACK/DECLARE_WAR. Personalities are authored per world.
 > See `docs/WORLD_DEFINITION.md`.

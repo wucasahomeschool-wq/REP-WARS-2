@@ -14,6 +14,9 @@ import { CommandRequest, CommandResponse, HandlerResult } from './protocol';
 import { authorizeCommand } from './authorization';
 import { assertCommandImplemented, assertCommandKnown, validateRequiredParameters } from './router';
 import { runStateTransaction } from './transaction';
+import { safeObserveCommand } from '../analytics/recorder';
+import type { TelemetryRecorder } from '../analytics/types';
+import { applyLevel1TutorialToHandlerResult } from '../gameplay/tutorial/level1';
 
 function makeRequestId(req: CommandRequest): string {
   return req.requestId ?? `${req.commandId}_${req.playerId}_${req.timestamp ?? 0}`;
@@ -70,11 +73,13 @@ export class Orchestrator {
   private state: GameState;
   private readonly registry: EngineRegistry;
   private runtime: OrchestratorRuntime;
+  private readonly telemetry: TelemetryRecorder | null;
 
-  constructor(initialState: GameState, registry?: EngineRegistry) {
+  constructor(initialState: GameState, registry?: EngineRegistry, telemetry?: TelemetryRecorder | null) {
     this.state = initialState;
     this.registry = registry ?? createDefaultRegistry();
     this.runtime = { aiWarlordStates: buildWarlordStates(this.state) };
+    this.telemetry = telemetry ?? null;
   }
 
   getState(): GameState {
@@ -88,6 +93,14 @@ export class Orchestrator {
 
   execute(req: CommandRequest): CommandResponse {
     const requestId = makeRequestId(req);
+    const respond = (response: CommandResponse): CommandResponse => {
+      safeObserveCommand(this.telemetry, {
+        request: req,
+        response,
+        state: this.state,
+      });
+      return response;
+    };
     try {
       const def = assertCommandKnown(req.commandId, getCommandDefinition(req.commandId));
       assertCommandImplemented(def);
@@ -107,7 +120,7 @@ export class Orchestrator {
           throw new OrchestrationError(ErrorCode.INVALID_COMMAND, `No read handler for ${req.commandId}`);
         }
         const result = readHandler(this.state, ctx);
-        return successResponse(req, requestId, result);
+        return respond(successResponse(req, requestId, result));
       }
 
       const mutHandler = req.commandId === 'SYNC_PLAYER_WORLD'
@@ -117,28 +130,31 @@ export class Orchestrator {
         throw new OrchestrationError(ErrorCode.INVALID_COMMAND, `No mutating handler for ${req.commandId}`);
       }
 
-      const { state: next, result } = runStateTransaction(this.state, (draft) => mutHandler(draft, ctx));
+      const { state: next, result } = runStateTransaction(this.state, (draft) => {
+        const inner = mutHandler(draft, ctx);
+        return applyLevel1TutorialToHandlerResult(draft, inner);
+      });
       this.state = next;
       this.runtime.aiWarlordStates = rebindWarlordRuntime(this.state, this.runtime.aiWarlordStates);
       if (result.commandSuccess === false) {
-        return failureResponse(
+        return respond(failureResponse(
           req,
           requestId,
           result.errors ?? [{ code: ErrorCode.ENGINE_ERROR, message: 'Command failed' }],
           result,
-        );
+        ));
       }
-      return successResponse(req, requestId, result);
+      return respond(successResponse(req, requestId, result));
     } catch (err) {
       this.runtime = { aiWarlordStates: buildWarlordStates(this.state) };
       if (err instanceof OrchestrationError) {
-        return failureResponse(req, requestId, [err.toBody()]);
+        return respond(failureResponse(req, requestId, [err.toBody()]));
       }
       const message = err instanceof Error ? err.message : String(err);
-      return failureResponse(req, requestId, [{
+      return respond(failureResponse(req, requestId, [{
         code: ErrorCode.ENGINE_ERROR,
         message,
-      }]);
+      }]));
     }
   }
 }

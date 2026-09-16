@@ -27,6 +27,12 @@ import { Resources, ResourceType } from '../../types';
 export const ECONOMY_CONFIG = Object.freeze({
   configVersion: 'economy-config.v1' as const,
   ticksPerProductionCycle: 60,
+  /** Food demand per owned territory each production cycle. LOCKED rule; the 1 is tunable. */
+  foodPerTerritoryPerCycle: 1,
+  /** Stability lost per failed Food cycle. Clamp is 0–100. */
+  failedFoodCycleStabilityPenalty: 2,
+  /** Farm / Mine / Lumber multiplier on matching authored output. Zeros stay 0. */
+  developmentOutputMultiplier: 1.5,
 });
 
 export type EconomyConfig = typeof ECONOMY_CONFIG;

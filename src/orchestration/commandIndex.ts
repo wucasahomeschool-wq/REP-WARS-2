@@ -46,7 +46,8 @@ function cmd(o: CmdOpts): CommandDefinition {
 
 /**
  * Phase 10 focused command catalog. Extensible — add entries here and a
- * matching handler in `router.ts`. Commands marked `unsupported` return
+ * matching handler in `handlers.ts` (SYNC_PLAYER_WORLD is wired in
+ * `orchestrator.ts`). Commands marked `unsupported` return
  * FEATURE_NOT_IMPLEMENTED without mutating state.
  */
 export const COMMAND_INDEX: CommandDefinition[] = [
@@ -61,8 +62,8 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   cmd({
     commandId: 'GET_GAME_STATE',
     category: 'READ',
-    description: 'Read-only public snapshot of authoritative GameState (cloned, not mutable references). The current world is fully visible.',
-    optional: [p('factionId', 'string', 'Viewer faction for fog/knowledge filtering')],
+    description: 'Read-only public snapshot of authoritative GameState (cloned, not mutable references). Includes ownership, troops, invasions, workout session, anchors, and derived worldCompletion. Polygons are on GET_WORLD_DEFINITION.',
+    optional: [p('factionId', 'string', 'Viewer faction; current world is fully visible')],
     routesTo: ['state'],
     changesState: false,
     possibleErrors: [ErrorCode.INVALID_FACTION, ErrorCode.ACTION_NOT_ALLOWED],
@@ -71,11 +72,41 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   cmd({
     commandId: 'GET_VISIBLE_WORLD',
     category: 'READ',
-    description: 'Current-world view for a faction. The entire current world is visible; there is no territory fog.',
+    description: 'Current-world view for a faction. The entire current world is visible; there is no territory fog. Polygons are not included — use GET_WORLD_DEFINITION.',
     optional: [p('factionId', 'string', 'Viewer faction; defaults to playerFactionId')],
     routesTo: ['state'],
     changesState: false,
     possibleErrors: [ErrorCode.INVALID_FACTION, ErrorCode.ACTION_NOT_ALLOWED],
+    status: 'implemented',
+  }),
+  cmd({
+    commandId: 'GET_WORLD_DEFINITION',
+    category: 'READ',
+    description: 'Authored WorldDefinition for the current instance, including island/territory polygons, regions, adjacency, starting owners, and completion. Geometry is not stored on GameState.',
+    routesTo: ['state'],
+    changesState: false,
+    possibleErrors: [ErrorCode.INVALID_GAME_STATE],
+    status: 'implemented',
+  }),
+  cmd({
+    commandId: 'GET_FITNESS_CATALOG',
+    category: 'READ',
+    description: 'Workout and exercise catalog, including the authoritative purpose → selectedWorkoutId map. Use GET_WORKOUT_SELECTION for the current gameplay/tutorial prescription. Active session state is on GET_GAME_STATE playerGameplay.activeWorkout.',
+    routesTo: ['fitness'],
+    changesState: false,
+    status: 'implemented',
+  }),
+
+  cmd({
+    commandId: 'GET_WORKOUT_SELECTION',
+    category: 'READ',
+    description: 'Authoritative workout selection for a WorkoutPurpose in the current gameplay/tutorial context. Returns the selected catalog workout and a prescribed snapshot. Does not start a session.',
+    required: [p('purpose', 'string', 'WorkoutPurpose')],
+    optional: [p('intendedDifficulty', 'string', 'Override desired difficulty for the prescribed snapshot')],
+    validation: ['purpose must be a WorkoutPurpose', 'selected workout must exist in the catalog'],
+    routesTo: ['fitness', 'state'],
+    changesState: false,
+    possibleErrors: [ErrorCode.INVALID_PARAMETER, ErrorCode.INVALID_GAME_STATE],
     status: 'implemented',
   }),
 
@@ -117,7 +148,8 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   cmd({
     commandId: 'BUILD',
     category: 'TERRITORY',
-    description: 'Raise fortification on an owned territory using BALANCE.territory.fortificationCostPerLevel.',
+    description:
+      'Legacy alias: starts the same timed FORTIFICATION construction project as START_CONSTRUCTION (see construction definitions). Prefer START_CONSTRUCTION for new clients.',
     required: [p('territoryId', 'string', 'Owned territory')],
     optional: [p('factionId', 'string', 'Building faction')],
     routesTo: ['state'],
@@ -244,7 +276,7 @@ export const COMMAND_INDEX: CommandDefinition[] = [
     category: 'TERRITORY',
     description: 'Start a timed construction project by spending normal resources. Does not require a workout.',
     required: [p('territoryId', 'string', 'Owned territory')],
-    optional: [p('factionId', 'string', 'Building faction'), p('constructionId', 'string', 'Optional project id'), p('projectType', 'string', 'CITY or FORTIFICATION (default FORTIFICATION)')],
+    optional: [p('factionId', 'string', 'Building faction'), p('constructionId', 'string', 'Optional project id'), p('projectType', 'string', 'CITY, FORTIFICATION, FARM, MINE, or LUMBER (default FORTIFICATION)')],
     routesTo: ['state'],
     changesState: true,
     possibleErrors: [ErrorCode.INVALID_TERRITORY, ErrorCode.INSUFFICIENT_RESOURCES, ErrorCode.ACTION_NOT_ALLOWED],
@@ -288,15 +320,22 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   cmd({
     commandId: 'START_WORKOUT',
     category: 'FITNESS',
-    description: 'Start an authoritative workout session. DEFENSE requires a matching active invasion and must start before the response deadline.',
-    required: [p('purpose', 'string', 'WorkoutPurpose'), p('workoutId', 'string', 'Catalog workout id')],
+    description: 'Start an authoritative workout session. Omit workoutId to use the backend selection for the given purpose. DEFENSE requires a matching active invasion and must start before the response deadline.',
+    required: [p('purpose', 'string', 'WorkoutPurpose')],
     optional: [
+      p('workoutId', 'string', 'Catalog workout id; defaults to the authoritative selection. Level 1 tutorial requires the selected id when provided.'),
       p('intendedDifficulty', 'string', 'Override difficulty'),
       p('sessionId', 'string', 'Optional session id'),
       p('invasionId', 'string', 'Required for DEFENSE'),
       p('constructionId', 'string', 'Live construction target'),
       p('collectionTerritoryId', 'string', 'Live Golden Yield territory'),
       p('now', 'number', 'Session clock timestamp (not worldTick)'),
+    ],
+    validation: [
+      'purpose must be a WorkoutPurpose',
+      'omitted workoutId uses the authoritative selection',
+      'provided workoutId must exist in the catalog',
+      'Level 1 tutorial requires the selected workoutId',
     ],
     routesTo: ['state'],
     changesState: true,

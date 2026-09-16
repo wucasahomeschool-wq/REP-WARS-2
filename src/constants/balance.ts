@@ -1,4 +1,7 @@
 import { ActionType, TerrainType } from '../types';
+import { getConstructionProjectDefinition } from '../gameplay/construction/definitions';
+
+const FORTIFICATION_PROJECT = getConstructionProjectDefinition('FORTIFICATION');
 
 export const BALANCE = {
   scoring: {
@@ -63,24 +66,15 @@ export const BALANCE = {
     borderTerritoryBonus: 10,
     populationValuePerThousand: 2,
     /**
-     * ENGINE EXECUTION CONSISTENCY PASS: this is the single authoritative
-     * cost of one BUILD/fortify action's `gold`/`stone` requirement. It
-     * used to exist here unused while both `ActionScorer.scoreBuild()`'s
-     * affordability check and `src/simulation/cli.ts`'s BUILD execution
-     * independently hardcoded the same values (gold >= 100, stone >= 50)
-     * as inline literals — a coincidental, not structural, agreement.
-     * Both now read `gold`/`stone` from here instead. See
-     * docs/ENGINE_EXECUTION_CONSISTENCY.md, "Balance/cost consistency".
-     *
-     * NOTE: `iron` below is NOT currently charged by either caller (never
-     * was, in either the scorer's check or the CLI's execution) — left in
-     * place since removing/repricing values wasn't asked for here, but do
-     * not assume it is actually deducted anywhere yet.
+     * Mirrors FORTIFICATION construction project cost from
+     * `getConstructionProjectDefinition('FORTIFICATION')` for AI scoring
+     * and legacy simulation CLI. Authoritative charging happens in
+     * `startConstruction` via construction definitions.
      */
     fortificationCostPerLevel: {
-      gold: 100,
-      stone: 50,
-      iron: 20,
+      gold: FORTIFICATION_PROJECT.cost.gold,
+      stone: FORTIFICATION_PROJECT.cost.stone ?? 0,
+      iron: 0,
     },
     /**
      * Unused leftover from the removed EXPAND claim action. Not a production

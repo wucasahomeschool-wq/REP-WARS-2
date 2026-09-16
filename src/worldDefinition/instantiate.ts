@@ -9,8 +9,12 @@ import {
 import { PersonalitySystem } from '../personality/PersonalitySystem';
 import { GoalSystem } from '../goals/GoalSystem';
 import { seedTerritoryEconomy } from '../gameplay/economy/seed';
+import { syncAllFactionResourceIncome } from '../gameplay/economy/resourceIncome';
+import { bindLevelAnchors } from '../gameplay/anchors';
+import { bindLevel1Tutorial } from '../gameplay/tutorial/level1';
 import { WorldDefinition, WorldFactionDefinition } from './types';
 import { assertValidWorld } from './validate';
+import { assertWorldIdentity } from './identity';
 
 export const LEGACY_SAMPLE_WORLD_ID = 'legacy:sample-map';
 export const LEGACY_SAMPLE_REGION_ID = 'r_legacy_sample';
@@ -215,5 +219,67 @@ export function createGameStateFromWorld(
     ...emptyRewardApplicationState(),
   };
   seedTerritoryEconomy(state);
+  syncAllFactionResourceIncome(state);
+  bindLevelAnchors(state, definition);
+  bindLevel1Tutorial(state);
+  assertWorldIdentity(state, definition);
   return state;
+}
+
+/**
+ * Rebind authored immutable facts from WorldDefinition onto GameState.
+ * GameState remains the mutable overlay; catalog geography/personality
+ * cannot silently drift after save/load.
+ */
+export function applyImmutableWorldDefinition(state: GameState, definition: WorldDefinition): void {
+  assertValidWorld(definition);
+  const authoredTerritoryIds = definition.territories.map((t) => t.id).sort();
+  const runtimeTerritoryIds = [...state.territories.keys()].sort();
+  if (authoredTerritoryIds.join('\0') !== runtimeTerritoryIds.join('\0')) {
+    throw new Error(
+      `world ${definition.worldId} territory graph does not match persisted GameState`,
+    );
+  }
+  for (const spec of definition.factions) {
+    if (!state.factions.has(spec.id)) {
+      throw new Error(`world ${definition.worldId} is missing authored faction ${spec.id}`);
+    }
+  }
+
+  state.definitionWorldId = definition.worldId;
+  state.definitionFormatVersion = definition.formatVersion;
+  state.worldLevel = definition.level;
+  state.worldName = definition.name;
+
+  const regions = new Map<string, RuntimeRegion>();
+  for (const r of definition.regions) {
+    regions.set(r.id, {
+      id: r.id,
+      name: r.name,
+      territoryIds: [...r.territoryIds],
+    });
+  }
+  state.regions = regions;
+
+  for (const tDef of definition.territories) {
+    const tile = state.territories.get(tDef.id)!;
+    tile.regionId = tDef.regionId;
+    tile.terrain = tDef.terrain;
+    tile.neighboring = [...tDef.neighborIds];
+    tile.resourceOutput = { ...tDef.resourceOutput };
+  }
+
+  const allTerritoryIds = definition.territories.map((t) => t.id);
+  for (const spec of definition.factions) {
+    const faction = state.factions.get(spec.id)!;
+    const { personality, ambition } = personalityForFaction(spec);
+    faction.name = spec.name;
+    faction.personality = personality;
+    faction.ambition = ambition;
+    faction.knownTerritories = [...allTerritoryIds];
+    faction.knownFactions = [...definition.factions.map((f) => f.id)];
+  }
+  bindLevelAnchors(state, definition);
+  bindLevel1Tutorial(state);
+  assertWorldIdentity(state, definition);
 }

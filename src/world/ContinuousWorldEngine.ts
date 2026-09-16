@@ -30,6 +30,7 @@ import {
   isActiveAttackIntent,
   isStrategicAttackInFlight,
 } from '../army/strategicAttack';
+import { isLevel1TutorialAiSuppressed } from '../gameplay/tutorial/level1';
 
 export interface WorldTimeStamp {
   worldTick: number;
@@ -366,6 +367,9 @@ export class ContinuousWorldEngine {
     }
 
     if (!canReassessFaction(state.lastAiDecisionTick.get(factionId), state.worldTick)) {
+      return;
+    }
+    if (isLevel1TutorialAiSuppressed(state, factionId)) {
       return;
     }
 

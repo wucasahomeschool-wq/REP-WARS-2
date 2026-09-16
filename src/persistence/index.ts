@@ -19,10 +19,17 @@ export { FixedWorldTimeAuthority, resolveAuthoritativeTargetTick } from './timeA
 export type { WorldTimeAuthority } from './timeAuthority';
 export { commitAuthoritativePlayerWorld, assertCommitted } from './commit';
 export { syncPlayerWorld } from './sync';
+export { initializePlayerWorld, ensurePlayerWorld } from './initializePlayerWorld';
+export type {
+  InitializePlayerWorldOptions,
+  InitializePlayerWorldResult,
+  EnsurePlayerWorldOptions,
+  EnsurePlayerWorldResult,
+} from './initializePlayerWorld';
 export type { SyncPlayerWorldInput, SyncPlayerWorldResult, SyncPlayerWorldSuccess } from './sync';
-export { SUPABASE_GAME_STATE_TABLE, SUPABASE_WORKOUT_HISTORY_TABLE, SUPABASE_DDL } from './supabase/schema';
-export type { SupabaseGameStateRow, SupabaseWorkoutHistoryRow } from './supabase/schema';
-export { worldRecordToRow, rowToWorldRecord, historyEntryToRow, rowToHistoryEntry } from './supabase/mapper';
+export { SUPABASE_GAME_STATE_TABLE, SUPABASE_WORKOUT_HISTORY_TABLE, SUPABASE_TELEMETRY_TABLE, SUPABASE_DDL } from './supabase/schema';
+export type { SupabaseGameStateRow, SupabaseWorkoutHistoryRow, SupabaseTelemetryRow } from './supabase/schema';
+export { worldRecordToRow, rowToWorldRecord, historyEntryToRow, rowToHistoryEntry, telemetryEventToRow, rowToTelemetryEvent } from './supabase/mapper';
 export { SupabaseGameStateStore } from './supabase/adapter';
 export { SupabaseWorkoutHistoryStore } from './supabase/historyAdapter';
 

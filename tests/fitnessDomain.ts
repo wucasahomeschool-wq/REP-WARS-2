@@ -421,7 +421,8 @@ export function registerFitnessDomainTests(api: FitnessDomainTestApi): void {
 
   test('every catalog workout validates and references existing exercises', () => {
     const workouts = listWorkoutDefinitions();
-    assert.strictEqual(workouts.length, 5);
+    assert.ok(workouts.length >= 5);
+    assert.ok(workouts.some((workout) => workout.id === 'wk_moderate_full_body'));
     assert.strictEqual(validateWorkoutCatalog(workouts, catalogExercises).length, 0);
     for (const workout of workouts) {
       for (const stepEntry of workout.exercises) {

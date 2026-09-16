@@ -4,7 +4,11 @@ import { peekCollectibleResources } from '../gameplay/economy/accrual';
 import { displayedRemainingTicks } from '../gameplay/construction/progress';
 import { isOpenInvasion, remainingDeadlineTicks } from '../gameplay/invasion/deadlines';
 import { playerFacingTick } from '../gameplay/invasion/eligibility';
+import { evaluateWorldCompletion } from '../gameplay/completion';
+import { serializeLevel1TutorialView } from '../gameplay/tutorial/level1';
 import { regionDisplayName } from '../worldDefinition/display';
+import { getCurrentExercise } from '../fitness/session';
+import { WorkoutSession } from '../fitness/session/types';
 
 /** The current authored world is fully visible. No territory fog. */
 export function isArmyVisibleTo(state: GameState, viewerFactionId: FactionId, army: Army): boolean {
@@ -14,16 +18,56 @@ export function isArmyVisibleTo(state: GameState, viewerFactionId: FactionId, ar
   return true;
 }
 
+/**
+ * Player-facing military strength. Internal armies still store soldiers/knights/siegeEngines
+ * for BattleEngine; those categories are not shown on GET_GAME_STATE / GET_VISIBLE_WORLD.
+ */
+export function playerFacingTroopCount(army: Pick<Army, 'soldiers' | 'knights' | 'siegeEngines'>): number {
+  return Math.max(0, army.soldiers) + Math.max(0, army.knights) + Math.max(0, army.siegeEngines);
+}
+
+function serializeActiveWorkout(session: WorkoutSession | null): Record<string, unknown> | null {
+  if (!session) return null;
+  const current = getCurrentExercise(session);
+  return {
+    sessionId: session.sessionId,
+    workoutId: session.workoutId,
+    purpose: session.purpose,
+    state: session.state,
+    intendedDifficulty: session.intendedDifficulty,
+    currentExerciseIndex: session.currentExerciseIndex,
+    currentExercise: current,
+    prescribedExercises: session.prescribedWorkout.exercises.map((step) => ({
+      exerciseId: step.exerciseId,
+      order: step.order,
+      exerciseType: step.exerciseType,
+      isRest: step.isRest,
+      bodySection: step.bodySection,
+      prescription: { ...step.prescription },
+      role: step.role,
+      skippable: step.skippable,
+    })),
+    performances: session.performances.map((p) => ({
+      exerciseId: p.exerciseId,
+      order: p.order,
+      status: p.status,
+      actual: p.actual,
+    })),
+    feedbackState: session.feedbackState,
+    feedback: session.feedback,
+    integrityFlagCount: session.integrityFlags.length,
+    gameplayContext: session.gameplayContext ? { ...session.gameplayContext } : null,
+  };
+}
+
 function serializeArmyForViewer(army: Army, viewerFactionId: FactionId): Record<string, unknown> {
   const own = army.owner === viewerFactionId;
-  const round = (n: number) => (own ? n : Math.round(n / 50) * 50);
+  const troops = playerFacingTroopCount(army);
   return {
     id: army.id,
     owner: army.owner,
     location: army.location,
-    soldiers: round(army.soldiers),
-    knights: round(army.knights),
-    siegeEngines: own ? army.siegeEngines : Math.round(army.siegeEngines / 5) * 5,
+    troops: own ? troops : Math.round(troops / 50) * 50,
     morale: own ? army.morale : null,
     moving: own ? army.movement?.status === 'moving' : false,
     destinationTerritoryId: own && army.movement?.status === 'moving'
@@ -46,6 +90,7 @@ export function visibleArmiesFor(
 }
 
 function publicTerritory(state: GameState, t: Territory): Record<string, unknown> {
+  const infra = state.territoryInfrastructure.get(t.id);
   return {
     id: t.id,
     regionId: t.regionId,
@@ -59,6 +104,9 @@ function publicTerritory(state: GameState, t: Territory): Record<string, unknown
     resourceOutput: t.resourceOutput,
     fortification: t.fortification,
     garrison: t.garrison,
+    farm: infra?.farmCompletedAtTick != null,
+    mine: infra?.mineCompletedAtTick != null,
+    lumber: infra?.lumberCompletedAtTick != null,
   };
 }
 
@@ -92,6 +140,8 @@ export function serializePublicGameState(state: GameState, viewerFactionId: Fact
     definitionWorldId: state.definitionWorldId,
     worldLevel: state.worldLevel,
     worldName: state.worldName,
+    levelAnchorTerritoryIds: [...state.levelAnchorTerritoryIds],
+    levelDefeatStatus: state.levelDefeat.status,
     allFactionIds: [...state.allFactionIds],
     factions,
     territories,
@@ -99,6 +149,8 @@ export function serializePublicGameState(state: GameState, viewerFactionId: Fact
     activeEventCount: state.activeEvents.filter((e) => e.status === 'active').length,
     commitmentCount: [...state.commitments.values()].filter((c) => c !== null).length,
     currentWorldFullyVisible: true,
+    worldCompletion: evaluateWorldCompletion(state),
+    tutorial: serializeLevel1TutorialView(state),
     ...(playerView ? { playerGameplay: playerView } : {}),
   };
 }
@@ -141,6 +193,14 @@ function serializePlayerGameplayView(state: GameState): Record<string, unknown> 
     resources: faction ? { ...faction.resources } : null,
     cities,
     uncollected,
+    infrastructure: Object.fromEntries(ownedTerritoryIds.map((territoryId) => {
+      const infra = state.territoryInfrastructure.get(territoryId);
+      return [territoryId, {
+        farm: infra?.farmCompletedAtTick != null,
+        mine: infra?.mineCompletedAtTick != null,
+        lumber: infra?.lumberCompletedAtTick != null,
+      }];
+    })),
     bankedTroops: state.playerRewards.bankedTroops,
     pendingConstructionEffects: state.playerRewards.pendingConstructionEffects.map((effect) => ({
       workerPower: effect.workerPower,
@@ -163,9 +223,27 @@ function serializePlayerGameplayView(state: GameState): Record<string, unknown> 
       })),
     activeInvasionsAgainstPlayer: invasions,
     empirePaused: state.playerEmpirePause.paused,
+    activeWorkout: serializeActiveWorkout(state.playerFitness.activeSession),
+    pendingWorkoutReward: state.playerFitness.pendingReward
+      ? {
+        sessionId: state.playerFitness.pendingReward.sessionId,
+        kind: state.playerFitness.pendingReward.reward.kind,
+        purpose: state.playerFitness.pendingReward.reward.purpose,
+      }
+      : null,
     lastWorkoutCompletedAtTick: state.playerFitness.lastWorkoutCompletedAtTick,
     fitnessLevel: state.playerFitness.estimate?.level ?? null,
     fitnessConfidence: state.playerFitness.estimate?.confidence ?? null,
+    levelAnchorTerritoryIds: [...state.levelAnchorTerritoryIds],
+    levelDefeat: {
+      status: state.levelDefeat.status,
+      defeatedAtTick: state.levelDefeat.defeatedAtTick,
+      defeatedLevel: state.levelDefeat.defeatedLevel,
+      defeatedWorldId: state.levelDefeat.defeatedWorldId,
+      lastLostAnchorTerritoryId: state.levelDefeat.lastLostAnchorTerritoryId,
+      previousWorldIds: [...state.levelDefeat.previousWorldIds],
+    },
+    tutorial: serializeLevel1TutorialView(state),
   };
 }
 
@@ -186,5 +264,9 @@ export function serializeVisibleWorld(state: GameState, viewerFactionId: Faction
     territories,
     armies: visibleArmiesFor(state, viewerFactionId),
     currentWorldFullyVisible: true,
+    worldCompletion: evaluateWorldCompletion(state),
+    levelAnchorTerritoryIds: [...state.levelAnchorTerritoryIds],
+    levelDefeatStatus: state.levelDefeat.status,
+    tutorial: serializeLevel1TutorialView(state),
   };
 }

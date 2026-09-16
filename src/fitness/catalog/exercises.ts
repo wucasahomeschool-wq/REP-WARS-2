@@ -1,5 +1,25 @@
 import { cloneExerciseDefinition, validateExerciseCatalog } from '../validation';
 import { ExerciseDefinition, ExerciseId } from '../types';
+import {
+  LIBRARY_DEFAULT_DURATION_SECONDS,
+  LIBRARY_DEFAULT_REPETITIONS,
+  LIBRARY_EXERCISES,
+  LibraryExerciseSpec,
+} from './library';
+
+function fromLibrarySpec(spec: LibraryExerciseSpec): ExerciseDefinition {
+  return {
+    id: spec.id,
+    name: spec.name,
+    type: spec.type,
+    bodySection: spec.bodySection,
+    defaultPrescription: spec.type === 'REP_BASED'
+      ? { kind: 'repetitions', repetitions: LIBRARY_DEFAULT_REPETITIONS }
+      : { kind: 'duration', durationSeconds: LIBRARY_DEFAULT_DURATION_SECONDS },
+    isRest: false,
+    metadata: spec.kind === 'stretch' ? { notes: 'Stretch' } : {},
+  };
+}
 
 const EXERCISE_DEFS: ExerciseDefinition[] = [
   {
@@ -110,6 +130,7 @@ const EXERCISE_DEFS: ExerciseDefinition[] = [
     isRest: false,
     metadata: { notes: 'Closing stretch' },
   },
+  ...LIBRARY_EXERCISES.map(fromLibrarySpec),
 ];
 
 const catalogIssues = validateExerciseCatalog(EXERCISE_DEFS);

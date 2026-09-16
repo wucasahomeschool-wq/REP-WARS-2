@@ -2,7 +2,6 @@ import { BattleEngine } from '../battle/BattleEngine';
 import { DecisionEngine } from '../engine/DecisionEngine';
 import { WorldSimulator } from '../events/WorldSimulator';
 import { WorkoutHistoryStore } from '../fitness/history/types';
-import { MapEngine } from '../map/MapEngine';
 import { WorldTimeAuthority } from '../persistence/timeAuthority';
 import { OrchestrationError, ErrorCode } from './errors';
 
@@ -45,12 +44,15 @@ export interface RegisteredEngineInfo {
 /**
  * Pluggable engines. Adding a new engine = register here + add command routes.
  * Do not put simulation math in this file.
+ *
+ * MapEngine is not a production engine. Authored WorldDefinition is the
+ * geography authority. The `map` EngineId remains listed as unavailable so
+ * old catalog rows do not look like a live generator.
  */
 export class EngineRegistry {
   battle: BattleEngine | null = null;
   ai: DecisionEngine | null = null;
   events: WorldSimulator | null = null;
-  map: MapEngine | null = null;
   fitness: FitnessEnginePort | null = null;
   /** Persistence-facing history port. Engines still consume domain data only. */
   workoutHistory: WorkoutHistoryStore | null = null;
@@ -65,9 +67,6 @@ export class EngineRegistry {
   }
   registerEvents(engine: WorldSimulator): void {
     this.events = engine;
-  }
-  registerMap(engine: MapEngine): void {
-    this.map = engine;
   }
   registerFitness(engine: FitnessEnginePort): void {
     this.fitness = engine;
@@ -100,15 +99,6 @@ export class EngineRegistry {
     return this.events;
   }
 
-  requireMap(): MapEngine {
-    if (!this.map) {
-      throw new OrchestrationError(ErrorCode.ENGINE_UNAVAILABLE, 'Map engine is not registered', {
-        engine: 'map',
-      });
-    }
-    return this.map;
-  }
-
   list(): RegisteredEngineInfo[] {
     return [
       {
@@ -121,7 +111,7 @@ export class EngineRegistry {
         id: 'state',
         name: 'Authoritative Game State',
         status: 'ready',
-        description: 'Single world state owned by the orchestrator',
+        description: 'Single world state owned by the orchestrator; geography from WorldDefinition',
       },
       {
         id: 'aiWarlord',
@@ -143,9 +133,9 @@ export class EngineRegistry {
       },
       {
         id: 'map',
-        name: 'Map Expansion / Generation Engine',
-        status: this.map ? 'ready' : 'unavailable',
-        description: 'Procedural map and fog of war',
+        name: 'Legacy MapEngine (not production)',
+        status: 'unavailable',
+        description: 'LEGACY/TEST ONLY. Production worlds load authored JSON via WorldCatalog. MapEngine does not generate or own geography.',
       },
       {
         id: 'fitness',
@@ -162,6 +152,5 @@ export function createDefaultRegistry(): EngineRegistry {
   reg.registerBattle(new BattleEngine());
   reg.registerAi(new DecisionEngine());
   reg.registerEvents(new WorldSimulator());
-  reg.registerMap(new MapEngine());
   return reg;
 }

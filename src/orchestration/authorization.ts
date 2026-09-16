@@ -38,7 +38,7 @@ export function authorizeCommand(
   }
 }
 
-/** Viewer for fog-filtered reads. Call after `authorizeCommand`. */
+/** Viewer faction for public reads. Current world is fully visible. */
 export function resolveViewerFactionId(state: GameState, req: CommandRequest): string | null {
   if (state.playerFactionId) {
     return state.playerFactionId;

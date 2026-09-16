@@ -1,9 +1,10 @@
 # Canonical types & state architecture (phase 3)
 
-> **Phase 17N.2:** Runtime `Territory` has id, owner, `regionId`, terrain,
+> **Phase 17P:** Production geography is `WorldDefinition` via WorldCatalog.
+> `MapEngine` / `MapWorldState` / `PlayerVisibilityMap` are legacy hex-era
+> types, not GameState. Runtime `Territory` has id, owner, `regionId`, terrain,
 > neighbors, runtime economy fields, fortification, and garrison. No
-> player-facing name, `isCapital`, or tile fog fields. Production geography
-> is `WorldDefinition` (`docs/WORLD_DEFINITION.md`), not MapEngine.
+> player-facing name, `isCapital`, or tile fog fields.
 > `SAMPLE_MAP` is a legacy fixture.
 
 Architecture / type-consistency pass. **No Orchestrator, command routing,

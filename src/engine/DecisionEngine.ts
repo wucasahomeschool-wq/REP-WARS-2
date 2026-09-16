@@ -17,6 +17,7 @@ import {
   ActionType,
 } from '../types';
 import { isAttackForbiddenOnSnapshot } from '../gameplay/invasion/eligibility';
+import { isPlayerAnchorProtectedOnSnapshot } from '../gameplay/anchors';
 
 function withLiveMilitaryPower(snap: WarlordSnapshot, gameState: GameStateSnapshot): WarlordSnapshot {
   const armies = snap.armies
@@ -199,6 +200,9 @@ export function validateCommitmentTarget(
         return { valid: false, reason: 'attack target is no longer a foreign-owned territory' };
       if (isAttackForbiddenOnSnapshot(gameState, warlordId, t.owner)) {
         return { valid: false, reason: 'attack target is protected, paused, or the attacker is on cooldown' };
+      }
+      if (isPlayerAnchorProtectedOnSnapshot(gameState, targetId)) {
+        return { valid: false, reason: 'player anchor is protected while the player still owns other territories' };
       }
     }
     if (action === 'DEFEND' || action === 'REINFORCE' || action === 'BUILD') {

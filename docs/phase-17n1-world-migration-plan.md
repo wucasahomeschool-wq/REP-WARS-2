@@ -1,10 +1,12 @@
 # Phase 17N.1 — World / Map Implementation-Readiness Plan
 
-**Status:** planning only. Do not implement this document in 17N.1. Do not build the Map Assistant. Do not start a numbered Phase 18/19 from this file.
+**Status:** planning document (historical). **17N.2 implemented the loader/validator/runtime overlay. 17P made authored World JSON the production initialization path.** Do not treat SAMPLE_MAP/`createGameState()` defaults in this file as current.
 
-**Authoritative inputs:** `docs/phase-17m-world-map-spec.md` (including 17M.1 hierarchy lock), the current repository, and the external architectural audit summarized in the 17N.1 brief.
+**Authoritative current docs:** `docs/WORLD_DEFINITION.md`.
 
-**Current repo (verified at plan time):** 643 tests passing; GameState schema **8**; production default world is `SAMPLE_MAP` + `WARLORD_SPECS` via `createGameState()`.
+**Authoritative inputs (at plan time):** `docs/phase-17m-world-map-spec.md` (including 17M.1 hierarchy lock), the current repository, and the external architectural audit summarized in the 17N.1 brief.
+
+**Repo at plan time (stale):** 643 tests passing; GameState schema **8**; production default world was `SAMPLE_MAP` + `WARLORD_SPECS`. That default is retired.
 
 ---
 

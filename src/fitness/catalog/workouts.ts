@@ -8,11 +8,44 @@ import {
 } from '../types';
 import { cloneWorkoutDefinition, validateWorkoutCatalog } from '../validation';
 import { exerciseCatalogById } from './exercises';
+import { LIBRARY_TEMPLATES, LibraryTemplateSpec } from './library';
 
 interface WorkoutStepSpec {
   exerciseId: ExerciseId;
   role: WorkoutExerciseRole;
   prescription?: ExercisePrescription;
+}
+
+function roleForExercise(exerciseId: ExerciseId): WorkoutExerciseRole {
+  const def = exerciseCatalogById().get(exerciseId);
+  if (!def) {
+    throw new Error(`Unknown exercise ${exerciseId}`);
+  }
+  if (def.type === 'REST' || def.isRest) return 'REST';
+  if (def.metadata.notes === 'Stretch' || def.metadata.notes === 'Final stretching' || def.metadata.notes === 'Closing stretch') {
+    return 'FINAL_STRETCH';
+  }
+  if (def.bodySection === 'CORE') return 'CORE';
+  if (def.bodySection === 'UPPER_BODY') return 'UPPER_BODY';
+  if (def.bodySection === 'LOWER_BODY') return 'LOWER_BODY';
+  return 'MAIN';
+}
+
+function libraryWorkout(spec: LibraryTemplateSpec): WorkoutDefinition {
+  return {
+    id: spec.id,
+    name: spec.name,
+    description: spec.description,
+    intendedDifficulty: 'MODERATE',
+    exercises: buildSteps(spec.exerciseIds.map((exerciseId) => ({
+      exerciseId,
+      role: roleForExercise(exerciseId),
+    }))),
+    metadata: {
+      estimatedDurationSeconds: spec.exerciseIds.length * 20,
+      tags: [spec.section === 'CORE' ? 'core' : spec.section === 'UPPER_BODY' ? 'upper-body' : 'lower-body', 'authored'],
+    },
+  };
 }
 
 function buildSteps(specs: WorkoutStepSpec[]): WorkoutExercise[] {
@@ -131,6 +164,7 @@ const WORKOUT_DEFS: WorkoutDefinition[] = [
     ]),
     metadata: { estimatedDurationSeconds: 720, tags: ['endurance', 'long'] },
   },
+  ...LIBRARY_TEMPLATES.map(libraryWorkout),
 ];
 
 const catalogIssues = validateWorkoutCatalog(WORKOUT_DEFS, exerciseCatalogById());

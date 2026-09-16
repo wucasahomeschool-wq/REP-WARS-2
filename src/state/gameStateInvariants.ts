@@ -34,6 +34,15 @@ function toEngineSnapshotView(state: GameState): GameStateSnapshot {
     territories: state.territories,
     armies: state.armies,
     allFactionIds: state.allFactionIds,
+    levelAnchorTerritoryIds: [...state.levelAnchorTerritoryIds],
+    attackRestrictions: {
+      playerFactionId: state.playerFactionId,
+      worldTick: state.worldTick,
+      lastPlayerWorkoutCompletedAtTick: state.playerFitness.lastWorkoutCompletedAtTick,
+      playerPaused: state.playerEmpirePause.paused,
+      attackerRecoveryUntilTick: new Map(),
+      attackerContinuationUntilTick: new Map(),
+    },
   };
 }
 
@@ -48,6 +57,9 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
 
   if (!Number.isInteger(state.worldTick) || state.worldTick < 0 || !Number.isFinite(state.worldTick)) {
     push('world.invalid_tick', `worldTick ${state.worldTick} must be a non-negative integer`);
+  }
+  if (!Number.isInteger(state.lastFoodConsumptionTick) || state.lastFoodConsumptionTick < 0 || !Number.isFinite(state.lastFoodConsumptionTick)) {
+    push('economy.invalid_food_consumption_tick', `lastFoodConsumptionTick ${state.lastFoodConsumptionTick} must be a non-negative integer`);
   }
   if (!Number.isInteger(state.turn) || !Number.isFinite(state.turn)) {
     push('world.invalid_turn', `turn ${state.turn} must be a finite integer`);
@@ -94,6 +106,42 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
   for (const t of state.territories.values()) {
     if (t.owner !== null && !state.factions.has(t.owner)) {
       push('territory.invalid_owner', `territory ${t.id} owner ${t.owner} is not a known faction`);
+    }
+  }
+
+  const seenAnchors = new Set<string>();
+  for (const id of state.levelAnchorTerritoryIds ?? []) {
+    if (seenAnchors.has(id)) {
+      push('anchor.duplicate_id', `levelAnchorTerritoryIds contains duplicate ${id}`);
+    }
+    seenAnchors.add(id);
+    if (!state.territories.has(id)) {
+      push('anchor.unknown_territory', `levelAnchorTerritoryIds lists unknown territory ${id}`);
+    }
+  }
+  const defeat = state.levelDefeat;
+  if (!defeat || (defeat.status !== 'active' && defeat.status !== 'defeated')) {
+    push('level.invalid_defeat_status', `levelDefeat.status is ${String(defeat?.status)}`);
+  } else if (!Array.isArray(defeat.previousWorldIds)) {
+    push('level.invalid_previous_worlds', 'levelDefeat.previousWorldIds must be an array');
+  }
+
+  const tutorial = state.level1Tutorial;
+  if (tutorial !== null && tutorial !== undefined) {
+    const beat = tutorial.beat;
+    if (
+      beat !== 'FIRST_WORKOUT_PENDING'
+      && beat !== 'FIRST_ATTACK_AVAILABLE'
+      && beat !== 'SCRIPTED_ATTACK_PENDING'
+      && beat !== 'DEFENSE_PENDING'
+      && beat !== 'FINAL_WORKOUT_PENDING'
+      && beat !== 'FINAL_ATTACK_AVAILABLE'
+      && beat !== 'COMPLETE'
+    ) {
+      push('tutorial.invalid_beat', `level1Tutorial.beat is ${String(beat)}`);
+    }
+    if (typeof tutorial.active !== 'boolean' || typeof tutorial.completed !== 'boolean') {
+      push('tutorial.invalid_flags', 'level1Tutorial.active and completed must be booleans');
     }
   }
 
@@ -522,6 +570,29 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       for (const [rk, rv] of Object.entries(rec.uncollected)) {
         if (!Number.isFinite(rv) || rv < 0 || Number.isNaN(rv)) {
           push('economy.malformed_uncollected', `territoryEconomy ${rec.territoryId} uncollected.${rk} is ${String(rv)}`);
+        }
+      }
+    }
+  }
+
+  if (!state.territoryInfrastructure) {
+    push('infrastructure.missing_map', 'territoryInfrastructure is required on canonical GameState');
+  } else {
+    for (const [key, rec] of state.territoryInfrastructure.entries()) {
+      if (key !== rec.territoryId) {
+        push('infrastructure.key_id_mismatch', `territoryInfrastructure map key ${key} does not match territoryId ${rec.territoryId}`);
+      }
+      if (!state.territories.has(rec.territoryId)) {
+        push('infrastructure.invalid_territory', `territoryInfrastructure ${rec.territoryId} is not a known territory`);
+      }
+      const stamps: Array<[string, number | null]> = [
+        ['farmCompletedAtTick', rec.farmCompletedAtTick],
+        ['mineCompletedAtTick', rec.mineCompletedAtTick],
+        ['lumberCompletedAtTick', rec.lumberCompletedAtTick],
+      ];
+      for (const [field, tick] of stamps) {
+        if (tick !== null && (!Number.isInteger(tick) || tick < 0)) {
+          push('infrastructure.invalid_completed_tick', `territoryInfrastructure ${rec.territoryId}.${field} is ${String(tick)}`);
         }
       }
     }

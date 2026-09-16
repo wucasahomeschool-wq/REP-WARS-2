@@ -17,9 +17,14 @@ Fitness, rewards, GameState, or persistence. It does not generate worlds.
 Coordinates in JSON are world-local 2D: +x right, +y up.
 Tkinter screen space is +y down; conversion happens only at draw/pick time.
 Editor-only state (selection, zoom, pan, undo, raw drawing strokes, convert
-report) is never included in playable export. Raw freehand strokes are not
-WorldDefinition data; CONVERT TO MAP rasterizes the whole drawing and counts
-enclosed areas.
+report) is never included in playable export. Raw freehand/rectangle strokes are
+not WorldDefinition data; CONVERT TO MAP rasterizes the whole drawing and counts
+enclosed areas. The World editor sidebar edits the converted world document.
+
+Contained Worlds imports a completed previous-level WorldDefinition and
+coarsens it: that world becomes one region here; each of its regions becomes
+a territory whose polygon is the union of that region's tiles. This is not
+CONVERT TO MAP and does not inline the previous playable graph.
 
 Usage:
   python map_assistant.py
@@ -52,6 +57,10 @@ EDITOR_OPEN_STROKES_KEY = "_editorOpenStrokes"
 EDITOR_DRAWING_KEY = "_editorDrawing"
 EDITOR_CONVERT_REPORT_KEY = "_editorConvertReport"
 CONVERT_MIN_ISLAND_AREA = 40.0
+STROKE_KIND_FREEHAND = "freehand"
+STROKE_KIND_RECTANGLE = "rectangle"
+ERASER_SCREEN_PX = 14.0
+SIDEBAR_WIDTH = 380
 
 TERRAIN = (
     "plains", "mountain", "hills", "forest", "coastal", "desert", "river", "fortress",
@@ -312,6 +321,155 @@ def set_exterior(poly: Dict[str, Any], points: Sequence[Point]) -> None:
     poly["rings"] = points_to_polygon(points)["rings"]
 
 
+def _quantize_point(p: Point) -> Point:
+    return (round(float(p[0]), 6), round(float(p[1]), 6))
+
+
+def _ensure_ccw(points: Sequence[Point]) -> List[Point]:
+    verts = [_quantize_point(p) for p in unique_ring_vertices(points)]
+    closed = close_ring(verts)
+    if ring_area(closed) < 0:
+        verts = list(reversed(verts))
+    return close_ring(verts)
+
+
+def _pick_ccw_next_point(prev: Point, cur: Point, options: Sequence[Point]) -> Point:
+    if len(options) == 1:
+        return options[0]
+    ix, iy = cur[0] - prev[0], cur[1] - prev[1]
+    best = options[0]
+    best_ang = -10.0
+    for nxt in options:
+        if nxt == prev and len(options) > 1:
+            continue
+        ox, oy = nxt[0] - cur[0], nxt[1] - cur[1]
+        ang = math.atan2(ix * oy - iy * ox, ix * ox + iy * oy)
+        if ang > best_ang:
+            best_ang = ang
+            best = nxt
+    return best
+
+
+def _walk_boundary_rings(boundary: Sequence[Tuple[Point, Point]]) -> List[List[Point]]:
+    succ: Dict[Point, List[Point]] = defaultdict(list)
+    unused: Set[Tuple[Point, Point]] = set()
+    for a, b in boundary:
+        a, b = _quantize_point(a), _quantize_point(b)
+        if a == b:
+            continue
+        unused.add((a, b))
+        if b not in succ[a]:
+            succ[a].append(b)
+    rings: List[List[Point]] = []
+    while unused:
+        start_a, start_b = min(unused, key=lambda e: (e[0][0], e[0][1], e[1][0], e[1][1]))
+        path = [start_a]
+        cur, nxt = start_a, start_b
+        closed = False
+        for _ in range(len(unused) + 8):
+            if (cur, nxt) not in unused:
+                break
+            unused.discard((cur, nxt))
+            path.append(nxt)
+            if nxt == start_a:
+                closed = True
+                break
+            options = [q for q in succ.get(nxt, []) if (nxt, q) in unused]
+            if not options:
+                break
+            prev = cur
+            cur = nxt
+            nxt = _pick_ccw_next_point(prev, cur, options)
+        if closed and len(unique_ring_vertices(path)) >= 3:
+            ring = _ensure_ccw(path)
+            if abs(ring_area(ring)) > GEOM_EPS:
+                rings.append(ring)
+    return rings
+
+
+def union_polygon_exteriors(
+    polygons: Sequence[Dict[str, Any]],
+) -> Tuple[Optional[List[Point]], Optional[str]]:
+    """Union tiled territory exteriors by cancelling shared undirected edges.
+
+    Preserves source vertices (no bounding-box / centroid substitute).
+    Rejects holes and disconnected components — v1 allows one exterior ring.
+    """
+    if not polygons:
+        return None, "no polygons to union"
+    rings: List[List[Point]] = []
+    for poly in polygons:
+        ring = polygon_exterior(poly)
+        if not ring:
+            return None, "a territory is missing a polygon"
+        verts = unique_ring_vertices(_ensure_ccw(ring))
+        if len(verts) < 3:
+            return None, "a territory polygon has too few vertices"
+        if abs(ring_area(close_ring(verts))) <= GEOM_EPS:
+            return None, "a territory polygon has zero area"
+        rings.append(verts)
+    if len(rings) == 1:
+        return close_ring(rings[0]), None
+
+    count: Dict[str, int] = defaultdict(int)
+    directed: Dict[str, List[Tuple[Point, Point]]] = defaultdict(list)
+    for verts in rings:
+        for a, b in ring_edges(verts):
+            if edge_length(a, b) <= GEOM_EPS:
+                continue
+            key = undirected_edge_key(a, b)
+            count[key] += 1
+            directed[key].append((a, b))
+
+    boundary: List[Tuple[Point, Point]] = []
+    for key, n in count.items():
+        if n == 1:
+            boundary.append(directed[key][0])
+        elif n == 2:
+            a1, b1 = directed[key][0]
+            a2, b2 = directed[key][1]
+            same_dir = almost_equal(a1[0], a2[0]) and almost_equal(a1[1], a2[1])
+            if same_dir:
+                return None, "region polygons overlap instead of tiling along a shared edge"
+            continue
+        else:
+            return None, "region polygons overlap instead of tiling along a shared edge"
+
+    if not boundary:
+        return None, "union cancelled every edge"
+    walked = _walk_boundary_rings(boundary)
+    if not walked:
+        return None, "could not trace the region outline"
+    scored = sorted(walked, key=lambda r: abs(ring_area(r)), reverse=True)
+    exterior = scored[0]
+    if abs(ring_area(exterior)) <= GEOM_EPS:
+        return None, "union has zero area"
+    for extra in scored[1:]:
+        if abs(ring_area(extra)) <= GEOM_EPS:
+            continue
+        verts = unique_ring_vertices(extra)
+        if verts and all(point_in_ring(v, exterior) for v in verts):
+            return None, (
+                "region union has a hole; v1 territories must be a simple exterior. "
+                "The previous-level region cannot enclose another region."
+            )
+        return None, (
+            "region is geographically disconnected; coarsening needs one contiguous "
+            "region outline. Split or join those territories on the previous level first."
+        )
+    if ring_self_intersects(exterior):
+        return None, "region union is self-intersecting"
+    return _ensure_ccw(exterior), None
+
+
+def identity_contained_placement() -> Dict[str, Any]:
+    return {
+        "origin": {"x": 0.0, "y": 0.0},
+        "rotationDegrees": 0.0,
+        "scale": 1.0,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Continuous drawing (authoring UX only — not a world generator)
 # ---------------------------------------------------------------------------
@@ -354,6 +512,26 @@ def sample_path_by_distance(points: Sequence[Point], min_spacing: float) -> List
     end = (float(last[0]), float(last[1]))
     if edge_length(out[-1], end) > GEOM_EPS:
         out.append(end)
+    return out
+
+
+def densify_path(points: Sequence[Point], step: float) -> List[Point]:
+    """Insert vertices along segments so a brush can cut dense freehand ink."""
+    if not points:
+        return []
+    pts = [(float(p[0]), float(p[1])) for p in points]
+    if len(pts) == 1:
+        return pts
+    spacing = max(float(step), GEOM_EPS)
+    out: List[Point] = [pts[0]]
+    for i in range(1, len(pts)):
+        a = out[-1]
+        b = pts[i]
+        dist = edge_length(a, b)
+        n = max(1, int(math.ceil(dist / spacing)))
+        for k in range(1, n + 1):
+            t = k / n
+            out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
     return out
 
 
@@ -1388,22 +1566,118 @@ def iter_drawing_strokes(world: Dict[str, Any]) -> List[Dict[str, Any]]:
     return list(get_drawing(world, create=False).get("strokes") or [])
 
 
-def add_drawing_stroke(world: Dict[str, Any], points: Sequence[Point]) -> str:
+def stroke_kind(item: Dict[str, Any]) -> str:
+    kind = item.get("kind") if isinstance(item, dict) else None
+    if kind == STROKE_KIND_RECTANGLE:
+        return STROKE_KIND_RECTANGLE
+    return STROKE_KIND_FREEHAND
+
+
+def rectangle_polyline(a: Point, b: Point) -> List[Point]:
+    """Axis-aligned rectangle in world coordinates (closed ring)."""
+    x0, x1 = (a[0], b[0]) if a[0] <= b[0] else (b[0], a[0])
+    y0, y1 = (a[1], b[1]) if a[1] <= b[1] else (b[1], a[1])
+    if abs(x1 - x0) <= GEOM_EPS or abs(y1 - y0) <= GEOM_EPS:
+        return []
+    return [(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)]
+
+
+def rectangle_is_commit_size(a: Point, b: Point, zoom: float) -> bool:
+    z = max(float(zoom), 1e-9)
+    return abs(a[0] - b[0]) * z >= 8.0 and abs(a[1] - b[1]) * z >= 8.0
+
+
+def drawing_eraser_radius(zoom: float) -> float:
+    return max(0.2, ERASER_SCREEN_PX / max(float(zoom), 0.01))
+
+
+def add_drawing_stroke(
+    world: Dict[str, Any],
+    points: Sequence[Point],
+    kind: str = STROKE_KIND_FREEHAND,
+) -> str:
     store = get_drawing(world)
     sid = f"d{store['next']:04d}"
     store["next"] += 1
-    store["strokes"].append({"id": sid, "points": _as_open_points(points)})
+    rec: Dict[str, Any] = {"id": sid, "kind": kind, "points": _as_open_points(points)}
+    store["strokes"].append(rec)
     return sid
 
 
-def put_drawing_stroke(world: Dict[str, Any], sid: str, points: Sequence[Point]) -> None:
+def put_drawing_stroke(
+    world: Dict[str, Any],
+    sid: str,
+    points: Sequence[Point],
+    kind: Optional[str] = None,
+) -> None:
     store = get_drawing(world)
     pts = _as_open_points(points)
     for item in store["strokes"]:
         if item.get("id") == sid:
             item["points"] = pts
+            if kind:
+                item["kind"] = kind
             return
-    store["strokes"].append({"id": sid, "points": pts})
+    rec: Dict[str, Any] = {"id": sid, "points": pts}
+    if kind:
+        rec["kind"] = kind
+    store["strokes"].append(rec)
+
+
+def _point_hits_brush(p: Point, center: Point, radius: float) -> bool:
+    return edge_length(p, center) <= radius
+
+
+def erase_polyline(points: Sequence[Point], center: Point, radius: float) -> List[List[Point]]:
+    """Return leftover pieces of a polyline after cutting with a disk."""
+    if len(points) < 2:
+        return []
+    step = max(radius * 0.35, GEOM_EPS * 10)
+    dense = densify_path(points, step)
+    pieces: List[List[Point]] = []
+    current: List[Point] = []
+    for p in dense:
+        if _point_hits_brush(p, center, radius):
+            if len(current) >= 2:
+                pieces.append(current)
+            current = []
+        else:
+            if not current or edge_length(current[-1], p) > GEOM_EPS:
+                current.append(p)
+    if len(current) >= 2:
+        pieces.append(current)
+    return pieces
+
+
+def erase_raw_drawing(world: Dict[str, Any], center: Point, radius: float) -> bool:
+    """Cut raw drawing ink only. Does not touch converted island/territories."""
+    store = get_drawing(world)
+    old = list(store.get("strokes") or [])
+    new_items: List[Dict[str, Any]] = []
+    changed = False
+    step = max(radius * 0.35, GEOM_EPS * 10)
+    for item in old:
+        pts = open_stroke_points(item)
+        if len(pts) < 2:
+            changed = True
+            continue
+        dense = densify_path(pts, step)
+        if not any(_point_hits_brush(p, center, radius) for p in dense):
+            new_items.append(item)
+            continue
+        changed = True
+        for piece in erase_polyline(pts, center, radius):
+            sid = f"d{store['next']:04d}"
+            store["next"] += 1
+            new_items.append({
+                "id": sid,
+                "kind": STROKE_KIND_FREEHAND,
+                "points": _as_open_points(piece),
+            })
+    if not changed:
+        return False
+    store["strokes"] = new_items
+    return True
 
 
 def remove_drawing_stroke(world: Dict[str, Any], sid: str) -> None:
@@ -1446,6 +1720,8 @@ def oriented_drawing_stroke_for_resume(
         return None
     item = find_drawing_stroke(world, str(hit["id"]))
     if not item:
+        return None
+    if stroke_kind(item) == STROKE_KIND_RECTANGLE:
         return None
     pts = open_stroke_points(item)
     if hit.get("which") == "start":
@@ -2088,6 +2364,282 @@ def add_territory(world: Dict[str, Any], polygon: Sequence[Point], region_id: st
     return tid
 
 
+def _import_fail(message: str, issues: Optional[List[Issue]] = None) -> Dict[str, Any]:
+    return {"ok": False, "error": message, "issues": issues or [], "territories": []}
+
+
+def format_previous_level_import_preview(plan: Dict[str, Any]) -> str:
+    if not plan.get("ok"):
+        return plan.get("error") or "Import failed."
+    rows = [
+        f"World: {plan.get('sourceName')} ({plan.get('sourceWorldId')})",
+        f"Source level: {plan.get('sourceLevel')}  ->  current level: {plan.get('targetLevel')}",
+        f"Source regions: {plan.get('sourceRegionCount')}  ->  new territories: {len(plan.get('territories') or [])}",
+        f"Source territories (geometry only): {plan.get('sourceTerritoryCount')}",
+        f"New region: {plan.get('regionName')}",
+        "",
+        "New territories (from source regions):",
+    ]
+    for item in plan.get("territories") or []:
+        nbs = ", ".join(item.get("neighborSourceRegionNames") or item.get("neighborSourceRegionIds") or [])
+        rows.append(f"  - {item.get('sourceRegionName')}  neighbors: {nbs or '(none)'}")
+    for warning in plan.get("warnings") or []:
+        rows.append("")
+        rows.append(f"Warning: {warning}")
+    return "\n".join(rows)
+
+
+def import_plan_from_json_text(text: str, target: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate WorldDefinition JSON, then plan coarsening. Does not mutate target or source files."""
+    source, issues = parse_world_json(text)
+    if source is None or issues:
+        codes = {i["code"] for i in issues}
+        extra = ""
+        if "region.empty" in codes:
+            extra = (
+                "\n\nThe previous-level world needs named region definitions before "
+                "it can be coarsened into the next level."
+            )
+        msgs = "\n".join(f"[{i['code']}] {i['message']}" for i in issues[:20])
+        return _import_fail(
+            "The selected JSON is not a valid WorldDefinition.\n" + msgs + extra,
+            issues,
+        )
+    return plan_previous_level_import(source, target)
+
+
+def plan_previous_level_import(source: Dict[str, Any], target: Dict[str, Any]) -> Dict[str, Any]:
+    """Pure coarsen plan: previous world → one region; previous regions → territories.
+
+    Does not mutate source or target. Distinct from CONVERT TO MAP.
+    """
+    if not isinstance(source, dict) or not isinstance(target, dict):
+        return _import_fail("Import requires a WorldDefinition object.")
+    src_issues = validate_world(source)
+    if src_issues:
+        msgs = "\n".join(f"[{i['code']}] {i['message']}" for i in src_issues[:20])
+        extra = ""
+        if any(i["code"] == "region.empty" for i in src_issues):
+            extra = (
+                "\n\nThe previous-level world needs named region definitions before "
+                "it can be coarsened into the next level."
+            )
+        return _import_fail(
+            "The selected JSON is not a valid WorldDefinition.\n" + msgs + extra,
+            src_issues,
+        )
+
+    source_id = source.get("worldId") or ""
+    if not source_id:
+        return _import_fail("The imported world is missing worldId.")
+    if source_id == (target.get("worldId") or ""):
+        return _import_fail("A world cannot import itself as a contained previous level.")
+    existing_contained = {
+        c.get("worldId") for c in (target.get("containedWorlds") or []) if isinstance(c, dict)
+    }
+    if source_id in existing_contained:
+        return _import_fail(f"{source_id} is already a contained world in this file.")
+
+    regions = [r for r in (source.get("regions") or []) if isinstance(r, dict)]
+    if not regions:
+        return _import_fail(
+            "The previous-level world has no named regions. Define regions on that "
+            "world before coarsening it into the next level."
+        )
+
+    by_id = {
+        t.get("id"): t
+        for t in (source.get("territories") or [])
+        if isinstance(t, dict) and t.get("id")
+    }
+    planned: List[Dict[str, Any]] = []
+    unions: Dict[str, Dict[str, Any]] = {}
+    for region in regions:
+        rid = region.get("id") or ""
+        name = region.get("name") or rid
+        member_ids = [tid for tid in (region.get("territoryIds") or []) if tid in by_id]
+        if not member_ids:
+            return _import_fail(
+                f"Source region {name} has no territories, so it cannot become a "
+                "higher-level territory."
+            )
+        polys = [by_id[tid].get("polygon") or {} for tid in member_ids]
+        ring, err = union_polygon_exteriors(polys)
+        if err or not ring:
+            return _import_fail(f"Cannot coarsen source region {name}: {err or 'union failed'}.")
+        poly = points_to_polygon(ring)
+        unions[rid] = poly
+        planned.append({
+            "sourceRegionId": rid,
+            "sourceRegionName": name,
+            "polygon": clone_world(poly),
+            "neighborSourceRegionIds": [],
+            "neighborSourceRegionNames": [],
+            "terrain": "plains",
+        })
+
+    region_name_by_id = {r.get("id"): r.get("name") or r.get("id") for r in regions}
+    tid_to_region = {
+        t.get("id"): t.get("regionId")
+        for t in (source.get("territories") or [])
+        if isinstance(t, dict)
+    }
+    graph: Dict[str, Set[str]] = {item["sourceRegionId"]: set() for item in planned}
+    for t in source.get("territories") or []:
+        if not isinstance(t, dict):
+            continue
+        rid = t.get("regionId")
+        if rid not in graph:
+            continue
+        for nid in t.get("neighborIds") or []:
+            nrid = tid_to_region.get(nid)
+            if nrid and nrid != rid and nrid in graph:
+                graph[rid].add(nrid)
+    ids = [item["sourceRegionId"] for item in planned]
+    for i, a in enumerate(ids):
+        for b in ids[i + 1:]:
+            shared = shared_edge_length(unions[a], unions[b])
+            if shared > GEOM_EPS:
+                graph[a].add(b)
+                graph[b].add(a)
+            else:
+                graph[a].discard(b)
+                graph[b].discard(a)
+    for item in planned:
+        nbs = sorted(graph.get(item["sourceRegionId"]) or [])
+        item["neighborSourceRegionIds"] = nbs
+        item["neighborSourceRegionNames"] = [str(region_name_by_id.get(n, n)) for n in nbs]
+
+    try:
+        source_level = int(source.get("level") or 1)
+    except (TypeError, ValueError):
+        source_level = 1
+    try:
+        target_level = int(target.get("level") or 1)
+    except (TypeError, ValueError):
+        target_level = 1
+    next_level = max(target_level, source_level + 1)
+
+    new_verts: List[Point] = []
+    for item in planned:
+        ext = polygon_exterior(item["polygon"])
+        if ext:
+            new_verts.extend(unique_ring_vertices(ext))
+    target_island = polygon_exterior(
+        target.get("island") if isinstance(target.get("island"), dict) else None
+    )
+    island_out: Optional[Dict[str, Any]] = None
+    warnings: List[str] = []
+    if not target_island:
+        island_out = clone_world(source.get("island") or {"rings": [[]]})
+    elif new_verts and all(point_in_ring(v, target_island) for v in new_verts):
+        island_out = None
+    else:
+        merged, err = union_polygon_exteriors([
+            target.get("island") or {"rings": [[]]},
+            source.get("island") or {"rings": [[]]},
+        ])
+        if err or not merged:
+            return _import_fail(
+                "Imported geography does not lie on the current island and cannot be "
+                "merged into one island outline. Import into a blank Level N+1, or "
+                "enlarge the island first."
+            )
+        island_out = points_to_polygon(merged)
+        if new_verts and not all(point_in_ring(v, merged) for v in new_verts):
+            return _import_fail(
+                "Imported geography does not lie on the current island. Import into "
+                "a blank Level N+1, or enlarge the island first."
+            )
+
+    existing_ids = [t.get("id") for t in (target.get("territories") or []) if isinstance(t, dict)]
+    if existing_ids:
+        warnings.append(
+            "This world already has territories. The import adds a region; it does "
+            "not rebuild the map from drawing strokes."
+        )
+
+    region_name = str(source.get("name") or source_id)
+    return {
+        "ok": True,
+        "error": None,
+        "issues": [],
+        "warnings": warnings,
+        "sourceWorldId": source_id,
+        "sourceName": str(source.get("name") or source_id),
+        "sourceLevel": source_level,
+        "sourceRegionCount": len(regions),
+        "sourceTerritoryCount": len(source.get("territories") or []),
+        "targetLevel": next_level,
+        "regionName": region_name,
+        "island": island_out,
+        "territories": planned,
+        "placement": identity_contained_placement(),
+    }
+
+
+def apply_previous_level_import(target: Dict[str, Any], plan: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply a successful coarsen plan to the current world. Does not mutate the source world."""
+    if not plan.get("ok"):
+        return _import_fail(plan.get("error") or "Import plan is not ok.")
+    target["level"] = int(plan["targetLevel"])
+    if plan.get("island") is not None:
+        target["island"] = clone_world(plan["island"])
+    rid = add_region(target, str(plan.get("regionName") or "Imported World"))
+    owner = str(target.get("playerFactionId") or "")
+    id_map: Dict[str, str] = {}
+    new_ids: List[str] = []
+    for item in plan.get("territories") or []:
+        ring = polygon_exterior(item.get("polygon"))
+        if not ring:
+            return _import_fail("Import plan is missing territory geometry.")
+        tid = add_territory(target, ring, rid, owner)
+        t = find_territory(target, tid)
+        if t is not None:
+            t["terrain"] = item.get("terrain") or "plains"
+            t["resourceOutput"] = {k: 0 for k in RESOURCE_KEYS}
+        id_map[item["sourceRegionId"]] = tid
+        new_ids.append(tid)
+    for item in plan.get("territories") or []:
+        a = id_map.get(item["sourceRegionId"])
+        if not a:
+            continue
+        for src_nb in item.get("neighborSourceRegionIds") or []:
+            b = id_map.get(src_nb)
+            if b:
+                set_reciprocal_neighbor(target, a, b, True)
+    existing = [
+        t for t in (target.get("territories") or [])
+        if isinstance(t, dict) and t.get("id") not in new_ids
+    ]
+    for tid in new_ids:
+        nt = find_territory(target, tid)
+        if nt is None:
+            continue
+        for old in existing:
+            if shared_edge_length(nt.get("polygon") or {}, old.get("polygon") or {}) > GEOM_EPS:
+                set_reciprocal_neighbor(target, tid, old["id"], True)
+    target.setdefault("containedWorlds", []).append({
+        "worldId": plan["sourceWorldId"],
+        "regionId": rid,
+        "placement": clone_world(plan.get("placement") or identity_contained_placement()),
+    })
+    player = find_faction(target, owner)
+    if player is not None and new_ids:
+        if not find_territory(target, player.get("homeTerritoryId") or ""):
+            player["homeTerritoryId"] = new_ids[0]
+        army = player.get("startingArmy") if isinstance(player.get("startingArmy"), dict) else None
+        if army is not None and not army.get("locationTerritoryId"):
+            army["locationTerritoryId"] = new_ids[0]
+    return {
+        "ok": True,
+        "error": None,
+        "regionId": rid,
+        "territoryIds": new_ids,
+        "idMap": id_map,
+    }
+
+
 def delete_territory(world: Dict[str, Any], tid: str) -> None:
     world["territories"] = [t for t in world.get("territories") or [] if t.get("id") != tid]
     for t in world.get("territories") or []:
@@ -2293,6 +2845,135 @@ def make_minimal_valid_world() -> Dict[str, Any]:
                 "id": "t_02", "regionId": "r_01", "startingOwnerFactionId": "f_ai_01",
                 "neighborIds": ["t_01"], "terrain": "hills",
                 "resourceOutput": {"iron": 2}, "polygon": t2,
+            },
+        ],
+    }
+
+
+def _test_level1_factions(player_home: str, ai_home: str) -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": "f_player", "role": "player", "name": "Player",
+            "homeTerritoryId": player_home,
+            "startingResources": {k: 100 for k in RESOURCE_KEYS},
+            "startingArmy": {
+                "soldiers": 100, "knights": 0, "siegeEngines": 0,
+                "locationTerritoryId": player_home,
+            },
+            "personality": None,
+        },
+        {
+            "id": "f_ai_01", "role": "ai", "name": "Warlord",
+            "homeTerritoryId": ai_home,
+            "startingResources": {k: 100 for k in RESOURCE_KEYS},
+            "startingArmy": {
+                "soldiers": 100, "knights": 0, "siegeEngines": 0,
+                "locationTerritoryId": ai_home,
+            },
+            "personality": {
+                "id": "p_01", "label": "Custom", "ambition": 0.4,
+                "traits": {k: 0.4 for k in TRAIT_KEYS},
+            },
+        },
+    ]
+
+
+def make_level1_three_region_world() -> Dict[str, Any]:
+    """Deterministic organic Level 1: 1 island, 3 regions, 2 territories each."""
+    island = points_to_polygon([(-2, -2), (33, -2), (33, 24), (-2, 24), (-2, -2)])
+    t_west_n = points_to_polygon([(0, 11), (10, 10), (10, 20), (1, 21), (0, 11)])
+    t_west_s = points_to_polygon([(0, 0), (11, 1), (10, 10), (0, 11), (0, 0)])
+    t_mid_n = points_to_polygon([(10, 10), (20, 11), (20, 21), (10, 20), (10, 10)])
+    t_mid_s = points_to_polygon([(10, 10), (11, 1), (21, 0), (20, 11), (10, 10)])
+    t_east_n = points_to_polygon([(20, 11), (30, 10), (30, 21), (20, 21), (20, 11)])
+    t_east_s = points_to_polygon([(20, 11), (21, 0), (31, 1), (30, 10), (20, 11)])
+    return {
+        "formatVersion": FORMAT_VERSION,
+        "worldId": "w_level1_three",
+        "level": 1,
+        "name": "Three Realms",
+        "playerFactionId": "f_player",
+        "island": island,
+        "completion": {"type": "control_fraction", "fraction": 0.7},
+        "containedWorlds": [],
+        "factions": _test_level1_factions("t_01", "t_03"),
+        "startingDiplomacy": [],
+        "regions": [
+            {"id": "r_west", "name": "Iron Coast", "worldId": "w_level1_three", "territoryIds": ["t_01", "t_02"]},
+            {"id": "r_mid", "name": "Midland", "worldId": "w_level1_three", "territoryIds": ["t_03", "t_04"]},
+            {"id": "r_east", "name": "Salt Barrens", "worldId": "w_level1_three", "territoryIds": ["t_05", "t_06"]},
+        ],
+        "territories": [
+            {
+                "id": "t_01", "regionId": "r_west", "startingOwnerFactionId": "f_player",
+                "neighborIds": ["t_02", "t_03"], "terrain": "plains",
+                "resourceOutput": {"food": 1}, "polygon": t_west_n,
+            },
+            {
+                "id": "t_02", "regionId": "r_west", "startingOwnerFactionId": "f_ai_01",
+                "neighborIds": ["t_01", "t_04"], "terrain": "hills",
+                "resourceOutput": {"iron": 1}, "polygon": t_west_s,
+            },
+            {
+                "id": "t_03", "regionId": "r_mid", "startingOwnerFactionId": "f_ai_01",
+                "neighborIds": ["t_01", "t_04", "t_05"], "terrain": "forest",
+                "resourceOutput": {"wood": 1}, "polygon": t_mid_n,
+            },
+            {
+                "id": "t_04", "regionId": "r_mid", "startingOwnerFactionId": "f_ai_01",
+                "neighborIds": ["t_02", "t_03", "t_06"], "terrain": "hills",
+                "resourceOutput": {"stone": 1}, "polygon": t_mid_s,
+            },
+            {
+                "id": "t_05", "regionId": "r_east", "startingOwnerFactionId": "f_ai_01",
+                "neighborIds": ["t_03", "t_06"], "terrain": "coastal",
+                "resourceOutput": {"gold": 1}, "polygon": t_east_n,
+            },
+            {
+                "id": "t_06", "regionId": "r_east", "startingOwnerFactionId": "f_ai_01",
+                "neighborIds": ["t_04", "t_05"], "terrain": "coastal",
+                "resourceOutput": {"gold": 1}, "polygon": t_east_s,
+            },
+        ],
+    }
+
+
+def make_disconnected_region_world() -> Dict[str, Any]:
+    """Valid Level 1 whose one region is two landmasses — cannot coarsen."""
+    island = points_to_polygon([(-2, -2), (22, -2), (22, 6), (-2, 6), (-2, -2)])
+    left = points_to_polygon([(0, 0), (4, 0), (4, 4), (0, 4), (0, 0)])
+    bridge = points_to_polygon([(4, 0), (16, 0), (16, 4), (4, 4), (4, 0)])
+    right = points_to_polygon([(16, 0), (20, 0), (20, 4), (16, 4), (16, 0)])
+    return {
+        "formatVersion": FORMAT_VERSION,
+        "worldId": "w_split_region",
+        "level": 1,
+        "name": "Split Region",
+        "playerFactionId": "f_player",
+        "island": island,
+        "completion": {"type": "control_fraction", "fraction": 0.7},
+        "containedWorlds": [],
+        "factions": _test_level1_factions("t_01", "t_02"),
+        "startingDiplomacy": [],
+        "regions": [
+            {"id": "r_split", "name": "Split Lands", "worldId": "w_split_region", "territoryIds": ["t_01", "t_03"]},
+            {"id": "r_bridge", "name": "Bridge", "worldId": "w_split_region", "territoryIds": ["t_02"]},
+        ],
+        "territories": [
+            {
+                "id": "t_01", "regionId": "r_split", "startingOwnerFactionId": "f_player",
+                "neighborIds": ["t_02"], "terrain": "plains",
+                "resourceOutput": {"food": 1}, "polygon": left,
+            },
+            {
+                "id": "t_02", "regionId": "r_bridge", "startingOwnerFactionId": "f_ai_01",
+                "neighborIds": ["t_01", "t_03"], "terrain": "hills",
+                "resourceOutput": {"iron": 1}, "polygon": bridge,
+            },
+            {
+                "id": "t_03", "regionId": "r_split", "startingOwnerFactionId": "f_ai_01",
+                "neighborIds": ["t_02"], "terrain": "coastal",
+                "resourceOutput": {"gold": 1}, "polygon": right,
             },
         ],
     }
@@ -2994,6 +3675,372 @@ class DrawingConvertTests(unittest.TestCase):
         playable = dumps_world(w)
         self.assertNotIn(EDITOR_DRAWING_KEY, playable)
 
+
+class DrawingToolsTests(unittest.TestCase):
+    def test_rectangle_can_be_drawn_into_raw_drawing(self) -> None:
+        w = new_blank_world()
+        pts = rectangle_polyline((2.0, 3.0), (10.0, 9.0))
+        self.assertEqual(len(pts), 5)
+        self.assertEqual(pts[0], pts[-1])
+        sid = add_drawing_stroke(w, pts, STROKE_KIND_RECTANGLE)
+        item = find_drawing_stroke(w, sid)
+        self.assertIsNotNone(item)
+        assert item is not None
+        self.assertEqual(stroke_kind(item), STROKE_KIND_RECTANGLE)
+        self.assertEqual(open_stroke_points(item), pts)
+
+    def test_rectangle_participates_in_conversion(self) -> None:
+        w = new_blank_world()
+        add_drawing_stroke(w, rectangle_polyline((0.0, 0.0), (20.0, 20.0)), STROKE_KIND_RECTANGLE)
+        result = convert_drawing_to_map(w)
+        self.assertTrue(result["ok"], msg=result.get("message"))
+        self.assertEqual(len(w["territories"]), 1)
+
+    def test_rectangle_can_divide_an_island(self) -> None:
+        w = new_blank_world()
+        add_drawing_stroke(w, _cvt_square())
+        add_drawing_stroke(w, rectangle_polyline((0.0, 0.0), (20.0, 20.0)), STROKE_KIND_RECTANGLE)
+        add_drawing_stroke(w, [(10.0, -4.0), (10.0, 24.0)])
+        result = convert_drawing_to_map(w)
+        self.assertTrue(result["ok"], msg=result.get("message"))
+        self.assertEqual(len(w["territories"]), 2)
+
+    def test_rectangle_is_world_space_under_zoom_and_pan(self) -> None:
+        a = view_screen_to_world(40.0, 200.0, 2.5, 10.0, 300.0)
+        b = view_screen_to_world(120.0, 80.0, 2.5, 10.0, 300.0)
+        ring = rectangle_polyline(a, b)
+        self.assertGreaterEqual(len(ring), 5)
+        xs = {round(p[0], 6) for p in ring}
+        ys = {round(p[1], 6) for p in ring}
+        self.assertEqual(len(xs), 2)
+        self.assertEqual(len(ys), 2)
+        screens = [view_world_to_screen(p[0], p[1], 2.5, 10.0, 300.0) for p in unique_ring_vertices(ring)]
+        sxs = {round(p[0], 5) for p in screens}
+        sys = {round(p[1], 5) for p in screens}
+        self.assertEqual(len(sxs), 2)
+        self.assertEqual(len(sys), 2)
+        shifted = [view_world_to_screen(p[0], p[1], 6.0, 80.0, 90.0) for p in unique_ring_vertices(ring)]
+        sxs2 = {round(p[0], 5) for p in shifted}
+        sys2 = {round(p[1], 5) for p in shifted}
+        self.assertEqual(len(sxs2), 2)
+        self.assertEqual(len(sys2), 2)
+
+    def test_eraser_removes_raw_drawing_not_converted_geometry(self) -> None:
+        w = new_blank_world()
+        add_drawing_stroke(w, _cvt_square())
+        add_drawing_stroke(w, [(10.0, -2.0), (10.0, 22.0)])
+        result = convert_drawing_to_map(w)
+        self.assertTrue(result["ok"])
+        island_before = clone_world(w["island"])
+        terr_before = clone_world(w["territories"])
+        self.assertTrue(erase_raw_drawing(w, (10.0, 10.0), 1.5))
+        self.assertEqual(w["island"], island_before)
+        self.assertEqual(w["territories"], terr_before)
+        self.assertGreaterEqual(len(iter_drawing_strokes(w)), 1)
+
+    def test_eraser_works_on_freehand_and_rectangle(self) -> None:
+        w = new_blank_world()
+        add_drawing_stroke(w, [(0.0, 5.0), (20.0, 5.0)])
+        add_drawing_stroke(w, rectangle_polyline((0.0, 0.0), (8.0, 8.0)), STROKE_KIND_RECTANGLE)
+        n0 = len(iter_drawing_strokes(w))
+        self.assertTrue(erase_raw_drawing(w, (4.0, 5.0), 1.2))
+        self.assertNotEqual(open_stroke_points(iter_drawing_strokes(w)[0]), [(0.0, 5.0), (20.0, 5.0)])
+        self.assertTrue(erase_raw_drawing(w, (0.0, 0.0), 1.5))
+        kinds = [stroke_kind(s) for s in iter_drawing_strokes(w)]
+        self.assertTrue(all(k == STROKE_KIND_FREEHAND for k in kinds) or len(kinds) <= n0)
+
+    def test_reconvert_after_erase_and_undo_restore(self) -> None:
+        w = new_blank_world()
+        add_drawing_stroke(w, _cvt_square())
+        add_drawing_stroke(w, [(10.0, -2.0), (10.0, 22.0)])
+        first = convert_drawing_to_map(w)
+        self.assertEqual(len(w["territories"]), 2)
+        stack = UndoStack()
+        stack.push(w)
+        self.assertTrue(erase_raw_drawing(w, (10.0, 10.0), 2.0))
+        second = convert_drawing_to_map(w)
+        self.assertTrue(second["ok"])
+        self.assertEqual(len(w["territories"]), 1)
+        restored = stack.apply_undo(w)
+        self.assertIsNotNone(restored)
+        assert restored is not None
+        self.assertEqual(len(iter_drawing_strokes(restored)), 2)
+        third = convert_drawing_to_map(restored)
+        self.assertTrue(third["ok"], msg=third.get("message"))
+        self.assertEqual(len(restored["territories"]), 2)
+
+    def test_freehand_rectangle_eraser_convert_together(self) -> None:
+        w = new_blank_world()
+        add_drawing_stroke(w, _cvt_irregular_island())
+        add_drawing_stroke(w, rectangle_polyline((8.0, 2.0), (14.0, 18.0)), STROKE_KIND_RECTANGLE)
+        add_drawing_stroke(w, [(1.0, 30.0), (2.0, 31.0)])
+        self.assertTrue(erase_raw_drawing(w, (1.5, 30.5), 2.0))
+        result = convert_drawing_to_map(w)
+        self.assertTrue(result["ok"], msg=result.get("message"))
+        self.assertGreaterEqual(len(w["territories"]), 1)
+
+
+class SidebarEditorTests(unittest.TestCase):
+    def test_world_metadata_is_on_the_blank_document(self) -> None:
+        w = new_blank_world()
+        self.assertEqual(w["worldId"], "w_untitled")
+        self.assertEqual(w["name"], "Untitled World")
+        self.assertEqual(w["level"], 1)
+        self.assertEqual(w["playerFactionId"], "f_player")
+
+    def test_regions_multi_select_and_move_to_region(self) -> None:
+        w, result = _cvt_world_from(
+            _cvt_square(),
+            [(10.0, -4.0), (10.0, 24.0)],
+            [(-4.0, 10.0), (24.0, 10.0)],
+        )
+        self.assertTrue(result["ok"])
+        self.assertGreaterEqual(len(w["territories"]), 4)
+        rid = add_region(w, "Eastern Reach")
+        selected = [t["id"] for t in w["territories"][:2]]
+        for tid in selected:
+            self.assertTrue(territory_is_multi_selected(tid, selected, ("territory", selected[0])))
+        n = assign_territories_to_region(w, selected, rid)
+        self.assertEqual(n, 2)
+        self.assertEqual(find_territory(w, selected[0])["regionId"], rid)
+        region = find_region(w, rid)
+        self.assertIsNotNone(region)
+        assert region is not None
+        self.assertIn(selected[0], region["territoryIds"])
+
+    def test_factions_warlords_and_territory_metadata(self) -> None:
+        w, result = _cvt_world_from(_cvt_square(), [(10.0, -2.0), (10.0, 22.0)])
+        self.assertTrue(result["ok"])
+        fid = add_ai_faction(w)
+        fac = find_faction(w, fid)
+        self.assertIsNotNone(fac)
+        assert fac is not None
+        self.assertEqual(fac.get("role"), "ai")
+        self.assertIsInstance(fac.get("personality"), dict)
+        t = w["territories"][0]
+        t["terrain"] = "forest"
+        t["resourceOutput"]["wood"] = 4
+        t["startingOwnerFactionId"] = fid
+        self.assertEqual(find_territory(w, t["id"])["terrain"], "forest")
+        self.assertEqual(find_territory(w, t["id"])["resourceOutput"]["wood"], 4)
+        w["name"] = "Edited From Sidebar"
+        self.assertEqual(w["name"], "Edited From Sidebar")
+
+    def test_gui_sidebar_is_allocated_and_has_editor_tabs(self) -> None:
+        seen: Dict[str, Any] = {}
+
+        def ready(app: Any) -> None:
+            seen["sidebar_width"] = int(app.sidebar.winfo_width())
+            seen["canvas_width"] = int(app.canvas.winfo_width())
+            seen["tabs"] = [app.notebook.tab(t, "text") for t in app.notebook.tabs()]
+            seen["world_name"] = app.v_world_name.get()
+            seen["has_move"] = bool(getattr(app, "btn_move_region", None))
+            seen["has_import"] = bool(getattr(app, "btn_import_previous", None))
+            btn = getattr(app, "btn_import_previous", None)
+            seen["import_label"] = str(btn.cget("text")) if btn is not None else ""
+
+        try:
+            launch_editor(smoke=True, on_ready=ready)
+        except Exception as err:
+            self.skipTest(f"Tk not available: {err}")
+        self.assertGreaterEqual(int(seen.get("sidebar_width") or 0), 300)
+        self.assertGreater(int(seen.get("canvas_width") or 0), 100)
+        for name in ("World", "Selection", "Regions", "Warlords", "Validate"):
+            self.assertIn(name, seen.get("tabs") or [])
+        self.assertEqual(seen.get("world_name"), "Untitled World")
+        self.assertTrue(seen.get("has_move"))
+        self.assertIn("Contained", seen.get("tabs") or [])
+        self.assertTrue(seen.get("has_import"))
+        self.assertEqual(seen.get("import_label"), "Import Previous Level JSON")
+
+
+class PreviousLevelImportTests(unittest.TestCase):
+    def test_three_region_fixture_is_valid_level1(self) -> None:
+        src = make_level1_three_region_world()
+        self.assertEqual(validate_world(src), [])
+        self.assertEqual(len(src["regions"]), 3)
+        self.assertEqual(len(src["territories"]), 6)
+
+    def test_union_cancels_internal_edges_and_is_not_a_bbox(self) -> None:
+        a = points_to_polygon([(0, 0), (5, 0), (5, 5), (0, 5), (0, 0)])
+        b = points_to_polygon([(5, 0), (10, 1), (9, 6), (5, 5), (5, 0)])
+        ring, err = union_polygon_exteriors([a, b])
+        self.assertIsNone(err)
+        assert ring is not None
+        self.assertAlmostEqual(abs(ring_area(ring)), abs(ring_area(polygon_exterior(a) or [])) + abs(ring_area(polygon_exterior(b) or [])), places=5)
+        keys = {undirected_edge_key(p, q) for p, q in ring_edges(ring)}
+        self.assertNotIn(undirected_edge_key((5, 0), (5, 5)), keys)
+        xs = [p[0] for p in unique_ring_vertices(ring)]
+        ys = [p[1] for p in unique_ring_vertices(ring)]
+        bbox = {(min(xs), min(ys)), (max(xs), min(ys)), (max(xs), max(ys)), (min(xs), max(ys))}
+        self.assertNotEqual(set(unique_ring_vertices(ring)), bbox)
+        self.assertIn((10, 1), unique_ring_vertices(ring))
+
+    def test_import_json_coarsens_regions_into_territories(self) -> None:
+        source = make_level1_three_region_world()
+        source_before = dumps_world(source)
+        target = new_blank_world()
+        target["worldId"] = "w_level2"
+        drawing_before = clone_world(target.get(EDITOR_DRAWING_KEY))
+        plan = import_plan_from_json_text(dumps_world(source), target)
+        self.assertTrue(plan.get("ok"), msg=plan.get("error"))
+        self.assertEqual(plan["sourceWorldId"], "w_level1_three")
+        self.assertEqual(plan["sourceLevel"], 1)
+        self.assertEqual(plan["sourceRegionCount"], 3)
+        self.assertEqual(len(plan["territories"]), 3)
+        preview = format_previous_level_import_preview(plan)
+        self.assertIn("Three Realms", preview)
+        self.assertIn("Iron Coast", preview)
+        applied = apply_previous_level_import(target, plan)
+        self.assertTrue(applied.get("ok"), msg=applied.get("error"))
+        self.assertEqual(target["level"], 2)
+        self.assertEqual(len(target["regions"]), 1)
+        self.assertEqual(target["regions"][0]["name"], "Three Realms")
+        self.assertEqual(len(target["territories"]), 3)
+        self.assertEqual(len(target["containedWorlds"]), 1)
+        ref = target["containedWorlds"][0]
+        self.assertEqual(ref["worldId"], "w_level1_three")
+        self.assertEqual(ref["regionId"], target["regions"][0]["id"])
+        self.assertNotIn("territories", ref)
+        self.assertNotIn("regions", ref)
+        self.assertEqual(set(ref.keys()), {"worldId", "regionId", "placement"})
+        id_map = applied["idMap"]
+        west = find_territory(target, id_map["r_west"])
+        mid = find_territory(target, id_map["r_mid"])
+        east = find_territory(target, id_map["r_east"])
+        assert west and mid and east
+        self.assertEqual(west["regionId"], target["regions"][0]["id"])
+        self.assertEqual(sorted(west["neighborIds"]), [mid["id"]])
+        self.assertEqual(sorted(mid["neighborIds"]), sorted([west["id"], east["id"]]))
+        self.assertEqual(sorted(east["neighborIds"]), [mid["id"]])
+        self.assertNotIn("t_01", west["neighborIds"])
+        for rid, member_ids in (
+            ("r_west", ["t_01", "t_02"]),
+            ("r_mid", ["t_03", "t_04"]),
+            ("r_east", ["t_05", "t_06"]),
+        ):
+            members = [find_territory(source, tid)["polygon"] for tid in member_ids]
+            union_ring, err = union_polygon_exteriors(members)
+            self.assertIsNone(err)
+            got = polygon_exterior(find_territory(target, id_map[rid])["polygon"])
+            self.assertAlmostEqual(abs(ring_area(got or [])), abs(ring_area(union_ring or [])), places=5)
+            member_areas = [abs(ring_area(polygon_exterior(p) or [])) for p in members]
+            self.assertGreater(abs(ring_area(got or [])), max(member_areas) + 1.0)
+        for t in target["territories"]:
+            for nid in t["neighborIds"]:
+                self.assertTrue(str(nid).startswith("t_"))
+                self.assertIsNotNone(find_territory(target, nid))
+        self.assertEqual(dumps_world(source), source_before)
+        self.assertEqual(target.get(EDITOR_DRAWING_KEY), drawing_before)
+        self.assertEqual(validate_world(target), [])
+        exported = dumps_world(target)
+        self.assertNotIn(EDITOR_DRAWING_KEY, exported)
+        reparsed, issues = parse_world_json(exported)
+        self.assertEqual(issues, [])
+        self.assertIsNotNone(reparsed)
+        assert reparsed is not None
+        self.assertEqual(len(reparsed["territories"]), 3)
+        self.assertEqual(reparsed["containedWorlds"][0]["worldId"], "w_level1_three")
+        self.assertEqual(len(reparsed["territories"]), len(source["regions"]))
+        self.assertNotEqual(len(reparsed["territories"]), len(source["territories"]))
+
+    def test_malformed_json_is_rejected_without_mutating_target(self) -> None:
+        target = new_blank_world()
+        before = clone_world(target)
+        plan = import_plan_from_json_text("{", target)
+        self.assertFalse(plan.get("ok"))
+        self.assertTrue(any(i["code"] == "json.parse" for i in plan.get("issues") or []))
+        self.assertEqual(target, before)
+        plan = import_plan_from_json_text(json.dumps({"formatVersion": "nope"}), target)
+        self.assertFalse(plan.get("ok"))
+        self.assertEqual(target, before)
+
+    def test_world_with_no_regions_is_rejected(self) -> None:
+        src = make_minimal_valid_world()
+        src["regions"] = []
+        target = new_blank_world()
+        before = clone_world(target)
+        plan = import_plan_from_json_text(json.dumps(src), target)
+        self.assertFalse(plan.get("ok"))
+        self.assertIn("region", (plan.get("error") or "").lower())
+        self.assertEqual(target, before)
+
+    def test_disconnected_source_region_is_rejected(self) -> None:
+        src = make_disconnected_region_world()
+        self.assertEqual(validate_world(src), [])
+        target = new_blank_world()
+        before = clone_world(target)
+        plan = plan_previous_level_import(src, target)
+        self.assertFalse(plan.get("ok"))
+        self.assertIn("disconnected", (plan.get("error") or "").lower())
+        self.assertEqual(target, before)
+
+    def test_import_is_undoable(self) -> None:
+        source = make_level1_three_region_world()
+        target = new_blank_world()
+        target["worldId"] = "w_level2"
+        plan = plan_previous_level_import(source, target)
+        self.assertTrue(plan.get("ok"), msg=plan.get("error"))
+        stack = UndoStack()
+        stack.push(target)
+        apply_previous_level_import(target, plan)
+        self.assertEqual(len(target["territories"]), 3)
+        restored = stack.apply_undo(target)
+        self.assertIsNotNone(restored)
+        assert restored is not None
+        self.assertEqual(restored["territories"], [])
+        self.assertEqual(restored["containedWorlds"], [])
+        self.assertEqual(restored["level"], 1)
+
+    def test_source_json_file_is_not_written(self) -> None:
+        source = make_level1_three_region_world()
+        text = dumps_world(source)
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "level1.json")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            target = new_blank_world()
+            plan = import_plan_from_json_text(text, target)
+            self.assertTrue(plan.get("ok"), msg=plan.get("error"))
+            apply_previous_level_import(target, plan)
+            with open(path, "r", encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), text)
+
+    def test_self_import_and_duplicate_contained_are_rejected(self) -> None:
+        source = make_level1_three_region_world()
+        target = clone_world(source)
+        target["worldId"] = "w_level1_three"
+        plan = plan_previous_level_import(source, target)
+        self.assertFalse(plan.get("ok"))
+        target = new_blank_world()
+        target["worldId"] = "w_level2"
+        plan = plan_previous_level_import(source, target)
+        apply_previous_level_import(target, plan)
+        again = plan_previous_level_import(source, target)
+        self.assertFalse(again.get("ok"))
+        self.assertIn("already", (again.get("error") or "").lower())
+
+    def test_ember_atoll_example_coarsens_when_present(self) -> None:
+        path = find_tiny_world_path()
+        if not path:
+            self.skipTest("docs/examples/world-level1-tiny.json not found")
+        with open(path, "r", encoding="utf-8") as fh:
+            text = fh.read()
+        original = text
+        target = new_blank_world()
+        target["worldId"] = "w_level2_archipelago"
+        plan = import_plan_from_json_text(text, target)
+        self.assertTrue(plan.get("ok"), msg=plan.get("error"))
+        self.assertEqual(plan["sourceWorldId"], "w_ember_atoll")
+        self.assertEqual(len(plan["territories"]), 2)
+        apply_previous_level_import(target, plan)
+        self.assertEqual(len(target["territories"]), 2)
+        self.assertEqual(target["containedWorlds"][0]["worldId"], "w_ember_atoll")
+        self.assertEqual(validate_world(target), [])
+        with open(path, "r", encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), original)
+
+
 def run_self_test() -> int:
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
@@ -3001,6 +4048,9 @@ def run_self_test() -> int:
     suite.addTests(loader.loadTestsFromTestCase(DrawnPolygonTests))
     suite.addTests(loader.loadTestsFromTestCase(EditorWorkflowTests))
     suite.addTests(loader.loadTestsFromTestCase(DrawingConvertTests))
+    suite.addTests(loader.loadTestsFromTestCase(DrawingToolsTests))
+    suite.addTests(loader.loadTestsFromTestCase(SidebarEditorTests))
+    suite.addTests(loader.loadTestsFromTestCase(PreviousLevelImportTests))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     return 0 if result.wasSuccessful() else 1
 
@@ -3027,7 +4077,11 @@ def validate_path(path: str) -> int:
 # Tkinter editor
 # ---------------------------------------------------------------------------
 
-def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> None:
+def launch_editor(
+    initial_path: Optional[str] = None,
+    smoke: bool = False,
+    on_ready: Optional[Any] = None,
+) -> None:
     try:
         import tkinter as tk
         from tkinter import filedialog, messagebox, ttk
@@ -3068,6 +4122,9 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self.drag: Optional[Dict[str, Any]] = None
             self.adj_first: Optional[str] = None
             self.stroke: Optional[Dict[str, Any]] = None
+            self.rect_drag: Optional[Dict[str, Any]] = None
+            self.erase_active = False
+            self.pointer_world: Optional[Point] = None
             self.export_highlight: Optional[Point] = None
             self._suspend = False
             self._pan_last: Optional[Tuple[int, int]] = None
@@ -3082,35 +4139,48 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
         def _build(self) -> None:
             self._menu()
             toolbar = ttk.Frame(self)
-            toolbar.pack(fill="x", padx=4, pady=2)
+            toolbar.pack(side="top", fill="x", padx=4, pady=2)
             for value, label in (
+                ("draw", "Draw"),
+                ("rectangle", "Rectangle"),
+                ("eraser", "Eraser"),
                 ("select", "Select"),
                 ("pan", "Pan"),
                 ("vertex", "Vertex"),
                 ("add_vertex", "Add vertex"),
-                ("draw", "Draw"),
                 ("adjacency", "Adjacency"),
             ):
                 ttk.Radiobutton(toolbar, text=label, variable=self.tool, value=value,
                                 command=self._on_tool_change).pack(side="left", padx=2)
+            ttk.Button(toolbar, text="Undo", command=self._undo).pack(side="left", padx=(12, 2))
+            ttk.Button(toolbar, text="Redo", command=self._redo).pack(side="left", padx=2)
             ttk.Button(toolbar, text="Fit", command=self._fit_world).pack(side="left", padx=8)
             ttk.Button(toolbar, text="CONVERT TO MAP", command=self._convert_to_map).pack(side="left", padx=8)
             ttk.Button(toolbar, text="Validate", command=self._run_validate).pack(side="left")
             ttk.Button(toolbar, text="Cancel draw", command=lambda: self._cancel_stroke(leave_mode=True)).pack(side="left", padx=4)
 
+            self.status = tk.StringVar(value="New world — author geography; export only when valid.")
+            ttk.Label(self, textvariable=self.status, anchor="w").pack(side="bottom", fill="x", padx=6, pady=3)
+
+            self._work = ttk.Frame(self)
+            self._work.pack(side="top", fill="both", expand=True)
+            self._body = self._work
+
             self.banner_text = tk.StringVar(value="")
             self.banner = tk.Label(
-                self, textvariable=self.banner_text, anchor="center",
+                self._work, textvariable=self.banner_text, anchor="center",
                 bg="#1c1f24", fg="#d7e4f5", font=("Segoe UI", 10, "bold"),
             )
 
-            body = ttk.Panedwindow(self, orient="horizontal")
-            self._body = body
-            body.pack(fill="both", expand=True)
-            left = ttk.Frame(body)
-            right = ttk.Frame(body, width=360)
-            body.add(left, weight=4)
-            body.add(right, weight=1)
+            self._split = ttk.Frame(self._work)
+            self._split.pack(side="top", fill="both", expand=True)
+
+            self.sidebar = ttk.Frame(self._split, width=SIDEBAR_WIDTH)
+            self.sidebar.pack(side="right", fill="y")
+            self.sidebar.pack_propagate(False)
+
+            left = ttk.Frame(self._split)
+            left.pack(side="left", fill="both", expand=True)
 
             self.canvas = tk.Canvas(left, bg="#1c1f24", highlightthickness=0)
             self.canvas.pack(fill="both", expand=True)
@@ -3125,6 +4195,7 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self.canvas.bind("<MouseWheel>", self._on_wheel)
             self.canvas.bind("<Button-4>", lambda e: self._wheel(1))
             self.canvas.bind("<Button-5>", lambda e: self._wheel(-1))
+            self.canvas.bind("<Motion>", self._on_hover)
             self.bind_all("<Control-z>", lambda e: self._undo())
             self.bind_all("<Control-y>", lambda e: self._redo())
             self.bind_all("<Control-s>", lambda e: self._save())
@@ -3132,8 +4203,11 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self.bind_all("<Escape>", lambda e: self._clear_sel())
             self.canvas.bind("<Control-a>", lambda e: self._select_all_territories())
 
-            self.notebook = ttk.Notebook(right)
-            self.notebook.pack(fill="both", expand=True)
+            ttk.Label(
+                self.sidebar, text="World editor", font=("Segoe UI", 10, "bold"),
+            ).pack(anchor="w", padx=8, pady=(8, 2))
+            self.notebook = ttk.Notebook(self.sidebar)
+            self.notebook.pack(fill="both", expand=True, padx=4, pady=(0, 4))
             self.tab_world = ttk.Frame(self.notebook, padding=6)
             self.tab_sel = ttk.Frame(self.notebook, padding=6)
             self.tab_regions = ttk.Frame(self.notebook, padding=6)
@@ -3155,9 +4229,6 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self._build_diplo_tab()
             self._build_contained_tab()
             self._build_valid_tab()
-
-            self.status = tk.StringVar(value="New world — author geography; export only when valid.")
-            ttk.Label(self, textvariable=self.status, anchor="w").pack(fill="x", padx=6, pady=3)
             self._on_tool_change()
 
         def _menu(self) -> None:
@@ -3216,10 +4287,10 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self.v_completion = tk.StringVar()
             self.v_fraction = tk.StringVar()
             self.v_uneven = tk.BooleanVar()
-            self._labeled_entry(f, "worldId", self.v_world_id, 0, self._apply_world_meta)
-            self._labeled_entry(f, "name", self.v_world_name, 1, self._apply_world_meta)
-            self._labeled_entry(f, "level", self.v_level, 2, self._apply_world_meta)
-            self._labeled_entry(f, "playerFactionId", self.v_player_fid, 3, self._apply_world_meta)
+            self._labeled_entry(f, "World ID", self.v_world_id, 0, self._apply_world_meta)
+            self._labeled_entry(f, "World name", self.v_world_name, 1, self._apply_world_meta)
+            self._labeled_entry(f, "Level", self.v_level, 2, self._apply_world_meta)
+            self._labeled_entry(f, "Player faction", self.v_player_fid, 3, self._apply_world_meta)
             ttk.Label(f, text="completion").grid(row=4, column=0, sticky="w")
             ttk.Combobox(f, textvariable=self.v_completion, values=COMPLETION_TYPES, state="readonly",
                          width=26).grid(row=4, column=1, sticky="ew")
@@ -3397,7 +4468,15 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
 
         def _build_contained_tab(self) -> None:
             f = self.tab_contained
-            ttk.Label(f, text="References only. Not inlined into this graph.", wraplength=300).pack(anchor="w")
+            ttk.Label(
+                f,
+                text=(
+                    "Import a completed previous-level WorldDefinition. That world "
+                    "becomes one region here; each of its regions becomes a territory "
+                    "(union of that region's tiles). The source file stays independent."
+                ),
+                wraplength=300,
+            ).pack(anchor="w")
             self.cont_list = tk.Listbox(f, height=6)
             self.cont_list.pack(fill="both", expand=True)
             self.cont_list.bind("<<ListboxSelect>>", lambda e: self._on_contained_list())
@@ -3418,7 +4497,10 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                 ttk.Entry(form, textvariable=var, width=22).grid(row=i, column=1, sticky="ew")
             bf = ttk.Frame(f)
             bf.pack(fill="x")
-            ttk.Button(bf, text="Add reference", command=self._add_contained).pack(side="left")
+            self.btn_import_previous = ttk.Button(
+                bf, text="Import Previous Level JSON", command=self._import_previous_level,
+            )
+            self.btn_import_previous.pack(side="left")
             ttk.Button(bf, text="Apply", command=self._apply_contained).pack(side="left")
             ttk.Button(bf, text="Delete", command=self._del_contained).pack(side="left")
 
@@ -3587,6 +4669,21 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                 if preview:
                     sx, sy = self.w2s(preview[-1][0], preview[-1][1])
                     c.create_oval(sx - 4, sy - 4, sx + 4, sy + 4, fill="#7fe3ff", outline="#083")
+            if self.rect_drag:
+                start = self.rect_drag.get("start")
+                current = self.rect_drag.get("current")
+                if start and current:
+                    pts = rectangle_polyline(start, current)
+                    if len(pts) >= 2:
+                        coords = []
+                        for x, y in pts:
+                            sx, sy = self.w2s(x, y)
+                            coords.extend((sx, sy))
+                        c.create_line(*coords, fill="#ffd56a", width=2)
+            if self.tool.get() == "eraser" and self.pointer_world:
+                sx, sy = self.w2s(self.pointer_world[0], self.pointer_world[1])
+                r = ERASER_SCREEN_PX
+                c.create_oval(sx - r, sy - r, sx + r, sy + r, outline="#ff8a7a", width=2)
             self._refresh_status()
 
         def _paint_snap(self, snap: Optional[Dict[str, Any]], color: str) -> None:
@@ -3648,9 +4745,22 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
         def _on_press(self, event) -> None:
             self.canvas.focus_set()
             wx, wy = self.s2w(event.x, event.y)
+            self.pointer_world = (wx, wy)
             tool = self.tool.get()
             if tool == "draw":
                 self._begin_stroke(wx, wy)
+                return
+            if tool == "rectangle":
+                self.rect_drag = {"start": (wx, wy), "current": (wx, wy)}
+                self._update_draw_banner()
+                self._redraw()
+                return
+            if tool == "eraser":
+                self._snapshot()
+                self.erase_active = True
+                if erase_raw_drawing(self.world, (wx, wy), drawing_eraser_radius(self.zoom)):
+                    self.dirty = True
+                self._redraw()
                 return
             if tool == "pan":
                 self._pan_last = (event.x, event.y)
@@ -3704,9 +4814,24 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self.drag = {"kind": kind, "ident": ident, "index": index}
             self.dirty = True
 
+        def _on_hover(self, event) -> None:
+            self.pointer_world = self.s2w(event.x, event.y)
+            if self.tool.get() == "eraser" and self.drag is None and self.stroke is None and not self.rect_drag:
+                self._redraw()
+
         def _on_drag(self, event) -> None:
+            wx, wy = self.s2w(event.x, event.y)
+            self.pointer_world = (wx, wy)
+            if self.tool.get() == "eraser" and self.erase_active:
+                if erase_raw_drawing(self.world, (wx, wy), drawing_eraser_radius(self.zoom)):
+                    self.dirty = True
+                self._redraw()
+                return
+            if self.rect_drag is not None:
+                self.rect_drag["current"] = (wx, wy)
+                self._redraw()
+                return
             if self.stroke is not None:
-                wx, wy = self.s2w(event.x, event.y)
                 self._stroke_add(wx, wy, force=False)
                 self._redraw()
                 return
@@ -3732,8 +4857,27 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self._redraw()
 
         def _on_release(self, event) -> None:
+            wx, wy = self.s2w(event.x, event.y)
+            self.pointer_world = (wx, wy)
+            if self.erase_active:
+                self.erase_active = False
+                self._undo_group = None
+                self._redraw()
+                return
+            if self.rect_drag is not None:
+                start = self.rect_drag.get("start")
+                current = (wx, wy)
+                self.rect_drag = None
+                if start and rectangle_is_commit_size(start, current, self.zoom):
+                    pts = rectangle_polyline(start, current)
+                    if len(pts) >= 5:
+                        self._snapshot()
+                        add_drawing_stroke(self.world, pts, STROKE_KIND_RECTANGLE)
+                        self.dirty = True
+                self._update_draw_banner()
+                self._redraw()
+                return
             if self.stroke is not None:
-                wx, wy = self.s2w(event.x, event.y)
                 self._stroke_add(wx, wy, force=True)
                 self._pause_stroke()
                 return
@@ -3741,7 +4885,7 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self._pan_last = None
 
         def _on_double(self, event) -> None:
-            if self.tool.get() == "draw" or self.stroke:
+            if self.tool.get() in ("draw", "rectangle", "eraser") or self.stroke or self.rect_drag:
                 return
             wx, wy = self.s2w(event.x, event.y)
             self._try_add_vertex(wx, wy)
@@ -3770,6 +4914,11 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
         def _on_right(self, event) -> None:
             if self.stroke is not None:
                 self._cancel_stroke(leave_mode=False)
+                return
+            if self.rect_drag is not None:
+                self.rect_drag = None
+                self._update_draw_banner()
+                self._redraw()
                 return
             if self.tool.get() == "draw":
                 wx, wy = self.s2w(event.x, event.y)
@@ -3845,8 +4994,18 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             tool = self.tool.get()
             if self.stroke is not None and tool != "draw":
                 self._pause_stroke()
-            if tool == "draw":
+            if self.rect_drag is not None and tool != "rectangle":
+                self.rect_drag = None
+            if tool != "eraser":
+                self.erase_active = False
+            if tool in ("draw", "rectangle"):
                 self.canvas.config(cursor="crosshair")
+                self.drag = None
+            elif tool == "eraser":
+                try:
+                    self.canvas.config(cursor="dotbox")
+                except tk.TclError:
+                    self.canvas.config(cursor="crosshair")
                 self.drag = None
             else:
                 try:
@@ -3869,6 +5028,12 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                     "CONVERT TO MAP counts enclosed areas  ·  Esc cancels this stroke"
                 )
                 self.banner.config(bg="#0b5cad", fg="#ffffff")
+            elif self.rect_drag:
+                self.banner_text.set(
+                    "RECTANGLE — drag a corner, release to add it to the raw drawing. "
+                    "It is ink, not a territory, until CONVERT TO MAP."
+                )
+                self.banner.config(bg="#0b5cad", fg="#ffffff")
             elif tool == "draw":
                 extra = f"{n_raw} stroke(s) stored. " if n_raw else "Blank canvas. "
                 self.banner_text.set(
@@ -3876,6 +5041,19 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                     "When the drawing looks right, press CONVERT TO MAP to count enclosed areas."
                 )
                 self.banner.config(bg="#3d4a1f", fg="#f3f0c8")
+            elif tool == "rectangle":
+                extra = f"{n_raw} stroke(s) stored. " if n_raw else "Blank canvas. "
+                self.banner_text.set(
+                    extra + "Press and drag to add a rectangle to the raw drawing. "
+                    "CONVERT TO MAP treats it as ink, the same as freehand."
+                )
+                self.banner.config(bg="#3d4a1f", fg="#f3f0c8")
+            elif tool == "eraser":
+                self.banner_text.set(
+                    "ERASER — drag over raw drawing to remove ink. Converted territories are not edited. "
+                    "CONVERT TO MAP again after erasing."
+                )
+                self.banner.config(bg="#5a2a22", fg="#f8e4dc")
             elif n_raw and not polygon_exterior(self.world.get("island")):
                 self.banner_text.set(
                     f"{n_raw} raw stroke(s) — press CONVERT TO MAP to find the island and territories."
@@ -3886,8 +5064,8 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                 self.banner.config(bg="#1c1f24", fg="#d7e4f5")
                 self.banner.pack_forget()
                 return
-            if hasattr(self, "_body") and not self.banner.winfo_ismapped():
-                self.banner.pack(fill="x", before=self._body)
+            if hasattr(self, "_split") and not self.banner.winfo_ismapped():
+                self.banner.pack(side="top", fill="x", before=self._split)
 
         def _begin_stroke(self, wx: float, wy: float) -> None:
             self.drag = None
@@ -3971,6 +5149,15 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
         def _convert_to_map(self) -> None:
             if self.stroke is not None:
                 self._pause_stroke()
+            if self.rect_drag is not None:
+                start = self.rect_drag.get("start")
+                current = self.rect_drag.get("current")
+                self.rect_drag = None
+                if start and current and rectangle_is_commit_size(start, current, self.zoom):
+                    pts = rectangle_polyline(start, current)
+                    if len(pts) >= 5:
+                        add_drawing_stroke(self.world, pts, STROKE_KIND_RECTANGLE)
+            self.erase_active = False
             self._snapshot()
             result = convert_drawing_to_map(self.world)
             self.dirty = True
@@ -4084,6 +5271,10 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
                     draw = f"  |  {n_raw} raw stroke(s)"
                 elif self.tool.get() == "draw":
                     draw = "  |  DRAW — freehand; CONVERT TO MAP interprets"
+                elif self.tool.get() == "rectangle":
+                    draw = "  |  RECTANGLE — raw drawing ink"
+                elif self.tool.get() == "eraser":
+                    draw = "  |  ERASER — raw drawing only"
             self.status.set(
                 f"{self.world.get('name')}  |  {n} territories  |  tool={self.tool.get()}  |  "
                 f"sel={sel}  |  zoom={self.zoom:.2f}  |  {dirty}  |  {len(issues)} validation issue(s)"
@@ -4606,15 +5797,119 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self.v_c_scale.set(str(pl.get("scale", 1)))
 
         def _add_contained(self) -> None:
+            self._import_previous_level()
+
+        def _import_previous_level(self) -> None:
+            path = filedialog.askopenfilename(
+                title="Select previous-level WorldDefinition JSON",
+                filetypes=[("World JSON", "*.json"), ("All files", "*.*")],
+            )
+            if not path:
+                return
+            try:
+                with open(path, "r", encoding="utf-8") as fh:
+                    text = fh.read()
+            except OSError as err:
+                messagebox.showerror("Import previous level", str(err))
+                return
+            plan = import_plan_from_json_text(text, self.world)
+            if not plan.get("ok"):
+                messagebox.showerror(
+                    "Import previous level",
+                    plan.get("error") or "The selected JSON could not be converted.",
+                )
+                return
+            if not self._confirm_previous_level_import(plan):
+                return
             self._snapshot()
-            rid = (self.world.get("regions") or [{}])[0].get("id", "") if self.world.get("regions") else ""
-            self.world.setdefault("containedWorlds", []).append({
-                "worldId": "w_prior",
-                "regionId": rid,
-                "placement": {"origin": {"x": 0, "y": 0}, "rotationDegrees": 0, "scale": 1},
-            })
+            applied = apply_previous_level_import(self.world, plan)
+            if not applied.get("ok"):
+                messagebox.showerror(
+                    "Import previous level",
+                    applied.get("error") or "Import failed.",
+                )
+                return
             self.dirty = True
+            rid = applied.get("regionId")
+            self.sel = ("region", rid) if rid else self.sel
             self._reload_lists()
+            self._fit_world()
+            names = [
+                f"{tid}={item.get('sourceRegionName')}"
+                for item, tid in zip(plan.get("territories") or [], applied.get("territoryIds") or [])
+            ]
+            self.status.set(
+                f"Imported {plan.get('sourceName')} as region {rid} "
+                f"({', '.join(names)})"
+            )
+
+        def _confirm_previous_level_import(self, plan: Dict[str, Any]) -> bool:
+            win = tk.Toplevel(self)
+            win.title("Import previous level")
+            win.transient(self)
+            win.resizable(True, True)
+            decided = {"ok": False}
+            ttk.Label(win, text="Preview coarsening before changing this world.", wraplength=420).pack(
+                anchor="w", padx=10, pady=(10, 4),
+            )
+            preview = tk.Text(win, height=12, wrap="word", width=56)
+            preview.pack(fill="both", expand=True, padx=10)
+            preview.insert("1.0", format_previous_level_import_preview(plan))
+            preview.configure(state="disabled")
+            canvas = tk.Canvas(win, width=420, height=220, background="#1b1f24", highlightthickness=0)
+            canvas.pack(fill="both", expand=True, padx=10, pady=6)
+            self._draw_previous_level_preview(canvas, plan)
+            bf = ttk.Frame(win)
+            bf.pack(fill="x", padx=10, pady=(0, 10))
+
+            def cancel() -> None:
+                decided["ok"] = False
+                win.destroy()
+
+            def confirm() -> None:
+                decided["ok"] = True
+                win.destroy()
+
+            ttk.Button(bf, text="Cancel", command=cancel).pack(side="right", padx=4)
+            ttk.Button(bf, text="Import & Convert", command=confirm).pack(side="right")
+            win.protocol("WM_DELETE_WINDOW", cancel)
+            win.grab_set()
+            win.wait_window()
+            return bool(decided["ok"])
+
+        def _draw_previous_level_preview(self, canvas: Any, plan: Dict[str, Any]) -> None:
+            canvas.delete("all")
+            rings: List[Tuple[str, List[Point]]] = []
+            for item in plan.get("territories") or []:
+                ring = polygon_exterior(item.get("polygon"))
+                if ring:
+                    rings.append((str(item.get("sourceRegionName") or item.get("sourceRegionId")), ring))
+            pts = [p for _, ring in rings for p in unique_ring_vertices(ring)]
+            width = max(int(canvas.winfo_reqwidth()), 420)
+            height = max(int(canvas.winfo_reqheight()), 220)
+            if not pts:
+                canvas.create_text(width / 2, height / 2, text="No geometry", fill="#d0d0d0")
+                return
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            minx, maxx, miny, maxy = min(xs), max(xs), min(ys), max(ys)
+            pad = 18.0
+            span_x = max(maxx - minx, 1e-6)
+            span_y = max(maxy - miny, 1e-6)
+            zoom = min((width - 2 * pad) / span_x, (height - 2 * pad) / span_y)
+            origin_x = pad - minx * zoom
+            origin_y = height - pad + miny * zoom
+            palette = ("#d96060", "#5aa46a", "#5a84c8", "#c8a04a", "#8a64c0", "#4aa8a8")
+            for i, (label, ring) in enumerate(rings):
+                closed = close_ring(unique_ring_vertices(ring))
+                coords: List[float] = []
+                for x, y in closed:
+                    coords.extend((origin_x + x * zoom, origin_y - y * zoom))
+                color = palette[i % len(palette)]
+                canvas.create_polygon(*coords, fill=color, outline="#f2f2f2", width=1)
+                cx, cy = ring_centroid(ring)
+                sx, sy = origin_x + cx * zoom, origin_y - cy * zoom
+                canvas.create_text(sx, sy, text=label, fill="#f7f7f7", font=("Segoe UI", 8))
 
         def _apply_contained(self) -> None:
             sel = self.cont_list.curselection()
@@ -4690,6 +5985,14 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             if self.stroke is not None:
                 self._cancel_stroke(leave_mode=False)
                 return
+            if self.rect_drag is not None:
+                self.rect_drag = None
+                self._update_draw_banner()
+                self._redraw()
+                return
+            if self.erase_active:
+                self.erase_active = False
+                return
             if self.tool.get() == "draw":
                 self._cancel_stroke(leave_mode=True)
                 return
@@ -4736,6 +6039,8 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self.world = restored
             self._undo_group = None
             self.stroke = None
+            self.rect_drag = None
+            self.erase_active = False
             self.export_highlight = first_open_boundary_endpoint(self.world)
             self.selected_territories.clear()
             self.dirty = True
@@ -4749,6 +6054,8 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
             self.world = restored
             self._undo_group = None
             self.stroke = None
+            self.rect_drag = None
+            self.erase_active = False
             self.export_highlight = first_open_boundary_endpoint(self.world)
             self.selected_territories.clear()
             self.dirty = True
@@ -4902,9 +6209,11 @@ def launch_editor(initial_path: Optional[str] = None, smoke: bool = False) -> No
 
         def run(self, smoke: bool = False) -> None:
             self._reload_lists()
+            self.update_idletasks()
+            self.update()
+            if on_ready is not None:
+                on_ready(self)
             if smoke:
-                self.update_idletasks()
-                self.update()
                 self.destroy()
                 return
             self.mainloop()

@@ -1,7 +1,7 @@
-import { GameState } from '../../types/GameState';
+import { emptyTerritoryInfrastructure, GameState } from '../../types/GameState';
 import { emptyResources } from './config';
 
-/** Seed per-territory accrual ledgers. Does not create cities. */
+/** Seed per-territory accrual ledgers and empty development occupancy. Does not create cities or Farms. */
 export function seedTerritoryEconomy(state: GameState): void {
   for (const territory of state.territories.values()) {
     if (!state.territoryEconomy.has(territory.id)) {
@@ -10,6 +10,9 @@ export function seedTerritoryEconomy(state: GameState): void {
         lastAccrualTick: state.worldTick,
         uncollected: emptyResources(),
       });
+    }
+    if (!state.territoryInfrastructure.has(territory.id)) {
+      state.territoryInfrastructure.set(territory.id, emptyTerritoryInfrastructure(territory.id));
     }
   }
 }

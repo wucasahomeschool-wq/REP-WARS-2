@@ -145,6 +145,7 @@ export interface Territory {
     owner: FactionId | null;
     regionId: RegionId;
     terrain: TerrainType;
+    /** Runtime copy of WorldDefinition.neighborIds. Rebound from catalog on hydrate. */
     neighboring: TerritoryId[];
     /**
      * Runtime-only. WorldSimulator events mutate this. Not part of
@@ -156,6 +157,7 @@ export interface Territory {
      * authored worlds initialize to 0.
      */
     baseValue: number;
+    /** Authored WorldDefinition production; rebound from catalog on hydrate. */
     resourceOutput: Partial<Resources>;
     fortification: number;
     garrison: number;
@@ -267,6 +269,11 @@ export interface WarlordSnapshot {
     armies: ArmyId[];
     totalMilitaryPower: number;
     resources: Resources;
+    /**
+     * Derived income **rating** for AI scoring and event triggers (sum of
+     * owned tile `resourceOutput` per cycle). Not authoritative production;
+     * see `gameplay/economy/resourceIncome.ts` and territory accrual.
+     */
     resourceIncome: Partial<Resources>;
     diplomacy: Map<FactionId, DiplomaticRelationship>;
     memory: MemoryEntry[];
@@ -289,6 +296,8 @@ export interface GameStateSnapshot {
     territories: Map<TerritoryId, Territory>;
     armies: Map<ArmyId, Army>;
     allFactionIds: FactionId[];
+    /** Frozen current-level player foothold. Omitted on hand-built scorer snapshots. */
+    levelAnchorTerritoryIds?: TerritoryId[];
     /**
      * Optional Phase 17I attack eligibility. Omitted in hand-built scorer
      * snapshots (no extra restrictions). Populated from canonical GameState
@@ -409,6 +418,7 @@ export interface ThemeDefinition {
     rarity: number;
     allowedAdjacentThemes: ThemeId[];
 }
+/** LEGACY MapEngine-only region (themes, hex meta). Runtime uses RuntimeRegion. */
 export interface Region {
     id: RegionId;
     name: string;
@@ -419,6 +429,7 @@ export interface Region {
     createdAt: number;
     isCapitalRegion?: boolean;
 }
+/** LEGACY MapEngine-only. Not stored on production GameState. */
 export interface MapWorldState {
     worldSeed: number;
     turn: number;
@@ -512,13 +523,9 @@ export interface MapGenerationReport {
 }
 
 /**
- * Plain-data bridge shape between a territory source (hand-authored
- * `SAMPLE_MAP` or a generated `MapWorldState` via `MapEngine.toTerritorySpecs`)
- * and `SimulationBuilder.buildFromSpecs`, which turns specs into canonical
- * `Territory` map entries. This used to be declared separately (and
- * identically) in both `src/simulation/SampleMap.ts` and as an unnamed
- * inline return type on `MapEngine.toTerritorySpecs` — both now use this
- * single definition.
+ * Plain-data bridge for the LEGACY SAMPLE_MAP / MapEngine path only.
+ * Production worlds use TerritoryDefinition in WorldDefinition (unnamed
+ * polygons, no isCapital). Runtime Territory does not copy these fields.
  */
 export interface MapTerritorySpec {
     id: string;

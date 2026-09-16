@@ -1,3 +1,7 @@
+/**
+ * LEGACY / TEST / DEMO ONLY.
+ * Hex-era theme library for MapEngine. Production worlds use authored JSON.
+ */
 import { ThemeDefinition, TerrainType } from '../types';
 
 const FORT_WEIGHTS_FLAT: Record<number, number> = { 0: 0.5, 1: 0.35, 2: 0.12, 3: 0.03, 4: 0.0, 5: 0.0 };

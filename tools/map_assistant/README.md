@@ -12,17 +12,26 @@ constructing polygons, boundary objects, or a planar graph while drawing.
 
 New maps start **blank** — no island, no territories, no default polygon.
 
-Use the **Draw** tool:
+Use the **Draw**, **Rectangle**, and **Eraser** tools on the **raw drawing**:
 
-1. Press and drag to draw freehand (outline, then any dividing lines).
-2. Release stores the stroke. It does not create a territory by itself.
-3. Zoom and pan freely, then continue drawing.
-4. Loose ends, overshoot, and crossings are allowed.
-5. When the picture looks right, press **CONVERT TO MAP**.
+1. **Draw** — press and drag freehand (outline, then any dividing lines).
+2. **Rectangle** — press one corner, drag, release. The rectangle is ink in the
+   same raw drawing; it is not a territory by itself.
+3. **Eraser** — press and drag to cut unwanted ink. This edits the drawing only,
+   not the converted map.
+4. Zoom and pan freely, then continue drawing.
+5. Loose ends, overshoot, and crossings are allowed.
+6. When the picture looks right, press **CONVERT TO MAP**.
 
-CONVERT TO MAP treats **every stroke as one combined drawing**. It rasterizes
-the ink, finds the main enclosed island, and turns enclosed areas inside it
-into territories. Tiny accidental marks are ignored as noise.
+CONVERT TO MAP treats **every stroke as one combined drawing** (freehand and
+rectangles together). It rasterizes the ink, finds the main enclosed island, and
+turns enclosed areas inside it into territories. Tiny accidental marks are
+ignored as noise.
+
+The structured **World editor** sidebar stays on the right: world metadata,
+regions (including multi-select **MOVE TO REGION**), warlords/personality,
+territory fields, diplomacy, contained worlds, and validation. Drawing tools
+never write those fields; convert rebuilds geography from the raw drawing.
 
 Raw drawing data stays separate from the converted map. Change the drawing and
 convert again to rebuild geography from scratch.
@@ -61,6 +70,20 @@ The `.py` file is copyable into another directory and still launches.
 - Explicit **starting ownership** (Level 1: exactly one player tile)
 - Per-world **AI warlords** and personality trait values
 - Contained-world **references** (not inlined playable tiles)
+
+## Previous-level import
+
+**Contained → Import Previous Level JSON** is a coarsening step, not CONVERT TO MAP.
+
+1. Start a **blank** next-level world (set `level` on the World tab, or let import bump it).
+2. Open **Contained**.
+3. Choose a completed previous-level `rep-wars-world.v1` JSON file.
+4. Preview the source name, level, region count, and coarsened outlines.
+5. Confirm **Import & Convert**.
+
+The previous world becomes **one region** in the current file. Each previous **region** becomes one current **territory** whose polygon is the union of that region's tiles. Adjacency is rebuilt from shared region boundaries. The source file is only referenced from `containedWorlds` (`worldId`, `regionId`, `placement`) and is never rewritten.
+
+The previous playable graph is **not** copied into `territories[]`. Raw drawing conversion stays a separate workflow.
 
 ## What is not in the world file
 

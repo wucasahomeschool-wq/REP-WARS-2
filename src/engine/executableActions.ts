@@ -3,6 +3,11 @@ import { ActionType } from '../types';
 /**
  * Commitment actions the Orchestrator can actually execute (or complete as
  * an explicit no-op). Keep in sync with `handleResolveCommitment`.
+ *
+ * Economy v1 (Phase 7): BUILD is timed FORTIFICATION only. There is no
+ * COLLECT or CITY/FARM/MINE/LUMBER commitment. AI waits construction
+ * timers; it does not get a fake workout currency. See
+ * docs/ECONOMY_DESIGN_SURFACE.md (AI economy).
  */
 export const EXECUTABLE_COMMITMENT_ACTIONS: ReadonlySet<ActionType> = new Set([
   'ATTACK',

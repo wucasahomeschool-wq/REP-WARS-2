@@ -60,6 +60,7 @@ import { registerAiRuntimeTests } from './aiRuntime';
 import { registerFoundationHardeningTests } from './foundationHardening';
 import { registerLongSimulationTests } from './longSimulation';
 import { registerFitnessDomainTests } from './fitnessDomain';
+import { registerFitnessLibraryTests } from './fitnessLibrary';
 import { registerFitnessSessionTests } from './fitnessSession';
 import { registerFitnessEvidenceTests } from './fitnessEvidence';
 import { registerFitnessLevelTests } from './fitnessLevel';
@@ -69,10 +70,22 @@ import { registerGameRewardTests } from './gameRewards';
 import { registerRewardApplicationTests } from './rewardApplication';
 import { registerGameplayConsumptionTests } from './gameplayConsumption';
 import { registerEconomyCitiesTests } from './economyCities';
+import { registerEconomyFoundationTests } from './economyFoundation';
+import { registerEconomyDevelopmentsTests } from './economyDevelopments';
+import { registerTerritoryDefenseTests } from './territoryDefense';
+import { registerAiEconomyTests } from './aiEconomy';
 import { registerInvasionLifecycleTests } from './invasionLifecycle';
 import { registerPersistenceTests } from './persistence';
 import { registerWorldDefinitionTests } from './worldDefinition';
+import { registerLevel1ProductionTests } from './level1Production';
+import { registerLevel1TutorialTests } from './level1Tutorial';
+import { registerWorkoutSelectionTests } from './workoutSelection';
+import { registerAnalyticsTests } from './analytics';
+import { registerOrchestratorIntegrationTests } from './orchestratorIntegration';
+import { registerLevelAnchorTests } from './levelAnchors';
+import { registerPlayerIdentityTests } from './playerIdentity';
 import { authoredWorldFields, plantOwnedCities } from './worldTestHelpers';
+import { getConstructionProjectDefinition, GAMEPLAY_CONFIG } from '../src/gameplay';
 
 let failed = 0;
 let passed = 0;
@@ -466,7 +479,7 @@ test('WorldSimulator.resolveChoice does not mutate its input activeEvents (share
   assert.strictEqual(original.choicesPending.length, beforePending, 'resolveChoice() mutated the caller\'s choicesPending in place');
   assert.strictEqual(original.choiceTaken, undefined, 'resolveChoice() mutated the caller\'s ActiveEvent.choiceTaken in place');
 });
-test('MapEngine.toTerritorySpecs returns the canonical MapTerritorySpec shape', () => {
+test('LEGACY MapEngine.toTerritorySpecs still matches MapTerritorySpec (fixture only)', () => {
   const engine = new MapEngine(42);
   const { world } = engine.generateInitialWorld({
     worldSeed: 42,
@@ -749,11 +762,14 @@ test('DecisionEngine.decide is deterministic for a fixed seed given identical st
 });
 
 console.log('Engine execution consistency — balance/cost centralization');
-test('BUILD affordability (scorer) and BUILD cost (cli.ts execution) both read BALANCE.territory.fortificationCostPerLevel — no separate hardcoded literals', () => {
+test('BUILD affordability (scorer) and cli read BALANCE mirror of construction definition', () => {
   const scorerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'scoring', 'ActionScorer.ts'), 'utf8');
   const cliSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'simulation', 'cli.ts'), 'utf8');
   assert.ok(/fortificationCostPerLevel/.test(scorerSrc), 'ActionScorer.scoreBuild must read BALANCE.territory.fortificationCostPerLevel');
   assert.ok(/fortificationCostPerLevel/.test(cliSrc), "cli.ts's BUILD execution must read BALANCE.territory.fortificationCostPerLevel");
+  const def = getConstructionProjectDefinition('FORTIFICATION');
+  assert.strictEqual(BALANCE.territory.fortificationCostPerLevel.gold, def.cost.gold);
+  assert.strictEqual(BALANCE.territory.fortificationCostPerLevel.stone, def.cost.stone);
 });
 test('REINFORCE affordability (scorer) and REINFORCE cost (cli.ts execution) both read BALANCE.economy.reinforcementCost', () => {
   const scorerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'scoring', 'ActionScorer.ts'), 'utf8');
@@ -1676,7 +1692,7 @@ test('createGameState() contains the expected major state domains', () => {
   const expected = [
     'activeEvents', 'activeInvasions', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'commitments', 'constructions',
     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
-    'factions', 'lastAiDecisionTick', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'territories', 'territoryEconomy',
+    'factions', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'territories', 'territoryEconomy', 'territoryInfrastructure',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
@@ -1684,12 +1700,14 @@ test('createGameState() contains the expected major state domains', () => {
   assert.ok(state.factions.size > 0, 'must contain at least one faction');
   assert.ok(state.territories.size > 0, 'must contain at least one territory');
   assert.ok(state.armies.size > 0, 'must contain at least one army');
-  assert.strictEqual(state.definitionWorldId, 'w_ember_atoll');
+  assert.strictEqual(state.definitionWorldId, 'Level 1');
   assert.ok(state.regions.size > 0);
   assert.strictEqual(state.activeEvents.length, 0);
   assert.strictEqual(state.eventHistory.length, 0);
   assert.strictEqual(state.worldTick, 0);
+  assert.strictEqual(state.lastFoodConsumptionTick, 0);
   assert.strictEqual(state.lastAiDecisionTick.size, 0);
+  assert.strictEqual(state.territoryInfrastructure.size, state.territories.size);
   assert.strictEqual(state.playerRewards.bankedTroops, 0);
   assert.strictEqual(state.playerRewards.pendingConstructionEffects.length, 0);
   assert.strictEqual(state.playerRewards.pendingGoldenYieldEffects.length, 0);
@@ -1825,6 +1843,27 @@ test('invariants catch an active event referencing an unknown territory/faction'
   assert.ok(violations.some((v) => v.code === 'event.invalid_faction'));
 });
 
+test('invariants catch an invalid lastFoodConsumptionTick', () => {
+  const state = cloneGameState(createGameState({ seed: 42 }));
+  state.lastFoodConsumptionTick = -1;
+  assert.ok(checkGameStateInvariants(state).some((v) => v.code === 'economy.invalid_food_consumption_tick'));
+});
+
+test('invariants catch malformed territoryInfrastructure', () => {
+  const state = cloneGameState(createGameState({ seed: 42 }));
+  const [tid] = state.territories.keys();
+  state.territoryInfrastructure.get(tid!)!.farmCompletedAtTick = -3;
+  assert.ok(checkGameStateInvariants(state).some((v) => v.code === 'infrastructure.invalid_completed_tick'));
+  state.territoryInfrastructure.get(tid!)!.farmCompletedAtTick = null;
+  state.territoryInfrastructure.set('bogus', {
+    territoryId: 'bogus',
+    farmCompletedAtTick: null,
+    mineCompletedAtTick: null,
+    lumberCompletedAtTick: null,
+  });
+  assert.ok(checkGameStateInvariants(state).some((v) => v.code === 'infrastructure.invalid_territory'));
+});
+
 console.log('Authoritative runtime GameState — cloning / snapshot isolation');
 
 test('cloneGameState produces a deep copy that shares no mutable nested state', () => {
@@ -1919,6 +1958,14 @@ test('cloneGameState produces a deep copy that shares no mutable nested state', 
     cloneEcon.uncollected.gold = 999999;
     cloneEcon.lastAccrualTick = 999;
   }
+  clone.lastFoodConsumptionTick = 999;
+  if (clone.level1Tutorial) clone.level1Tutorial.beat = 'COMPLETE';
+  const [cloneInfra] = clone.territoryInfrastructure.values();
+  if (cloneInfra) {
+    cloneInfra.farmCompletedAtTick = 999;
+    cloneInfra.mineCompletedAtTick = 999;
+    cloneInfra.lumberCompletedAtTick = 999;
+  }
 
   // The original `source` must be completely unaffected.
   assert.strictEqual([...source.territories.values()][0]!.neighboring.includes('mutated'), false);
@@ -1945,6 +1992,9 @@ test('cloneGameState produces a deep copy that shares no mutable nested state', 
   assert.strictEqual(source.activeInvasions.get('inv_src')!.defenseMobilization, null);
   assert.notStrictEqual([...source.cities.values()][0]?.factionId, 'mutated_faction');
   assert.notStrictEqual([...source.territoryEconomy.values()][0]?.uncollected.gold, 999999);
+  assert.strictEqual(source.lastFoodConsumptionTick, 0);
+  assert.notStrictEqual(source.level1Tutorial?.beat, 'COMPLETE');
+  assert.strictEqual([...source.territoryInfrastructure.values()][0]?.farmCompletedAtTick, null);
 });
 
 test('cloneGameState output still satisfies structural invariants', () => {
@@ -2022,7 +2072,7 @@ console.log('Authoritative runtime GameState — no hidden second world (spot ch
 
 test('createGameState uses authored WorldDefinition resources, not SAMPLE_MAP', () => {
   const state = createGameState({ seed: 42 });
-  assert.strictEqual(state.definitionWorldId, 'w_ember_atoll');
+  assert.strictEqual(state.definitionWorldId, 'Level 1');
   assert.deepStrictEqual(state.factions.get('f_player')!.resources, {
     gold: 400, food: 400, iron: 80, wood: 80, stone: 80,
   });
@@ -2132,7 +2182,7 @@ test('failed/invalid ATTACK leaves state unchanged', () => {
   assert.deepStrictEqual(orchestrator.getState(), before);
 });
 
-test('BUILD uses centralized BALANCE fortification cost', () => {
+test('BUILD starts timed fortification using construction definition cost', () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   plantOwnedCities(state);
   const fid = 'merchant_republic';
@@ -2140,12 +2190,16 @@ test('BUILD uses centralized BALANCE fortification cost', () => {
   const t0 = state.territories.get(owned)!;
   const fortBefore = t0.fortification;
   const goldBefore = state.factions.get(fid)!.resources.gold;
-  const { gold: costG } = BALANCE.territory.fortificationCostPerLevel;
+  const { gold: costG, stone: costS } = BALANCE.territory.fortificationCostPerLevel;
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('BUILD', 'player_1', { territoryId: owned, factionId: fid }));
   assert.strictEqual(res.success, true);
-  assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore + 1);
+  assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore);
   assert.strictEqual(orch.getState().factions.get(fid)!.resources.gold, goldBefore - costG);
+  assert.ok(res.resourcesChanged.some((r) => r.resource === 'stone' && r.from - r.to === costS));
+  const adv = orch.execute(cmdReq('ADVANCE_WORLD', 'player_1', { elapsedTicks: GAMEPLAY_CONFIG.defaultConstructionDurationTicks }));
+  assert.strictEqual(adv.success, true);
+  assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore + 1);
 });
 
 test('REINFORCE uses centralized BALANCE reinforcement cost', () => {
@@ -2216,7 +2270,7 @@ test('deterministic command replay for ATTACK', () => {
   assert.deepStrictEqual(a.orchestrator.getState(), b.orchestrator.getState());
 });
 
-test('command response accurately reports state changes on BUILD', () => {
+test('command response accurately reports resource spend on BUILD alias', () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   plantOwnedCities(state);
   const fid = 'merchant_republic';
@@ -2224,7 +2278,8 @@ test('command response accurately reports state changes on BUILD', () => {
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('BUILD', 'player_1', { territoryId: owned, factionId: fid }));
   assert.ok(res.resourcesChanged.some((r) => r.resource === 'gold'));
-  assert.ok(res.territoriesChanged.some((t) => t.field === 'fortification'));
+  assert.ok(res.resourcesChanged.some((r) => r.resource === 'stone'));
+  assert.ok(res.payload.constructionId);
   assert.ok(res.stateChanges.some((c) => c.entity === 'territory'));
 });
 
@@ -2562,7 +2617,7 @@ test('AI ATTACK commitment executes through BattleEngine', () => {
   assert.deepStrictEqual(checkGameStateInvariants(orch.getState()), []);
 });
 
-test('AI BUILD commitment uses shared BUILD / BALANCE cost', () => {
+test('AI BUILD commitment starts timed fortification construction', () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'ashen_horde' });
   plantOwnedCities(state);
   const fid = 'merchant_republic';
@@ -2574,8 +2629,10 @@ test('AI BUILD commitment uses shared BUILD / BALANCE cost', () => {
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore + 1);
+  assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore);
   assert.strictEqual(orch.getState().factions.get(fid)!.resources.gold, goldBefore - costG);
+  orch.execute(cmdReq('ADVANCE_WORLD', 'ai', { elapsedTicks: GAMEPLAY_CONFIG.defaultConstructionDurationTicks }));
+  assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore + 1);
 });
 
 test('AI REINFORCE commitment uses shared REINFORCE / BALANCE cost', () => {
@@ -3143,6 +3200,8 @@ registerLongSimulationTests({ test });
 
 registerFitnessDomainTests({ test });
 
+registerFitnessLibraryTests({ test });
+
 registerFitnessSessionTests({ test });
 
 registerFitnessEvidenceTests({ test });
@@ -3160,12 +3219,30 @@ registerRewardApplicationTests({ test });
 registerGameplayConsumptionTests({ test });
 
 registerEconomyCitiesTests({ test });
+registerEconomyFoundationTests({ test });
+registerEconomyDevelopmentsTests({ test });
+registerTerritoryDefenseTests({ test });
+registerAiEconomyTests({ test });
 
 registerInvasionLifecycleTests({ test });
 
 registerPersistenceTests({ test });
 
+registerPlayerIdentityTests({ test });
+
 registerWorldDefinitionTests({ test });
+
+registerLevel1ProductionTests({ test });
+
+registerLevel1TutorialTests({ test });
+
+registerWorkoutSelectionTests({ test });
+
+registerAnalyticsTests({ test });
+
+registerOrchestratorIntegrationTests({ test });
+
+registerLevelAnchorTests({ test });
 
 console.log('');
 console.log(`Results: ${passed} passed, ${failed} failed`);

@@ -1,3 +1,8 @@
+/**
+ * LEGACY simulation CLI. Default `runSimulation` boots SAMPLE_MAP.
+ * `--world` and `--move` use `createGameState()` with the selected authored
+ * world from worldConfig (WorldCatalog). `--map` runs the MapEngine hex demo.
+ */
 import { DecisionEngine, WarlordState } from '../engine/DecisionEngine';
 import { SAMPLE_MAP, WARLORD_SPECS, SimulationBuilder } from './SampleMap';
 import { BALANCE, TERRAIN_NAMES, PERSONALITY_NAMES } from '../constants/balance';
@@ -8,6 +13,7 @@ import { BattleEngine, BattleInput, BattleResult } from '../battle/BattleEngine'
 import { ScoringHelpers } from '../scoring/ActionScorer';
 import { Orchestrator } from '../orchestration/orchestrator';
 import { createGameState, createLegacySampleMapGameState } from '../state/createGameState';
+import { DEFAULT_PRODUCTION_WORLD_ID } from '../worldDefinition';
 import { checkGameStateInvariants } from '../state/gameStateInvariants';
 import { calculateMovementDuration } from '../army/movement';
 import { PersonalitySystem } from '../personality/PersonalitySystem';
@@ -113,6 +119,7 @@ function printWarlordInfo(warlordStates: Map<string, WarlordState>): void {
   }
 }
 
+/** LEGACY SAMPLE_MAP DecisionEngine loop. Not production world initialization. */
 async function runSimulation(opts: CliOpts): Promise<void> {
   const { turns, seed, verbose, interactive, selectedWarlords, showScores } = opts;
   printBanner();
@@ -689,9 +696,10 @@ async function runContinuousWorldDemo(opts: CliOpts): Promise<void> {
   console.log('Continuous world demo (Orchestrator ADVANCE_WORLD)');
   console.log(`  · Seed:          ${opts.seed}`);
   console.log(`  · elapsedTicks:  ${opts.turns}`);
+  console.log(`  · World:         selected ${DEFAULT_PRODUCTION_WORLD_ID} via WorldCatalog`);
   console.log('  · Authority:     Orchestrator → ContinuousWorldEngine → existing handlers');
   console.log('');
-  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: opts.seed, playerFactionId: 'merchant_republic' }));
+  const orch = new Orchestrator(createGameState({ seed: opts.seed }));
   const beforeTick = orch.getState().worldTick;
   const beforeTurn = orch.getState().turn;
   const res = orch.execute({
@@ -737,10 +745,11 @@ async function runArmyMoveDemo(opts: CliOpts): Promise<void> {
   printBanner();
   console.log('Army movement demo (Orchestrator MOVE + ADVANCE_WORLD)');
   console.log(`  · Seed: ${opts.seed}`);
+  console.log(`  · World: selected ${DEFAULT_PRODUCTION_WORLD_ID} via WorldCatalog`);
   console.log('  · Authority: Orchestrator beginArmyMovement — not a second implementation');
   console.log('');
-  const orch = new Orchestrator(createLegacySampleMapGameState({ seed: opts.seed, playerFactionId: 'merchant_republic' }));
-  const fid = 'merchant_republic';
+  const orch = new Orchestrator(createGameState({ seed: opts.seed }));
+  const fid = orch.getState().playerFactionId!;
   const armyId = orch.getState().factions.get(fid)!.armies[0]!;
   const army = orch.getState().armies.get(armyId)!;
   const origin = orch.getState().territories.get(army.location)!;

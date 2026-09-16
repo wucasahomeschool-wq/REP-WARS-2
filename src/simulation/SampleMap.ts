@@ -126,6 +126,10 @@ export const WARLORD_SPECS: WarlordSpec[] = [
   },
 ];
 
+/**
+ * LEGACY TEST FIXTURE builder. Production worlds use
+ * `createGameStateFromWorld`. Personalities here are `randomizePreset`.
+ */
 export class SimulationBuilder {
   static buildFromSpecs(mapSpecs: MapTerritorySpec[], warlordSpecs: WarlordSpec[], seed = BALANCE.simulate.defaultSeed): {
     gameState: GameStateSnapshot;

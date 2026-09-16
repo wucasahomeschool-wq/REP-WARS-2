@@ -1,5 +1,9 @@
 # Engine Execution Consistency (Phase 6)
 
+> **Phase 17Q:** New games use `DEFAULT_PRODUCTION_WORLD_ID` from
+> `worldConfig.ts`. CLI `--world` / `--move` load that selected ID via
+> WorldCatalog. `npm start` SAMPLE_MAP loop is a **legacy harness**.
+>
 > **Phase 17N.2:** Production execution is the Orchestrator + authored
 > `WorldDefinition`. `EXPAND` is not a production action. The CLI and
 > `SAMPLE_MAP` remain a legacy harness/fixture.

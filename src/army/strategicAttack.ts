@@ -2,7 +2,7 @@ import { BALANCE } from '../constants/balance';
 import { BattleEngine, BattleInput } from '../battle/BattleEngine';
 import { Army, FactionId, GameStateSnapshot, RelationshipState, StrategicAttackIntent, TerritoryId } from '../types';
 import { GameState } from '../types/GameState';
-import { applyBattleResultToGameState } from '../orchestration/applyBattle';
+import { applyBattleResultToGameState, applyUnopposedOccupationToGameState } from '../orchestration/applyBattle';
 import { OrchestrationError, ErrorCode, type OrchestrationErrorBody } from '../orchestration/errors';
 import { isOpenInvasion } from '../gameplay/invasion/deadlines';
 import {
@@ -25,7 +25,13 @@ import {
   StateChange,
 } from '../orchestration/protocol';
 import { beginArmyMovement, calculateMovementDuration, isArmyMoving } from './movement';
-import { withTerritoryBattleLabel } from '../worldDefinition/display';
+import { withTerritoryCombatView } from '../gameplay/defense/territoryDefense';
+import {
+  ANCHOR_PROTECTED_MESSAGE,
+  ANCHOR_PROTECTED_REASON,
+  assertAnchorAttackAllowed,
+  isPlayerAnchorProtected,
+} from '../gameplay/anchors';
 
 /** Same eligibility floor `executeAttack` / ActionScorer already used. Not combat math. */
 export const MIN_ATTACKING_TROOPS = 100;
@@ -230,6 +236,8 @@ export function invalidateStaleAttackIntents(state: GameState): StaleAttackInval
       reason = 'attack target is no longer a known territory';
     } else if (!target.owner || target.owner === army.owner) {
       reason = 'attack target is no longer a foreign-owned territory';
+    } else if (isPlayerAnchorProtected(state, intent.targetTerritoryId)) {
+      reason = 'player anchor is protected while the player still owns other territories';
     } else if (!isLegalStagingTerritory(state, army.owner, intent.stagingTerritoryId, intent.targetTerritoryId)) {
       reason = 'staging territory is no longer a legal attack position';
     }
@@ -268,30 +276,16 @@ function resolveStrategicBattle(
   if (!target.owner || target.owner === attackerId) {
     throw new OrchestrationError(ErrorCode.INVALID_TARGET, 'Attack target must be a foreign-owned territory');
   }
+  assertAnchorAttackAllowed(state, target.id);
   const defenderId = target.owner;
   const attackerSnap = requireFactionSnapshot(state, attackerId);
   const defenderSnap = requireFactionSnapshot(state, defenderId);
-  const defendingArmies = armiesInTerritory(state, target.id);
+  const defendingArmies = armiesInTerritory(state, target.id).filter((a) => a.owner === defenderId);
+  const defenderField = defendingArmies.reduce((sum, army) => sum + army.soldiers + army.knights, 0);
   const battleSeed = plannedBattleSeed
     ?? paramNumber(host.req, 'seed')
     ?? deriveBattleSeed(state.worldSeed, state.turn, attackerId, defenderId, target.id);
-  const input: BattleInput = {
-    turn: state.turn,
-    seed: battleSeed,
-    attackerFactionId: attackerId,
-    attackerFactionName: attackerSnap.name,
-    defenderFactionId: defenderId,
-    defenderFactionName: defenderSnap.name,
-    attackerArmies: attackingArmies,
-    defenderArmies: defendingArmies,
-    defenderGarrison: target.garrison,
-    territory: withTerritoryBattleLabel(state, target),
-  };
-  const battle = host.registry.requireBattle();
-  const validation = battle.validate(input);
-  if (!validation.valid) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, validation.errors.join('; '), { errors: validation.errors });
-  }
+
   pushMemory(attackerSnap, state.turn, 'attack_made', defenderId, target.id, 8, { target: target.id });
   pushMemory(defenderSnap, state.turn, 'attack_received', attackerId, target.id, 10, { attacker: attackerSnap.name });
   const rel = defenderSnap.diplomacy.get(attackerId);
@@ -303,6 +297,88 @@ function resolveStrategicBattle(
   if (myRel) {
     myRel.opinion = Math.max(-100, myRel.opinion - 10);
     if (myRel.state !== 'at_war' && myRel.state !== 'hostile') myRel.state = 'tense';
+  }
+
+  if (defenderField + target.garrison <= 0) {
+    const applied = applyUnopposedOccupationToGameState(state, target, attackerId, attackingArmies, state.turn);
+    for (const a of attackingArmies) {
+      const live = state.armies.get(a.id);
+      if (live) {
+        live.movement = null;
+        clearAttackIntent(live);
+      }
+    }
+    clearAttackIntentsForTarget(state, target.id, attackerId);
+    const remainingSoldiers = attackingArmies.reduce((sum, army) => sum + army.soldiers, 0);
+    const remainingKnights = attackingArmies.reduce((sum, army) => sum + army.knights, 0);
+    const remainingSiege = attackingArmies.reduce((sum, army) => sum + army.siegeEngines, 0);
+    const remainingTroops = remainingSoldiers + remainingKnights;
+    return {
+      ...emptyResult(),
+      stateChanges: applied.stateChanges,
+      territoriesChanged: applied.territoryChanges,
+      armiesChanged: applied.armyChanges,
+      events: [
+        {
+          kind: 'battle',
+          id: `unopposed_${state.turn}_${target.id}`,
+          title: 'Unopposed occupation',
+          summary: `${attackerId} occupies undefended ${target.id}`,
+          territoryId: target.id,
+          factionId: attackerId,
+          data: { winner: 'attacker', territoryOutcome: 'captured', seed: battleSeed, unopposed: true },
+        },
+        ...applied.events,
+      ],
+      presentation: {
+        type: 'battle_report',
+        durationMs: DEFAULT_PRESENTATION_MS,
+        title: `Occupation of ${target.id}`,
+        summary: `${attackerSnap.name} occupies undefended ${target.id} with no battle.`,
+      },
+      payload: {
+        attackOutcome: 'battle_resolved',
+        battleResult: {
+          battleId: `unopposed_${state.turn}_${target.id}`,
+          territoryId: target.id,
+          winner: 'attacker',
+          loser: 'defender',
+          outcomeType: 'attacker_decisive_victory',
+          territoryOutcome: 'captured',
+          attacker: {
+            remainingTroops,
+            remaining: { soldiers: remainingSoldiers, knights: remainingKnights, siegeEngines: remainingSiege },
+            casualties: { total: 0 },
+          },
+          defender: {
+            remainingTroops: 0,
+            remaining: { soldiers: 0, knights: 0, siegeEngines: 0, garrison: 0 },
+            casualties: { total: 0 },
+          },
+        },
+        battleSeed,
+        unopposed: true,
+        interactionKind: classifyFactionInteraction(state.playerFactionId, attackerId, defenderId),
+      },
+    };
+  }
+
+  const input: BattleInput = {
+    turn: state.turn,
+    seed: battleSeed,
+    attackerFactionId: attackerId,
+    attackerFactionName: attackerSnap.name,
+    defenderFactionId: defenderId,
+    defenderFactionName: defenderSnap.name,
+    attackerArmies: attackingArmies,
+    defenderArmies: defendingArmies,
+    defenderGarrison: target.garrison,
+    territory: withTerritoryCombatView(state, target),
+  };
+  const battle = host.registry.requireBattle();
+  const validation = battle.validate(input);
+  if (!validation.valid) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, validation.errors.join('; '), { errors: validation.errors });
   }
   const result = battle.resolve(input);
   const applied = applyBattleResultToGameState(state, result, attackingArmies, defendingArmies, state.turn);
@@ -322,7 +398,7 @@ function resolveStrategicBattle(
     territoryId: target.id,
     factionId: attackerId,
     data: { winner: result.winner, territoryOutcome: result.territoryOutcome, seed: battleSeed },
-  }];
+  }, ...applied.events];
   return {
     ...emptyResult(),
     stateChanges: applied.stateChanges,
@@ -359,6 +435,7 @@ export function startStrategicAttack(
   if (!target.owner || target.owner === attackerId) {
     throw new OrchestrationError(ErrorCode.INVALID_TARGET, 'Attack target must be a foreign-owned territory');
   }
+  assertAnchorAttackAllowed(state, target.id);
   const commitmentId = params.commitmentId ?? null;
 
   if (commitmentId && isStrategicAttackInFlight(state, commitmentId)) {
@@ -466,8 +543,12 @@ export function startStrategicAttack(
   };
 }
 
-function failedReadyAttack(message: string, code: ErrorCode): HandlerResult {
-  const errors: OrchestrationErrorBody[] = [{ code, message }];
+function failedReadyAttack(
+  message: string,
+  code: ErrorCode,
+  details?: Record<string, unknown>,
+): HandlerResult {
+  const errors: OrchestrationErrorBody[] = [{ code, message, details }];
   return {
     ...emptyResult(),
     commandSuccess: false,
@@ -495,10 +576,10 @@ export function executeReadyStrategicAttack(
   }
   const intent = army.attackIntent!;
   intent.status = 'ready';
-  const fail = (code: ErrorCode, message: string): HandlerResult => {
+  const fail = (code: ErrorCode, message: string, details?: Record<string, unknown>): HandlerResult => {
     clearAttackIntent(army);
     army.movement = null;
-    return failedReadyAttack(message, code);
+    return failedReadyAttack(message, code, details);
   };
   if (intent.holdForInvasionId) {
     const invasion = state.activeInvasions.get(intent.holdForInvasionId);
@@ -522,6 +603,12 @@ export function executeReadyStrategicAttack(
   if (!state.factions.has(army.owner)) {
     return fail(ErrorCode.INVALID_FACTION, 'Attacking faction no longer exists');
   }
+  if (isPlayerAnchorProtected(state, intent.targetTerritoryId)) {
+    return fail(ErrorCode.ACTION_NOT_ALLOWED, ANCHOR_PROTECTED_MESSAGE, {
+      reason: ANCHOR_PROTECTED_REASON,
+      territoryId: intent.targetTerritoryId,
+    });
+  }
   if (!isLegalStagingTerritory(state, army.owner, intent.stagingTerritoryId, intent.targetTerritoryId)) {
     return fail(ErrorCode.ACTION_NOT_ALLOWED, 'Staging territory is no longer a legal attack position');
   }
@@ -537,7 +624,7 @@ export function executeReadyStrategicAttack(
   } catch (err) {
     clearAttackIntent(army);
     if (err instanceof OrchestrationError) {
-      return failedReadyAttack(err.message, err.code);
+      return failedReadyAttack(err.message, err.code, err.details);
     }
     throw err;
   }

@@ -1,5 +1,8 @@
 # Continuous World Architecture (Phase 13)
 
+> **Phase 17P:** `ADVANCE_WORLD` runs against GameState initialized from
+> authored WorldDefinition. MapEngine is not part of this loop.
+
 Phase 13 adds a **simulation/runtime coordinator** that advances AI
 commitments and world events over deterministic simulation time. It is
 not a new AI, battle, map, or event engine.

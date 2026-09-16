@@ -5,8 +5,9 @@ import { deriveBattleSeed, requireTerritory } from '../../orchestration/helpers'
 import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
 import { HandlerResult } from '../../orchestration/protocol';
 import { defenseResponseTicks } from '../config';
-import { canAiAttackPlayer } from './eligibility';
+import { canAiAttackPlayer, isPlayerEmpirePaused } from './eligibility';
 import { isOpenInvasion } from './deadlines';
+import { assertAnchorAttackAllowed } from '../anchors';
 
 function empty(): HandlerResult {
   return {
@@ -30,18 +31,25 @@ export function beginInvasionAgainstPlayer(
     armies: Army[];
     commitmentId?: string | null;
     battleSeed?: number;
+    /** Tutorial/scripted invasions skip 24h protection and attacker cooldown. Pause still blocks. */
+    bypassPlayerDefenseGates?: boolean;
   },
 ): HandlerResult {
   if (!state.playerFactionId) {
     throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'No player faction to invade');
   }
-  if (!canAiAttackPlayer(state, params.attackerId)) {
+  if (params.bypassPlayerDefenseGates) {
+    if (isPlayerEmpirePaused(state)) {
+      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Player empire is paused');
+    }
+  } else if (!canAiAttackPlayer(state, params.attackerId)) {
     throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Player is protected, paused, or attacker is on cooldown');
   }
   const target = requireTerritory(state, params.territoryId);
   if (target.owner !== state.playerFactionId) {
     throw new OrchestrationError(ErrorCode.INVALID_TARGET, 'Invasion defender must be the local player');
   }
+  assertAnchorAttackAllowed(state, params.territoryId);
   for (const existing of state.activeInvasions.values()) {
     if (existing.territoryId === params.territoryId && isOpenInvasion(existing)) {
       throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'An active invasion already targets this territory');

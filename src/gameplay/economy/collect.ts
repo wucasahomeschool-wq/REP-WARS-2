@@ -6,10 +6,19 @@ import { peekCollectibleResources } from './accrual';
 import { addResourcesChecked, resourcesTotal, scaleResources } from './production';
 
 export interface CollectTerritoryYieldResult {
+  /** Total base yield (all resources) before multiplier. */
+  baseTotal: number;
+  /** @deprecated Prefer baseResources; kept for telemetry compatibility. */
   base: number;
+  baseResources: ReturnType<typeof emptyResources>;
   multiplier: number;
+  /** Total transferred (all resources) after multiplier. */
+  collectedTotal: number;
+  /** @deprecated Prefer transferredResources; kept for telemetry compatibility. */
   collected: number;
+  transferredResources: ReturnType<typeof emptyResources>;
   effectConsumed: boolean;
+  /** @deprecated Use transferredResources */
   transferred: ReturnType<typeof emptyResources>;
 }
 
@@ -81,9 +90,13 @@ export function collectTerritoryYield(
   }
 
   return {
+    baseTotal: resourcesTotal(baseYield),
     base: baseYield.gold,
+    baseResources: { ...baseYield },
     multiplier,
+    collectedTotal: resourcesTotal(transferred),
     collected: transferred.gold,
+    transferredResources: transferred,
     effectConsumed: !!pending,
     transferred,
   };

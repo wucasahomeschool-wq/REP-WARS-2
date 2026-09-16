@@ -1,28 +1,13 @@
 import { ConstructionProject, ConstructionProjectType, GameState } from '../../types/GameState';
 import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
-import { requireFactionSnapshot, requireTerritory } from '../../orchestration/helpers';
-import { GAMEPLAY_CONFIG, acceleratedRemainingTicks } from '../config';
-import { cityIdFor } from '../cities/city';
-import { completeConstruction } from './complete';
+import { requireFactionSnapshot } from '../../orchestration/helpers';
+import { acceleratedRemainingTicks } from '../config';
+import { constructionCostEntries, getConstructionProjectDefinition } from './definitions';
 import { progressConstruction, progressConstructionsOnTerritory } from './progress';
-
-function costsFor(projectType: ConstructionProjectType): { gold: number; stone: number; duration: number } {
-  if (projectType === 'CITY') {
-    return {
-      gold: GAMEPLAY_CONFIG.cityGoldCost,
-      stone: GAMEPLAY_CONFIG.cityStoneCost,
-      duration: GAMEPLAY_CONFIG.cityConstructionDurationTicks,
-    };
-  }
-  return {
-    gold: GAMEPLAY_CONFIG.constructionGoldCost,
-    stone: GAMEPLAY_CONFIG.constructionStoneCost,
-    duration: GAMEPLAY_CONFIG.defaultConstructionDurationTicks,
-  };
-}
+import { completeConstruction } from './complete';
 
 /**
- * Start CITY or FORTIFICATION construction. Fortification is not city founding.
+ * Start a timed construction project (CITY, FORTIFICATION, FARM, MINE, LUMBER).
  */
 export function startConstruction(
   state: GameState,
@@ -34,40 +19,34 @@ export function startConstruction(
   },
 ): ConstructionProject {
   const faction = requireFactionSnapshot(state, params.factionId);
-  const territory = requireTerritory(state, params.territoryId);
-  if (territory.owner !== params.factionId) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Can only start construction on owned territory');
-  }
   const projectType: ConstructionProjectType = params.projectType ?? 'FORTIFICATION';
-  const existingCity = state.cities.get(cityIdFor(params.territoryId));
-  if (projectType === 'CITY') {
-    if (existingCity) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Territory already has a city');
-    }
-  } else {
-    if (!existingCity) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Fortification requires a city on the territory');
-    }
-    if (territory.fortification >= GAMEPLAY_CONFIG.maxFortificationLevel) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Territory is already at maximum fortification');
-    }
-  }
+  const definition = getConstructionProjectDefinition(projectType);
+  definition.assertCanStart({ state, factionId: params.factionId, territoryId: params.territoryId });
+
   progressConstructionsOnTerritory(state, params.territoryId);
   for (const existing of state.constructions.values()) {
     if (existing.territoryId === params.territoryId && existing.status === 'in_progress') {
       throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Territory already has an in-progress construction');
     }
   }
-  const cost = costsFor(projectType);
-  if (faction.resources.gold < cost.gold || faction.resources.stone < cost.stone) {
-    throw new OrchestrationError(ErrorCode.INSUFFICIENT_RESOURCES, 'Insufficient resources to start construction');
+
+  const { cost, durationTicks } = definition;
+  const charges = constructionCostEntries(cost);
+  for (const { resource, amount } of charges) {
+    if (faction.resources[resource] < amount) {
+      throw new OrchestrationError(ErrorCode.INSUFFICIENT_RESOURCES, 'Insufficient resources to start construction');
+    }
   }
+
   const id = params.projectId ?? `con_${params.territoryId}_${state.worldTick}`;
   if (state.constructions.has(id)) {
     throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'Construction id already exists');
   }
-  faction.resources.gold -= cost.gold;
-  faction.resources.stone -= cost.stone;
+
+  for (const { resource, amount } of charges) {
+    faction.resources[resource] -= amount;
+  }
+
   const project: ConstructionProject = {
     id,
     factionId: params.factionId,
@@ -75,8 +54,8 @@ export function startConstruction(
     projectType,
     startedAtTick: state.worldTick,
     lastProgressTick: state.worldTick,
-    durationTicks: cost.duration,
-    remainingTicks: cost.duration,
+    durationTicks,
+    remainingTicks: durationTicks,
     status: 'in_progress',
     completedAtTick: null,
   };

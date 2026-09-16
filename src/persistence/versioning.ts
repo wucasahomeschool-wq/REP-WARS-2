@@ -1,9 +1,11 @@
 import {
   GAME_STATE_SCHEMA_VERSION,
+  emptyLevelDefeatState,
   emptyPlayerEmpirePause,
   emptyPlayerFitnessState,
   emptyPlayerRewardState,
 } from '../types/GameState';
+import { coerceLevel1TutorialState } from '../gameplay/tutorial/level1';
 import { PersistenceError } from './errors';
 
 export const MIN_SUPPORTED_GAME_STATE_SCHEMA = 5;
@@ -58,9 +60,35 @@ function migrateConstruction(project: unknown): void {
   if (!('lastProgressTick' in rec)) {
     rec.lastProgressTick = rec.startedAtTick ?? 0;
   }
-  if (rec.projectType !== 'CITY' && rec.projectType !== 'FORTIFICATION') {
+  if (
+    rec.projectType !== 'CITY'
+    && rec.projectType !== 'FORTIFICATION'
+    && rec.projectType !== 'FARM'
+    && rec.projectType !== 'MINE'
+    && rec.projectType !== 'LUMBER'
+  ) {
     rec.projectType = 'FORTIFICATION';
   }
+}
+
+function occupancyStamp(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+/** Farm/Mine/Lumber occupancy only. Roads/Markets are not persisted in v1. */
+function migrateInfrastructure(entry: unknown, key: unknown): Record<string, unknown> {
+  const rec = entry && typeof entry === 'object' && !Array.isArray(entry)
+    ? entry as Record<string, unknown>
+    : {};
+  const territoryId = typeof rec.territoryId === 'string' && rec.territoryId.length > 0
+    ? rec.territoryId
+    : typeof key === 'string' ? key : '';
+  return {
+    territoryId,
+    farmCompletedAtTick: occupancyStamp(rec.farmCompletedAtTick),
+    mineCompletedAtTick: occupancyStamp(rec.mineCompletedAtTick),
+    lumberCompletedAtTick: occupancyStamp(rec.lumberCompletedAtTick),
+  };
 }
 
 function reviveNestedCollections(state: Record<string, unknown>): void {
@@ -77,7 +105,7 @@ function reviveNestedCollections(state: Record<string, unknown>): void {
 }
 
 /**
- * Bring a decoded GameState-shaped object forward to schema 9.
+ * Bring a decoded GameState-shaped object forward to schema 12.
  * Missing maps are created empty; major corruption still fails later invariants.
  */
 export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
@@ -138,9 +166,28 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   if (!state.constructions) state.constructions = new Map();
   if (!state.cities) state.cities = new Map();
   if (!state.territoryEconomy) state.territoryEconomy = new Map();
+  if (!state.territoryInfrastructure) state.territoryInfrastructure = new Map();
   if (!state.playerFitness) state.playerFitness = emptyPlayerFitnessState();
   if (!state.playerEmpirePause) state.playerEmpirePause = emptyPlayerEmpirePause();
   if (!state.attackerCooldowns) state.attackerCooldowns = new Map();
+  if (!Array.isArray(state.levelAnchorTerritoryIds)) state.levelAnchorTerritoryIds = [];
+  if (!state.levelDefeat || typeof state.levelDefeat !== 'object' || Array.isArray(state.levelDefeat)) {
+    state.levelDefeat = emptyLevelDefeatState();
+  } else {
+    const defeat = state.levelDefeat as Record<string, unknown>;
+    if (defeat.status !== 'active' && defeat.status !== 'defeated') defeat.status = 'active';
+    if (!Array.isArray(defeat.previousWorldIds)) defeat.previousWorldIds = [];
+    if (!('defeatedAtTick' in defeat)) defeat.defeatedAtTick = null;
+    if (!('defeatedLevel' in defeat)) defeat.defeatedLevel = null;
+    if (!('defeatedWorldId' in defeat)) defeat.defeatedWorldId = null;
+    if (!('lastLostAnchorTerritoryId' in defeat)) defeat.lastLostAnchorTerritoryId = null;
+  }
+
+  if ('level1Tutorial' in state) {
+    state.level1Tutorial = coerceLevel1TutorialState(state.level1Tutorial);
+  } else {
+    state.level1Tutorial = null;
+  }
 
   state.activeInvasions = coerceMap(state.activeInvasions);
   for (const invasion of (state.activeInvasions as Map<unknown, unknown>).values()) migrateInvasion(invasion);
@@ -150,7 +197,19 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
 
   state.cities = coerceMap(state.cities);
   state.territoryEconomy = coerceMap(state.territoryEconomy);
+  state.territoryInfrastructure = coerceMap(state.territoryInfrastructure);
+  const infrastructure = state.territoryInfrastructure as Map<unknown, unknown>;
+  for (const [key, value] of [...infrastructure.entries()]) {
+    infrastructure.set(key, migrateInfrastructure(value, key));
+  }
   state.attackerCooldowns = coerceMap(state.attackerCooldowns);
+
+  const worldTick = typeof state.worldTick === 'number' && Number.isInteger(state.worldTick) && state.worldTick >= 0
+    ? state.worldTick
+    : 0;
+  if (!Number.isInteger(state.lastFoodConsumptionTick) || (state.lastFoodConsumptionTick as number) < 0) {
+    state.lastFoodConsumptionTick = worldTick;
+  }
 
   const fitness = state.playerFitness as Record<string, unknown> | undefined;
   if (fitness && typeof fitness === 'object') {

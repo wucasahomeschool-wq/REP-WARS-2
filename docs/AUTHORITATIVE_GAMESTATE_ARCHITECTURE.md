@@ -1,10 +1,14 @@
 # Authoritative runtime GameState (Phase 9)
 
+> **Phase 17P:** Production initialization is `WorldCatalog.load` →
+> `createGameStateFromWorld`. `MapEngine` is not registered in the default
+> orchestrator registry. `SAMPLE_MAP` is a legacy test fixture only.
+>
 > **Phase 17N.2:** Production geography is authored `WorldDefinition`
 > (`docs/WORLD_DEFINITION.md`). `GameState` stores identity
 > (`definitionWorldId` / level / regions index) plus mutable overlay.
 > There is no `mapWorld` / tile fog / `Territory.name` / `isCapital` on
-> the live runtime model. `SAMPLE_MAP` is a legacy test fixture.
+> the live runtime model.
 
 This pass establishes the one authoritative runtime representation of the
 current world — `GameState` (`src/types/GameState.ts`) — plus its
@@ -28,7 +32,7 @@ audit, `docs/CANONICAL_STATE_ARCHITECTURE.md`) and are reused verbatim by
 | Faction/warlord (identity, resources, diplomacy, personality, ambition, goals, memory) | `WarlordSnapshot` | `types/index.ts` |
 | Resources | `Resources` | `types/index.ts` |
 | AI commitment | `AICommitment` | `types/index.ts` (Phase 8) |
-| Map/world metadata, regions, themes, visibility | `MapWorldState`, `Region`, `ThemeDefinition`, `PlayerVisibilityMap` | `types/index.ts`, produced by `MapEngine` |
+| Map/world metadata, regions, themes, visibility | `MapWorldState`, `Region`, `ThemeDefinition`, `PlayerVisibilityMap` | **LEGACY hex-era types** in `types/index.ts`. Production regions are `GameState.regions` (`RuntimeRegion`) from WorldDefinition. MapEngine is not production authority. |
 | Active event / history | `ActiveEvent`, `HistoryEntry` | `events/EventModel.ts` (kept out of `types/index.ts` to avoid an import cycle — unchanged from phase 3) |
 
 ### 1b. Engine DTOs (input/output shapes for one engine's call boundary)
@@ -218,10 +222,11 @@ No accidental mutation was found or introduced by this pass's new code.
 
 `src/state/createGameState.ts`:
 
-Production default: `createGameState()` loads `docs/examples/world-level1-tiny.json`
-(`rep-wars-world.v1`) and instantiates it with `createGameStateFromWorld`.
-Geometry, adjacency, owners, and AI personalities come from that JSON.
-See `docs/WORLD_DEFINITION.md`.
+Production default: `createGameState()` loads `DEFAULT_PRODUCTION_WORLD_ID`
+from `src/worldDefinition/worldConfig.ts` through `WorldCatalog` (see
+`docs/ADDING_A_WORLD.md`). That ID is the authored Level 1 world
+(`worlds/level-1.json`). Geometry, adjacency, owners, and AI personalities
+come from the authored JSON. See `docs/WORLD_DEFINITION.md`.
 
 `SAMPLE_MAP` + `WARLORD_SPECS` remain available only as
 `createLegacySampleMapGameState()` / explicit `mapSpecs` — a legacy test

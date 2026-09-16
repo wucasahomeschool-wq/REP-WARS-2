@@ -72,8 +72,10 @@ export interface ConsequenceDelta {
     resourceOutputPct?: Partial<Record<keyof Resources, number>>;
     foodProductionPct?: number;
     moraleDeltaArmy?: number;
+    /** NOT APPLIED — no garrison-morale field on territories. See docs/EVENT_ENGINE_CORRECTNESS.md */
     moraleDeltaGarrison?: number;
     garrisonDeltaAbs?: number;
+    /** NOT APPLIED — no infrastructure stat in GameState. Reserved for future design. */
     infrastructureDeltaPct?: number;
     relationshipDeltaOpinion?: { target: FactionId; delta: number };
   };

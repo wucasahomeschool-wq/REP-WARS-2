@@ -1,3 +1,7 @@
+/**
+ * LEGACY / TEST / DEMO ONLY.
+ * MapEngine hex-generation regression suite. Not production world loading.
+ */
 import { FactionId } from '../types';
 import { MapEngine } from '../map/MapEngine';
 import { BALANCE } from '../constants/balance';

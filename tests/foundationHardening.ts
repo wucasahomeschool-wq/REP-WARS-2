@@ -4,7 +4,7 @@ import { ActionScorer } from '../src/scoring/ActionScorer';
 import { WarlordState, isFactionEliminated } from '../src/engine/DecisionEngine';
 import { Orchestrator } from '../src/orchestration/orchestrator';
 import { ErrorCode } from '../src/orchestration/errors';
-import { isArmyVisibleTo, serializePublicGameState, serializeVisibleWorld } from '../src/orchestration/publicView';
+import { isArmyVisibleTo, serializePublicGameState, serializeVisibleWorld, playerFacingTroopCount } from '../src/orchestration/publicView';
 import { cloneGameState, checkGameStateInvariants, createGameState, createLegacySampleMapGameState } from '../src/state';
 import { Army, Territory, WarlordSnapshot, AICommitment, GameStateSnapshot } from '../src/types';
 import type { CommandRequest } from '../src/orchestration';
@@ -78,6 +78,8 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
     const fortBefore = orch.getState().territories.get(owned)!.fortification;
     const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'player_1', { factionId: 'iron_kingdom' }));
     assert.strictEqual(res.success, true, res.errors[0]?.message);
+    assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore);
+    orch.execute(cmdReq('ADVANCE_WORLD', 'player_1', { elapsedTicks: 20 }));
     assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore + 1);
   });
 
@@ -119,6 +121,28 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
     assert.ok(armies.some((a) => a.id === ownArmy.id && a.location === ownArmy.location));
   });
 
+  test('public army view exposes Troops, not internal knights/siege composition', () => {
+    const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
+    const ownArmy = [...state.armies.values()].find((a) => a.owner === 'merchant_republic')!;
+    ownArmy.soldiers = 400;
+    ownArmy.knights = 40;
+    ownArmy.siegeEngines = 10;
+    const beforeSoldiers = ownArmy.soldiers;
+    const beforeKnights = ownArmy.knights;
+    const beforeSiege = ownArmy.siegeEngines;
+    const view = serializePublicGameState(state, 'merchant_republic');
+    const armies = armyList(view);
+    const published = armies.find((a) => a.id === ownArmy.id) as Record<string, unknown>;
+    assert.strictEqual(published.troops, 450);
+    assert.ok(!('soldiers' in published));
+    assert.ok(!('knights' in published));
+    assert.ok(!('siegeEngines' in published));
+    assert.strictEqual(ownArmy.soldiers, beforeSoldiers);
+    assert.strictEqual(ownArmy.knights, beforeKnights);
+    assert.strictEqual(ownArmy.siegeEngines, beforeSiege);
+    assert.strictEqual(playerFacingTroopCount(ownArmy), 450);
+  });
+
   test('serializePublicGameState without a viewer omits army details', () => {
     const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
     const view = serializePublicGameState(state, null);
@@ -143,6 +167,8 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
     assert.strictEqual(res.success, true, res.errors[0]?.message);
     assert.strictEqual(orch.getState().factions.get(fid)!.resources.gold, goldBefore - costG);
     assert.strictEqual(orch.getState().factions.get(fid)!.resources.stone, stoneBefore - costS);
+    assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore);
+    orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 20 }));
     assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore + 1);
   });
 

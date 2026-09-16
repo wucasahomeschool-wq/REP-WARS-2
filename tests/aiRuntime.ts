@@ -360,9 +360,11 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     state.playerFactionId = null;
     state.territories = new Map([['home', home], ['target', target]]);
     Object.assign(state, authoredWorldFields(state.territories));
+    state.levelAnchorTerritoryIds = [];
     state.armies = new Map([[a.id, a]]);
     state.cities = new Map();
     state.territoryEconomy = new Map();
+    state.territoryInfrastructure = new Map();
     state.commitments = new Map([[ME, makeCmt({
       warlordId: ME, action: 'ATTACK', targetId: 'target', status: 'committed', originatingGoalId: 'goal_x',
     })], [ENEMY, null]]);

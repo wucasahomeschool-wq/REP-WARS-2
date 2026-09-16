@@ -1,25 +1,40 @@
-# Authored worlds (Phase 17N.2)
+# Authored worlds (Phase 17N.2 / 17P / 17Q)
 
 Production geography is an authored `WorldDefinition` JSON file
-(`rep-wars-world.v1`). The future Map Assistant is an editor that **exports**
-this format. It is not part of this phase. Runtime never generates a
-production island, hex graph, or personality preset as authority.
-
-## How an authored world becomes a runtime world
+(`rep-wars-world.v1`). The Python Map Assistant
+(`tools/map_assistant/map_assistant.py`) is a standalone editor that
+**exports** this format. It is not a game engine and is not imported by
+the TypeScript runtime.
 
 ```
-World JSON (docs/examples/world-level1-tiny.json, later editor exports)
-    → WorldCatalog / loadWorldDefinitionFromFile
-    → parse + WorldValidator (fail closed)
-    → WorldDefinition (immutable)
-    → createGameStateFromWorld(definition, { playerId / playerFactionId })
-    → GameState (mutable overlay)
+Authored World JSON
+        ↓
+WorldCatalog.load(worldId)     ← only production load boundary
+        ↓
+WorldValidator (fail closed)
+        ↓
+immutable WorldDefinition
+        ↓
+createGameStateFromWorld()
+        ↓
+GameState (mutable overlay)
+        ↓
+Orchestrator → AI / Battle / Economy / Cities / Invasions / Fitness
 ```
 
-`createGameState()` with no `mapSpecs`/`warlordSpecs` loads the tiny Level 1
-fixture and instantiates it. `SAMPLE_MAP` is **not** the production default.
-Use `createLegacySampleMapGameState()` only in tests that have not been
-migrated.
+`createGameState()` / `initializePlayerWorld()` load
+`DEFAULT_PRODUCTION_WORLD_ID` from `src/worldDefinition/worldConfig.ts`
+through `WorldCatalog`. That ID is the authored production Level 1 file
+(`worlds/level-1.json`, worldId `"Level 1"`). Ember Atoll
+(`docs/examples/world-level1-tiny.json`) remains a **fixture** for tests.
+See `docs/ADDING_A_WORLD.md`.
+
+The catalog never falls back to `SAMPLE_MAP` or an empty world.
+If the configured file is missing or invalid, initialization **throws**.
+
+`SAMPLE_MAP` / `WARLORD_SPECS` / `MapEngine` remain **legacy test/demo
+fixtures**. Use `createLegacySampleMapGameState()` only in isolated
+regression tests.
 
 ### Ownership of data
 
@@ -33,9 +48,18 @@ migrated.
 | AI `WorldPersonalityDefinition` | `WarlordSnapshot.personality` / `ambition` via `PersonalitySystem.fromTraits` |
 | Contained/nested completed worlds (references only) | Not inlined; no cross-level adjacency |
 
-Do **not** duplicate polygons into each GameState snapshot. Persistence stores
-identity (`definitionWorldId` / level) plus the mutable overlay, not a second
-copy of the JSON world.
+Do **not** duplicate polygons into each GameState snapshot. Persistence
+stores identity (`definitionWorldId` / format / level / player faction)
+plus the mutable overlay. Geometry is resolved later with
+`resolveWorldDefinition(definitionWorldId)`. On hydrate, adjacency,
+region membership, terrain, resource output, and authored personalities
+are rebound from the catalog so GameState cannot silently disagree with
+the WorldDefinition.
+
+The persistence envelope (`PersistedWorldRecord`) also copies that
+identity so a stored row can answer: which authored world, which format,
+which level, which player, which player faction. `worldId: 'local'` is
+the **instance** key (one local world per player), not the content id.
 
 ## Territories and regions
 
@@ -78,14 +102,38 @@ World JSON supplies per-warlord personality traits and ambition.
 `DecisionEngine` / `ActionScorer` are reused. `control_region` goals use
 `Territory.regionId` against `goal.targetRegion` (from `homeRegionId`).
 
+**Level 1** is a scripted tutorial on the same engines. It is not supposed
+to rely on autonomous `AI_DECIDE` for tutorial-critical beats. **Level 2+**
+is where true autonomous AI is intended. Scripted attacks still use
+`RESOLVE_COMMITMENT` → the same `executeAttack` / invasion path. There is
+not yet a tutorial/scenario controller (the smallest missing piece is a
+hook that can suppress `AI_DECIDE` during tutorial beats and issue those
+scripted commitments, including around the 24h post-workout protection
+window).
+
+Polygons are not stored on `GameState`. The frontend loads geometry with
+`GET_WORLD_DEFINITION`. Mutable overlay (owners, troops, invasions,
+workout session, `worldCompletion`) is on `GET_GAME_STATE` /
+`GET_VISIBLE_WORLD`.
+
 ## Hierarchy
 
 One JSON file is one authored world/level. Level N+1 is a new graph, not
 inlined Level N tiles. A completed lower world may appear as a contained
 object with placement; neighbors cannot reference another world's tiles.
+Full level-progression gameplay is not implemented yet; the data model
+already forbids cross-level adjacency.
 
-## Legacy fixture
+## Adding a world
 
-`src/simulation/SampleMap.ts` (`SAMPLE_MAP`, `WARLORD_SPECS`, MapEngine
-hex generation, `mapDemo`) remains a **legacy test fixture**. Do not treat
-it as production geography.
+Follow `docs/ADDING_A_WORLD.md`. Production vs fixture lists live only in
+`src/worldDefinition/worldConfig.ts`.
+
+## Production vs legacy
+
+| Status | What |
+| --- | --- |
+| **PRODUCTION** | `src/worldDefinition/**`, `createGameState()`, `createGameStateFromWorld()`, `WorldCatalog` |
+| **LEGACY FIXTURE** | `SAMPLE_MAP`, `WARLORD_SPECS`, `createLegacySampleMapGameState()`, `src/simulation/mapDemo.ts` |
+| **DEPRECATED / not production** | `src/map/MapEngine.ts`, `NamingSystem.ts`, `Themes.ts` — hex generation, fog, scout, expand. Kept for isolated regression coverage. Not registered on the production EngineRegistry. |
+| **REMOVED from production** | `SCOUT`, `EXPAND`, tile fog, `Territory.name` / `isCapital` / `isKnown` |

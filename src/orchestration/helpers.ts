@@ -176,3 +176,15 @@ export function recordResourceChange(
 ): void {
   if (from !== to) changes.push({ factionId, resource, from, to });
 }
+
+export function recordAllResourceChanges(
+  changes: { factionId: string; resource: string; from: number; to: number }[],
+  factionId: FactionId,
+  before: Resources,
+  after: Resources,
+): void {
+  const keys: (keyof Resources)[] = ['gold', 'food', 'iron', 'wood', 'stone'];
+  for (const key of keys) {
+    recordResourceChange(changes, factionId, key, before[key], after[key]);
+  }
+}

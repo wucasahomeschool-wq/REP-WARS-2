@@ -32,6 +32,7 @@ import {
   PlayerRewardState,
   RuntimeRegion,
   TerritoryEconomy,
+  TerritoryInfrastructure,
 } from '../types/GameState';
 import { cloneCommitment } from '../engine/DecisionEngine';
 import { cloneArmyMovement } from '../army/movement';
@@ -173,6 +174,10 @@ function cloneTerritoryEconomy(economy: TerritoryEconomy): TerritoryEconomy {
   };
 }
 
+function cloneTerritoryInfrastructure(infra: TerritoryInfrastructure): TerritoryInfrastructure {
+  return { ...infra };
+}
+
 function clonePlayerFitness(fitness: PlayerFitnessState): PlayerFitnessState {
   return {
     estimate: fitness.estimate ? cloneFitnessEstimate(fitness.estimate) : null,
@@ -220,6 +225,7 @@ export function cloneGameState(state: GameState): GameState {
     schemaVersion: state.schemaVersion,
     turn: state.turn,
     worldTick: state.worldTick,
+    lastFoodConsumptionTick: state.lastFoodConsumptionTick,
     lastAiDecisionTick: new Map(state.lastAiDecisionTick),
     worldSeed: state.worldSeed,
     factions: cloneMap(state.factions, cloneWarlordSnapshot),
@@ -240,8 +246,15 @@ export function cloneGameState(state: GameState): GameState {
     constructions: cloneMap(state.constructions, cloneConstruction),
     cities: cloneMap(state.cities, cloneCity),
     territoryEconomy: cloneMap(state.territoryEconomy, cloneTerritoryEconomy),
+    territoryInfrastructure: cloneMap(state.territoryInfrastructure, cloneTerritoryInfrastructure),
     playerFitness: clonePlayerFitness(state.playerFitness),
     playerEmpirePause: { ...state.playerEmpirePause },
     attackerCooldowns: cloneMap(state.attackerCooldowns, cloneCooldown),
+    levelAnchorTerritoryIds: [...state.levelAnchorTerritoryIds],
+    levelDefeat: {
+      ...state.levelDefeat,
+      previousWorldIds: [...(state.levelDefeat?.previousWorldIds ?? [])],
+    },
+    level1Tutorial: state.level1Tutorial ? { ...state.level1Tutorial } : null,
   };
 }

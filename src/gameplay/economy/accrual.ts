@@ -2,6 +2,7 @@ import { TerritoryId } from '../../types';
 import { GameState, TerritoryEconomy } from '../../types/GameState';
 import { emptyResources } from './config';
 import { addResourcesClamped, productionAccruedBetween } from './production';
+import { effectiveResourceOutput } from './effectiveOutput';
 
 function createEconomyRecord(territoryId: TerritoryId, lastAccrualTick: number): TerritoryEconomy {
   return {
@@ -20,7 +21,7 @@ export function peekCollectibleResources(state: GameState, territoryId: Territor
   if (!territory || territory.owner === null) return emptyResources();
   const rec = state.territoryEconomy.get(territoryId);
   if (!rec) return emptyResources();
-  const extra = productionAccruedBetween(territory.resourceOutput, rec.lastAccrualTick, state.worldTick);
+  const extra = productionAccruedBetween(effectiveResourceOutput(state, territory), rec.lastAccrualTick, state.worldTick);
   return addResourcesClamped(rec.uncollected, extra);
 }
 

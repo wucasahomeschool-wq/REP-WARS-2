@@ -21,6 +21,7 @@ import { WorkoutSession } from '../../fitness/session/types';
 import { GAMEPLAY_CONFIG } from '../../gameplay/config';
 import { resolveInvasionBattle } from '../../gameplay/invasion/resolve';
 import { isOpenInvasion } from '../../gameplay/invasion/deadlines';
+import { GameEvent } from '../../orchestration/protocol';
 import { GameState } from '../../types/GameState';
 import { applyGameReward } from '../application/apply';
 import { resolveRewardApplicationId } from '../application/identity';
@@ -37,6 +38,10 @@ export interface WorkoutPipelineResult {
   physicalOutput?: number;
   application?: ApplyGameRewardOutcome;
   invasionOutcome?: string;
+  invasionWinner?: string;
+  invasionTerritoryOutcome?: string;
+  invasionTerritoryId?: string;
+  events?: GameEvent[];
   error?: { code: string; message: string };
 }
 
@@ -295,6 +300,10 @@ export function runWorkoutRewardPipeline(
   }
 
   let invasionOutcome: string | undefined;
+  let invasionWinner: string | undefined;
+  let invasionTerritoryOutcome: string | undefined;
+  let invasionTerritoryId: string | undefined;
+  let events: GameEvent[] | undefined;
   if (
     session.purpose === 'DEFENSE'
     && context.invasionId
@@ -305,6 +314,10 @@ export function runWorkoutRewardPipeline(
     if (live && isOpenInvasion(live)) {
       const resolved = resolveInvasionBattle(state, options.battle, context.invasionId, 'defense_battle');
       invasionOutcome = String(resolved.payload.invasionOutcome ?? '');
+      invasionWinner = typeof resolved.payload.winner === 'string' ? resolved.payload.winner : undefined;
+      invasionTerritoryOutcome = typeof resolved.payload.territoryOutcome === 'string' ? resolved.payload.territoryOutcome : undefined;
+      invasionTerritoryId = typeof resolved.payload.territoryId === 'string' ? resolved.payload.territoryId : undefined;
+      events = resolved.events;
     }
   }
 
@@ -325,6 +338,10 @@ export function runWorkoutRewardPipeline(
     physicalOutput: physical.value.totalPhysicalOutput,
     application: applied,
     invasionOutcome,
+    invasionWinner,
+    invasionTerritoryOutcome,
+    invasionTerritoryId,
+    events,
   };
 }
 

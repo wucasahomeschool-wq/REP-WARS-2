@@ -1,5 +1,6 @@
 export const PERSISTENCE_ERROR_CODES = [
   'persistence.not_found',
+  'persistence.already_exists',
   'persistence.conflict',
   'persistence.corrupt',
   'persistence.unsupported_schema',

@@ -1,6 +1,7 @@
 import { getWorkoutDefinition } from '../fitness/catalog';
 import { isWorkoutDifficulty } from '../fitness/difficulty';
 import { isWorkoutPurpose } from '../fitness/purpose';
+import { selectedWorkoutIdForPurpose } from '../fitness/selection';
 import {
   beginWorkoutSession,
   completeExercise,
@@ -16,18 +17,28 @@ import type { IntegrityFlagType } from '../fitness/session';
 import { WorkoutPurpose } from '../fitness/types';
 import { persistTerminalSessionHistory } from '../fitness/history/persistSession';
 import { startConstruction, consumeConstructionEffect } from '../gameplay/construction/consume';
+import { isConstructionProjectType } from '../gameplay/construction/definitions';
+import { handlerResultForConstructionStart } from '../gameplay/construction/handlerResult';
+import { cloneResources } from '../gameplay/economy/config';
 import { collectTerritoryYield } from '../gameplay/economy/collect';
 import { isDeadlineElapsed, isOpenInvasion } from '../gameplay/invasion/deadlines';
 import { playerFacingTick } from '../gameplay/invasion/eligibility';
 import { setPlayerEmpirePause } from '../gameplay/invasion/pause';
 import { resolveInvasionBattle } from '../gameplay/invasion/resolve';
 import { attachDefenseWorkoutToInvasion } from '../gameplay/invasion/session';
+import { assertLevel1TutorialWorkoutAllowed } from '../gameplay/tutorial/level1';
+import {
+  resolveStartWorkoutId,
+  serializeWorkoutSelectionView,
+} from '../gameplay/workoutSelection';
 import { runWorkoutRewardPipeline } from '../rewards/pipeline/runWorkoutRewardPipeline';
 import { GameState } from '../types/GameState';
 import { OrchestrationError, ErrorCode, type OrchestrationErrorBody } from './errors';
 import {
   paramNumber,
   paramString,
+  recordAllResourceChanges,
+  requireFactionSnapshot,
   requireString,
   requireTerritory,
   resolveActingFactionId,
@@ -68,30 +79,27 @@ export function handleStartConstruction(state: GameState, ctx: GameplayHandlerCo
   const factionId = resolveActingFactionId(state, ctx.req);
   const territoryId = requireString(ctx.req, 'territoryId');
   const projectTypeRaw = paramString(ctx.req, 'projectType');
-  const projectType = projectTypeRaw === 'CITY' || projectTypeRaw === 'FORTIFICATION' ? projectTypeRaw : undefined;
+  if (projectTypeRaw !== undefined && !isConstructionProjectType(projectTypeRaw)) {
+    throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'Unknown construction project type');
+  }
+  const projectType = projectTypeRaw !== undefined && isConstructionProjectType(projectTypeRaw)
+    ? projectTypeRaw
+    : undefined;
+  const faction = requireFactionSnapshot(state, factionId);
+  const resourcesBefore = cloneResources(faction.resources);
   const project = startConstruction(state, {
     factionId,
     territoryId,
     projectId: paramString(ctx.req, 'constructionId'),
     projectType,
   });
-  return {
-    ...emptyResult(),
-    stateChanges: [{
-      entity: 'territory',
-      id: territoryId,
-      summary: `Started construction ${project.id}`,
-    }],
-    resourcesChanged: [
-      { factionId, resource: 'gold', from: 0, to: 0 },
-    ],
-    payload: {
-      constructionId: project.id,
-      projectType: project.projectType,
-      remainingTicks: project.remainingTicks,
-      status: project.status,
-    },
-  };
+  return handlerResultForConstructionStart(
+    project,
+    territoryId,
+    resourcesBefore,
+    cloneResources(faction.resources),
+    factionId,
+  );
 }
 
 export function handleApplyConstructionAcceleration(state: GameState, ctx: GameplayHandlerContext): HandlerResult {
@@ -124,17 +132,24 @@ export function handleCollectResources(state: GameState, ctx: GameplayHandlerCon
   requireTerritory(state, territoryId);
   const consumeGoldenYield = ctx.req.parameters?.useGoldenYield === true
     || ctx.req.parameters?.consumeGoldenYield === true;
-  const goldFrom = state.factions.get(factionId)?.resources.gold ?? 0;
+  const faction = requireFactionSnapshot(state, factionId);
+  const resourcesBefore = cloneResources(faction.resources);
   const result = collectTerritoryYield(state, {
     factionId,
     territoryId,
     playerId: ctx.req.playerId,
     consumeGoldenYield,
   });
+  const resourcesAfter = cloneResources(faction.resources);
+  const resourcesChanged: HandlerResult['resourcesChanged'] = [];
+  recordAllResourceChanges(resourcesChanged, factionId, resourcesBefore, resourcesAfter);
   return {
     ...emptyResult(),
-    resourcesChanged: [{ factionId, resource: 'gold', from: goldFrom, to: goldFrom + result.collected }],
-    payload: { ...result },
+    resourcesChanged,
+    payload: {
+      territoryId,
+      ...result,
+    },
   };
 }
 
@@ -153,13 +168,32 @@ export function handleSetPlayerPause(state: GameState, ctx: GameplayHandlerConte
   };
 }
 
+export function handleGetWorkoutSelection(state: GameState, ctx: GameplayHandlerContext): HandlerResult {
+  const purposeRaw = requireString(ctx.req, 'purpose');
+  if (!isWorkoutPurpose(purposeRaw)) {
+    throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'purpose is not a valid WorkoutPurpose');
+  }
+  const view = serializeWorkoutSelectionView(
+    state,
+    ctx.req.playerId,
+    purposeRaw,
+    paramString(ctx.req, 'intendedDifficulty'),
+  );
+  return {
+    ...emptyResult(),
+    payload: { ...view },
+  };
+}
+
 export function handleStartWorkout(state: GameState, ctx: GameplayHandlerContext): HandlerResult {
   const purposeRaw = requireString(ctx.req, 'purpose');
   if (!isWorkoutPurpose(purposeRaw)) {
     throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'purpose is not a valid WorkoutPurpose');
   }
   const purpose: WorkoutPurpose = purposeRaw;
-  const workoutId = requireString(ctx.req, 'workoutId');
+  assertLevel1TutorialWorkoutAllowed(state, purpose);
+  const selectedWorkoutId = selectedWorkoutIdForPurpose(purpose);
+  const workoutId = resolveStartWorkoutId(state, purpose, paramString(ctx.req, 'workoutId'));
   const definition = getWorkoutDefinition(workoutId);
   if (!definition) {
     throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, `Unknown workout ${workoutId}`);
@@ -244,6 +278,8 @@ export function handleStartWorkout(state: GameState, ctx: GameplayHandlerContext
       purpose: created.value.purpose,
       state: created.value.state,
       invasionId,
+      workoutId: created.value.workoutId,
+      selectedWorkoutId,
     },
   };
 }
@@ -361,16 +397,23 @@ export function handleFinalizeWorkout(state: GameState, ctx: GameplayHandlerCont
       },
     };
   }
+  const applied = result.application && result.application.ok ? result.application.result : undefined;
   return {
     ...emptyResult(),
+    events: result.events ?? [],
     payload: {
       sessionId: result.sessionId,
       purpose: result.purpose,
       alreadyProcessed: result.alreadyProcessed,
       physicalOutput: result.physicalOutput,
       bankedTroops: state.playerRewards.bankedTroops,
+      applicationId: applied?.applicationId,
+      kind: applied?.kind ?? (result.application && result.application.ok ? result.application.result.kind : undefined),
+      amountOrEffect: applied?.amountOrEffect,
       invasionOutcome: result.invasionOutcome,
-      kind: result.application && result.application.ok ? result.application.result.kind : undefined,
+      winner: result.invasionWinner,
+      territoryOutcome: result.invasionTerritoryOutcome,
+      territoryId: result.invasionTerritoryId,
     },
   };
 }

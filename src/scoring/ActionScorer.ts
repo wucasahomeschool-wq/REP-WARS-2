@@ -18,6 +18,7 @@ import { computeMilitaryAdvantageRatio } from '../battle/CombatPower';
 import { getAttackFeasibility, isMoveDestinationFeasible } from '../engine/feasibility';
 import { armyHasActiveStrategicOperation } from '../army/strategicAttack';
 import { isAttackForbiddenOnSnapshot } from '../gameplay/invasion/eligibility';
+import { isPlayerAnchorProtectedOnSnapshot } from '../gameplay/anchors';
 
 const {
   scoring: S,
@@ -420,6 +421,7 @@ export class ActionScorer {
       const targetFactionId = targetTerr.owner;
       if (!targetFactionId) continue;
       if (isAttackForbiddenOnSnapshot(ctx.gameState, ctx.self.id, targetFactionId)) continue;
+      if (isPlayerAnchorProtectedOnSnapshot(ctx.gameState, targetTerr.id)) continue;
       let { base, factors, reasoning } = this.baseScored('ATTACK', input);
       let score = base;
       const targetOwner = ctx.allFactions.get(targetFactionId);
@@ -595,6 +597,11 @@ export class ActionScorer {
     return results.sort((a, b) => b.score - a.score).slice(0, 2);
   }
 
+  /**
+   * Economy v1: scores timed fortification only. City founding, Farm/Mine/Lumber,
+   * and collect are deferred — docs/ECONOMY_DESIGN_SURFACE.md (AI economy).
+   * Do not invent a workout substitute for AI.
+   */
   private scoreBuild(input: ScorerInput): ScoredAction[] {
     const { ctx, turn, goals } = input;
     const results: ScoredAction[] = [];

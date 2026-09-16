@@ -11,16 +11,23 @@ export const DEFAULT_WORLD_ID = 'local';
  * still runs inside that player's world during catch-up. Future multi-world
  * instances can key additional rows by worldId without changing engines.
  *
+ * Durable game identity is the persistence-key `playerId` on this envelope.
+ * GameState does not store anonymous/authenticated flags. Authentication
+ * must keep the same `playerId` (`docs/PLAYER_IDENTITY.md`).
+ *
  * Canonical persisted (authoritative):
- *   schemaVersion, turn, worldTick, lastAiDecisionTick, worldSeed,
+ *   schemaVersion, turn, worldTick, lastFoodConsumptionTick, lastAiDecisionTick, worldSeed,
  *   factions (resources, diplomacy, memory, goals, armies refs),
- *   playerFactionId, definitionWorldId/worldLevel, territories (ownership,
- *   garrison, fortification), armies, commitments, activeEvents, eventHistory,
+ *   playerFactionId, definitionWorldId/definitionFormatVersion/worldLevel/worldName,
+ *   territories (ownership, garrison, fortification — not polygons),
+ *   armies, commitments, activeEvents, eventHistory,
  *   playerRewards (banked Troops, pending effects, appliedRewards ledger),
  *   activeInvasions, constructions (remainingTicks + lastProgressTick),
  *   cities, territoryEconomy (lastAccrualTick + uncollected),
+ *   territoryInfrastructure (Farm/Mine/Lumber occupancy stamps),
  *   playerFitness (estimate, compactHistory, activeSession, pendingReward,
- *   lastWorkoutCompletedAtTick), playerEmpirePause, attackerCooldowns.
+ *   lastWorkoutCompletedAtTick), playerEmpirePause, attackerCooldowns,
+ *   levelAnchorTerritoryIds, levelDefeat, level1Tutorial (Level 1 beat overlay).
  *
  * Derived / reconstructed, not independently stored:
  *   remaining construction display time (from lastProgressTick + worldTick),
@@ -31,13 +38,27 @@ export const DEFAULT_WORLD_ID = 'local';
  * Workout history is a separate store. compactHistory remains a small
  * GameState index; durable evidence lives in WorkoutHistoryStore.
  *
+ * Gameplay telemetry (`src/analytics`) is append-only observation of
+ * committed commands. It is not GameState and never decides success.
+ *
  * Concurrency version lives on the persistence envelope, not GameState,
  * so gameplay engines never read/write it.
  */
 export interface PersistedWorldRecord {
   formatVersion: typeof GAME_STATE_PERSISTENCE_FORMAT;
   playerId: string;
+  /**
+   * Persistence instance key for this player's world row.
+   * Prototype 1 uses `local` (one local world per player).
+   * This is NOT the authored WorldDefinition id.
+   */
   worldId: string;
+  /** Authored WorldDefinition.worldId. Resolve geography via WorldCatalog. */
+  definitionWorldId?: string | null;
+  definitionFormatVersion?: string | null;
+  worldLevel?: number | null;
+  /** Runtime player faction inside this world instance. */
+  playerFactionId?: string | null;
   schemaVersion: number;
   worldTick: number;
   stateVersion: number;

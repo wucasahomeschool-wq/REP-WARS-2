@@ -1,3 +1,10 @@
+/**
+ * LEGACY / TEST / DEMO ONLY.
+ *
+ * Procedural hex map generation, fog, scouting, and expansion.
+ * Production geography is authored `rep-wars-world.v1` JSON loaded through
+ * WorldCatalog. Do not use MapEngine to initialize a live game.
+ */
 import { BALANCE, TERRAIN_NAMES } from '../constants/balance';
 import { SeededRNG } from '../utils/SeededRNG';
 import { DEFAULT_THEME_LIBRARY } from './Themes';

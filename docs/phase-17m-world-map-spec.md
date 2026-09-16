@@ -1,6 +1,8 @@
 # Phase 17M — Authoritative World / Map Architecture
 
-**Status:** JSON contract specified in 17M; **runtime foundation implemented in Phase 17N.2** (`src/worldDefinition/`, `createGameStateFromWorld`). Map Assistant / editor is still not implemented. Do not treat `MapEngine` or `SAMPLE_MAP` as the production authored-world source (`SAMPLE_MAP` is a legacy test fixture).
+**Status:** JSON contract specified in 17M; **runtime foundation in 17N.2; production initialization in 17P** (`WorldCatalog` → `createGameStateFromWorld`). Map Assistant exists at `tools/map_assistant/` (standalone, not the runtime). Do not treat `MapEngine` or `SAMPLE_MAP` as production world authority.
+
+**Production Level 1** is `worlds/level-1.json` (authored worldId `"Level 1"`), not Ember Atoll. `docs/examples/world-level1-tiny.json` remains the six-tile **fixture** used by this spec as a format example.
 
 **17M.1 (locked):** Level N+1 uses an independently authored, coarser playable territory graph. A completed Level N world is nested geographic/history only. See §9. Do not interpret nested worlds as inlined playable tiles.
 

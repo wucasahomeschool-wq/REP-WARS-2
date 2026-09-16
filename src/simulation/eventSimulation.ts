@@ -1,3 +1,7 @@
+/**
+ * LEGACY / DEMO harness. Boots SAMPLE_MAP via SimulationBuilder.
+ * Production worlds use WorldCatalog + createGameStateFromWorld.
+ */
 import { SimulationBuilder, SAMPLE_MAP, WARLORD_SPECS, WorldSimulator,
   WorldStepInput, ActiveEvent, HistoryEntry, BALANCE, SeededRNG,
   WorldStepOutput, Territory, WarlordSnapshot, FactionId, TerritoryId,
