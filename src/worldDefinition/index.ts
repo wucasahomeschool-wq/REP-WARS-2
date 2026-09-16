@@ -5,6 +5,8 @@ export {
   FIXTURE_TINY_WORLD_RELATIVE_PATH,
   PRODUCTION_LEVEL_1_WORLD_ID,
   PRODUCTION_LEVEL_1_RELATIVE_PATH,
+  PRODUCTION_LEVEL_2_WORLD_ID,
+  PRODUCTION_LEVEL_2_RELATIVE_PATH,
   FIXTURE_WORLD_REGISTRATIONS,
   PRODUCTION_WORLD_REGISTRATIONS,
 } from './worldConfig';
@@ -41,7 +43,9 @@ export {
   isLegacyDefinitionWorldId,
   loadTinyWorldDefinition,
   loadProductionLevel1Definition,
+  loadProductionLevel2Definition,
   productionLevel1JsonPath,
+  productionLevel2JsonPath,
   loadWorldDefinitionFromFile,
   requireWorldDefinition,
   resetDefaultWorldCatalogForTests,
@@ -57,3 +61,4 @@ export {
 } from './instantiate';
 export { regionDisplayName, withTerritoryBattleLabel } from './display';
 export { serializeWorldDefinitionForClient } from './clientView';
+export { findNextProductionWorldRegistration } from './campaign';

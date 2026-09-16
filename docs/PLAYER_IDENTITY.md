@@ -80,10 +80,16 @@ There is no backend merge. Two `playerId`s are two empires.
 
 ## What is preserved
 
-The full authoritative `GameState` for that `playerId`: territories,
-resources, Troops, tutorial stamps, fitness/workout session, economy,
-invasions, anchors, and envelope `stateVersion`. Workout history is the
-sibling store keyed by the same `playerId`.
+The full authoritative `GameState` for that `playerId` while they remain
+on the same world: territories, resources, Troops, tutorial stamps,
+fitness/workout session, economy, invasions, anchors, and envelope
+`stateVersion`. Workout history is the sibling store keyed by the same
+`playerId`.
+
+`TRANSITION_TO_NEXT_WORLD` keeps that same `playerId`. It replaces
+world-scoped GameState with a fresh instance from the next registered
+WorldDefinition and carries player-scoped fitness history. It is not a
+new account.
 
 Nothing is reconstructed field-by-field for “account creation.” Login
 does not write GameState.
@@ -93,8 +99,7 @@ does not write GameState.
 - No auth-provider integration (Supabase Auth, Clerk, etc.).
 - No `isAnonymous` / provider fields on GameState.
 - No `CLAIM_*` / identity-migration command.
-- No Level 1 → Level 2 world change.
 - No schema bump (schema remains 12).
 
-Level 2 campaign transition is a later phase. This contract is what that
-phase will use so account creation cannot destroy the Level 1 empire.
+Campaign world change is `TRANSITION_TO_NEXT_WORLD`. It does not mint a
+new `playerId`.

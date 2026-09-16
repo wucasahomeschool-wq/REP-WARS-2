@@ -141,6 +141,7 @@ export function registerAnalyticsTests(api: AnalyticsTestApi): void {
     assert.strictEqual(importanceFor('workout.reward_applied'), 'CRITICAL');
     assert.strictEqual(importanceFor('level.defeated'), 'CRITICAL');
     assert.strictEqual(importanceFor('level.completed'), 'CRITICAL');
+    assert.strictEqual(importanceFor('level.transitioned'), 'CRITICAL');
     assert.strictEqual(importanceFor('tutorial.beat_changed'), 'IMPORTANT');
     assert.strictEqual(importanceFor('tutorial.scripted_invasion'), 'IMPORTANT');
     assert.strictEqual(importanceFor('attack.committed'), 'IMPORTANT');

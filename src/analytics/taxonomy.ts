@@ -90,6 +90,7 @@ export const TELEMETRY_EVENT_TYPES = [
   'anchor.became_attackable',
   'level.defeated',
   'level.completed',
+  'level.transitioned',
   'tutorial.beat_changed',
   'tutorial.scripted_invasion',
 ] as const;
@@ -105,6 +106,7 @@ const CRITICAL: readonly string[] = [
   'player.pause.ended',
   'level.defeated',
   'level.completed',
+  'level.transitioned',
 ];
 
 const IMPORTANT: readonly string[] = [

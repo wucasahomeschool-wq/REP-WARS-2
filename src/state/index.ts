@@ -5,7 +5,7 @@ export {
   CreateGameStateOptions,
   CreateLegacySampleMapOptions,
 } from './createGameState';
-export { cloneGameState, cloneMap, cloneTerritory, cloneArmy, cloneWarlordSnapshot } from './cloneGameState';
+export { cloneGameState, overwriteGameState, cloneMap, cloneTerritory, cloneArmy, cloneWarlordSnapshot } from './cloneGameState';
 export { checkGameStateInvariants, isGameStateStructurallyValid, GameStateInvariantViolation } from './gameStateInvariants';
 export {
   toDecisionEngineSnapshot,

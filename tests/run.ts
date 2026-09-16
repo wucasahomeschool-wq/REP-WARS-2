@@ -84,6 +84,7 @@ import { registerAnalyticsTests } from './analytics';
 import { registerOrchestratorIntegrationTests } from './orchestratorIntegration';
 import { registerLevelAnchorTests } from './levelAnchors';
 import { registerPlayerIdentityTests } from './playerIdentity';
+import { registerWorldTransitionTests } from './worldTransition';
 import { authoredWorldFields, plantOwnedCities } from './worldTestHelpers';
 import { getConstructionProjectDefinition, GAMEPLAY_CONFIG } from '../src/gameplay';
 
@@ -3229,6 +3230,8 @@ registerInvasionLifecycleTests({ test });
 registerPersistenceTests({ test });
 
 registerPlayerIdentityTests({ test });
+
+registerWorldTransitionTests({ test });
 
 registerWorldDefinitionTests({ test });
 

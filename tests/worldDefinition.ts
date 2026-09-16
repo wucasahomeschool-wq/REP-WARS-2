@@ -7,6 +7,7 @@ import {
   FIXTURE_TINY_WORLD_ID,
   FIXTURE_WORLD_REGISTRATIONS,
   PRODUCTION_LEVEL_1_WORLD_ID,
+  PRODUCTION_LEVEL_2_WORLD_ID,
   PRODUCTION_WORLD_REGISTRATIONS,
   ErrorCode,
   GAMEPLAY_CONFIG,
@@ -556,14 +557,14 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
 
   console.log('Phase 17Q — production world registration / authoring readiness');
 
-  test('world selection is centralized; production catalog ships Level 1 and not the tiny fixture', () => {
+  test('world selection is centralized; production catalog ships Level 1 and Level 2, not the tiny fixture', () => {
     assert.strictEqual(DEFAULT_PRODUCTION_WORLD_ID, PRODUCTION_LEVEL_1_WORLD_ID);
     assert.strictEqual(FIXTURE_WORLD_REGISTRATIONS.length, 1);
     assert.strictEqual(FIXTURE_WORLD_REGISTRATIONS[0]!.worldId, FIXTURE_TINY_WORLD_ID);
     assert.ok(PRODUCTION_WORLD_REGISTRATIONS.every((r) => r.role === 'production'));
     assert.ok(!PRODUCTION_WORLD_REGISTRATIONS.some((r) => r.worldId === FIXTURE_TINY_WORLD_ID));
     const productionOnly = createProductionWorldCatalog();
-    assert.deepStrictEqual(productionOnly.registeredIds(), [PRODUCTION_LEVEL_1_WORLD_ID]);
+    assert.deepStrictEqual(productionOnly.registeredIds(), [PRODUCTION_LEVEL_1_WORLD_ID, PRODUCTION_LEVEL_2_WORLD_ID]);
     const missingFixture = productionOnly.load(FIXTURE_TINY_WORLD_ID);
     assert.strictEqual(missingFixture.ok, false);
     const prodState = createGameState({ catalog: productionOnly, seed: 1 });

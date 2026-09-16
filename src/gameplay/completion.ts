@@ -62,7 +62,7 @@ export function evaluateWorldCompletion(
 
 /**
  * Emit a one-shot completion event after a player territorial gain.
- * Does not change worldLevel. Full campaign progression is future work.
+ * Does not change worldLevel. Campaign progression is TRANSITION_TO_NEXT_WORLD.
  */
 export function applyWorldCompletionCheck(state: GameState): GameEvent[] {
   const evaluation = evaluateWorldCompletion(state);

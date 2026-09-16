@@ -5,6 +5,7 @@ import { displayedRemainingTicks } from '../gameplay/construction/progress';
 import { isOpenInvasion, remainingDeadlineTicks } from '../gameplay/invasion/deadlines';
 import { playerFacingTick } from '../gameplay/invasion/eligibility';
 import { evaluateWorldCompletion } from '../gameplay/completion';
+import { evaluateWorldTransition } from '../gameplay/worldTransition';
 import { serializeLevel1TutorialView } from '../gameplay/tutorial/level1';
 import { regionDisplayName } from '../worldDefinition/display';
 import { getCurrentExercise } from '../fitness/session';
@@ -150,6 +151,7 @@ export function serializePublicGameState(state: GameState, viewerFactionId: Fact
     commitmentCount: [...state.commitments.values()].filter((c) => c !== null).length,
     currentWorldFullyVisible: true,
     worldCompletion: evaluateWorldCompletion(state),
+    worldTransition: evaluateWorldTransition(state),
     tutorial: serializeLevel1TutorialView(state),
     ...(playerView ? { playerGameplay: playerView } : {}),
   };
@@ -265,6 +267,7 @@ export function serializeVisibleWorld(state: GameState, viewerFactionId: Faction
     armies: visibleArmiesFor(state, viewerFactionId),
     currentWorldFullyVisible: true,
     worldCompletion: evaluateWorldCompletion(state),
+    worldTransition: evaluateWorldTransition(state),
     levelAnchorTerritoryIds: [...state.levelAnchorTerritoryIds],
     levelDefeatStatus: state.levelDefeat.status,
     tutorial: serializeLevel1TutorialView(state),

@@ -26,6 +26,8 @@ export type {
   EnsurePlayerWorldOptions,
   EnsurePlayerWorldResult,
 } from './initializePlayerWorld';
+export { persistWorldTransition } from './transitionWorld';
+export type { PersistWorldTransitionResult } from './transitionWorld';
 export type { SyncPlayerWorldInput, SyncPlayerWorldResult, SyncPlayerWorldSuccess } from './sync';
 export { SUPABASE_GAME_STATE_TABLE, SUPABASE_WORKOUT_HISTORY_TABLE, SUPABASE_TELEMETRY_TABLE, SUPABASE_DDL } from './supabase/schema';
 export type { SupabaseGameStateRow, SupabaseWorkoutHistoryRow, SupabaseTelemetryRow } from './supabase/schema';

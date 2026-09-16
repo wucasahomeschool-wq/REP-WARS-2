@@ -252,6 +252,20 @@ export const COMMAND_INDEX: CommandDefinition[] = [
     status: 'implemented',
   }),
   cmd({
+    commandId: 'TRANSITION_TO_NEXT_WORLD',
+    category: 'WORLD',
+    description:
+      'After the current authored world is complete, replace world state with a fresh GameState from the next registered production world. Player identity and player-scoped fitness history are preserved. The client cannot choose a target world.',
+    routesTo: ['state'],
+    changesState: true,
+    possibleErrors: [
+      ErrorCode.ACTION_NOT_ALLOWED,
+      ErrorCode.INVALID_GAME_STATE,
+      ErrorCode.ENGINE_ERROR,
+    ],
+    status: 'implemented',
+  }),
+  cmd({
     commandId: 'RESOLVE_COMMITMENT',
     category: 'AI',
     description: 'Execute a faction active AI commitment once through shared domain operations.',

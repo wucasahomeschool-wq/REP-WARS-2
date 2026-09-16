@@ -31,9 +31,11 @@ persist GameState identity (definitionWorldId / format / level)
 4. **Place** the JSON in the repo (for example `worlds/level-1.json`).
    Do not put production worlds under `docs/examples/` or `tests/fixtures/`.
 5. **Register** it in the single config file `src/worldDefinition/worldConfig.ts`:
-   - Add `{ worldId, relativePath, role: 'production' }` to
-     `PRODUCTION_WORLD_REGISTRATIONS`.
-   - Set `DEFAULT_PRODUCTION_WORLD_ID` to that `worldId`.
+   - Add `{ worldId, relativePath, role: 'production', level }` to
+     `PRODUCTION_WORLD_REGISTRATIONS`. `level` must match the JSON `level`.
+   - Change `DEFAULT_PRODUCTION_WORLD_ID` only if new games should start
+     there. Later campaign worlds stay listed; players reach them with
+     `TRANSITION_TO_NEXT_WORLD` after completing the previous world.
 6. **Start a new game** with `ensurePlayerWorld({ playerId, store })` for a
    persisted session, or `initializePlayerWorld({ playerId })` /
    `createGameState()` in memory. All three load `DEFAULT_PRODUCTION_WORLD_ID`.
@@ -54,7 +56,8 @@ generated map, or an empty world.
 
 | Kind | Where | Purpose |
 | --- | --- | --- |
-| **Production** | `worlds/level-1.json` (`PRODUCTION_LEVEL_1_WORLD_ID` = `"Level 1"`) | Shipped Level 1 tutorial world. Listed in `PRODUCTION_WORLD_REGISTRATIONS`. |
+| **Production** | `worlds/level-1.json` (`PRODUCTION_LEVEL_1_WORLD_ID` = `"Level 1"`) | Shipped Level 1 tutorial world. Listed in `PRODUCTION_WORLD_REGISTRATIONS`. New games start here. |
+| **Production** | `worlds/level-2.json` (`PRODUCTION_LEVEL_2_WORLD_ID` = `"Level 2"`) | Temporary Level 2 prototype. Reached by `TRANSITION_TO_NEXT_WORLD`, not by changing the default start world. |
 | **Fixture** | `docs/examples/world-level1-tiny.json` (`FIXTURE_TINY_WORLD_ID`) | Ember Atoll six-tile tests. Listed in `FIXTURE_WORLD_REGISTRATIONS` only. |
 | **Legacy** | `SAMPLE_MAP` / MapEngine | Isolated regression demos. Not WorldCatalog. |
 

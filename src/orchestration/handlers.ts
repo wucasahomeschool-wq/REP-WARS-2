@@ -16,6 +16,10 @@ import { WarlordState, isActiveCommitmentStatus, validateCommitmentTarget } from
 import { isUnsupportedCommitmentAction } from '../engine/executableActions';
 import { ANCHOR_PROTECTED_REASON } from '../gameplay/anchors';
 import {
+  applyWorldTransition,
+  worldTransitionedEvent,
+} from '../gameplay/worldTransition';
+import {
   assertLevel1TutorialPlayerAttackAllowed,
   isLevel1TutorialAiSuppressed,
   syncLevel1Tutorial,
@@ -147,6 +151,50 @@ export function handleGetWorldDefinition(state: GameState, _ctx: HandlerContext)
   return {
     ...emptyResult(),
     payload: { worldDefinition: serializeWorldDefinitionForClient(loaded.definition) },
+  };
+}
+
+export function handleTransitionToNextWorld(state: GameState, ctx: HandlerContext): HandlerResult {
+  const outcome = applyWorldTransition(state);
+  if (outcome.status === 'already_completed') {
+    return {
+      ...emptyResult(),
+      payload: {
+        alreadyCompleted: true,
+        definitionWorldId: outcome.worldId,
+        worldLevel: outcome.worldLevel,
+      },
+    };
+  }
+  return {
+    ...emptyResult(),
+    stateChanges: [{
+      entity: 'world',
+      id: outcome.toWorldId,
+      field: 'definitionWorldId',
+      from: outcome.fromWorldId,
+      to: outcome.toWorldId,
+      summary: `Transitioned from ${outcome.fromWorldId} to ${outcome.toWorldId}`,
+    }],
+    events: [
+      worldTransitionedEvent(
+        state,
+        outcome.fromWorldId,
+        outcome.fromWorldLevel,
+        outcome.toWorldId,
+        outcome.toWorldLevel,
+        ctx.req.playerId,
+      ),
+    ],
+    payload: {
+      alreadyCompleted: false,
+      fromWorldId: outcome.fromWorldId,
+      fromWorldLevel: outcome.fromWorldLevel,
+      toWorldId: outcome.toWorldId,
+      toWorldLevel: outcome.toWorldLevel,
+      definitionWorldId: state.definitionWorldId,
+      worldLevel: state.worldLevel,
+    },
   };
 }
 
@@ -792,6 +840,7 @@ export const MUTATING_HANDLERS: Record<string, MutatingHandler> = {
   DECLARE_WAR: handleDeclareWar,
   NEGOTIATE: handleNegotiate,
   ADVANCE_WORLD: handleAdvanceWorld,
+  TRANSITION_TO_NEXT_WORLD: handleTransitionToNextWorld,
   AI_DECIDE: handleAiDecide,
   RESOLVE_COMMITMENT: handleResolveCommitment,
   START_CONSTRUCTION: handleStartConstruction,

@@ -572,6 +572,32 @@ function emitWorldCompletionEvents(
   }
 }
 
+function emitWorldTransitionEvents(
+  builder: ObservationBuilder,
+  events: CommandObservation['response']['events'],
+  fallbackCorrelation: string,
+  factionId: string | null,
+  playerId: string,
+): void {
+  for (const event of events) {
+    const data = event.data ?? {};
+    if (str(data.worldProgression) !== 'level_transitioned') continue;
+    builder.emit({
+      eventType: 'level.transitioned',
+      correlationId: event.id ?? fallbackCorrelation,
+      sourceSystem: 'world',
+      factionId: event.factionId ?? factionId,
+      payload: omitUndefined({
+        playerId: str(data.playerId) ?? playerId,
+        fromWorldId: data.fromWorldId,
+        fromWorldLevel: data.fromWorldLevel,
+        toWorldId: data.toWorldId,
+        toWorldLevel: data.toWorldLevel,
+      }),
+    });
+  }
+}
+
 function emitBuildingDestroyedFromEvents(
   builder: ObservationBuilder,
   events: CommandObservation['response']['events'],
@@ -840,6 +866,7 @@ function emitSuccess(builder: ObservationBuilder, observation: CommandObservatio
   const actingFaction = str(parameters.factionId) ?? state.playerFactionId;
   emitAnchorProgressionEvents(builder, response.events, requestCorr, actingFaction);
   emitWorldCompletionEvents(builder, response.events, requestCorr, actingFaction);
+  emitWorldTransitionEvents(builder, response.events, requestCorr, actingFaction, observation.request.playerId);
   emitTutorialProgressionEvents(builder, response.events, requestCorr, actingFaction);
   emitBuildingDestroyedFromEvents(builder, response.events, requestCorr, actingFaction);
 

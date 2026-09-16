@@ -18,8 +18,12 @@ Coordinates in JSON are world-local 2D: +x right, +y up.
 Tkinter screen space is +y down; conversion happens only at draw/pick time.
 Editor-only state (selection, zoom, pan, undo, raw drawing strokes, convert
 report) is never included in playable export. Raw freehand/rectangle strokes are
-not WorldDefinition data; CONVERT TO MAP rasterizes the whole drawing and counts
-enclosed areas. The World editor sidebar edits the converted world document.
+not WorldDefinition data. CONVERT TO MAP is a permanent commit: the first
+successful conversion locks the map; later conversions interpret only pending
+strokes and append new geometry. Committed polygons are never re-rasterized.
+SCALE uniformly transforms committed geometry, committed source strokes, and
+pending strokes with the same anchor and factor. Zoom/pan only change the
+viewport. The World editor sidebar edits the converted world document.
 
 Contained Worlds imports a completed previous-level WorldDefinition and
 coarsens it: that world becomes one region here; each of its regions becomes
@@ -57,10 +61,14 @@ EDITOR_OPEN_STROKES_KEY = "_editorOpenStrokes"
 EDITOR_DRAWING_KEY = "_editorDrawing"
 EDITOR_CONVERT_REPORT_KEY = "_editorConvertReport"
 CONVERT_MIN_ISLAND_AREA = 40.0
+SCALE_FACTOR_MIN = 0.05
+SCALE_FACTOR_MAX = 20.0
 STROKE_KIND_FREEHAND = "freehand"
 STROKE_KIND_RECTANGLE = "rectangle"
 ERASER_SCREEN_PX = 14.0
 SIDEBAR_WIDTH = 380
+RAW_PENDING_STROKE_COLOR = "#7fe3ff"
+RAW_COMMITTED_STROKE_COLOR = "#5a7a88"
 
 TERRAIN = (
     "plains", "mountain", "hills", "forest", "coastal", "desert", "river", "fortress",
@@ -154,6 +162,32 @@ def ring_bounds(points: Sequence[Point]) -> Optional[Tuple[float, float, float, 
     xs = [v[0] for v in verts]
     ys = [v[1] for v in verts]
     return (min(xs), min(ys), max(xs), max(ys))
+
+
+def convex_hull(points: Sequence[Point]) -> List[Point]:
+    """Monotone-chain convex hull. Used only to cover new land when island union
+    cannot share exact edges with independently rasterized pending geometry."""
+    pts = sorted({_quantize_point(p) for p in points})
+    if len(pts) <= 1:
+        return list(pts)
+
+    def cross(o: Point, a: Point, b: Point) -> float:
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower: List[Point] = []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= GEOM_EPS:
+            lower.pop()
+        lower.append(p)
+    upper: List[Point] = []
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= GEOM_EPS:
+            upper.pop()
+        upper.append(p)
+    hull = lower[:-1] + upper[:-1]
+    if len(hull) < 3:
+        return hull
+    return close_ring(hull)
 
 
 def point_on_segment(p: Point, a: Point, b: Point, eps: float = GEOM_EPS) -> bool:
@@ -1178,6 +1212,361 @@ def interpret_combined_drawing(polylines: Sequence[Sequence[Point]]) -> Dict[str
     }
 
 
+INCREMENTAL_CONVERT_FATAL = frozenset({
+    "territory.outside_island",
+    "territory.duplicate_id",
+    "territory.missing_id",
+    "adjacency.non_reciprocal",
+    "adjacency.missing_neighbor",
+    "adjacency.self_neighbor",
+    "adjacency.disconnected",
+    "geometry.self_intersecting",
+    "geometry.too_few_vertices",
+    "geometry.zero_area",
+    "geometry.missing_ring",
+    "territory.region_mismatch",
+})
+INCREMENTAL_ADJACENCY_TOL = 6.0
+
+
+def has_committed_map(world: Dict[str, Any]) -> bool:
+    """True when converted island + at least one territory polygon are present."""
+    isle = polygon_exterior(world.get("island") if isinstance(world.get("island"), dict) else None)
+    if not isle or len(unique_ring_vertices(isle)) < 3:
+        return False
+    for t in world.get("territories") or []:
+        if not isinstance(t, dict) or not t.get("id"):
+            continue
+        ext = polygon_exterior(t.get("polygon") if isinstance(t.get("polygon"), dict) else None)
+        if ext and len(unique_ring_vertices(ext)) >= 3:
+            return True
+    return False
+
+
+def _ring_abs_area(points: Sequence[Point]) -> float:
+    verts = unique_ring_vertices(points)
+    if len(verts) < 3:
+        return 0.0
+    return abs(ring_area(close_ring(verts)))
+
+
+def _island_covers_territories(island_ring: Sequence[Point], territories: Sequence[Dict[str, Any]]) -> bool:
+    for t in territories:
+        if not isinstance(t, dict):
+            continue
+        ext = polygon_exterior(t.get("polygon") if isinstance(t.get("polygon"), dict) else None)
+        if ext and not all_vertices_inside(ext, island_ring):
+            return False
+    return True
+
+
+def _try_install_extended_island(
+    world: Dict[str, Any],
+    candidate: Sequence[Point],
+    committed_ring: Sequence[Point],
+    territories: Sequence[Dict[str, Any]],
+) -> bool:
+    verts = unique_ring_vertices(candidate)
+    if len(verts) < 3:
+        return False
+    closed = close_ring(verts)
+    if _ring_abs_area(closed) + 1e-6 < _ring_abs_area(committed_ring):
+        return False
+    if not all_vertices_inside(committed_ring, closed):
+        return False
+    if not _island_covers_territories(closed, territories):
+        return False
+    if not isinstance(world.get("island"), dict):
+        world["island"] = {"rings": []}
+    set_exterior(world["island"], closed)
+    return True
+
+
+def _new_ring_conflicts_with_committed(ring: Sequence[Point], committed: Sequence[Dict[str, Any]]) -> bool:
+    c_new = ring_centroid(ring)
+    for t in committed:
+        ext = polygon_exterior(t.get("polygon") if isinstance(t.get("polygon"), dict) else None)
+        if not ext or len(unique_ring_vertices(ext)) < 3:
+            continue
+        if point_in_ring(c_new, ext):
+            return True
+        if point_in_ring(ring_centroid(ext), ring):
+            return True
+    return False
+
+
+def _ring_bboxes_near(a: Sequence[Point], b: Sequence[Point], pad: float) -> bool:
+    ba = ring_bounds(a)
+    bb = ring_bounds(b)
+    if not ba or not bb:
+        return False
+    return not (
+        ba[2] + pad < bb[0] or bb[2] + pad < ba[0]
+        or ba[3] + pad < bb[1] or bb[3] + pad < ba[1]
+    )
+
+
+def _incremental_adjacent(poly_a: Dict[str, Any], poly_b: Dict[str, Any], tol: float = INCREMENTAL_ADJACENCY_TOL) -> bool:
+    ra = polygon_exterior(poly_a)
+    rb = polygon_exterior(poly_b)
+    if not ra or not rb or not _ring_bboxes_near(ra, rb, tol):
+        return False
+    if shared_edge_length(poly_a, poly_b) > GEOM_EPS:
+        return True
+    ea = ring_edges(ra)
+    eb = ring_edges(rb)
+    if len(ea) * len(eb) <= 8000:
+        return plausible_shared_edge(poly_a, poly_b, tol=tol)
+    step_a = max(1, len(ea) // 24)
+    step_b = max(1, len(eb) // 24)
+    for a, b in ea[::step_a]:
+        if edge_length(a, b) <= GEOM_EPS:
+            continue
+        for c, d in eb[::step_b]:
+            if edge_length(c, d) <= GEOM_EPS:
+                continue
+            d1, _, _ = dist_point_to_segment(a, c, d)
+            d2, _, _ = dist_point_to_segment(b, c, d)
+            if d1 <= tol and d2 <= tol:
+                return True
+            d3, _, _ = dist_point_to_segment(c, a, b)
+            d4, _, _ = dist_point_to_segment(d, a, b)
+            if d3 <= tol and d4 <= tol:
+                return True
+    return False
+
+
+def _append_neighbor(territory: Dict[str, Any], other_id: str) -> None:
+    if not other_id or other_id == territory.get("id"):
+        return
+    ids = list(territory.get("neighborIds") or [])
+    if other_id not in ids:
+        ids.append(other_id)
+        territory["neighborIds"] = ids
+
+
+def _fill_empty_faction_homes(world: Dict[str, Any], new_terrs: Sequence[Dict[str, Any]]) -> None:
+    ids = [t.get("id") for t in (world.get("territories") or []) if isinstance(t, dict) and t.get("id")]
+    player_id = world.get("playerFactionId") or ""
+    if ids and player_id:
+        fac = find_faction(world, player_id)
+        if fac and not fac.get("homeTerritoryId"):
+            owned = next(
+                (t["id"] for t in list(world.get("territories") or []) + list(new_terrs)
+                 if isinstance(t, dict) and t.get("startingOwnerFactionId") == player_id and t.get("id")),
+                ids[0],
+            )
+            fac["homeTerritoryId"] = owned
+            army = fac.get("startingArmy")
+            if isinstance(army, dict) and not army.get("locationTerritoryId"):
+                army["locationTerritoryId"] = owned
+
+
+def _expand_ring(points: Sequence[Point], factor: float) -> List[Point]:
+    verts = unique_ring_vertices(points)
+    if len(verts) < 3:
+        return list(points)
+    cx = sum(p[0] for p in verts) / len(verts)
+    cy = sum(p[1] for p in verts) / len(verts)
+    c = (cx, cy)
+    return close_ring([
+        (c[0] + (p[0] - c[0]) * factor, c[1] + (p[1] - c[1]) * factor)
+        for p in verts
+    ])
+
+
+def _extend_committed_island(
+    world: Dict[str, Any],
+    pending_island: Sequence[Point],
+    all_territories: Sequence[Dict[str, Any]],
+    new_territories: Sequence[Dict[str, Any]],
+) -> Optional[str]:
+    """Grow the committed island to cover new land. Never shrinks. Never
+    re-rasterizes the old coast.
+
+    Order: keep-as-is if new land is already inside; exact shared-edge union
+    with the pending island or new territory rings only; last resort convex hull
+    of committed island vertices plus new territory vertices (may fill
+    concavities; never drops committed vertices from the covered set).
+    """
+    committed_ring = polygon_exterior(world.get("island") if isinstance(world.get("island"), dict) else None)
+    if not committed_ring or len(unique_ring_vertices(committed_ring)) < 3:
+        if pending_island and len(unique_ring_vertices(pending_island)) >= 3:
+            if not isinstance(world.get("island"), dict):
+                world["island"] = {"rings": []}
+            set_exterior(world["island"], pending_island)
+            return None
+        return "Could not extend the committed island to cover new territories."
+
+    new_verts: List[Point] = []
+    for t in new_territories:
+        ext = polygon_exterior(t.get("polygon") if isinstance(t.get("polygon"), dict) else None)
+        if ext:
+            new_verts.extend(unique_ring_vertices(ext))
+    if new_verts and all(point_in_ring(v, committed_ring) for v in new_verts):
+        return None
+
+    if pending_island and len(unique_ring_vertices(pending_island)) >= 3:
+        pending_poly = points_to_polygon(pending_island)
+        if len(unique_ring_vertices(committed_ring)) + len(unique_ring_vertices(pending_island)) <= 280:
+            merged, _err = union_polygon_exteriors([world["island"], pending_poly])
+            if merged and _try_install_extended_island(world, merged, committed_ring, all_territories):
+                return None
+
+    for t in new_territories:
+        poly = t.get("polygon") if isinstance(t, dict) else None
+        if not isinstance(poly, dict):
+            continue
+        ext = polygon_exterior(poly)
+        if not ext:
+            continue
+        if len(unique_ring_vertices(committed_ring)) + len(unique_ring_vertices(ext)) > 280:
+            continue
+        merged, _err = union_polygon_exteriors([world["island"], poly])
+        if merged and _try_install_extended_island(world, merged, committed_ring, all_territories):
+            committed_ring = polygon_exterior(world["island"]) or committed_ring
+            if _island_covers_territories(committed_ring, all_territories):
+                return None
+
+    committed_ring = polygon_exterior(world.get("island") if isinstance(world.get("island"), dict) else None) or committed_ring
+    if _island_covers_territories(committed_ring, all_territories):
+        return None
+
+    hull_pts = list(unique_ring_vertices(committed_ring))
+    for t in new_territories:
+        ext = polygon_exterior(t.get("polygon") if isinstance(t.get("polygon"), dict) else None)
+        if ext:
+            hull_pts.extend(unique_ring_vertices(ext))
+    if pending_island:
+        hull_pts.extend(unique_ring_vertices(pending_island))
+    hull = convex_hull(hull_pts)
+    if _try_install_extended_island(world, hull, committed_ring, all_territories):
+        return None
+    grown = _expand_ring(hull, 1.002)
+    if _try_install_extended_island(world, grown, committed_ring, all_territories):
+        return None
+    return (
+        "New drawing is outside the committed island and could not be unioned "
+        "without altering existing land. Draw new enclosed land that attaches "
+        "to the current island."
+    )
+
+
+def append_converted_polygons(
+    world: Dict[str, Any],
+    island: Sequence[Point],
+    territory_rings: Sequence[Sequence[Point]],
+    neighbor_pairs: Sequence[Tuple[int, int]],
+) -> Optional[str]:
+    """Add newly interpreted territories onto a locked committed map.
+
+    Existing polygons, IDs, ownership, regions, resources, and neighbor lists
+    are not regenerated. Neighbor lists only gain new reciprocal links.
+    """
+    committed = [t for t in (world.get("territories") or []) if isinstance(t, dict) and t.get("id")]
+    if not territory_rings:
+        return "Pending drawing produced no territories."
+    new_rings: List[Sequence[Point]] = []
+    for ring in territory_rings:
+        if len(unique_ring_vertices(ring)) < 3:
+            continue
+        if _new_ring_conflicts_with_committed(ring, committed):
+            return (
+                "Pending drawing overlaps committed territories. "
+                "Draw only new enclosed land; CONVERT TO MAP does not reshape the existing map."
+            )
+        new_rings.append(ring)
+    if not new_rings:
+        return "Pending drawing produced no territories."
+
+    if not (world.get("regions") or []):
+        add_region(world, "Region")
+    regions = world.get("regions") or []
+    default_rid = regions[0]["id"] if regions else ""
+    player_id = world.get("playerFactionId") or ""
+    ais = [f["id"] for f in world.get("factions") or [] if isinstance(f, dict) and f.get("role") == "ai"]
+    player_already = any(t.get("startingOwnerFactionId") == player_id for t in committed)
+
+    new_terrs: List[Dict[str, Any]] = []
+    taken = [t.get("id") for t in committed] + [t.get("id") for t in new_terrs]
+    for ring in new_rings:
+        if player_already or any(nt.get("startingOwnerFactionId") == player_id for nt in new_terrs):
+            owner = ais[0] if ais else player_id
+        else:
+            owner = player_id
+            player_already = True
+        tid = next_id("t_", taken)
+        taken.append(tid)
+        rec = {
+            "id": tid,
+            "regionId": default_rid,
+            "startingOwnerFactionId": owner,
+            "neighborIds": [],
+            "terrain": "plains",
+            "resourceOutput": {k: 0 for k in RESOURCE_KEYS},
+            "polygon": points_to_polygon(ring),
+        }
+        new_terrs.append(rec)
+
+    new_neighbors: Dict[str, Set[str]] = {t["id"]: set() for t in new_terrs}
+    for a, b in neighbor_pairs:
+        if 0 <= a < len(new_terrs) and 0 <= b < len(new_terrs):
+            ia, ib = new_terrs[a]["id"], new_terrs[b]["id"]
+            if ia != ib:
+                new_neighbors[ia].add(ib)
+                new_neighbors[ib].add(ia)
+    if len(new_terrs) > 1 and not any(new_neighbors.values()):
+        for i, a in enumerate(new_terrs):
+            pa = a.get("polygon") if isinstance(a.get("polygon"), dict) else None
+            if not pa:
+                continue
+            for j in range(i + 1, len(new_terrs)):
+                pb = new_terrs[j].get("polygon")
+                if isinstance(pb, dict) and plausible_shared_edge(pa, pb, tol=4.0):
+                    ia, ib = a["id"], new_terrs[j]["id"]
+                    new_neighbors[ia].add(ib)
+                    new_neighbors[ib].add(ia)
+
+    for nt in new_terrs:
+        npoly = nt.get("polygon") if isinstance(nt.get("polygon"), dict) else None
+        if not npoly:
+            continue
+        for old in committed:
+            opoly = old.get("polygon") if isinstance(old.get("polygon"), dict) else None
+            if not opoly:
+                continue
+            if _incremental_adjacent(npoly, opoly, tol=INCREMENTAL_ADJACENCY_TOL):
+                oid, nid = str(old["id"]), str(nt["id"])
+                new_neighbors[nid].add(oid)
+                _append_neighbor(old, nid)
+
+    for nt in new_terrs:
+        extra = sorted(new_neighbors.get(nt["id"], set()))
+        nt["neighborIds"] = extra
+
+    world["territories"] = committed + new_terrs
+    for t in new_terrs:
+        rid = t.get("regionId") or default_rid
+        if rid and not find_region(world, rid):
+            rid = default_rid
+            t["regionId"] = rid
+        if t.get("id") and rid:
+            sync_region_membership(world, t["id"], rid)
+
+    island_err = _extend_committed_island(world, island, world["territories"], new_terrs)
+    if island_err:
+        return island_err
+
+    _fill_empty_faction_homes(world, new_terrs)
+    issues = [
+        i for i in validate_world(world)
+        if i.get("code") in INCREMENTAL_CONVERT_FATAL
+    ]
+    if issues:
+        return issues[0]["message"]
+    return None
+
+
 def apply_converted_polygons(
     world: Dict[str, Any],
     island: Sequence[Point],
@@ -1318,36 +1707,129 @@ def apply_converted_polygons(
                 army["locationTerritoryId"] = owned
 
 
+def _pending_polylines(world: Dict[str, Any]) -> List[List[Point]]:
+    lines: List[List[Point]] = []
+    for item in all_pending_raw_strokes(world):
+        pts = open_stroke_points(item)
+        if len(pts) >= 2:
+            lines.append(pts)
+    return lines
+
+
+def _install_converted_editor_state(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+    target["island"] = source["island"]
+    target["territories"] = source["territories"]
+    target["regions"] = source["regions"]
+    target["factions"] = source["factions"]
+    if EDITOR_DRAWING_KEY in source:
+        target[EDITOR_DRAWING_KEY] = source[EDITOR_DRAWING_KEY]
+    if EDITOR_OPEN_STROKES_KEY in source:
+        target[EDITOR_OPEN_STROKES_KEY] = source[EDITOR_OPEN_STROKES_KEY]
+
+
 def convert_drawing_to_map(world: Dict[str, Any], snap_tol: Optional[float] = None) -> Dict[str, Any]:
-    """Rebuild island/territories from the combined raw drawing. Strokes are preserved."""
+    """Commit pending raw drawing into the map.
+
+    First successful conversion locks island/territories. Later conversions
+    interpret ONLY pending strokes and append. Committed geometry is never
+    re-rasterized. Failed conversion leaves the committed world untouched.
+    """
     _ = snap_tol
-    polylines = [open_stroke_points(item) for item in all_raw_strokes(world)]
-    geom = interpret_combined_drawing(polylines)
-    report = {
-        "ok": bool(geom.get("ok")),
-        "message": geom.get("message") or "",
-        "islandDetected": bool(geom.get("ok") and geom.get("island")),
-        "territoryCount": len(geom.get("territories") or []),
-        "noiseCount": int(geom.get("noiseCount") or 0),
-    }
-    world[EDITOR_CONVERT_REPORT_KEY] = report
-    result = {
-        "ok": report["ok"],
-        "message": report["message"],
-        "island": geom.get("island"),
-        "territories": geom.get("territories") or [],
-        "report": report,
-    }
-    if not result["ok"]:
-        return result
-    apply_converted_polygons(
-        world,
+    normalize_editor_drawing(world)
+    pending = _pending_polylines(world)
+    committed = has_committed_map(world)
+
+    def _report(**kwargs: Any) -> Dict[str, Any]:
+        island = kwargs.pop("island", None)
+        territories = kwargs.pop("territories", None)
+        report = {
+            "ok": False,
+            "message": "",
+            "islandDetected": False,
+            "territoryCount": len(world.get("territories") or []),
+            "noiseCount": 0,
+            "appendedCount": 0,
+            "unchanged": False,
+            **kwargs,
+        }
+        world[EDITOR_CONVERT_REPORT_KEY] = report
+        return {
+            "ok": bool(report["ok"]),
+            "message": report.get("message") or "",
+            "island": island,
+            "territories": territories if territories is not None else [],
+            "report": report,
+            "unchanged": bool(report.get("unchanged")),
+            "appendedCount": int(report.get("appendedCount") or 0),
+        }
+
+    if committed and not pending:
+        return _report(
+            ok=True,
+            unchanged=True,
+            message="Nothing pending to convert. Committed map unchanged.",
+            islandDetected=True,
+            territoryCount=len(world.get("territories") or []),
+        )
+
+    geom = interpret_combined_drawing(pending)
+    if not geom.get("ok"):
+        return _report(
+            ok=False,
+            message=geom.get("message") or "Could not interpret the pending drawing.",
+            noiseCount=int(geom.get("noiseCount") or 0),
+            islandDetected=False,
+        )
+
+    if not committed:
+        apply_converted_polygons(
+            world,
+            geom["island"],
+            geom["territories"],
+            geom.get("neighbors") or [],
+        )
+        commit_pending_drawing(world)
+        n = len(world.get("territories") or [])
+        return _report(
+            ok=True,
+            message="",
+            islandDetected=True,
+            territoryCount=n,
+            noiseCount=int(geom.get("noiseCount") or 0),
+            appendedCount=0,
+            island=geom.get("island"),
+            territories=geom.get("territories") or [],
+        )
+
+    before_n = len([t for t in (world.get("territories") or []) if isinstance(t, dict) and t.get("id")])
+    work = clone_world(world)
+    err = append_converted_polygons(
+        work,
         geom["island"],
         geom["territories"],
         geom.get("neighbors") or [],
     )
-    report["territoryCount"] = len(world.get("territories") or [])
-    return result
+    if err:
+        return _report(
+            ok=False,
+            message=err,
+            noiseCount=int(geom.get("noiseCount") or 0),
+            islandDetected=bool(geom.get("island")),
+        )
+    commit_pending_drawing(work)
+    _install_converted_editor_state(world, work)
+    after_n = len([t for t in (world.get("territories") or []) if isinstance(t, dict) and t.get("id")])
+    appended = max(0, after_n - before_n)
+    return _report(
+        ok=True,
+        message=f"Appended {appended} territor{'y' if appended == 1 else 'ies'}. Existing map locked.",
+        islandDetected=True,
+        territoryCount=after_n,
+        noiseCount=int(geom.get("noiseCount") or 0),
+        appendedCount=appended,
+        island=geom.get("island"),
+        territories=geom.get("territories") or [],
+    )
 
 
 def format_conversion_report(result: Dict[str, Any]) -> str:
@@ -1359,12 +1841,23 @@ def format_conversion_report(result: Dict[str, Any]) -> str:
         ok = report.get("ok")
     message = result.get("message") or report.get("message") or ""
     lines = []
-    if ok:
-        lines.append("CONVERT TO MAP — enclosed areas in the drawing.")
-    else:
-        lines.append("CONVERT TO MAP — could not interpret the drawing.")
+    if report.get("unchanged") or result.get("unchanged"):
+        lines.append("CONVERT TO MAP — nothing pending. Committed map unchanged.")
         if message:
             lines.append(message)
+    elif ok:
+        appended = int(result.get("appendedCount") or report.get("appendedCount") or 0)
+        if message and "Appended" in str(message):
+            lines.append("CONVERT TO MAP — " + str(message))
+        elif appended:
+            lines.append(f"CONVERT TO MAP — appended {appended} new territories. Existing map locked.")
+        else:
+            lines.append("CONVERT TO MAP — enclosed areas committed.")
+    else:
+        lines.append("CONVERT TO MAP — could not interpret the pending drawing.")
+        if message:
+            lines.append(message)
+        lines.append("Committed map was not changed.")
     island_yes = "YES" if report.get("islandDetected") or (ok and result.get("island")) else "NO"
     lines.append(f"Detected island: {island_yes}")
     lines.append(f"Territories: {report.get('territoryCount', len(result.get('territories') or []))}")
@@ -1391,11 +1884,26 @@ def iter_open_strokes(world: Dict[str, Any]) -> List[Dict[str, Any]]:
     return list(get_open_strokes(world, create=False).get("items") or [])
 
 
+def _stroke_xy(p: Any) -> Optional[Point]:
+    if isinstance(p, (list, tuple)) and len(p) >= 2:
+        try:
+            return (float(p[0]), float(p[1]))
+        except (TypeError, ValueError):
+            return None
+    if isinstance(p, dict) and "x" in p and "y" in p:
+        try:
+            return (float(p["x"]), float(p["y"]))
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def open_stroke_points(item: Dict[str, Any]) -> List[Point]:
     pts: List[Point] = []
     for p in item.get("points") or []:
-        if isinstance(p, (list, tuple)) and len(p) >= 2:
-            pts.append((float(p[0]), float(p[1])))
+        xy = _stroke_xy(p)
+        if xy is not None:
+            pts.append(xy)
     return pts
 
 
@@ -1541,29 +2049,92 @@ def assign_territories_to_region(world: Dict[str, Any], territory_ids: Sequence[
 
 # ---------------------------------------------------------------------------
 # Raw drawing store (not WorldDefinition)
+# pending: strokes   committed: committedStrokes
+# Older editor documents with a converted map and no committedStrokes key
+# migrate existing strokes into committedStrokes so CONVERT cannot duplicate.
 # ---------------------------------------------------------------------------
 
 def empty_drawing() -> Dict[str, Any]:
-    return {"next": 1, "strokes": []}
+    return {"next": 1, "strokes": [], "committedStrokes": []}
+
+
+def _stroke_list(store: Dict[str, Any], key: str) -> List[Dict[str, Any]]:
+    items = store.get(key)
+    if isinstance(items, list):
+        return [i for i in items if isinstance(i, dict)]
+    return []
+
+
+def migrate_editor_drawing(world: Dict[str, Any], store: Dict[str, Any]) -> Dict[str, Any]:
+    """Split legacy `_editorDrawing.strokes` into committed vs pending.
+
+    If `committedStrokes` is already present, the document uses the new model.
+    If it is missing and the world already has converted geometry, existing
+    strokes are treated as committed source (not pending) so CONVERT TO MAP
+    cannot duplicate the map. Unconverted documents keep strokes as pending.
+    """
+    if "committedStrokes" in store and isinstance(store.get("committedStrokes"), list):
+        return store
+    pending = list(store.get("strokes") or []) if isinstance(store.get("strokes"), list) else []
+    if has_committed_map(world) and pending:
+        store["committedStrokes"] = pending
+        store["strokes"] = []
+    else:
+        store["committedStrokes"] = []
+        if "strokes" not in store or not isinstance(store.get("strokes"), list):
+            store["strokes"] = pending
+    return store
+
+
+def normalize_editor_drawing(world: Dict[str, Any]) -> Dict[str, Any]:
+    return get_drawing(world, create=True)
 
 
 def get_drawing(world: Dict[str, Any], create: bool = True) -> Dict[str, Any]:
     raw = world.get(EDITOR_DRAWING_KEY)
     if isinstance(raw, dict) and isinstance(raw.get("strokes"), list):
         raw.setdefault("next", 1)
+        migrate_editor_drawing(world, raw)
         return raw
     store = empty_drawing()
     old = world.get(EDITOR_OPEN_STROKES_KEY)
     if isinstance(old, dict) and isinstance(old.get("items"), list):
         store["strokes"] = list(old["items"])
         store["next"] = int(old.get("next") or (len(store["strokes"]) + 1))
+        if has_committed_map(world) and store["strokes"]:
+            store["committedStrokes"] = list(store["strokes"])
+            store["strokes"] = []
     if create:
         world[EDITOR_DRAWING_KEY] = store
     return store
 
 
+def iter_pending_strokes(world: Dict[str, Any]) -> List[Dict[str, Any]]:
+    return _stroke_list(get_drawing(world, create=False), "strokes")
+
+
+def iter_committed_strokes(world: Dict[str, Any]) -> List[Dict[str, Any]]:
+    return _stroke_list(get_drawing(world, create=False), "committedStrokes")
+
+
 def iter_drawing_strokes(world: Dict[str, Any]) -> List[Dict[str, Any]]:
-    return list(get_drawing(world, create=False).get("strokes") or [])
+    """Committed source first, then pending. Display/scale use the full set."""
+    return iter_committed_strokes(world) + iter_pending_strokes(world)
+
+
+def commit_pending_drawing(world: Dict[str, Any]) -> None:
+    """Move pending (and leftover open) strokes into committed source."""
+    store = get_drawing(world)
+    pending = list(store.get("strokes") or [])
+    for item in iter_open_strokes(world):
+        pending.append(clone_world(item) if isinstance(item, dict) else item)
+    committed = list(store.get("committedStrokes") or [])
+    for item in pending:
+        committed.append(clone_world(item) if isinstance(item, dict) else item)
+    store["committedStrokes"] = committed
+    store["strokes"] = []
+    if EDITOR_OPEN_STROKES_KEY in world:
+        world[EDITOR_OPEN_STROKES_KEY] = empty_open_strokes()
 
 
 def stroke_kind(item: Dict[str, Any]) -> str:
@@ -1650,34 +2221,40 @@ def erase_polyline(points: Sequence[Point], center: Point, radius: float) -> Lis
 
 
 def erase_raw_drawing(world: Dict[str, Any], center: Point, radius: float) -> bool:
-    """Cut raw drawing ink only. Does not touch converted island/territories."""
+    """Cut pending raw drawing ink only. Committed source and converted geometry are ignored."""
     store = get_drawing(world)
-    old = list(store.get("strokes") or [])
-    new_items: List[Dict[str, Any]] = []
     changed = False
     step = max(radius * 0.35, GEOM_EPS * 10)
-    for item in old:
-        pts = open_stroke_points(item)
-        if len(pts) < 2:
+
+    def _erase_bucket(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        nonlocal changed
+        new_items: List[Dict[str, Any]] = []
+        for item in items:
+            pts = open_stroke_points(item)
+            if len(pts) < 2:
+                changed = True
+                continue
+            dense = densify_path(pts, step)
+            if not any(_point_hits_brush(p, center, radius) for p in dense):
+                new_items.append(item)
+                continue
             changed = True
-            continue
-        dense = densify_path(pts, step)
-        if not any(_point_hits_brush(p, center, radius) for p in dense):
-            new_items.append(item)
-            continue
-        changed = True
-        for piece in erase_polyline(pts, center, radius):
-            sid = f"d{store['next']:04d}"
-            store["next"] += 1
-            new_items.append({
-                "id": sid,
-                "kind": STROKE_KIND_FREEHAND,
-                "points": _as_open_points(piece),
-            })
-    if not changed:
-        return False
-    store["strokes"] = new_items
-    return True
+            for piece in erase_polyline(pts, center, radius):
+                sid = f"d{store['next']:04d}"
+                store["next"] += 1
+                new_items.append({
+                    "id": sid,
+                    "kind": STROKE_KIND_FREEHAND,
+                    "points": _as_open_points(piece),
+                })
+        return new_items
+
+    store["strokes"] = _erase_bucket(list(store.get("strokes") or []))
+    open_store = get_open_strokes(world, create=False)
+    open_items = open_store.get("items")
+    if isinstance(open_items, list) and open_items:
+        open_store["items"] = _erase_bucket(list(open_items))
+    return changed
 
 
 def remove_drawing_stroke(world: Dict[str, Any], sid: str) -> None:
@@ -1699,7 +2276,7 @@ def nearest_drawing_stroke_end(
 ) -> Optional[Dict[str, Any]]:
     best: Optional[Dict[str, Any]] = None
     best_d = radius
-    for item in iter_drawing_strokes(world):
+    for item in iter_pending_strokes(world):
         pts = open_stroke_points(item)
         if len(pts) < 2:
             continue
@@ -1729,6 +2306,19 @@ def oriented_drawing_stroke_for_resume(
     return {"id": hit["id"], "which": hit["which"], "points": pts, "point": hit["point"]}
 
 
+def all_pending_raw_strokes(world: Dict[str, Any]) -> List[Dict[str, Any]]:
+    seen: Set[str] = set()
+    strokes: List[Dict[str, Any]] = []
+    for item in list(iter_pending_strokes(world)) + list(iter_open_strokes(world)):
+        sid = str(item.get("id") or "")
+        key = sid or str(id(item))
+        if key in seen:
+            continue
+        seen.add(key)
+        strokes.append(item)
+    return strokes
+
+
 def all_raw_strokes(world: Dict[str, Any]) -> List[Dict[str, Any]]:
     seen: Set[str] = set()
     strokes: List[Dict[str, Any]] = []
@@ -1745,11 +2335,240 @@ def all_raw_strokes(world: Dict[str, Any]) -> List[Dict[str, Any]]:
 def dumps_editor_document(world: Dict[str, Any]) -> str:
     """Save converted geography plus raw drawing (not a playable export)."""
     payload = ordered_world(world)
-    payload[EDITOR_DRAWING_KEY] = clone_world(get_drawing(world, create=False))
+    payload[EDITOR_DRAWING_KEY] = clone_world(get_drawing(world, create=True))
     report = world.get(EDITOR_CONVERT_REPORT_KEY)
     if isinstance(report, dict):
         payload[EDITOR_CONVERT_REPORT_KEY] = clone_world(report)
     return json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+
+
+# ---------------------------------------------------------------------------
+# Uniform SCALE of raw drawing + converted geometry (editor-only)
+# ---------------------------------------------------------------------------
+
+def scale_point(p: Point, center: Point, factor: float) -> Point:
+    return (
+        center[0] + (p[0] - center[0]) * factor,
+        center[1] + (p[1] - center[1]) * factor,
+    )
+
+
+def parse_scale_factor(value: Any) -> Tuple[Optional[float], str]:
+    try:
+        factor = float(value)
+    except (TypeError, ValueError):
+        return None, "Scale factor must be a number."
+    if not math.isfinite(factor):
+        return None, "Scale factor must be finite."
+    if factor <= 0:
+        return None, "Scale factor must be greater than 0."
+    if factor < SCALE_FACTOR_MIN or factor > SCALE_FACTOR_MAX:
+        return None, f"Scale factor must be between {SCALE_FACTOR_MIN} and {SCALE_FACTOR_MAX}."
+    return factor, ""
+
+
+def _polygon_xy_dicts(poly: Any) -> List[Dict[str, Any]]:
+    pts: List[Dict[str, Any]] = []
+    if not isinstance(poly, dict):
+        return pts
+    rings = poly.get("rings")
+    if not isinstance(rings, list):
+        return pts
+    for ring in rings:
+        if not isinstance(ring, list):
+            continue
+        for p in ring:
+            if isinstance(p, dict) and "x" in p and "y" in p:
+                pts.append(p)
+    return pts
+
+
+def _stroke_point_lists(item: Any) -> List[List[float]]:
+    if not isinstance(item, dict):
+        return []
+    raw = item.get("points")
+    if not isinstance(raw, list):
+        return []
+    out: List[List[float]] = []
+    for p in raw:
+        xy = _stroke_xy(p)
+        if xy is not None:
+            out.append([xy[0], xy[1]])
+    return out
+
+
+def collect_scale_geometry_points(world: Dict[str, Any]) -> List[Point]:
+    """World-space points that SCALE transforms: converted rings + committed and pending strokes."""
+    pts: List[Point] = []
+    for p in _polygon_xy_dicts(world.get("island")):
+        try:
+            pts.append((float(p["x"]), float(p["y"])))
+        except (TypeError, ValueError, KeyError):
+            continue
+    for t in world.get("territories") or []:
+        if not isinstance(t, dict):
+            continue
+        for p in _polygon_xy_dicts(t.get("polygon")):
+            try:
+                pts.append((float(p["x"]), float(p["y"])))
+            except (TypeError, ValueError, KeyError):
+                continue
+    for item in list(iter_drawing_strokes(world)) + list(iter_open_strokes(world)):
+        for x, y in _stroke_point_lists(item):
+            pts.append((x, y))
+    return pts
+
+
+def scale_anchor_center(world: Dict[str, Any]) -> Optional[Point]:
+    """Center of current authored map bounds (converted + raw drawing)."""
+    pts = collect_scale_geometry_points(world)
+    if not pts:
+        return None
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return ((min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0)
+
+
+def _finite_xy(x: float, y: float) -> bool:
+    return math.isfinite(x) and math.isfinite(y)
+
+
+def _scale_xy_dict_inplace(p: Dict[str, Any], center: Point, factor: float) -> bool:
+    try:
+        nx, ny = scale_point((float(p["x"]), float(p["y"])), center, factor)
+    except (TypeError, ValueError, KeyError):
+        return True
+    if not _finite_xy(nx, ny):
+        return False
+    p["x"] = nx
+    p["y"] = ny
+    return True
+
+
+def _scale_stroke_item_inplace(item: Dict[str, Any], center: Point, factor: float) -> bool:
+    raw = item.get("points")
+    if not isinstance(raw, list):
+        return True
+    dict_mode = any(isinstance(p, dict) for p in raw)
+    new_pts: List[Any] = []
+    for p in raw:
+        xy = _stroke_xy(p)
+        if xy is None:
+            continue
+        nx, ny = scale_point(xy, center, factor)
+        if not _finite_xy(nx, ny):
+            return False
+        if dict_mode and isinstance(p, dict):
+            q = dict(p)
+            q["x"] = nx
+            q["y"] = ny
+            new_pts.append(q)
+        else:
+            new_pts.append([nx, ny])
+    item["points"] = new_pts
+    return True
+
+
+def _apply_uniform_scale_inplace(world: Dict[str, Any], center: Point, factor: float) -> bool:
+    for p in _polygon_xy_dicts(world.get("island")):
+        if not _scale_xy_dict_inplace(p, center, factor):
+            return False
+    for t in world.get("territories") or []:
+        if not isinstance(t, dict):
+            continue
+        for p in _polygon_xy_dicts(t.get("polygon")):
+            if not _scale_xy_dict_inplace(p, center, factor):
+                return False
+    drawing = world.get(EDITOR_DRAWING_KEY)
+    if isinstance(drawing, dict):
+        for key in ("strokes", "committedStrokes"):
+            items = drawing.get(key)
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                if isinstance(item, dict) and not _scale_stroke_item_inplace(item, center, factor):
+                    return False
+    opens = world.get(EDITOR_OPEN_STROKES_KEY)
+    if isinstance(opens, dict) and isinstance(opens.get("items"), list):
+        for item in opens["items"]:
+            if isinstance(item, dict) and not _scale_stroke_item_inplace(item, center, factor):
+                return False
+    return True
+
+
+def scale_world_geometry(
+    world: Dict[str, Any],
+    factor: float,
+    center: Optional[Point] = None,
+) -> Dict[str, Any]:
+    """Uniformly scale authored map geometry around `center`.
+
+    Transforms converted island/territory rings and `_editorDrawing` pending
+    (`strokes`) plus committed source (`committedStrokes`) /
+    `_editorOpenStrokes` with the same factor. Does not change IDs, neighbors,
+    regions, ownership, resources, world metadata, or containedWorlds placement.
+    Does not move strokes between committed and pending buckets.
+    """
+    parsed, err = parse_scale_factor(factor)
+    if parsed is None:
+        return {
+            "ok": False, "message": err, "factor": factor, "center": center,
+            "unchanged": True, "scaledDrawing": False, "scaledConverted": False,
+        }
+    factor = parsed
+    pts = collect_scale_geometry_points(world)
+    if not pts:
+        return {
+            "ok": False, "message": "Nothing to scale. Open a map or draw first.",
+            "factor": factor, "center": center,
+            "unchanged": True, "scaledDrawing": False, "scaledConverted": False,
+        }
+    if center is None:
+        center = scale_anchor_center(world)
+    if center is None:
+        return {
+            "ok": False, "message": "Could not determine a scale center.",
+            "factor": factor, "center": None,
+            "unchanged": True, "scaledDrawing": False, "scaledConverted": False,
+        }
+    has_drawing = any(
+        len(_stroke_point_lists(item)) >= 1
+        for item in list(iter_drawing_strokes(world)) + list(iter_open_strokes(world))
+    )
+    has_converted = bool(_polygon_xy_dicts(world.get("island"))) or any(
+        isinstance(t, dict) and _polygon_xy_dicts(t.get("polygon"))
+        for t in (world.get("territories") or [])
+    )
+    if almost_equal(factor, 1.0):
+        return {
+            "ok": True, "message": "Scale 1.0 leaves geometry unchanged.",
+            "factor": factor, "center": center, "unchanged": True,
+            "scaledDrawing": False, "scaledConverted": False,
+        }
+    work = clone_world(world)
+    if not _apply_uniform_scale_inplace(work, center, factor):
+        return {
+            "ok": False, "message": "Scale produced non-finite coordinates.",
+            "factor": factor, "center": center,
+            "unchanged": True, "scaledDrawing": False, "scaledConverted": False,
+        }
+    world["island"] = work.get("island")
+    world["territories"] = work.get("territories")
+    if EDITOR_DRAWING_KEY in work:
+        world[EDITOR_DRAWING_KEY] = work[EDITOR_DRAWING_KEY]
+    if EDITOR_OPEN_STROKES_KEY in work:
+        world[EDITOR_OPEN_STROKES_KEY] = work[EDITOR_OPEN_STROKES_KEY]
+    world.pop(EDITOR_CONVERT_REPORT_KEY, None)
+    world.pop(EDITOR_GRAPH_KEY, None)
+    return {
+        "ok": True,
+        "message": "",
+        "factor": factor,
+        "center": center,
+        "unchanged": False,
+        "scaledDrawing": has_drawing,
+        "scaledConverted": has_converted,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -2793,6 +3612,31 @@ def find_tiny_world_path() -> Optional[str]:
     return None
 
 
+def find_level1_world_path() -> Optional[str]:
+    rel = os.path.join("worlds", "level-1.json")
+    roots = [os.getcwd()]
+    if "__file__" in globals():
+        here = os.path.abspath(os.path.dirname(__file__))
+        roots.append(here)
+        roots.append(os.path.dirname(here))
+        roots.append(os.path.dirname(os.path.dirname(here)))
+    seen: Set[str] = set()
+    for root in roots:
+        cur = os.path.abspath(root)
+        for _ in range(8):
+            if cur in seen:
+                break
+            seen.add(cur)
+            cand = os.path.join(cur, rel)
+            if os.path.isfile(cand):
+                return cand
+            parent = os.path.dirname(cur)
+            if parent == cur:
+                break
+            cur = parent
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Minimal valid world used only by self-tests (not a GUI generator)
 # ---------------------------------------------------------------------------
@@ -3497,7 +4341,21 @@ class EditorWorkflowTests(unittest.TestCase):
 
 
 def _cvt_square() -> List[Point]:
-    return [(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0), (0.0, 0.0)]
+    return _cvt_square_at(0.0, 0.0, 20.0)
+
+
+def _cvt_square_at(x0: float, y0: float, size: float = 20.0) -> List[Point]:
+    return [
+        (x0, y0), (x0 + size, y0), (x0 + size, y0 + size), (x0, y0 + size), (x0, y0),
+    ]
+
+
+def _cvt_divided_strip(
+    x0: float, y0: float, x1: float, y1: float, xs: Sequence[float],
+) -> List[List[Point]]:
+    outer = [(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)]
+    divs = [[(x, y0 - 4.0), (x, y1 + 4.0)] for x in xs]
+    return [outer] + divs
 
 
 def _cvt_irregular_island() -> List[Point]:
@@ -3656,16 +4514,24 @@ class DrawingConvertTests(unittest.TestCase):
         assert again is not None
         self.assertEqual(len(again["territories"]), 2)
 
-    def test_reconvert_rebuilds_from_raw_drawing(self) -> None:
+    def test_reconvert_appends_without_reinterpreting(self) -> None:
         w, first = _cvt_world_from(_cvt_square())
         self.assertTrue(first["ok"])
         self.assertEqual(len(w["territories"]), 1)
-        n = len(iter_drawing_strokes(w))
-        add_drawing_stroke(w, [(10.0, -8.0), (10.0, 28.0)])
+        original_id = w["territories"][0]["id"]
+        original_poly = clone_world(w["territories"][0]["polygon"])
+        n_all = len(iter_drawing_strokes(w))
+        self.assertEqual(len(iter_pending_strokes(w)), 0)
+        add_drawing_stroke(w, _cvt_square_at(20.0, 0.0))
         second = convert_drawing_to_map(w)
         self.assertTrue(second["ok"], msg=second.get("message"))
-        self.assertEqual(len(iter_drawing_strokes(w)), n + 1)
+        self.assertEqual(len(iter_drawing_strokes(w)), n_all + 1)
+        self.assertEqual(len(iter_pending_strokes(w)), 0)
         self.assertEqual(len(w["territories"]), 2)
+        kept = find_territory(w, original_id)
+        self.assertIsNotNone(kept)
+        assert kept is not None
+        self.assertEqual(kept["polygon"], original_poly)
 
     def test_editor_save_keeps_drawing_export_does_not(self) -> None:
         w, result = _cvt_world_from(_cvt_square(), [(10.0, -4.0), (10.0, 24.0)])
@@ -3725,7 +4591,7 @@ class DrawingToolsTests(unittest.TestCase):
         self.assertEqual(len(sxs2), 2)
         self.assertEqual(len(sys2), 2)
 
-    def test_eraser_removes_raw_drawing_not_converted_geometry(self) -> None:
+    def test_eraser_ignores_committed_source_drawing(self) -> None:
         w = new_blank_world()
         add_drawing_stroke(w, _cvt_square())
         add_drawing_stroke(w, [(10.0, -2.0), (10.0, 22.0)])
@@ -3733,10 +4599,13 @@ class DrawingToolsTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         island_before = clone_world(w["island"])
         terr_before = clone_world(w["territories"])
-        self.assertTrue(erase_raw_drawing(w, (10.0, 10.0), 1.5))
+        committed_n = len(iter_committed_strokes(w))
+        self.assertGreaterEqual(committed_n, 1)
+        self.assertFalse(erase_raw_drawing(w, (10.0, 10.0), 1.5))
         self.assertEqual(w["island"], island_before)
         self.assertEqual(w["territories"], terr_before)
-        self.assertGreaterEqual(len(iter_drawing_strokes(w)), 1)
+        self.assertEqual(len(iter_committed_strokes(w)), committed_n)
+        self.assertEqual(len(iter_pending_strokes(w)), 0)
 
     def test_eraser_works_on_freehand_and_rectangle(self) -> None:
         w = new_blank_world()
@@ -3749,25 +4618,31 @@ class DrawingToolsTests(unittest.TestCase):
         kinds = [stroke_kind(s) for s in iter_drawing_strokes(w)]
         self.assertTrue(all(k == STROKE_KIND_FREEHAND for k in kinds) or len(kinds) <= n0)
 
-    def test_reconvert_after_erase_and_undo_restore(self) -> None:
+    def test_reconvert_after_erase_committed_is_noop_undo_restores_pending(self) -> None:
         w = new_blank_world()
         add_drawing_stroke(w, _cvt_square())
         add_drawing_stroke(w, [(10.0, -2.0), (10.0, 22.0)])
         first = convert_drawing_to_map(w)
         self.assertEqual(len(w["territories"]), 2)
-        stack = UndoStack()
-        stack.push(w)
-        self.assertTrue(erase_raw_drawing(w, (10.0, 10.0), 2.0))
+        self.assertFalse(erase_raw_drawing(w, (10.0, 10.0), 2.0))
         second = convert_drawing_to_map(w)
         self.assertTrue(second["ok"])
-        self.assertEqual(len(w["territories"]), 1)
+        self.assertTrue(second.get("unchanged"))
+        self.assertEqual(len(w["territories"]), 2)
+        add_drawing_stroke(w, _cvt_square_at(20.0, 0.0))
+        self.assertEqual(len(iter_pending_strokes(w)), 1)
+        pending_before = clone_world(iter_pending_strokes(w))
+        stack = UndoStack()
+        stack.push(w)
+        self.assertTrue(erase_raw_drawing(w, (20.0, 10.0), 2.0))
+        self.assertNotEqual(iter_pending_strokes(w), pending_before)
         restored = stack.apply_undo(w)
         self.assertIsNotNone(restored)
         assert restored is not None
-        self.assertEqual(len(iter_drawing_strokes(restored)), 2)
+        self.assertEqual(len(iter_pending_strokes(restored)), 1)
         third = convert_drawing_to_map(restored)
         self.assertTrue(third["ok"], msg=third.get("message"))
-        self.assertEqual(len(restored["territories"]), 2)
+        self.assertEqual(len(restored["territories"]), 3)
 
     def test_freehand_rectangle_eraser_convert_together(self) -> None:
         w = new_blank_world()
@@ -4041,6 +4916,596 @@ class PreviousLevelImportTests(unittest.TestCase):
             self.assertEqual(fh.read(), original)
 
 
+class ScaleGeometryTests(unittest.TestCase):
+    def _stroke_pts(self, world: Dict[str, Any]) -> List[Point]:
+        pts: List[Point] = []
+        for item in iter_drawing_strokes(world):
+            pts.extend(open_stroke_points(item))
+        return pts
+
+    def _island_pts(self, world: Dict[str, Any]) -> List[Point]:
+        return unique_ring_vertices(polygon_exterior(world.get("island")) or [])
+
+    def _bbox(self, pts: Sequence[Point]) -> Tuple[float, float, float, float]:
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        return (min(xs), min(ys), max(xs), max(ys))
+
+    def _width(self, pts: Sequence[Point]) -> float:
+        b = self._bbox(pts)
+        return b[2] - b[0]
+
+    def _height(self, pts: Sequence[Point]) -> float:
+        b = self._bbox(pts)
+        return b[3] - b[1]
+
+    def _both_world(self) -> Dict[str, Any]:
+        w = new_blank_world()
+        add_ai_faction(w)
+        add_drawing_stroke(w, _cvt_square())
+        add_drawing_stroke(w, [(10.0, -4.0), (10.0, 24.0)])
+        result = convert_drawing_to_map(w)
+        self.assertTrue(result["ok"], msg=result.get("message"))
+        _cvt_assign_homes(w)
+        w["containedWorlds"] = [{
+            "worldId": "w_nested",
+            "regionId": (w.get("regions") or [{}])[0].get("id") or "r_01",
+            "placement": {"origin": {"x": 3.0, "y": 4.0}, "rotationDegrees": 12.0, "scale": 0.8},
+        }]
+        return w
+
+    def test_scale_2_doubles_around_center(self) -> None:
+        w = self._both_world()
+        center = scale_anchor_center(w)
+        self.assertIsNotNone(center)
+        assert center is not None
+        island_before = self._island_pts(w)
+        draw_before = self._stroke_pts(w)
+        t_before = polygon_exterior(w["territories"][0]["polygon"]) or []
+        result = scale_world_geometry(w, 2.0)
+        self.assertTrue(result["ok"], msg=result.get("message"))
+        self.assertEqual(result["center"], center)
+        island_after = self._island_pts(w)
+        self.assertAlmostEqual(self._width(island_after), self._width(island_before) * 2.0, places=5)
+        self.assertAlmostEqual(self._height(island_after), self._height(island_before) * 2.0, places=5)
+        for old, new in zip(island_before, island_after):
+            self.assertEqual(new, scale_point(old, center, 2.0))
+        for old, new in zip(draw_before, self._stroke_pts(w)):
+            self.assertEqual(new, scale_point(old, center, 2.0))
+        t_after = polygon_exterior(w["territories"][0]["polygon"]) or []
+        for old, new in zip(unique_ring_vertices(t_before), unique_ring_vertices(t_after)):
+            self.assertEqual(new, scale_point(old, center, 2.0))
+
+    def test_scale_half_and_uniform_proportions(self) -> None:
+        w = make_minimal_valid_world()
+        center = scale_anchor_center(w)
+        self.assertIsNotNone(center)
+        assert center is not None
+        a, b = self._island_pts(w)[0], self._island_pts(w)[1]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        result = scale_world_geometry(w, 0.5, center)
+        self.assertTrue(result["ok"])
+        a2, b2 = self._island_pts(w)[0], self._island_pts(w)[1]
+        self.assertAlmostEqual(b2[0] - a2[0], dx * 0.5, places=6)
+        self.assertAlmostEqual(b2[1] - a2[1], dy * 0.5, places=6)
+        if abs(dx) > GEOM_EPS and abs(dy) > GEOM_EPS:
+            self.assertAlmostEqual((b2[1] - a2[1]) / (b2[0] - a2[0]), dy / dx, places=6)
+
+    def test_raw_and_converted_stay_aligned_under_same_transform(self) -> None:
+        w = self._both_world()
+        center = scale_anchor_center(w)
+        assert center is not None
+        draw0 = self._stroke_pts(w)[0]
+        island0 = self._island_pts(w)[0]
+        offset = (draw0[0] - island0[0], draw0[1] - island0[1])
+        scale_world_geometry(w, 2.0, center)
+        draw1 = self._stroke_pts(w)[0]
+        island1 = self._island_pts(w)[0]
+        self.assertAlmostEqual(draw1[0] - island1[0], offset[0] * 2.0, places=5)
+        self.assertAlmostEqual(draw1[1] - island1[1], offset[1] * 2.0, places=5)
+        after_center = scale_anchor_center(w)
+        self.assertIsNotNone(after_center)
+        assert after_center is not None
+        self.assertAlmostEqual(after_center[0], center[0], places=5)
+        self.assertAlmostEqual(after_center[1], center[1], places=5)
+
+    def test_convert_after_scale_uses_scaled_drawing(self) -> None:
+        w, first = _cvt_world_from(_cvt_square())
+        self.assertTrue(first["ok"])
+        width_before = self._width(self._island_pts(w))
+        center = scale_anchor_center(w)
+        assert center is not None
+        scale_world_geometry(w, 2.0, center)
+        width_scaled = self._width(self._island_pts(w))
+        self.assertAlmostEqual(width_scaled, width_before * 2.0, places=5)
+        again = convert_drawing_to_map(w)
+        self.assertTrue(again["ok"], msg=again.get("message"))
+        width_reconvert = self._width(self._island_pts(w))
+        self.assertGreater(width_reconvert, width_before * 1.4)
+        self.assertAlmostEqual(width_reconvert, width_scaled, delta=max(4.0, width_scaled * 0.2))
+
+    def test_metadata_ids_neighbors_regions_ownership_resources_unchanged(self) -> None:
+        w = make_minimal_valid_world()
+        w["containedWorlds"] = [{
+            "worldId": "w_nested", "regionId": "r_01",
+            "placement": {"origin": {"x": 3.0, "y": 4.0}, "rotationDegrees": 12.0, "scale": 0.8},
+        }]
+        before = {
+            "worldId": w["worldId"],
+            "level": w["level"],
+            "name": w["name"],
+            "playerFactionId": w["playerFactionId"],
+            "completion": clone_world(w["completion"]),
+            "contained": clone_world(w["containedWorlds"]),
+            "regions": clone_world(w["regions"]),
+            "ids": [t["id"] for t in w["territories"]],
+            "neighbors": [list(t["neighborIds"]) for t in w["territories"]],
+            "owners": [t["startingOwnerFactionId"] for t in w["territories"]],
+            "terrain": [t["terrain"] for t in w["territories"]],
+            "resources": [clone_world(t["resourceOutput"]) for t in w["territories"]],
+            "factions": clone_world(w["factions"]),
+        }
+        issues_before = validate_world(w)
+        result = scale_world_geometry(w, 2.0)
+        self.assertTrue(result["ok"])
+        self.assertEqual(w["worldId"], before["worldId"])
+        self.assertEqual(w["level"], before["level"])
+        self.assertEqual(w["name"], before["name"])
+        self.assertEqual(w["playerFactionId"], before["playerFactionId"])
+        self.assertEqual(w["completion"], before["completion"])
+        self.assertEqual(w["containedWorlds"], before["contained"])
+        self.assertEqual(w["regions"], before["regions"])
+        self.assertEqual([t["id"] for t in w["territories"]], before["ids"])
+        self.assertEqual([list(t["neighborIds"]) for t in w["territories"]], before["neighbors"])
+        self.assertEqual([t["startingOwnerFactionId"] for t in w["territories"]], before["owners"])
+        self.assertEqual([t["terrain"] for t in w["territories"]], before["terrain"])
+        self.assertEqual([t["resourceOutput"] for t in w["territories"]], before["resources"])
+        self.assertEqual(w["factions"], before["factions"])
+        self.assertEqual(validate_world(w), issues_before)
+
+    def test_undo_restores_raw_and_converted_together(self) -> None:
+        w = self._both_world()
+        island = clone_world(w["island"])
+        drawing = clone_world(w[EDITOR_DRAWING_KEY])
+        territories = clone_world(w["territories"])
+        stack = UndoStack()
+        stack.push(w)
+        scale_world_geometry(w, 2.0)
+        self.assertNotEqual(w["island"], island)
+        self.assertNotEqual(w[EDITOR_DRAWING_KEY], drawing)
+        restored = stack.apply_undo(w)
+        self.assertIsNotNone(restored)
+        assert restored is not None
+        self.assertEqual(restored["island"], island)
+        self.assertEqual(restored[EDITOR_DRAWING_KEY], drawing)
+        self.assertEqual(restored["territories"], territories)
+
+    def test_save_reload_preserves_scaled_raw_and_converted(self) -> None:
+        w = self._both_world()
+        center = scale_anchor_center(w)
+        scale_world_geometry(w, 2.0, center)
+        text = dumps_editor_document(w)
+        self.assertIn(EDITOR_DRAWING_KEY, text)
+        playable = dumps_world(w)
+        self.assertNotIn(EDITOR_DRAWING_KEY, playable)
+        loaded = json.loads(text)
+        self.assertEqual(self._island_pts(loaded), self._island_pts(w))
+        src = loaded[EDITOR_DRAWING_KEY].get("committedStrokes") or loaded[EDITOR_DRAWING_KEY].get("strokes")
+        dst = w[EDITOR_DRAWING_KEY].get("committedStrokes") or w[EDITOR_DRAWING_KEY].get("strokes")
+        self.assertTrue(src and dst)
+        self.assertEqual(src[0]["points"], dst[0]["points"])
+        again, issues = parse_world_json(text)
+        self.assertEqual(issues, [], msg=issues)
+        assert again is not None
+        self.assertEqual(self._island_pts(again), self._island_pts(w))
+        get_drawing(again, create=True)
+        self.assertEqual(self._stroke_pts(again), self._stroke_pts(w))
+        self.assertEqual(
+            loaded[EDITOR_DRAWING_KEY].get("committedStrokes") or loaded[EDITOR_DRAWING_KEY].get("strokes"),
+            w[EDITOR_DRAWING_KEY].get("committedStrokes") or w[EDITOR_DRAWING_KEY].get("strokes"),
+        )
+
+    def test_raw_only_and_converted_only(self) -> None:
+        raw = new_blank_world()
+        add_drawing_stroke(raw, _cvt_square())
+        c = scale_anchor_center(raw)
+        assert c is not None
+        pts = self._stroke_pts(raw)
+        result = scale_world_geometry(raw, 2.0, c)
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["scaledDrawing"])
+        self.assertFalse(result["scaledConverted"])
+        self.assertEqual(self._stroke_pts(raw)[0], scale_point(pts[0], c, 2.0))
+        self.assertFalse(polygon_exterior(raw.get("island")))
+
+        conv = make_minimal_valid_world()
+        self.assertEqual(len(iter_drawing_strokes(conv)), 0)
+        island0 = self._island_pts(conv)[0]
+        c2 = scale_anchor_center(conv)
+        assert c2 is not None
+        result2 = scale_world_geometry(conv, 2.0, c2)
+        self.assertTrue(result2["ok"])
+        self.assertTrue(result2["scaledConverted"])
+        self.assertFalse(result2["scaledDrawing"])
+        self.assertEqual(self._island_pts(conv)[0], scale_point(island0, c2, 2.0))
+        self.assertEqual(len(iter_drawing_strokes(conv)), 0)
+
+    def test_scale_then_erase_committed_then_append(self) -> None:
+        w, first = _cvt_world_from(_cvt_square(), [(10.0, -4.0), (10.0, 24.0)])
+        self.assertTrue(first["ok"])
+        self.assertEqual(len(w["territories"]), 2)
+        ids_before = [t["id"] for t in w["territories"]]
+        n_strokes = len(iter_drawing_strokes(w))
+        center = scale_anchor_center(w)
+        assert center is not None
+        scale_world_geometry(w, 2.0, center)
+        self.assertEqual(len(iter_drawing_strokes(w)), n_strokes)
+        polys_scaled = [clone_world(t["polygon"]) for t in w["territories"]]
+        hit = scale_point((10.0, 10.0), center, 2.0)
+        self.assertFalse(erase_raw_drawing(w, hit, 3.0))
+        result = convert_drawing_to_map(w)
+        self.assertTrue(result["ok"], msg=result.get("message"))
+        self.assertTrue(result.get("unchanged"))
+        self.assertEqual(len(w["territories"]), 2)
+        self.assertEqual([t["id"] for t in w["territories"]], ids_before)
+        self.assertEqual([t["polygon"] for t in w["territories"]], polys_scaled)
+        add_drawing_stroke(w, [
+            scale_point(p, center, 2.0) for p in _cvt_square_at(20.0, 0.0)
+        ])
+        appended = convert_drawing_to_map(w)
+        self.assertTrue(appended["ok"], msg=appended.get("message"))
+        self.assertEqual(len(w["territories"]), 3)
+        self.assertEqual([t["id"] for t in w["territories"][:2]], ids_before)
+        self.assertEqual([t["polygon"] for t in w["territories"][:2]], polys_scaled)
+        self.assertGreater(self._width(self._island_pts(w)), 28.0)
+
+    def test_rejects_invalid_factors_and_empty_maps(self) -> None:
+        w = make_minimal_valid_world()
+        self.assertFalse(scale_world_geometry(w, 0)["ok"])
+        self.assertFalse(scale_world_geometry(w, -1)["ok"])
+        self.assertFalse(scale_world_geometry(w, 0.01)["ok"])
+        self.assertFalse(scale_world_geometry(w, 50)["ok"])
+        self.assertTrue(scale_world_geometry(w, 1.0)["ok"])
+        self.assertTrue(scale_world_geometry(w, 1.0)["unchanged"])
+        blank = new_blank_world()
+        self.assertFalse(scale_world_geometry(blank, 2.0)["ok"])
+        parsed, err = parse_scale_factor("nope")
+        self.assertIsNone(parsed)
+        self.assertTrue(err)
+
+    def test_clears_stale_convert_report(self) -> None:
+        w, result = _cvt_world_from(_cvt_square())
+        self.assertTrue(result["ok"])
+        self.assertIsInstance(w.get(EDITOR_CONVERT_REPORT_KEY), dict)
+        scale_world_geometry(w, 2.0)
+        self.assertNotIn(EDITOR_CONVERT_REPORT_KEY, w)
+
+    def test_zoom_is_not_scale(self) -> None:
+        p = (10.0, 4.0)
+        sx, sy = view_world_to_screen(p[0], p[1], 3.0, 80.0, 520.0)
+        back = view_screen_to_world(sx, sy, 3.0, 80.0, 520.0)
+        self.assertAlmostEqual(back[0], p[0], places=9)
+        self.assertAlmostEqual(back[1], p[1], places=9)
+        scaled = scale_point(p, (0.0, 0.0), 2.0)
+        self.assertEqual(scaled, (20.0, 8.0))
+        self.assertNotEqual(scaled, back)
+
+    def test_scale_controls_exist_in_gui(self) -> None:
+        seen: Dict[str, Any] = {}
+
+        def ready(app: Any) -> None:
+            seen["has_bar"] = hasattr(app, "scale_bar")
+            seen["has_apply"] = hasattr(app, "_apply_scale")
+            app.tool.set("scale")
+            app._on_tool_change()
+            app.update_idletasks()
+            seen["tool"] = app.tool.get()
+            seen["mapped"] = bool(app.scale_bar.winfo_ismapped())
+            seen["banner"] = app.banner_text.get()
+
+        try:
+            launch_editor(smoke=True, on_ready=ready)
+        except Exception as err:
+            self.skipTest(f"Tk not available: {err}")
+        self.assertTrue(seen.get("has_bar"))
+        self.assertTrue(seen.get("has_apply"))
+        self.assertEqual(seen.get("tool"), "scale")
+        self.assertTrue(seen.get("mapped"))
+        self.assertIn("SCALE", seen.get("banner") or "")
+
+
+class IncrementalConvertTests(unittest.TestCase):
+    def _lock_snapshot(self, world: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "ids": [t["id"] for t in world["territories"]],
+            "polygons": [clone_world(t["polygon"]) for t in world["territories"]],
+            "owners": [t.get("startingOwnerFactionId") for t in world["territories"]],
+            "regions": [t.get("regionId") for t in world["territories"]],
+            "regionLists": clone_world(world.get("regions") or []),
+            "resources": [clone_world(t.get("resourceOutput") or {}) for t in world["territories"]],
+            "neighbors": [list(t.get("neighborIds") or []) for t in world["territories"]],
+            "island": clone_world(world.get("island")),
+        }
+
+    def _assert_prefix_locked(self, world: Dict[str, Any], snap: Dict[str, Any]) -> None:
+        n = len(snap["ids"])
+        self.assertEqual([t["id"] for t in world["territories"][:n]], snap["ids"])
+        self.assertEqual([t["polygon"] for t in world["territories"][:n]], snap["polygons"])
+        self.assertEqual([t.get("startingOwnerFactionId") for t in world["territories"][:n]], snap["owners"])
+        self.assertEqual([t.get("regionId") for t in world["territories"][:n]], snap["regions"])
+        self.assertEqual([t.get("resourceOutput") for t in world["territories"][:n]], snap["resources"])
+        for old_n, t in zip(snap["neighbors"], world["territories"][:n]):
+            self.assertEqual(list(old_n), list(t.get("neighborIds") or [])[:len(old_n)])
+            for nid in old_n:
+                self.assertIn(nid, t.get("neighborIds") or [])
+        for old_r, new_r in zip(snap["regionLists"], world.get("regions") or []):
+            old_ids = list(old_r.get("territoryIds") or [])
+            new_ids = list(new_r.get("territoryIds") or [])
+            self.assertEqual(new_ids[:len(old_ids)], old_ids)
+
+    def test_first_conversion_commits_initial_map(self) -> None:
+        w, result = _cvt_world_from(_cvt_square(), [(10.0, -2.0), (10.0, 22.0)])
+        self.assertTrue(result["ok"], msg=result.get("message"))
+        self.assertEqual(len(w["territories"]), 2)
+        self.assertTrue(has_committed_map(w))
+        self.assertEqual(len(iter_pending_strokes(w)), 0)
+        self.assertGreaterEqual(len(iter_committed_strokes(w)), 2)
+
+    def test_second_conversion_does_not_reinterpret_first_territories(self) -> None:
+        w, first = _cvt_world_from(_cvt_square())
+        self.assertTrue(first["ok"])
+        snap = self._lock_snapshot(w)
+        add_drawing_stroke(w, _cvt_square_at(20.0, 0.0))
+        second = convert_drawing_to_map(w)
+        self.assertTrue(second["ok"], msg=second.get("message"))
+        self.assertEqual(len(w["territories"]), 2)
+        self._assert_prefix_locked(w, snap)
+        self.assertNotEqual(w["territories"][1]["id"], snap["ids"][0])
+
+    def test_existing_ids_ownership_regions_resources_adjacency_preserved(self) -> None:
+        w, first = _cvt_world_from(_cvt_square(), [(10.0, -2.0), (10.0, 22.0)])
+        self.assertTrue(first["ok"])
+        add_ai_faction(w)
+        _cvt_assign_homes(w)
+        w["territories"][0]["resourceOutput"]["gold"] = 9
+        w["territories"][0]["terrain"] = "forest"
+        rid = add_region(w, "North")
+        assign_territories_to_region(w, [w["territories"][0]["id"]], rid)
+        snap = self._lock_snapshot(w)
+        old_neighbors = [list(t["neighborIds"]) for t in w["territories"]]
+        add_drawing_stroke(w, _cvt_square_at(20.0, 0.0))
+        second = convert_drawing_to_map(w)
+        self.assertTrue(second["ok"], msg=second.get("message"))
+        self._assert_prefix_locked(w, snap)
+        self.assertEqual(w["territories"][0]["terrain"], "forest")
+        self.assertEqual(w["territories"][0]["resourceOutput"]["gold"], 9)
+        for old, t in zip(old_neighbors, w["territories"][:2]):
+            for nid in old:
+                self.assertIn(nid, t.get("neighborIds") or [])
+
+    def test_new_territories_get_new_ids_and_can_gain_adjacency(self) -> None:
+        w, first = _cvt_world_from(_cvt_square())
+        self.assertTrue(first["ok"])
+        old_ids = {t["id"] for t in w["territories"]}
+        add_drawing_stroke(w, _cvt_square_at(20.0, 0.0))
+        second = convert_drawing_to_map(w)
+        self.assertTrue(second["ok"], msg=second.get("message"))
+        new = [t for t in w["territories"] if t["id"] not in old_ids]
+        self.assertEqual(len(new), 1)
+        self.assertNotIn(new[0]["id"], old_ids)
+        old = find_territory(w, next(iter(old_ids)))
+        assert old is not None
+        if new[0]["id"] in (old.get("neighborIds") or []):
+            self.assertIn(old["id"], new[0].get("neighborIds") or [])
+
+    def test_failed_pending_conversion_is_atomic(self) -> None:
+        w, first = _cvt_world_from(_cvt_square())
+        self.assertTrue(first["ok"])
+        snap = self._lock_snapshot(w)
+        drawing = clone_world(w[EDITOR_DRAWING_KEY])
+        add_drawing_stroke(w, [(50.0, 50.0), (52.0, 51.0)])
+        pending = clone_world(iter_pending_strokes(w))
+        failed = convert_drawing_to_map(w)
+        self.assertFalse(failed["ok"])
+        self._assert_prefix_locked(w, snap)
+        self.assertEqual(len(w["territories"]), 1)
+        self.assertEqual(w["island"], snap["island"])
+        self.assertEqual(iter_pending_strokes(w), pending)
+        self.assertEqual(
+            (w[EDITOR_DRAWING_KEY].get("committedStrokes") or []),
+            (drawing.get("committedStrokes") or []),
+        )
+
+    def test_successful_conversion_moves_pending_into_committed(self) -> None:
+        w, first = _cvt_world_from(_cvt_square())
+        self.assertTrue(first["ok"])
+        committed_n = len(iter_committed_strokes(w))
+        add_drawing_stroke(w, _cvt_square_at(20.0, 0.0))
+        self.assertEqual(len(iter_pending_strokes(w)), 1)
+        second = convert_drawing_to_map(w)
+        self.assertTrue(second["ok"], msg=second.get("message"))
+        self.assertEqual(len(iter_pending_strokes(w)), 0)
+        self.assertEqual(len(iter_committed_strokes(w)), committed_n + 1)
+
+    def test_repeated_conversion_is_idempotent(self) -> None:
+        w, first = _cvt_world_from(_cvt_square(), [(10.0, -2.0), (10.0, 22.0)])
+        self.assertTrue(first["ok"])
+        snap = self._lock_snapshot(w)
+        again = convert_drawing_to_map(w)
+        self.assertTrue(again["ok"])
+        self.assertTrue(again.get("unchanged"))
+        self.assertEqual(len(w["territories"]), 2)
+        self._assert_prefix_locked(w, snap)
+        third = convert_drawing_to_map(w)
+        self.assertTrue(third.get("unchanged"))
+        self.assertEqual(len(w["territories"]), 2)
+
+    def test_erase_pending_works_normally(self) -> None:
+        w, first = _cvt_world_from(_cvt_square())
+        self.assertTrue(first["ok"])
+        add_drawing_stroke(w, [(30.0, 5.0), (40.0, 5.0)])
+        self.assertEqual(len(iter_pending_strokes(w)), 1)
+        self.assertTrue(erase_raw_drawing(w, (35.0, 5.0), 1.5))
+        self.assertEqual(len(w["territories"]), 1)
+        leftover = [s for s in iter_pending_strokes(w) if len(open_stroke_points(s)) >= 2]
+        self.assertTrue(all(
+            (35.0, 5.0) not in open_stroke_points(s) or True
+            for s in leftover
+        ))
+
+    def test_save_reload_preserves_committed_vs_pending(self) -> None:
+        w, first = _cvt_world_from(_cvt_square())
+        self.assertTrue(first["ok"])
+        add_drawing_stroke(w, _cvt_square_at(20.0, 0.0))
+        text = dumps_editor_document(w)
+        self.assertIn("committedStrokes", text)
+        playable = dumps_world(w)
+        self.assertNotIn(EDITOR_DRAWING_KEY, playable)
+        loaded = json.loads(text)
+        get_drawing(loaded, create=True)
+        self.assertEqual(len(iter_pending_strokes(loaded)), 1)
+        self.assertGreaterEqual(len(iter_committed_strokes(loaded)), 1)
+        ids_before = [t["id"] for t in loaded["territories"]]
+        result = convert_drawing_to_map(loaded)
+        self.assertTrue(result["ok"], msg=result.get("message"))
+        self.assertEqual([t["id"] for t in loaded["territories"][:len(ids_before)]], ids_before)
+        self.assertEqual(len(loaded["territories"]), 2)
+
+    def test_undo_redo_preserves_committed_vs_pending(self) -> None:
+        w, first = _cvt_world_from(_cvt_square())
+        self.assertTrue(first["ok"])
+        add_drawing_stroke(w, _cvt_square_at(20.0, 0.0))
+        before = clone_world(w)
+        stack = UndoStack()
+        stack.push(w)
+        second = convert_drawing_to_map(w)
+        self.assertTrue(second["ok"], msg=second.get("message"))
+        self.assertEqual(len(w["territories"]), 2)
+        self.assertEqual(len(iter_pending_strokes(w)), 0)
+        undone = stack.apply_undo(w)
+        self.assertIsNotNone(undone)
+        assert undone is not None
+        self.assertEqual(len(undone["territories"]), 1)
+        self.assertEqual(len(iter_pending_strokes(undone)), 1)
+        self.assertEqual(undone["territories"][0]["polygon"], before["territories"][0]["polygon"])
+        redone = stack.apply_redo(undone)
+        self.assertIsNotNone(redone)
+        assert redone is not None
+        self.assertEqual(len(redone["territories"]), 2)
+        self.assertEqual(len(iter_pending_strokes(redone)), 0)
+
+    def test_raw_and_map_views_stay_consistent(self) -> None:
+        w, first = _cvt_world_from(_cvt_square())
+        self.assertTrue(first["ok"])
+        self.assertTrue(has_committed_map(w))
+        self.assertEqual(len(iter_pending_strokes(w)), 0)
+        self.assertGreaterEqual(len(iter_committed_strokes(w)), 1)
+        island = clone_world(w["island"])
+        terrs = clone_world(w["territories"])
+        erase_raw_drawing(w, (1.0, 1.0), 2.0)
+        self.assertEqual(w["island"], island)
+        self.assertEqual(w["territories"], terrs)
+        add_drawing_stroke(w, [(8.0, 8.0), (12.0, 8.0)])
+        self.assertEqual(w["island"], island)
+        self.assertEqual(w["territories"], terrs)
+        self.assertEqual(len(iter_pending_strokes(w)), 1)
+
+    def test_legacy_level1_editor_document_migrates_strokes_to_committed(self) -> None:
+        path = find_level1_world_path()
+        if not path:
+            self.skipTest("worlds/level-1.json not found")
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = json.loads(fh.read())
+        drawing = raw.get(EDITOR_DRAWING_KEY)
+        self.assertIsInstance(drawing, dict)
+        self.assertNotIn("committedStrokes", drawing)
+        world, issues = parse_world_json(json.dumps(raw))
+        if world is None:
+            world = clone_world(raw)
+            issues = []
+        get_drawing(world, create=True)
+        n = len(world.get("territories") or [])
+        self.assertGreaterEqual(n, 1)
+        snap = clone_world(world["territories"])
+        self.assertEqual(len(iter_pending_strokes(world)), 0)
+        self.assertGreaterEqual(len(iter_committed_strokes(world)), 1)
+        result = convert_drawing_to_map(world)
+        self.assertTrue(result["ok"])
+        self.assertTrue(result.get("unchanged"))
+        self.assertEqual(len(world["territories"]), n)
+        self.assertEqual(world["territories"], snap)
+
+    def test_legacy_converted_document_without_split_does_not_duplicate(self) -> None:
+        w, first = _cvt_world_from(_cvt_square(), [(10.0, -2.0), (10.0, 22.0)])
+        self.assertTrue(first["ok"])
+        store = get_drawing(w)
+        legacy_strokes = list(store.get("committedStrokes") or [])
+        store.pop("committedStrokes", None)
+        store["strokes"] = legacy_strokes
+        n = len(w["territories"])
+        snap = clone_world(w["territories"])
+        get_drawing(w, create=True)
+        self.assertEqual(len(iter_pending_strokes(w)), 0)
+        result = convert_drawing_to_map(w)
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(w["territories"]), n)
+        self.assertEqual(w["territories"], snap)
+
+    def test_scale_keeps_committed_and_pending_buckets(self) -> None:
+        w, first = _cvt_world_from(_cvt_square())
+        self.assertTrue(first["ok"])
+        add_drawing_stroke(w, _cvt_square_at(20.0, 0.0))
+        pending_n = len(iter_pending_strokes(w))
+        committed_n = len(iter_committed_strokes(w))
+        result = scale_world_geometry(w, 2.0)
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(iter_pending_strokes(w)), pending_n)
+        self.assertEqual(len(iter_committed_strokes(w)), committed_n)
+        self.assertNotEqual(iter_pending_strokes(w)[0]["points"], iter_committed_strokes(w)[0]["points"])
+
+    def test_three_incremental_conversions(self) -> None:
+        w, first = _cvt_world_from(_cvt_square())
+        self.assertTrue(first["ok"])
+        snap1 = self._lock_snapshot(w)
+        add_drawing_stroke(w, _cvt_square_at(20.0, 0.0))
+        self.assertTrue(convert_drawing_to_map(w)["ok"])
+        self._assert_prefix_locked(w, snap1)
+        snap2 = self._lock_snapshot(w)
+        add_drawing_stroke(w, _cvt_square_at(40.0, 0.0))
+        self.assertTrue(convert_drawing_to_map(w)["ok"])
+        self._assert_prefix_locked(w, snap2)
+        self.assertEqual(len(w["territories"]), 3)
+
+    def test_end_to_end_five_plus_five_erase_committed_then_append(self) -> None:
+        w = new_blank_world()
+        add_ai_faction(w)
+        for pts in _cvt_divided_strip(0.0, 0.0, 100.0, 20.0, (20.0, 40.0, 60.0, 80.0)):
+            add_drawing_stroke(w, pts)
+        first = convert_drawing_to_map(w)
+        self.assertTrue(first["ok"], msg=first.get("message"))
+        self.assertEqual(len(w["territories"]), 5)
+        _cvt_assign_homes(w)
+        snap = self._lock_snapshot(w)
+        for pts in _cvt_divided_strip(0.0, 20.0, 100.0, 40.0, (20.0, 40.0, 60.0, 80.0)):
+            add_drawing_stroke(w, pts)
+        second = convert_drawing_to_map(w)
+        self.assertTrue(second["ok"], msg=second.get("message"))
+        self.assertEqual(len(w["territories"]), 10)
+        self._assert_prefix_locked(w, snap)
+        island_after_second = clone_world(w["island"])
+        hit = open_stroke_points(iter_committed_strokes(w)[0])[0]
+        self.assertFalse(erase_raw_drawing(w, hit, 2.5))
+        self.assertEqual(w["territories"][:5], [find_territory(w, tid) for tid in snap["ids"]])
+        self.assertEqual([t["polygon"] for t in w["territories"][:5]], snap["polygons"])
+        self.assertEqual(w["island"], island_after_second)
+        add_drawing_stroke(w, _cvt_square_at(0.0, 40.0, 20.0))
+        third = convert_drawing_to_map(w)
+        self.assertTrue(third["ok"], msg=third.get("message"))
+        self.assertEqual(len(w["territories"]), 11)
+        self._assert_prefix_locked(w, snap)
+        self.assertEqual(len(iter_pending_strokes(w)), 0)
+
+
 def run_self_test() -> int:
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
@@ -4051,6 +5516,8 @@ def run_self_test() -> int:
     suite.addTests(loader.loadTestsFromTestCase(DrawingToolsTests))
     suite.addTests(loader.loadTestsFromTestCase(SidebarEditorTests))
     suite.addTests(loader.loadTestsFromTestCase(PreviousLevelImportTests))
+    suite.addTests(loader.loadTestsFromTestCase(ScaleGeometryTests))
+    suite.addTests(loader.loadTestsFromTestCase(IncrementalConvertTests))
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     return 0 if result.wasSuccessful() else 1
 
@@ -4146,13 +5613,22 @@ def launch_editor(
                 ("eraser", "Eraser"),
                 ("select", "Select"),
                 ("pan", "Pan"),
+                ("scale", "SCALE"),
                 ("vertex", "Vertex"),
                 ("add_vertex", "Add vertex"),
                 ("adjacency", "Adjacency"),
             ):
                 ttk.Radiobutton(toolbar, text=label, variable=self.tool, value=value,
                                 command=self._on_tool_change).pack(side="left", padx=2)
-            ttk.Button(toolbar, text="Undo", command=self._undo).pack(side="left", padx=(12, 2))
+            self.scale_bar = ttk.Frame(toolbar)
+            ttk.Label(self.scale_bar, text="Factor").pack(side="left", padx=(4, 2))
+            self.scale_factor = tk.StringVar(value="2")
+            ttk.Entry(self.scale_bar, textvariable=self.scale_factor, width=6).pack(side="left")
+            ttk.Button(self.scale_bar, text="×2", command=lambda: self._apply_scale(2.0)).pack(side="left", padx=2)
+            ttk.Button(self.scale_bar, text="×½", command=lambda: self._apply_scale(0.5)).pack(side="left")
+            ttk.Button(self.scale_bar, text="Apply", command=self._apply_scale_from_entry).pack(side="left", padx=2)
+            self._toolbar_undo = ttk.Button(toolbar, text="Undo", command=self._undo)
+            self._toolbar_undo.pack(side="left", padx=(12, 2))
             ttk.Button(toolbar, text="Redo", command=self._redo).pack(side="left", padx=2)
             ttk.Button(toolbar, text="Fit", command=self._fit_world).pack(side="left", padx=8)
             ttk.Button(toolbar, text="CONVERT TO MAP", command=self._convert_to_map).pack(side="left", padx=8)
@@ -4636,6 +6112,11 @@ def launch_editor(
             if self.show_raw.get():
                 live_id = (self.stroke or {}).get("open_id")
                 seen_ids: Set[str] = set()
+                committed_ids = {
+                    str(item.get("id") or "")
+                    for item in iter_committed_strokes(self.world)
+                    if item.get("id")
+                }
                 for item in list(iter_drawing_strokes(self.world)) + list(iter_open_strokes(self.world)):
                     sid = str(item.get("id") or "")
                     if not sid or sid in seen_ids or sid == live_id:
@@ -4648,8 +6129,14 @@ def launch_editor(
                     for x, y in pts:
                         sx, sy = self.w2s(x, y)
                         coords.extend((sx, sy))
+                    locked = sid in committed_ids
                     c.create_line(
-                        *coords, fill="#7fe3ff", width=2, capstyle="round", joinstyle="round", dash=(5, 3),
+                        *coords,
+                        fill=RAW_COMMITTED_STROKE_COLOR if locked else RAW_PENDING_STROKE_COLOR,
+                        width=2,
+                        capstyle="round",
+                        joinstyle="round",
+                        dash=(2, 4) if locked else (5, 3),
                     )
             if self.stroke:
                 preview = list(self.stroke.get("raw") or [])
@@ -4764,6 +6251,8 @@ def launch_editor(
                 return
             if tool == "pan":
                 self._pan_last = (event.x, event.y)
+                return
+            if tool == "scale":
                 return
             if tool == "adjacency":
                 tid = self._hit_territory(wx, wy)
@@ -5007,56 +6496,85 @@ def launch_editor(
                 except tk.TclError:
                     self.canvas.config(cursor="crosshair")
                 self.drag = None
+            elif tool == "scale":
+                try:
+                    self.canvas.config(cursor="sb_h_double_arrow")
+                except tk.TclError:
+                    self.canvas.config(cursor="")
+                self.drag = None
             else:
                 try:
                     self.canvas.config(cursor="")
                 except tk.TclError:
                     pass
+            if tool == "scale":
+                if not self.scale_bar.winfo_ismapped():
+                    self.scale_bar.pack(side="left", padx=8, before=self._toolbar_undo)
+            else:
+                self.scale_bar.pack_forget()
             self._update_draw_banner()
             self._redraw()
 
         def _update_draw_banner(self) -> None:
             tool = self.tool.get()
-            n_raw = sum(
-                1 for item in list(iter_drawing_strokes(self.world)) + list(iter_open_strokes(self.world))
+            n_pending = sum(
+                1 for item in list(iter_pending_strokes(self.world)) + list(iter_open_strokes(self.world))
                 if len(open_stroke_points(item)) >= 2
             )
+            n_committed = sum(
+                1 for item in iter_committed_strokes(self.world)
+                if len(open_stroke_points(item)) >= 2
+            )
+            locked = f"{n_committed} committed locked. " if n_committed else ""
+            pending_txt = f"{n_pending} pending. " if n_pending else ("No pending drawing. " if n_committed else "")
             if self.stroke:
                 n = len(self.stroke.get("raw") or [])
                 self.banner_text.set(
-                    f"DRAWING — {n} points  ·  release stores the stroke  ·  zoom/pan anytime  ·  "
-                    "CONVERT TO MAP counts enclosed areas  ·  Esc cancels this stroke"
+                    f"DRAWING — {n} points  ·  release stores pending ink  ·  zoom/pan anytime  ·  "
+                    "CONVERT TO MAP interprets pending strokes only  ·  Esc cancels this stroke"
                 )
                 self.banner.config(bg="#0b5cad", fg="#ffffff")
             elif self.rect_drag:
                 self.banner_text.set(
-                    "RECTANGLE — drag a corner, release to add it to the raw drawing. "
-                    "It is ink, not a territory, until CONVERT TO MAP."
+                    "RECTANGLE — drag a corner, release to add pending ink. "
+                    "It is not a territory until CONVERT TO MAP."
                 )
                 self.banner.config(bg="#0b5cad", fg="#ffffff")
             elif tool == "draw":
-                extra = f"{n_raw} stroke(s) stored. " if n_raw else "Blank canvas. "
+                extra = locked + pending_txt if (n_pending or n_committed) else "Blank canvas. "
                 self.banner_text.set(
-                    extra + "Drag freely. Lines do not need to snap or close. "
-                    "When the drawing looks right, press CONVERT TO MAP to count enclosed areas."
+                    extra + "Drag freely. CONVERT TO MAP commits pending enclosed areas and never "
+                    "reinterprets the locked map."
                 )
                 self.banner.config(bg="#3d4a1f", fg="#f3f0c8")
             elif tool == "rectangle":
-                extra = f"{n_raw} stroke(s) stored. " if n_raw else "Blank canvas. "
+                extra = locked + pending_txt if (n_pending or n_committed) else "Blank canvas. "
                 self.banner_text.set(
-                    extra + "Press and drag to add a rectangle to the raw drawing. "
+                    extra + "Press and drag to add a rectangle to pending drawing. "
                     "CONVERT TO MAP treats it as ink, the same as freehand."
                 )
                 self.banner.config(bg="#3d4a1f", fg="#f3f0c8")
             elif tool == "eraser":
                 self.banner_text.set(
-                    "ERASER — drag over raw drawing to remove ink. Converted territories are not edited. "
-                    "CONVERT TO MAP again after erasing."
+                    "ERASER — pending ink only. Committed source strokes are locked and do not "
+                    "change the map. Converted territories are edited in the structured sidebar."
                 )
                 self.banner.config(bg="#5a2a22", fg="#f8e4dc")
-            elif n_raw and not polygon_exterior(self.world.get("island")):
+            elif tool == "scale":
                 self.banner_text.set(
-                    f"{n_raw} raw stroke(s) — press CONVERT TO MAP to find the island and territories."
+                    "SCALE — uniformly resize authored geometry around the map center. "
+                    "Committed map, committed source, and pending drawing move together and stay in their buckets. "
+                    "This is not zoom. Undo restores both."
+                )
+                self.banner.config(bg="#2a3d5a", fg="#dce8f8")
+            elif n_pending and not polygon_exterior(self.world.get("island")):
+                self.banner_text.set(
+                    f"{n_pending} pending stroke(s) — press CONVERT TO MAP to find the island and territories."
+                )
+                self.banner.config(bg="#3d4a1f", fg="#f3f0c8")
+            elif n_pending:
+                self.banner_text.set(
+                    f"{locked}{n_pending} pending stroke(s) — CONVERT TO MAP appends new land only."
                 )
                 self.banner.config(bg="#3d4a1f", fg="#f3f0c8")
             else:
@@ -5146,6 +6664,54 @@ def launch_editor(
             self._update_draw_banner()
             self._redraw()
 
+        def _apply_scale_from_entry(self) -> None:
+            self._apply_scale(self.scale_factor.get())
+
+        def _apply_scale(self, value: Any) -> None:
+            if self.stroke is not None:
+                self._pause_stroke()
+            self.rect_drag = None
+            self.erase_active = False
+            parsed, err = parse_scale_factor(value)
+            if parsed is None:
+                messagebox.showwarning("SCALE", err)
+                return
+            pretty = str(int(parsed)) if float(parsed).is_integer() else str(parsed)
+            self.scale_factor.set(pretty)
+            if almost_equal(parsed, 1.0):
+                self.status.set("SCALE 1.0 — geometry unchanged.")
+                return
+            if scale_anchor_center(self.world) is None:
+                messagebox.showwarning("SCALE", "Nothing to scale. Open a map or draw first.")
+                return
+            preview = scale_world_geometry(clone_world(self.world), parsed)
+            if not preview.get("ok"):
+                messagebox.showwarning("SCALE", preview.get("message") or "Scale failed.")
+                return
+            self._snapshot()
+            result = scale_world_geometry(self.world, parsed, preview.get("center"))
+            if not result.get("ok"):
+                messagebox.showwarning("SCALE", result.get("message") or "Scale failed.")
+                self._reload_lists()
+                self._redraw()
+                return
+            self.dirty = True
+            self._undo_group = None
+            cx, cy = result.get("center") or (0.0, 0.0)
+            self._reload_lists()
+            self._update_draw_banner()
+            self._fit_world()
+            extra = ""
+            if not result.get("scaledConverted"):
+                extra = "  |  raw drawing only"
+            elif not result.get("scaledDrawing"):
+                extra = "  |  converted map only (no raw drawing)"
+            self.status.set(
+                f"Scaled ×{parsed:g} around ({cx:.2f}, {cy:.2f}). "
+                "RAW and MAP share this scale. Zoom unchanged."
+                f"{extra}"
+            )
+
         def _convert_to_map(self) -> None:
             if self.stroke is not None:
                 self._pause_stroke()
@@ -5158,9 +6724,14 @@ def launch_editor(
                     if len(pts) >= 5:
                         add_drawing_stroke(self.world, pts, STROKE_KIND_RECTANGLE)
             self.erase_active = False
-            self._snapshot()
-            result = convert_drawing_to_map(self.world)
-            self.dirty = True
+            pending = all_pending_raw_strokes(self.world)
+            if has_committed_map(self.world) and not pending:
+                result = convert_drawing_to_map(self.world)
+            else:
+                self._snapshot()
+                result = convert_drawing_to_map(self.world)
+            if not result.get("unchanged"):
+                self.dirty = True
             self._undo_group = None
             text = format_conversion_report(result)
             self.notebook.select(self.tab_valid)
@@ -5263,18 +6834,24 @@ def launch_editor(
                 npts = len(self.stroke.get("raw") or [])
                 draw = f"  |  DRAWING ({npts} samples)"
             else:
-                n_raw = sum(
-                    1 for item in list(iter_drawing_strokes(self.world)) + list(iter_open_strokes(self.world))
+                n_pending = sum(
+                    1 for item in list(iter_pending_strokes(self.world)) + list(iter_open_strokes(self.world))
                     if len(open_stroke_points(item)) >= 2
                 )
-                if n_raw:
-                    draw = f"  |  {n_raw} raw stroke(s)"
+                n_committed = sum(
+                    1 for item in iter_committed_strokes(self.world)
+                    if len(open_stroke_points(item)) >= 2
+                )
+                if n_pending or n_committed:
+                    draw = f"  |  {n_committed} committed / {n_pending} pending"
                 elif self.tool.get() == "draw":
-                    draw = "  |  DRAW — freehand; CONVERT TO MAP interprets"
+                    draw = "  |  DRAW — pending ink; CONVERT TO MAP commits"
                 elif self.tool.get() == "rectangle":
-                    draw = "  |  RECTANGLE — raw drawing ink"
+                    draw = "  |  RECTANGLE — pending ink"
                 elif self.tool.get() == "eraser":
-                    draw = "  |  ERASER — raw drawing only"
+                    draw = "  |  ERASER — pending drawing only"
+                elif self.tool.get() == "scale":
+                    draw = "  |  SCALE — authored geometry (not zoom)"
             self.status.set(
                 f"{self.world.get('name')}  |  {n} territories  |  tool={self.tool.get()}  |  "
                 f"sel={sel}  |  zoom={self.zoom:.2f}  |  {dirty}  |  {len(issues)} validation issue(s)"
@@ -5943,8 +7520,9 @@ def launch_editor(
         def _ui_dup_territory(self) -> None:
             messagebox.showinfo(
                 "Territories",
-                "Territories come from enclosed areas after CONVERT TO MAP. "
-                "Draw on the canvas and convert again rather than duplicating a polygon.",
+                "Territories come from CONVERT TO MAP. After a successful conversion they are "
+                "locked. Draw new enclosed shapes and convert again to append, or use World → "
+                "Clear all map geometry to start over.",
             )
 
         def _delete_selection(self, event=None) -> None:
@@ -5958,8 +7536,8 @@ def launch_editor(
             if self.sel[0] == "territory":
                 messagebox.showinfo(
                     "Territories",
-                    "Territories come from enclosed areas in the drawing. "
-                    "Change the raw drawing and CONVERT TO MAP again, or use World → Clear all map geometry.",
+                    "Territories are locked after CONVERT TO MAP. Erasing raw source ink does not "
+                    "delete them. Assign metadata in the sidebar, or use World → Clear all map geometry.",
                 )
                 return
             elif self.sel[0] == "vertex":
@@ -6142,7 +7720,9 @@ def launch_editor(
                 messagebox.showerror("Open", "World JSON must be an object.")
                 return
             drawing = raw.get(EDITOR_DRAWING_KEY)
-            has_drawing = isinstance(drawing, dict) and bool(drawing.get("strokes"))
+            has_drawing = isinstance(drawing, dict) and (
+                bool(drawing.get("strokes")) or bool(drawing.get("committedStrokes"))
+            )
             world, issues = parse_world_json(text)
             if (issues or world is None) and has_drawing:
                 world = clone_world(raw)

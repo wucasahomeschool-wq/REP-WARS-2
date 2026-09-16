@@ -7,6 +7,7 @@ import {
   GAMEPLAY_CONFIG,
   Orchestrator,
   PRODUCTION_LEVEL_1_WORLD_ID,
+  PRODUCTION_LEVEL_2_WORLD_ID,
   PRODUCTION_WORLD_REGISTRATIONS,
   checkGameStateInvariants,
   createGameState,
@@ -100,7 +101,7 @@ export function registerLevel1ProductionTests(api: Level1ProductionTestApi): voi
     assert.ok(PRODUCTION_WORLD_REGISTRATIONS.some((r) => r.worldId === PRODUCTION_LEVEL_1_WORLD_ID));
     assert.ok(!PRODUCTION_WORLD_REGISTRATIONS.some((r) => r.worldId === FIXTURE_TINY_WORLD_ID));
     const productionOnly = createProductionWorldCatalog();
-    assert.deepStrictEqual(productionOnly.registeredIds(), [PRODUCTION_LEVEL_1_WORLD_ID]);
+    assert.deepStrictEqual(productionOnly.registeredIds(), [PRODUCTION_LEVEL_1_WORLD_ID, PRODUCTION_LEVEL_2_WORLD_ID]);
     assert.strictEqual(productionOnly.load(FIXTURE_TINY_WORLD_ID).ok, false);
   });
 

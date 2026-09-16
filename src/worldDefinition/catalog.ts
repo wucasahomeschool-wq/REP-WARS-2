@@ -6,6 +6,7 @@ import {
   DEFAULT_PRODUCTION_WORLD_ID,
   FIXTURE_TINY_WORLD_RELATIVE_PATH,
   PRODUCTION_LEVEL_1_RELATIVE_PATH,
+  PRODUCTION_LEVEL_2_RELATIVE_PATH,
   FIXTURE_WORLD_REGISTRATIONS,
   PRODUCTION_WORLD_REGISTRATIONS,
   WorldFileRegistration,
@@ -17,6 +18,8 @@ export {
   FIXTURE_TINY_WORLD_RELATIVE_PATH,
   PRODUCTION_LEVEL_1_WORLD_ID,
   PRODUCTION_LEVEL_1_RELATIVE_PATH,
+  PRODUCTION_LEVEL_2_WORLD_ID,
+  PRODUCTION_LEVEL_2_RELATIVE_PATH,
   FIXTURE_WORLD_REGISTRATIONS,
   PRODUCTION_WORLD_REGISTRATIONS,
 } from './worldConfig';
@@ -41,6 +44,10 @@ export function productionLevel1JsonPath(): string {
   return resolveWorldFilePath(PRODUCTION_LEVEL_1_RELATIVE_PATH);
 }
 
+export function productionLevel2JsonPath(): string {
+  return resolveWorldFilePath(PRODUCTION_LEVEL_2_RELATIVE_PATH);
+}
+
 export function loadWorldDefinitionFromFile(filePath: string): WorldLoadResult {
   let text: string;
   try {
@@ -60,6 +67,11 @@ export function loadTinyWorldDefinition(): WorldLoadResult {
 /** Production Level 1 helper. Runtime still loads through WorldCatalog. */
 export function loadProductionLevel1Definition(): WorldLoadResult {
   return loadWorldDefinitionFromFile(productionLevel1JsonPath());
+}
+
+/** Production Level 2 helper. Runtime still loads through WorldCatalog. */
+export function loadProductionLevel2Definition(): WorldLoadResult {
+  return loadWorldDefinitionFromFile(productionLevel2JsonPath());
 }
 
 export function formatWorldLoadFailure(
@@ -164,6 +176,11 @@ function registerAll(
     const loaded = catalog.registerFile(filePath, reg.worldId);
     if (!loaded.ok) {
       throw new Error(formatWorldLoadFailure(reg.worldId, loaded, { filePath }));
+    }
+    if (loaded.definition.level !== reg.level) {
+      throw new Error(
+        `configured world ${reg.worldId} level ${loaded.definition.level} does not match registration ${reg.level}`,
+      );
     }
   }
 }

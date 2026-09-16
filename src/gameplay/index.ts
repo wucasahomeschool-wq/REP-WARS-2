@@ -91,3 +91,10 @@ export {
   LEVEL1_TUTORIAL_TILE_IDS,
 } from './tutorial/level1';
 export type { Level1TutorialPublicView } from './tutorial/level1';
+export {
+  evaluateWorldTransition,
+  applyWorldTransition,
+  buildNextWorldState,
+  carryPlayerScopedFitness,
+} from './worldTransition';
+export type { WorldTransitionView, WorldTransitionApplyResult } from './worldTransition';

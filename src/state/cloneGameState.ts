@@ -214,6 +214,46 @@ function clonePlayerRewardState(rewards: PlayerRewardState): PlayerRewardState {
 }
 
 /**
+ * Replace every field of `target` with a deep clone of `source`.
+ * Used by world transition so the orchestrator draft becomes the next world
+ * without sharing nested references with the initializer result.
+ */
+export function overwriteGameState(target: GameState, source: GameState): void {
+  const next = cloneGameState(source);
+  target.schemaVersion = next.schemaVersion;
+  target.turn = next.turn;
+  target.worldTick = next.worldTick;
+  target.lastFoodConsumptionTick = next.lastFoodConsumptionTick;
+  target.lastAiDecisionTick = next.lastAiDecisionTick;
+  target.worldSeed = next.worldSeed;
+  target.factions = next.factions;
+  target.allFactionIds = next.allFactionIds;
+  target.playerFactionId = next.playerFactionId;
+  target.definitionWorldId = next.definitionWorldId;
+  target.definitionFormatVersion = next.definitionFormatVersion;
+  target.worldLevel = next.worldLevel;
+  target.worldName = next.worldName;
+  target.regions = next.regions;
+  target.territories = next.territories;
+  target.armies = next.armies;
+  target.commitments = next.commitments;
+  target.activeEvents = next.activeEvents;
+  target.eventHistory = next.eventHistory;
+  target.playerRewards = next.playerRewards;
+  target.activeInvasions = next.activeInvasions;
+  target.constructions = next.constructions;
+  target.cities = next.cities;
+  target.territoryEconomy = next.territoryEconomy;
+  target.territoryInfrastructure = next.territoryInfrastructure;
+  target.playerFitness = next.playerFitness;
+  target.playerEmpirePause = next.playerEmpirePause;
+  target.attackerCooldowns = next.attackerCooldowns;
+  target.levelAnchorTerritoryIds = next.levelAnchorTerritoryIds;
+  target.levelDefeat = next.levelDefeat;
+  target.level1Tutorial = next.level1Tutorial;
+}
+
+/**
  * Deep-clones a `GameState` with no shared mutable nested references.
  * Every `Map`/`Set`/array/object nested field is rebuilt, including
  * `factions[].diplomacy`, `regions`, `commitments`, `activeEvents`,
