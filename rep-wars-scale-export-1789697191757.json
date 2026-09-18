@@ -1,0 +1,1019 @@
+{
+  "schemaVersion": "rep-wars-asset-scale.v1",
+  "lab": "2d-prop-scale",
+  "labVersion": "1.0.0",
+  "exportedAt": "2026-09-18T02:06:31.753Z",
+  "sourceCommit": "e9d6922",
+  "reference": {
+    "assetId": "background-removed-city-level-2-standard",
+    "name": "background-removed-City Level 2-standard",
+    "relativeScale": 1
+  },
+  "assets": [
+    {
+      "assetId": "army-reference-1",
+      "name": "Army Reference 1",
+      "path": "Army Reference 1.png",
+      "filename": "Army Reference 1.png",
+      "category": "non-world",
+      "reviewStatus": "excluded",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "badge-spritesheet-1",
+      "name": "Badge Spritesheet 1",
+      "path": "Badge Spritesheet 1.png",
+      "filename": "Badge Spritesheet 1.png",
+      "category": "non-world",
+      "reviewStatus": "not-reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "cover-art-for-pwa",
+      "name": "Cover Art for PWA",
+      "path": "Cover Art for PWA.png",
+      "filename": "Cover Art for PWA.png",
+      "category": "non-world",
+      "reviewStatus": "not-reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "female-empress-1",
+      "name": "Female Empress 1",
+      "path": "Female Empress 1.png",
+      "filename": "Female Empress 1.png",
+      "category": "non-world",
+      "reviewStatus": "not-reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "female-empress-2",
+      "name": "Female Empress 2",
+      "path": "Female Empress 2.png",
+      "filename": "Female Empress 2.png",
+      "category": "non-world",
+      "reviewStatus": "not-reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "fence-gate-1",
+      "name": "Fence Gate 1",
+      "path": "Fence Gate 1.png",
+      "filename": "Fence Gate 1.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.05,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "hud-button-1",
+      "name": "HUD Button 1",
+      "path": "HUD Button 1.png",
+      "filename": "HUD Button 1.png",
+      "category": "non-world",
+      "reviewStatus": "not-reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "iron-mine-1",
+      "name": "Iron Mine 1",
+      "path": "Iron Mine 1.png",
+      "filename": "Iron Mine 1.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 1,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "male-emperor-1",
+      "name": "Male Emperor 1",
+      "path": "Male Emperor 1.png",
+      "filename": "Male Emperor 1.png",
+      "category": "non-world",
+      "reviewStatus": "not-reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "male-emperor-2",
+      "name": "Male Emperor 2",
+      "path": "Male Emperor 2.png",
+      "filename": "Male Emperor 2.png",
+      "category": "non-world",
+      "reviewStatus": "not-reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "male-emperor-3",
+      "name": "Male Emperor 3",
+      "path": "Male Emperor 3.png",
+      "filename": "Male Emperor 3.png",
+      "category": "non-world",
+      "reviewStatus": "not-reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "rep-wars-text-logo",
+      "name": "Rep Wars Text Logo",
+      "path": "Rep Wars Text Logo.png",
+      "filename": "Rep Wars Text Logo.png",
+      "category": "non-world",
+      "reviewStatus": "not-reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "river-terminate-or-begin-1",
+      "name": "River Terminate or Begin 1",
+      "path": "River Terminate or Begin 1.png",
+      "filename": "River Terminate or Begin 1.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.3,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by 0.05 to 0.15 to create variety"
+    },
+    {
+      "assetId": "rock-2",
+      "name": "Rock 2",
+      "path": "Rock 2.png",
+      "filename": "Rock 2.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.1,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.05 to create variety"
+    },
+    {
+      "assetId": "secretary-1",
+      "name": "Secretary 1",
+      "path": "Secretary 1.png",
+      "filename": "Secretary 1.png",
+      "category": "non-world",
+      "reviewStatus": "not-reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "stump-1",
+      "name": "Stump 1",
+      "path": "Stump 1.png",
+      "filename": "Stump 1.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.1,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.05 to create variety"
+    },
+    {
+      "assetId": "tree-1-pine",
+      "name": "Tree 1 (pine)",
+      "path": "Tree 1 (pine).png",
+      "filename": "Tree 1 (pine).png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.15,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.05 to create variety"
+    },
+    {
+      "assetId": "tree-2-broadleaf",
+      "name": "Tree 2 (broadleaf)",
+      "path": "Tree 2 (broadleaf).png",
+      "filename": "Tree 2 (broadleaf).png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.15,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.1 to create variety"
+    },
+    {
+      "assetId": "tree-cluster-3",
+      "name": "Tree Cluster 3",
+      "path": "Tree Cluster 3.png",
+      "filename": "Tree Cluster 3.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.1 to create variety"
+    },
+    {
+      "assetId": "background-removed-barrel-1-standard",
+      "name": "background-removed-Barrel 1-standard",
+      "path": "background-removed-Barrel 1-standard.png",
+      "filename": "background-removed-Barrel 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.05,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-brush-cluster-1-standard",
+      "name": "background-removed-Brush Cluster 1-standard",
+      "path": "background-removed-Brush Cluster 1-standard.png",
+      "filename": "background-removed-Brush Cluster 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.1,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.1 to create variety"
+    },
+    {
+      "assetId": "background-removed-brush-cluster-2-standard",
+      "name": "background-removed-Brush Cluster 2-standard",
+      "path": "background-removed-Brush Cluster 2-standard.png",
+      "filename": "background-removed-Brush Cluster 2-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.06,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.1 to create variety"
+    },
+    {
+      "assetId": "background-removed-cart-1-standard",
+      "name": "background-removed-Cart 1-standard",
+      "path": "background-removed-Cart 1-standard.png",
+      "filename": "background-removed-Cart 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.06,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-city-level-2-standard",
+      "name": "background-removed-City Level 2-standard",
+      "path": "background-removed-City Level 2-standard.png",
+      "filename": "background-removed-City Level 2-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 1,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-city-level-3-standard",
+      "name": "background-removed-City Level 3-standard",
+      "path": "background-removed-City Level 3-standard.png",
+      "filename": "background-removed-City Level 3-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 1.2,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-city-level-4-standard",
+      "name": "background-removed-City Level 4-standard",
+      "path": "background-removed-City Level 4-standard.png",
+      "filename": "background-removed-City Level 4-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 1.5,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-cornfield-1-standard",
+      "name": "background-removed-Cornfield 1-standard",
+      "path": "background-removed-Cornfield 1-standard.png",
+      "filename": "background-removed-Cornfield 1-standard.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.25,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-cover-art-for-pwa-standard",
+      "name": "background-removed-Cover Art-for-PWA-standard",
+      "path": "background-removed-Cover Art-for-PWA-standard.png",
+      "filename": "background-removed-Cover Art-for-PWA-standard.png",
+      "category": "non-world",
+      "reviewStatus": "excluded",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-dead-tree-1-standard",
+      "name": "background-removed-Dead Tree 1-standard",
+      "path": "background-removed-Dead Tree 1-standard.png",
+      "filename": "background-removed-Dead Tree 1-standard.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.1,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.06 to create variety"
+    },
+    {
+      "assetId": "background-removed-fence-1-standard",
+      "name": "background-removed-Fence 1-standard",
+      "path": "background-removed-Fence 1-standard.png",
+      "filename": "background-removed-Fence 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.05,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-fence-corner-1-standard",
+      "name": "background-removed-Fence Corner 1-standard",
+      "path": "background-removed-Fence Corner 1-standard.png",
+      "filename": "background-removed-Fence Corner 1-standard.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.05,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-goldmine-1-standard",
+      "name": "background-removed-Goldmine 1-standard",
+      "path": "background-removed-Goldmine 1-standard.png",
+      "filename": "background-removed-Goldmine 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.4,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-grain-sack-1-standard",
+      "name": "background-removed-Grain Sack 1-standard",
+      "path": "background-removed-Grain Sack 1-standard.png",
+      "filename": "background-removed-Grain Sack 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.07,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-grass-shoot-2-standard",
+      "name": "background-removed-Grass Shoot 2-standard",
+      "path": "background-removed-Grass Shoot 2-standard.png",
+      "filename": "background-removed-Grass Shoot 2-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.05,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-haystack-1-standard",
+      "name": "background-removed-Haystack 1-standard",
+      "path": "background-removed-Haystack 1-standard.png",
+      "filename": "background-removed-Haystack 1-standard.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.1,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-iron-mine-1-standard",
+      "name": "background-removed-Iron Mine 1-standard",
+      "path": "background-removed-Iron Mine 1-standard.png",
+      "filename": "background-removed-Iron Mine 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.4,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-large-brush-and-tree-cluster-1-standard",
+      "name": "background-removed-Large Brush and Tree Cluster 1-standard",
+      "path": "background-removed-Large Brush and Tree Cluster 1-standard.png",
+      "filename": "background-removed-Large Brush and Tree Cluster 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.04 to create variety"
+    },
+    {
+      "assetId": "background-removed-large-mountain-1-standard",
+      "name": "background-removed-Large Mountain 1-standard",
+      "path": "background-removed-Large Mountain 1-standard.png",
+      "filename": "background-removed-Large Mountain 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 2.2,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": "May be enlarged or shrunk by 0.2 to 0.8 to create variety"
+    },
+    {
+      "assetId": "background-removed-large-mountain-2-standard",
+      "name": "background-removed-Large Mountain 2-standard",
+      "path": "background-removed-Large Mountain 2-standard.png",
+      "filename": "background-removed-Large Mountain 2-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 2.2,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": "May be enlarged or shrunk by 0.2 to 0.8 to create variety"
+    },
+    {
+      "assetId": "background-removed-log-1-standard",
+      "name": "background-removed-Log 1-standard",
+      "path": "background-removed-Log 1-standard.png",
+      "filename": "background-removed-Log 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.08,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by 0.02 to 0.04 to create variety"
+    },
+    {
+      "assetId": "background-removed-lumber-farm-1-standard",
+      "name": "background-removed-Lumber Farm 1-standard",
+      "path": "background-removed-Lumber Farm 1-standard.png",
+      "filename": "background-removed-Lumber Farm 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.35,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-market-1-standard",
+      "name": "background-removed-Market 1-standard",
+      "path": "background-removed-Market 1-standard.png",
+      "filename": "background-removed-Market 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.35,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-market-2-standard",
+      "name": "background-removed-Market 2-standard",
+      "path": "background-removed-Market 2-standard.png",
+      "filename": "background-removed-Market 2-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.4,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-river-1-standard",
+      "name": "background-removed-River 1-standard",
+      "path": "background-removed-River 1-standard.png",
+      "filename": "background-removed-River 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.3,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by 0.05 to 0.15 to create variety"
+    },
+    {
+      "assetId": "background-removed-river-2-standard",
+      "name": "background-removed-River 2-standard",
+      "path": "background-removed-River 2-standard.png",
+      "filename": "background-removed-River 2-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.3,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by 0.05 to 0.15 to create variety"
+    },
+    {
+      "assetId": "background-removed-river-fork-1-standard",
+      "name": "background-removed-River Fork 1-standard",
+      "path": "background-removed-River Fork 1-standard.png",
+      "filename": "background-removed-River Fork 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.3,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by 0.05 to 0.15 to create variety"
+    },
+    {
+      "assetId": "background-removed-river-terminate-to-ocean-standard",
+      "name": "background-removed-River Terminate to Ocean-standard",
+      "path": "background-removed-River Terminate to Ocean-standard.png",
+      "filename": "background-removed-River Terminate to Ocean-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by 0.5 to 0.15 to create variety"
+    },
+    {
+      "assetId": "background-removed-rock-1-standard",
+      "name": "background-removed-Rock 1-standard",
+      "path": "background-removed-Rock 1-standard.png",
+      "filename": "background-removed-Rock 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.1,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.5 to create variety"
+    },
+    {
+      "assetId": "background-removed-rock-3-standard",
+      "name": "background-removed-Rock 3-standard",
+      "path": "background-removed-Rock 3-standard.png",
+      "filename": "background-removed-Rock 3-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.1,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.5 to create variety"
+    },
+    {
+      "assetId": "background-removed-signpost-1-standard",
+      "name": "background-removed-Signpost 1-standard",
+      "path": "background-removed-Signpost 1-standard.png",
+      "filename": "background-removed-Signpost 1-standard.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.1,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-stone-bridge-1-standard",
+      "name": "background-removed-Stone Bridge 1-standard",
+      "path": "background-removed-Stone Bridge 1-standard.png",
+      "filename": "background-removed-Stone Bridge 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.15,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-stone-bridge-2-standard",
+      "name": "background-removed-Stone Bridge 2-standard",
+      "path": "background-removed-Stone Bridge 2-standard.png",
+      "filename": "background-removed-Stone Bridge 2-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.15,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-stone-quarry-1-standard",
+      "name": "background-removed-Stone Quarry 1-standard",
+      "path": "background-removed-Stone Quarry 1-standard.png",
+      "filename": "background-removed-Stone Quarry 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.4,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-storehouse-1-standard",
+      "name": "background-removed-Storehouse 1-standard",
+      "path": "background-removed-Storehouse 1-standard.png",
+      "filename": "background-removed-Storehouse 1-standard.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.4,
+      "anchor": {
+        "preset": "center",
+        "x": 0.5,
+        "y": 0.5
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-tower-1-standard",
+      "name": "background-removed-Tower 1-standard",
+      "path": "background-removed-Tower 1-standard.png",
+      "filename": "background-removed-Tower 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.25,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-tree-3-broadleaf-standard",
+      "name": "background-removed-Tree 3 (broadleaf)-standard",
+      "path": "background-removed-Tree 3 (broadleaf)-standard.png",
+      "filename": "background-removed-Tree 3 (broadleaf)-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.15,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.5 to create variety"
+    },
+    {
+      "assetId": "background-removed-tree-5-broadleaf-standard",
+      "name": "background-removed-Tree 5 (broadleaf)-standard",
+      "path": "background-removed-Tree 5 (broadleaf)-standard.png",
+      "filename": "background-removed-Tree 5 (broadleaf)-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.2,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.5 to create variety"
+    },
+    {
+      "assetId": "background-removed-tree-cluster-1-standard",
+      "name": "background-removed-Tree Cluster 1-standard",
+      "path": "background-removed-Tree Cluster 1-standard.png",
+      "filename": "background-removed-Tree Cluster 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.2,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.5 to create variety"
+    },
+    {
+      "assetId": "background-removed-tree-cluster-2-standard",
+      "name": "background-removed-Tree Cluster 2-standard",
+      "path": "background-removed-Tree Cluster 2-standard.png",
+      "filename": "background-removed-Tree Cluster 2-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.2,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.5 to create variety"
+    },
+    {
+      "assetId": "background-removed-tree-cluster-4-standard",
+      "name": "background-removed-Tree Cluster 4-standard",
+      "path": "background-removed-Tree Cluster 4-standard.png",
+      "filename": "background-removed-Tree Cluster 4-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.2,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.5 to create variety"
+    },
+    {
+      "assetId": "background-removed-trough-1-standard",
+      "name": "background-removed-Trough 1-standard",
+      "path": "background-removed-Trough 1-standard.png",
+      "filename": "background-removed-Trough 1-standard.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-well-1-standard",
+      "name": "background-removed-Well 1-standard",
+      "path": "background-removed-Well 1-standard.png",
+      "filename": "background-removed-Well 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.1,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-windmill-1-standard",
+      "name": "background-removed-Windmill 1-standard",
+      "path": "background-removed-Windmill 1-standard.png",
+      "filename": "background-removed-Windmill 1-standard.png",
+      "category": "world",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.25,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-wood-bridge-2-standard",
+      "name": "background-removed-Wood Bridge 2-standard",
+      "path": "background-removed-Wood Bridge 2-standard.png",
+      "filename": "background-removed-Wood Bridge 2-standard.png",
+      "category": "world",
+      "reviewStatus": "not-reviewed",
+      "relativeScale": null,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-wooden-box-1-standard",
+      "name": "background-removed-Wooden Box 1-standard",
+      "path": "background-removed-Wooden Box 1-standard.png",
+      "filename": "background-removed-Wooden Box 1-standard.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.08,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    },
+    {
+      "assetId": "background-removed-woodpile-1-standard",
+      "name": "background-removed-Woodpile 1-standard",
+      "path": "background-removed-Woodpile 1-standard.png",
+      "filename": "background-removed-Woodpile 1-standard.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.1,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": "May be enlarged or shrunk by up to 0.5 to create variety"
+    },
+    {
+      "assetId": "background-removed-woven-basket-1-standard",
+      "name": "background-removed-Woven Basket 1-standard",
+      "path": "background-removed-Woven Basket 1-standard.png",
+      "filename": "background-removed-Woven Basket 1-standard.png",
+      "category": "optional",
+      "reviewStatus": "reviewed",
+      "relativeScale": 0.05,
+      "anchor": {
+        "preset": "bottom-center",
+        "x": 0.5,
+        "y": 1
+      },
+      "notes": ""
+    }
+  ]
+}
