@@ -24,6 +24,7 @@ export type {
   WorkoutFeedbackRecord,
   WorkoutSession,
   WorkoutGameplayContext,
+  WorkoutSessionAuthoredRef,
   WorkoutSessionSummaryExercise,
   WorkoutSessionSummary,
   CompletedWorkoutRecord,

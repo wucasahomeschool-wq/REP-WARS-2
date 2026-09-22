@@ -5,9 +5,10 @@
  * Not XP, currency, military power, a medical score, or a game reward.
  *
  * Scale (fitness-model.v1):
- *   level 1.0–10.0  = prototype capability estimate for future prescription
+ *   level ≥ 0       = raw capability estimate for future prescription; no upper bound
  *   5.0             = uninitialized midpoint (neither beginner nor peak)
  *   confidence 0–1  = how much reliable evidence supports the level
+ *                     (independent of per-observation level-update influence)
  *
  * WorkoutDifficulty (VERY_EASY…VERY_HARD) remains a separate domain.
  */
@@ -87,6 +88,7 @@ export interface FitnessEvaluationResult {
   boundedLevelChange: number;
   decreaseResistanceApplied: boolean;
   recencyFactor: number;
+  /** Observation-count level-update influence. Not a confidence quality score. */
   influenceScale: number;
   confidenceContribution: number;
   confidenceCeiling: number;

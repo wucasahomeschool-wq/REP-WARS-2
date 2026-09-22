@@ -126,6 +126,16 @@ export interface WorkoutGameplayContext {
   startedAtWorldTick?: number | null;
 }
 
+/** Snapshot of the authored catalog used for this session. Not a fitness score. */
+export interface WorkoutSessionAuthoredRef {
+  catalogId: string;
+  catalogVersion: string;
+  engineVersion: string;
+  familyId: string;
+  size: 'SHORT' | 'STANDARD' | 'LONG';
+  progressionBandId: string;
+}
+
 export interface WorkoutSession {
   sessionId: WorkoutSessionId;
   playerId: string;
@@ -148,6 +158,8 @@ export interface WorkoutSession {
   feedback: WorkoutFeedbackRecord | null;
   /** Optional live-action hook for reward application. Not a fitness input. */
   gameplayContext?: WorkoutGameplayContext;
+  /** Present when the session used a compiled authored-v2 workout. */
+  authoredCatalog?: WorkoutSessionAuthoredRef;
 }
 
 export interface WorkoutSessionSummaryExercise {

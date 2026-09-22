@@ -98,5 +98,6 @@ export function cloneWorkoutSession(session: WorkoutSession): WorkoutSession {
     feedbackState: session.feedbackState,
     feedback: session.feedback ? cloneFeedbackRecord(session.feedback) : null,
     ...(session.gameplayContext ? { gameplayContext: { ...session.gameplayContext } } : {}),
+    ...(session.authoredCatalog ? { authoredCatalog: { ...session.authoredCatalog } } : {}),
   };
 }

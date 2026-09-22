@@ -296,6 +296,52 @@ function emitAttackOutcome(
   }
 }
 
+function emitProgressionTelemetry(
+  builder: ObservationBuilder,
+  payload: Record<string, unknown>,
+  correlationId: string,
+  sessionId: string | null,
+  causationId: string,
+): void {
+  const progression = asRecord(payload.progression);
+  if (Object.keys(progression).length === 0) return;
+  const evidence = builder.emit({
+    eventType: 'progression.evidence_updated',
+    correlationId,
+    causationId,
+    sourceSystem: 'fitness',
+    sessionId,
+    payload: omitUndefined({
+      sessionId,
+      decision: str(progression.decision),
+      bandBefore: str(progression.bandBefore),
+      bandAfter: str(progression.bandAfter),
+      catalogId: str(progression.catalogId),
+      catalogVersion: str(progression.catalogVersion),
+      engineVersion: str(progression.engineVersion),
+      completionRatio: num(progression.completionRatio),
+      feedback: str(progression.feedback),
+      completed: progression.completed === true,
+      abandoned: progression.abandoned === true,
+    }),
+  });
+  if (progression.bandChanged === true) {
+    builder.emit({
+      eventType: 'progression.band_changed',
+      correlationId,
+      causationId: evidence.eventId,
+      sourceSystem: 'fitness',
+      sessionId,
+      payload: omitUndefined({
+        sessionId,
+        bandBefore: str(progression.bandBefore),
+        bandAfter: str(progression.bandAfter),
+        decision: str(progression.decision),
+      }),
+    });
+  }
+}
+
 function emitFinalizeWorkout(builder: ObservationBuilder, observation: CommandObservation): void {
   const payload = observation.response.payload;
   const sessionId = sessionIdOf(observation.request, payload);
@@ -364,7 +410,7 @@ function emitFinalizeWorkout(builder: ObservationBuilder, observation: CommandOb
       sourcePhysicalOutput: applied?.result?.sourcePhysicalOutput,
     }),
   });
-  builder.emit({
+  const rewarded = builder.emit({
     eventType: 'workout.reward_applied',
     correlationId,
     causationId: reward.eventId,
@@ -380,6 +426,7 @@ function emitFinalizeWorkout(builder: ObservationBuilder, observation: CommandOb
       invasionOutcome: str(payload.invasionOutcome),
     }),
   });
+  emitProgressionTelemetry(builder, payload, correlationId, sessionId ?? null, rewarded.eventId);
   if (str(payload.invasionOutcome)) {
     builder.emit({
       eventType: 'invasion.resolved',
@@ -1133,15 +1180,36 @@ function emitSuccess(builder: ObservationBuilder, observation: CommandObservatio
       return;
     case 'START_WORKOUT': {
       const sid = sessionId;
+      const selection = asRecord(payload.selection);
+      const selected = builder.emit({
+        eventType: 'workout.selected',
+        correlationId: sid ?? requestCorr,
+        sourceSystem: 'fitness',
+        sessionId: sid,
+        payload: omitUndefined({
+          ...workoutContextFromParameters(parameters),
+          sessionId: sid ?? null,
+          selectedWorkoutId: str(payload.selectedWorkoutId) ?? str(payload.workoutId),
+          workoutId: str(payload.workoutId),
+          source: str(selection.source),
+          catalogId: str(selection.catalogId),
+          catalogVersion: str(selection.catalogVersion),
+          engineVersion: str(selection.engineVersion),
+          progressionBandId: str(selection.progressionBandId),
+          size: str(selection.size),
+        }),
+      });
       builder.emit({
         eventType: 'workout.started',
         correlationId: sid ?? requestCorr,
+        causationId: selected.eventId,
         sourceSystem: 'fitness',
         sessionId: sid,
         payload: {
           ...workoutContextFromParameters(parameters),
           sessionId: sid ?? null,
           state: str(payload.state) ?? null,
+          workoutId: str(payload.workoutId) ?? null,
         },
       });
       return;
@@ -1215,8 +1283,8 @@ function emitSuccess(builder: ObservationBuilder, observation: CommandObservatio
     case 'FINALIZE_WORKOUT':
       emitFinalizeWorkout(builder, observation);
       return;
-    case 'ABANDON_WORKOUT':
-      builder.emit({
+    case 'ABANDON_WORKOUT': {
+      const abandoned = builder.emit({
         eventType: 'workout.abandoned',
         correlationId: sessionId ?? requestCorr,
         sourceSystem: 'fitness',
@@ -1228,6 +1296,7 @@ function emitSuccess(builder: ObservationBuilder, observation: CommandObservatio
           invasionOutcome: str(payload.invasionOutcome),
         }),
       });
+      emitProgressionTelemetry(builder, payload, sessionId ?? requestCorr, sessionId ?? null, abandoned.eventId);
       if (str(payload.invasionOutcome)) {
         builder.emit({
           eventType: 'invasion.resolved',
@@ -1238,6 +1307,7 @@ function emitSuccess(builder: ObservationBuilder, observation: CommandObservatio
         });
       }
       return;
+    }
     case 'RECORD_INTEGRITY_FLAG':
       builder.emit({
         eventType: 'workout.integrity_flag',

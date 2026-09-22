@@ -120,6 +120,7 @@ export type {
   WorkoutFeedbackRecord,
   WorkoutSession,
   WorkoutGameplayContext,
+  WorkoutSessionAuthoredRef,
   WorkoutSessionSummaryExercise,
   WorkoutSessionSummary,
   CompletedWorkoutRecord,
@@ -174,6 +175,8 @@ export {
   FITNESS_ESTIMATE_ERROR_CODES,
   roundFitness,
   clampFitness,
+  floorFitnessLevel,
+  observationInfluenceScale,
   cloneFitnessEstimate,
   cloneFitnessEvaluationResult,
   validateFitnessEstimate,
@@ -267,3 +270,5 @@ export type {
   SameExerciseQuery,
   WorkoutHistoryStore,
 } from './history';
+export * from './authoring';
+export * from './progression';

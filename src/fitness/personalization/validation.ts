@@ -1,4 +1,3 @@
-import { FITNESS_EVALUATION_CONFIG } from '../estimate/config';
 import { isRecord } from '../guards';
 import { FITNESS_PERSONALIZATION_CONFIG, FitnessPersonalizationConfig } from './config';
 
@@ -71,9 +70,9 @@ export function validatePersonalizationConfig(raw: unknown): string[] {
   if (raw.personalizationVersion !== FITNESS_PERSONALIZATION_CONFIG.personalizationVersion) {
     issues.push('personalizationVersion is invalid');
   }
-  if (isFiniteNumber(raw.referenceLevel)
-    && (raw.referenceLevel < FITNESS_EVALUATION_CONFIG.levelMin || raw.referenceLevel > FITNESS_EVALUATION_CONFIG.levelMax)) {
-    issues.push('referenceLevel is out of Fitness Level bounds');
+  if (isFiniteNumber(raw.referenceLevel) && isFiniteNumber(raw.levelMin) && isFiniteNumber(raw.levelMax)
+    && (raw.referenceLevel < raw.levelMin || raw.referenceLevel > raw.levelMax)) {
+    issues.push('referenceLevel is outside the personalization mapping range');
   }
   return issues;
 }

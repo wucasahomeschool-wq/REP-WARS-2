@@ -85,6 +85,15 @@ export interface WorkoutDefinition {
   metadata: {
     estimatedDurationSeconds?: number;
     tags?: string[];
+    /** Present only for compiled authored-v2 workouts. Not a personalization trace. */
+    authored?: {
+      catalogId: string;
+      catalogVersion: string;
+      engineVersion: string;
+      familyId: string;
+      size: 'SHORT' | 'STANDARD' | 'LONG';
+      progressionBandId: string;
+    };
   };
 }
 

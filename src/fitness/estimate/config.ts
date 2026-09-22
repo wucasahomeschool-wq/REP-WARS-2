@@ -5,17 +5,25 @@
  * Changing this file should not require changes to WorkoutDefinition,
  * WorkoutSession, CompletedWorkoutRecord, or FitnessEvidence.
  *
+ * Scale: Fitness Level is a raw capability estimate with minimum 0 and
+ * no upper bound. Downstream personalization may compress that raw value
+ * into a bounded prescription shift; it must not cap the estimate itself.
+ *
  * Recency: exponential half-life on estimate confidence.
  *   factor = 2^(-(now - lastUpdatedAt) / recencyHalfLifeMs)
  *   At 0 delay: 1. At one half-life: 0.5. Ancient updates approach 0,
- *   so old beginner certainty does not permanently pin the level.
+ *   so old beginner certainty does not permanently pin confidence.
  *
  * Decreases: negative net deltas are multiplied by decreaseResistance
  *   so ordinary bad workouts move less than equivalent positive evidence.
  *
- * Influence: (1 - influenceConfidenceDamping * decayedConfidence).
- *   Low confidence → larger per-workout level steps.
- *   High confidence → smaller ordinary steps; strong signals still move.
+ * Level-update influence (not confidence):
+ *   scale = max(floor, initial * decay ^ observationCount)
+ *   Observation 0 (first workout) has disproportionately high calibration
+ *   influence. Each later observation multiplies that scale by decay.
+ *   Confidence is a separate evidence-quality measure and continues to
+ *   use the approach-rate model in confidence.ts. Do not treat a smaller
+ *   level step as lower-quality confidence.
  */
 
 export const MS_PER_DAY = 86_400_000;
@@ -24,15 +32,22 @@ export const MS_PER_MONTH = 30 * MS_PER_DAY;
 
 export const FITNESS_EVALUATION_CONFIG = Object.freeze({
   evaluationVersion: 'fitness-evaluation.v1' as const,
-  levelMin: 1,
-  levelMax: 10,
+  levelMin: 0,
   levelInitial: 5,
   confidenceMin: 0,
   confidenceMax: 1,
   confidenceInitial: 0.08,
   maxAbsLevelDelta: 1.25,
   decreaseResistance: 0.42,
-  influenceConfidenceDamping: 0.62,
+  /**
+   * Level-step scale at observationCount 0, as a multiple of maxAbsLevelDelta.
+   * Distinct from confidence. First workout is a calibration jump.
+   */
+  observationInfluenceInitial: 2.2,
+  /** Multiplier applied once per already-recorded observation. 0–1. */
+  observationInfluenceDecay: 0.7,
+  /** Floor so later workouts still move the estimate a little. */
+  observationInfluenceFloor: 0.06,
   recencyHalfLifeMs: 14 * MS_PER_DAY,
   stableNetThreshold: 0.04,
   weights: Object.freeze({
@@ -73,4 +88,26 @@ export function roundFitness(value: number): number {
 
 export function clampFitness(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+/** Raw Fitness Level has a floor and no ceiling. */
+export function floorFitnessLevel(
+  value: number,
+  min: number = FITNESS_EVALUATION_CONFIG.levelMin,
+): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, value);
+}
+
+/**
+ * Per-observation level-update influence. Independent of confidence.
+ * `observationCount` is how many workouts have already been applied.
+ */
+export function observationInfluenceScale(
+  observationCount: number,
+  config: FitnessEvaluationConfig = FITNESS_EVALUATION_CONFIG,
+): number {
+  const n = Number.isFinite(observationCount) ? Math.max(0, observationCount) : 0;
+  const raw = config.observationInfluenceInitial * (config.observationInfluenceDecay ** n);
+  return roundFitness(Math.max(config.observationInfluenceFloor, raw));
 }

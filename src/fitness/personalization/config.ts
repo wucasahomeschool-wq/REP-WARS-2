@@ -13,7 +13,9 @@
  *   deviation = (fitnessLevel - referenceLevel) / (levelMax - referenceLevel)
  *   fitnessShift = tanh(deviation * fitnessCompression) * maxFitnessShift
  *
- *   Level 5 → 0. Level 10 is compressed well below +100%. Not × fitnessLevel.
+ *   Level 5 → 0. levelMax here is only the tanh deviation=1 mapping
+ *   reference, not a cap on raw Fitness Level. Estimates above that
+ *   continue to compress toward maxFitnessShift. Not × fitnessLevel.
  *
  *   confidenceFactor =
  *     0  if confidence <= confidenceFloor (initial 0.08)
@@ -38,8 +40,13 @@ export const FITNESS_PERSONALIZATION_VERSION = 'fitness-personalization.v1' as c
 export const FITNESS_PERSONALIZATION_CONFIG = Object.freeze({
   personalizationVersion: FITNESS_PERSONALIZATION_VERSION,
   referenceLevel: FITNESS_EVALUATION_CONFIG.levelInitial,
-  levelMin: FITNESS_EVALUATION_CONFIG.levelMin,
-  levelMax: FITNESS_EVALUATION_CONFIG.levelMax,
+  /** Mapping-range floor for referenceLevel. Does not cap raw Fitness Level. */
+  levelMin: 0,
+  /**
+   * Mapping reference at which tanh deviation = 1. Independent of the
+   * unbounded raw Fitness Level; values above this still personalize.
+   */
+  levelMax: 10,
   fitnessCompression: 1.15,
   maxFitnessShift: 0.2,
   maxDifficultyShift: 0.24,

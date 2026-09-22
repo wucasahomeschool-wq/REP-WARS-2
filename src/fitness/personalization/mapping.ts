@@ -25,6 +25,7 @@ export function fitnessShiftFromLevel(
   config: FitnessPersonalizationConfig = FITNESS_PERSONALIZATION_CONFIG,
 ): number {
   const span = config.levelMax - config.referenceLevel;
+  // Mapping compression only. Raw Fitness Level is not clamped here.
   const deviation = (level - config.referenceLevel) / span;
   return Math.tanh(deviation * config.fitnessCompression) * config.maxFitnessShift;
 }

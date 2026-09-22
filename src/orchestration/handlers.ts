@@ -57,6 +57,7 @@ import { formatWorldLoadFailure, isLegacyDefinitionWorldId, resolveWorldDefiniti
 import { serializeWorldDefinitionForClient } from '../worldDefinition/clientView';
 import { listExerciseDefinitions, listWorkoutDefinitions } from '../fitness/catalog';
 import { listPurposeWorkoutSelections } from '../fitness/selection';
+import { getAuthoredWorkoutCatalog, listAuthoredWorkoutDefinitions } from '../fitness/authoring/registry';
 import { WORKOUT_PURPOSES } from '../fitness/types';
 import { ContinuousWorldEngine, WorldAdvanceResult, WorldSimulationHost } from '../world/ContinuousWorldEngine';
 import { parseElapsedTicks } from '../world/worldTime';
@@ -201,6 +202,7 @@ export function handleTransitionToNextWorld(state: GameState, ctx: HandlerContex
 }
 
 export function handleGetFitnessCatalog(_state: GameState, _ctx: HandlerContext): HandlerResult {
+  const authored = getAuthoredWorkoutCatalog();
   return {
     ...emptyResult(),
     payload: {
@@ -208,6 +210,15 @@ export function handleGetFitnessCatalog(_state: GameState, _ctx: HandlerContext)
       exercises: listExerciseDefinitions(),
       purposes: [...WORKOUT_PURPOSES],
       purposeSelections: listPurposeWorkoutSelections(),
+      authoredCatalog: authored
+        ? {
+          catalogId: authored.catalogId,
+          catalogVersion: authored.catalogVersion,
+          engineVersion: authored.engineVersion,
+          workoutIds: Object.keys(authored.workouts),
+          workouts: listAuthoredWorkoutDefinitions(),
+        }
+        : null,
     },
   };
 }

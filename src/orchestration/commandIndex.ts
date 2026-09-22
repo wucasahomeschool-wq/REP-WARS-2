@@ -100,9 +100,12 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   cmd({
     commandId: 'GET_WORKOUT_SELECTION',
     category: 'READ',
-    description: 'Authoritative workout selection for a WorkoutPurpose in the current gameplay/tutorial context. Returns the selected catalog workout and a prescribed snapshot. Does not start a session.',
+    description: 'Authoritative workout selection for a WorkoutPurpose. When an authored catalog is installed and tutorial gating is off, the backend selects from authored workouts. Does not start a session.',
     required: [p('purpose', 'string', 'WorkoutPurpose')],
-    optional: [p('intendedDifficulty', 'string', 'Override desired difficulty for the prescribed snapshot')],
+    optional: [
+      p('intendedDifficulty', 'string', 'Override desired difficulty for the prescribed snapshot'),
+      p('size', 'string', 'SHORT, STANDARD, or LONG when an authored catalog is installed'),
+    ],
     validation: ['purpose must be a WorkoutPurpose', 'selected workout must exist in the catalog'],
     routesTo: ['fitness', 'state'],
     changesState: false,
@@ -334,11 +337,12 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   cmd({
     commandId: 'START_WORKOUT',
     category: 'FITNESS',
-    description: 'Start an authoritative workout session. Omit workoutId to use the backend selection for the given purpose. DEFENSE requires a matching active invasion and must start before the response deadline.',
+    description: 'Start an authoritative workout session. Omit workoutId so the backend selects the next appropriate authored workout (or the purpose-table workout when no authored catalog is installed). DEFENSE requires a matching active invasion and must start before the response deadline.',
     required: [p('purpose', 'string', 'WorkoutPurpose')],
     optional: [
-      p('workoutId', 'string', 'Catalog workout id; defaults to the authoritative selection. Level 1 tutorial requires the selected id when provided.'),
+      p('workoutId', 'string', 'Catalog workout id; omit to let the backend select. Level 1 tutorial requires the selected id when provided.'),
       p('intendedDifficulty', 'string', 'Override difficulty'),
+      p('size', 'string', 'SHORT, STANDARD, or LONG for authored selection when workoutId is omitted'),
       p('sessionId', 'string', 'Optional session id'),
       p('invasionId', 'string', 'Required for DEFENSE'),
       p('constructionId', 'string', 'Live construction target'),

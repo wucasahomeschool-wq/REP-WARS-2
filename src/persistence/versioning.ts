@@ -6,6 +6,7 @@ import {
   emptyPlayerRewardState,
 } from '../types/GameState';
 import { coerceLevel1TutorialState } from '../gameplay/tutorial/level1';
+import { coercePlayerProgressionState } from '../fitness/progression/types';
 import { PersistenceError } from './errors';
 
 export const MIN_SUPPORTED_GAME_STATE_SCHEMA = 5;
@@ -218,6 +219,7 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
     if (!('activeSession' in fitness)) fitness.activeSession = null;
     if (!('estimate' in fitness)) fitness.estimate = null;
     if (!('lastWorkoutCompletedAtTick' in fitness)) fitness.lastWorkoutCompletedAtTick = null;
+    fitness.progression = coercePlayerProgressionState(fitness.progression);
   }
 
   if (!Array.isArray(state.allFactionIds)) state.allFactionIds = [];

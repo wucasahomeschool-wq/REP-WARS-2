@@ -150,6 +150,10 @@ export function personalizeWorkout(
   definition: WorkoutDefinition,
   input: PersonalizationInput,
 ): PersonalizationOpResult<PrescribedWorkout> {
+  /**
+   * Legacy path: FitnessEstimate → scaled PrescribedWorkout.
+   * Authored-v2 selection does not call this. Kept for tutorial / empty catalog.
+   */
   if (typeof input.playerId !== 'string' || input.playerId.trim() === '') {
     return personalizationErr('personalization.invalid_player', 'playerId must be a non-empty string');
   }

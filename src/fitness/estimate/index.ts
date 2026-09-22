@@ -20,6 +20,8 @@ export {
   MS_PER_MONTH,
   roundFitness,
   clampFitness,
+  floorFitnessLevel,
+  observationInfluenceScale,
 } from './config';
 export type { FitnessEvaluationConfig } from './config';
 

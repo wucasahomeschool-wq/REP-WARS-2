@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rep-wars.local/schemas/rep-wars-workout-authoring.v2.json",
+  "title": "rep-wars-workout-authoring.v2",
+  "description": "Structural schema for authored workout content. Cross-references are validated semantically, not here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "formatVersion",
+    "catalogId",
+    "catalogVersion",
+    "measurementModels",
+    "movementFamilies",
+    "progressionBands",
+    "exercises",
+    "workoutFamilies",
+    "workouts"
+  ],
+  "properties": {
+    "formatVersion": { "const": "rep-wars-workout-authoring.v2" },
+    "catalogId": { "type": "string", "minLength": 1 },
+    "catalogVersion": { "type": "string", "minLength": 1 },
+    "authorNotes": { "type": "string" },
+    "measurementModels": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/measurementModel" }
+    },
+    "movementFamilies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/movementFamily" }
+    },
+    "progressionBands": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/progressionBand" }
+    },
+    "exercises": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/exercise" }
+    },
+    "workoutFamilies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/workoutFamily" }
+    },
+    "workouts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/workout" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "minLength": 1 },
+    "prescription": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "repetitions"],
+          "properties": {
+            "kind": { "const": "REPETITIONS" },
+            "repetitions": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "durationSeconds"],
+          "properties": {
+            "kind": { "const": "DURATION_SECONDS" },
+            "durationSeconds": { "type": "integer", "minimum": 1 }
+          }
+        }
+      ]
+    },
+    "measurementModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "validPrescriptionKinds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["REPETITIONS", "DURATION", "HOLD_DURATION"] },
+        "validPrescriptionKinds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["REPETITIONS", "DURATION_SECONDS"] }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "movementStage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "order"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "order": { "type": "integer", "minimum": 0 },
+        "notes": { "type": "string" }
+      }
+    },
+    "movementFamily": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "stages"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/movementStage" }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "progressionBand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "order", "selectionWindowBandIds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "order": { "type": "integer", "minimum": 0 },
+        "selectionWindowBandIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "exercise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "movementFamilyId",
+        "movementStageId",
+        "measurementModelId",
+        "defaultPrescription"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "movementFamilyId": { "$ref": "#/$defs/id" },
+        "movementStageId": { "$ref": "#/$defs/id" },
+        "measurementModelId": { "$ref": "#/$defs/id" },
+        "defaultPrescription": { "$ref": "#/$defs/prescription" },
+        "isRest": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+    "movementRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["movementFamilyId", "minimumStageId"],
+      "properties": {
+        "movementFamilyId": { "$ref": "#/$defs/id" },
+        "minimumStageId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "workoutExercise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exerciseId", "order", "prescription"],
+      "properties": {
+        "exerciseId": { "$ref": "#/$defs/id" },
+        "order": { "type": "integer", "minimum": 0 },
+        "prescription": { "$ref": "#/$defs/prescription" },
+        "role": {
+          "enum": [
+            "OPENING_STRETCH",
+            "MAIN",
+            "UPPER_BODY",
+            "LOWER_BODY",
+            "CORE",
+            "REST",
+            "FINAL_STRETCH"
+          ]
+        },
+        "skippable": { "type": "boolean" }
+      }
+    },
+    "bridge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fromBandId", "toBandId"],
+      "properties": {
+        "fromBandId": { "$ref": "#/$defs/id" },
+        "toBandId": { "$ref": "#/$defs/id" },
+        "notes": { "type": "string" }
+      }
+    },
+    "workoutFamily": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "workoutIds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "workoutIds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "workout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "familyId",
+        "size",
+        "progressionBandId",
+        "movementRequirements",
+        "exercises"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "familyId": { "$ref": "#/$defs/id" },
+        "size": { "enum": ["SHORT", "STANDARD", "LONG"] },
+        "progressionBandId": { "$ref": "#/$defs/id" },
+        "movementRequirements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/movementRequirement" }
+        },
+        "exercises": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/workoutExercise" }
+        },
+        "bridge": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/bridge" }
+          ]
+        },
+        "authorNotes": { "type": "string" }
+      }
+    }
+  }
+}

@@ -58,6 +58,7 @@ function serializeActiveWorkout(session: WorkoutSession | null): Record<string, 
     feedback: session.feedback,
     integrityFlagCount: session.integrityFlags.length,
     gameplayContext: session.gameplayContext ? { ...session.gameplayContext } : null,
+    authoredCatalog: session.authoredCatalog ? { ...session.authoredCatalog } : null,
   };
 }
 
@@ -236,6 +237,13 @@ function serializePlayerGameplayView(state: GameState): Record<string, unknown> 
     lastWorkoutCompletedAtTick: state.playerFitness.lastWorkoutCompletedAtTick,
     fitnessLevel: state.playerFitness.estimate?.level ?? null,
     fitnessConfidence: state.playerFitness.estimate?.confidence ?? null,
+    progression: {
+      currentBandId: state.playerFitness.progression?.currentBandId ?? null,
+      movementReadiness: { ...(state.playerFitness.progression?.movementReadiness ?? {}) },
+      catalogId: state.playerFitness.progression?.catalogId ?? null,
+      catalogVersion: state.playerFitness.progression?.catalogVersion ?? null,
+      engineVersion: state.playerFitness.progression?.engineVersion ?? null,
+    },
     levelAnchorTerritoryIds: [...state.levelAnchorTerritoryIds],
     levelDefeat: {
       status: state.levelDefeat.status,

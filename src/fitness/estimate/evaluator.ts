@@ -6,6 +6,8 @@ import {
   FITNESS_EVALUATION_CONFIG,
   FitnessEvaluationConfig,
   clampFitness,
+  floorFitnessLevel,
+  observationInfluenceScale,
   roundFitness,
 } from './config';
 import { estimateErr, estimateOk, EstimateOpResult } from './errors';
@@ -193,14 +195,16 @@ export function evaluateFitness(input: {
   }
 
   const net = roundFitness(contributions.reduce((sum, row) => sum + row.weightedContribution, 0));
-  const influenceScale = roundFitness(1 - config.influenceConfidenceDamping * decayedConf);
+  // Influence is observation-count calibration decay, not confidence.
+  const influenceScale = observationInfluenceScale(previous.observationCount, config);
   const unadjustedDelta = net * config.maxAbsLevelDelta * influenceScale;
   const decreaseResistanceApplied = unadjustedDelta < 0;
   const resistedDelta = decreaseResistanceApplied
     ? unadjustedDelta * config.decreaseResistance
     : unadjustedDelta;
-  const bounded = roundFitness(clampFitness(resistedDelta, -config.maxAbsLevelDelta, config.maxAbsLevelDelta));
-  const newLevel = roundFitness(clampFitness(previous.level + bounded, config.levelMin, config.levelMax));
+  const maxStep = config.maxAbsLevelDelta * Math.max(1, influenceScale);
+  const bounded = roundFitness(clampFitness(resistedDelta, -maxStep, maxStep));
+  const newLevel = roundFitness(floorFitnessLevel(previous.level + bounded, config.levelMin));
 
   const speedInterpreted = speed.notes === 'self_relative_session_clock';
   const confidence = nextConfidence(decayedConf, evidence, frequency, speedInterpreted, config);
@@ -211,10 +215,9 @@ export function evaluateFitness(input: {
   bodySectionLevels.GLOBAL = newLevel;
   for (const key of ['UPPER_BODY', 'CORE', 'LOWER_BODY'] as const) {
     const sectionDelta = bounded * shares[key];
-    bodySectionLevels[key] = roundFitness(clampFitness(
+    bodySectionLevels[key] = roundFitness(floorFitnessLevel(
       previous.bodySectionLevels[key] + sectionDelta,
       config.levelMin,
-      config.levelMax,
     ));
   }
 

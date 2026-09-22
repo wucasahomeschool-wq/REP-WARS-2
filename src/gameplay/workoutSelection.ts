@@ -1,7 +1,13 @@
 /**
  * Gameplay-facing workout selection: purpose + tutorial context → catalog id
- * and a prescribed snapshot. Does not mutate GameState. Personalization stays
- * in the fitness pipeline.
+ * and a prescribed snapshot. Does not mutate GameState.
+ *
+ * Authoritative content selection when an authored-v2 catalog is installed
+ * (and Level 1 tutorial gating is off):
+ * WorkoutSelectionEngine → authored WorkoutDefinition → session.
+ *
+ * Otherwise the purpose table + optional FitnessEstimate personalization
+ * remains for tutorial / empty-catalog compatibility.
  */
 import { getWorkoutDefinition } from '../fitness/catalog';
 import { isWorkoutDifficulty } from '../fitness/difficulty';
@@ -9,6 +15,16 @@ import { personalizeWorkout } from '../fitness/personalization';
 import { clonePrescribedWorkout, prescribeWorkoutBaseline } from '../fitness/prescription';
 import { selectedWorkoutIdForPurpose } from '../fitness/selection';
 import { WorkoutDefinition, WorkoutDifficulty, WorkoutPurpose } from '../fitness/types';
+import {
+  hasAuthoredCatalog,
+  isAuthoredWorkoutDefinition,
+  resolveWorkoutDefinition,
+} from '../fitness/authoring/registry';
+import { getAuthoredWorkoutCatalog } from '../fitness/authoring/registry';
+import { WORKOUT_SIZES, WorkoutSize } from '../fitness/authoring/types';
+import { ensurePlayerProgression } from '../fitness/progression/apply';
+import { selectAuthoredWorkout, AuthoredWorkoutSelection } from '../fitness/progression/select';
+import { emptyPlayerProgressionState } from '../fitness/progression/types';
 import { GameState, Level1TutorialBeat } from '../types/GameState';
 import { OrchestrationError, ErrorCode } from '../orchestration/errors';
 import { isDeadlineElapsed, isOpenInvasion } from './invasion/deadlines';
@@ -20,7 +36,7 @@ import {
   tutorialExpectedWorkoutPurpose,
 } from './tutorial/level1';
 
-export type WorkoutSelectionSource = 'tutorial' | 'purpose';
+export type WorkoutSelectionSource = 'tutorial' | 'purpose' | 'authored' | 'explicit';
 
 export interface WorkoutSelectionConstraints {
   requiresInvasionId: boolean;
@@ -45,11 +61,27 @@ export interface WorkoutSelectionView {
   allowed: boolean;
   recommendedInvasionId: string | null;
   constraints: WorkoutSelectionConstraints;
+  size?: WorkoutSize;
+  catalogId?: string;
+  catalogVersion?: string;
+  engineVersion?: string;
+  progressionBandId?: string;
+  selectionWindowBandIds?: string[];
 }
 
 function sessionBusy(state: GameState): boolean {
   const active = state.playerFitness.activeSession;
   return !!active && active.state !== 'COMPLETED' && active.state !== 'ABANDONED';
+}
+
+export function usesAuthoredWorkoutSelection(state: GameState): boolean {
+  return hasAuthoredCatalog() && !isLevel1TutorialGating(state);
+}
+
+export function parseWorkoutSize(raw: string | undefined): WorkoutSize | undefined {
+  if (raw === undefined) return undefined;
+  if ((WORKOUT_SIZES as readonly string[]).includes(raw)) return raw as WorkoutSize;
+  throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'size must be SHORT, STANDARD, or LONG');
 }
 
 export function recommendedDefenseInvasionId(state: GameState): string | null {
@@ -98,35 +130,131 @@ export function isWorkoutStartAllowed(state: GameState, purpose: WorkoutPurpose)
   return true;
 }
 
+function requireDefinition(workoutId: string): WorkoutDefinition {
+  const workout = resolveWorkoutDefinition(workoutId) ?? getWorkoutDefinition(workoutId);
+  if (!workout) {
+    throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, `Unknown workout ${workoutId}`);
+  }
+  return workout;
+}
+
+export function selectAuthoredWorkoutForState(
+  state: GameState,
+  size?: WorkoutSize,
+): AuthoredWorkoutSelection {
+  const catalog = getAuthoredWorkoutCatalog();
+  if (!catalog) {
+    throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE, 'Authored workout catalog is not installed');
+  }
+  ensurePlayerProgression(state);
+  const selected = selectAuthoredWorkout(
+    catalog,
+    state.playerFitness.progression ?? emptyPlayerProgressionState(),
+    { size: size ?? 'STANDARD' },
+  );
+  if (!selected.ok) {
+    throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE, selected.message, { reason: selected.code });
+  }
+  return selected.value;
+}
+
+export interface StartWorkoutResolution {
+  workoutId: string;
+  selectedWorkoutId: string;
+  source: WorkoutSelectionSource;
+  definition: WorkoutDefinition;
+  authored?: AuthoredWorkoutSelection;
+}
+
+export function resolveStartWorkout(
+  state: GameState,
+  purpose: WorkoutPurpose,
+  requestedWorkoutId: string | undefined,
+  size?: WorkoutSize,
+): StartWorkoutResolution {
+  const purposeSelectedId = selectedWorkoutIdForPurpose(purpose);
+  if (isLevel1TutorialGating(state)) {
+    if (!getWorkoutDefinition(purposeSelectedId)) {
+      throw new OrchestrationError(
+        ErrorCode.INVALID_GAME_STATE,
+        `Authoritative workout ${purposeSelectedId} is missing from the catalog`,
+        { purpose, selectedWorkoutId: purposeSelectedId },
+      );
+    }
+    if (!requestedWorkoutId) {
+      return {
+        workoutId: purposeSelectedId,
+        selectedWorkoutId: purposeSelectedId,
+        source: 'tutorial',
+        definition: requireDefinition(purposeSelectedId),
+      };
+    }
+    if (!getWorkoutDefinition(requestedWorkoutId) && !resolveWorkoutDefinition(requestedWorkoutId)) {
+      throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, `Unknown workout ${requestedWorkoutId}`);
+    }
+    if (requestedWorkoutId !== purposeSelectedId) {
+      throw new OrchestrationError(
+        ErrorCode.INVALID_PARAMETER,
+        `Level 1 tutorial requires workout ${purposeSelectedId}`,
+        {
+          selectedWorkoutId: purposeSelectedId,
+          requestedWorkoutId,
+          tutorialBeat: state.level1Tutorial?.beat ?? null,
+        },
+      );
+    }
+    return {
+      workoutId: purposeSelectedId,
+      selectedWorkoutId: purposeSelectedId,
+      source: 'tutorial',
+      definition: requireDefinition(purposeSelectedId),
+    };
+  }
+
+  if (requestedWorkoutId) {
+    const definition = requireDefinition(requestedWorkoutId);
+    return {
+      workoutId: requestedWorkoutId,
+      selectedWorkoutId: usesAuthoredWorkoutSelection(state) && isAuthoredWorkoutDefinition(definition)
+        ? requestedWorkoutId
+        : purposeSelectedId,
+      source: 'explicit',
+      definition,
+    };
+  }
+
+  if (usesAuthoredWorkoutSelection(state)) {
+    const authored = selectAuthoredWorkoutForState(state, size);
+    return {
+      workoutId: authored.workout.id,
+      selectedWorkoutId: authored.workout.id,
+      source: 'authored',
+      definition: authored.definition,
+      authored,
+    };
+  }
+
+  if (!getWorkoutDefinition(purposeSelectedId)) {
+    throw new OrchestrationError(
+      ErrorCode.INVALID_GAME_STATE,
+      `Authoritative workout ${purposeSelectedId} is missing from the catalog`,
+      { purpose, selectedWorkoutId: purposeSelectedId },
+    );
+  }
+  return {
+    workoutId: purposeSelectedId,
+    selectedWorkoutId: purposeSelectedId,
+    source: 'purpose',
+    definition: requireDefinition(purposeSelectedId),
+  };
+}
+
 export function resolveStartWorkoutId(
   state: GameState,
   purpose: WorkoutPurpose,
   requestedWorkoutId: string | undefined,
 ): string {
-  const selectedWorkoutId = selectedWorkoutIdForPurpose(purpose);
-  if (!getWorkoutDefinition(selectedWorkoutId)) {
-    throw new OrchestrationError(
-      ErrorCode.INVALID_GAME_STATE,
-      `Authoritative workout ${selectedWorkoutId} is missing from the catalog`,
-      { purpose, selectedWorkoutId },
-    );
-  }
-  if (!requestedWorkoutId) return selectedWorkoutId;
-  if (!getWorkoutDefinition(requestedWorkoutId)) {
-    throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, `Unknown workout ${requestedWorkoutId}`);
-  }
-  if (isLevel1TutorialGating(state) && requestedWorkoutId !== selectedWorkoutId) {
-    throw new OrchestrationError(
-      ErrorCode.INVALID_PARAMETER,
-      `Level 1 tutorial requires workout ${selectedWorkoutId}`,
-      {
-        selectedWorkoutId,
-        requestedWorkoutId,
-        tutorialBeat: state.level1Tutorial?.beat ?? null,
-      },
-    );
-  }
-  return requestedWorkoutId;
+  return resolveStartWorkout(state, purpose, requestedWorkoutId).workoutId;
 }
 
 function prescribeForSelection(
@@ -137,7 +265,7 @@ function prescribeForSelection(
   state: GameState,
 ): PublicPrescribedWorkout {
   const estimate = state.playerFitness.estimate;
-  if (estimate) {
+  if (estimate && !isAuthoredWorkoutDefinition(definition)) {
     const personalized = personalizeWorkout(definition, {
       playerId,
       fitnessEstimate: estimate,
@@ -177,25 +305,49 @@ export function serializeWorkoutSelectionView(
   playerId: string,
   purpose: WorkoutPurpose,
   intendedDifficultyRaw?: string,
+  sizeRaw?: string,
 ): WorkoutSelectionView {
-  const selectedWorkoutId = selectedWorkoutIdForPurpose(purpose);
-  const workout = getWorkoutDefinition(selectedWorkoutId);
-  if (!workout) {
-    throw new OrchestrationError(
-      ErrorCode.INVALID_GAME_STATE,
-      `Authoritative workout ${selectedWorkoutId} is missing from the catalog`,
-      { purpose, selectedWorkoutId },
-    );
+  const size = parseWorkoutSize(sizeRaw);
+  const tutorialBeat = state.level1Tutorial?.beat ?? null;
+  const expectedPurpose = tutorialExpectedWorkoutPurpose(tutorialBeat);
+  const tutorialSource = isLevel1TutorialGating(state) && expectedPurpose === purpose;
+
+  let selectedWorkoutId: string;
+  let workout: WorkoutDefinition;
+  let source: WorkoutSelectionSource;
+  let authoredMeta: Partial<WorkoutSelectionView> = {};
+
+  if (tutorialSource || !usesAuthoredWorkoutSelection(state)) {
+    selectedWorkoutId = selectedWorkoutIdForPurpose(purpose);
+    const found = getWorkoutDefinition(selectedWorkoutId);
+    if (!found) {
+      throw new OrchestrationError(
+        ErrorCode.INVALID_GAME_STATE,
+        `Authoritative workout ${selectedWorkoutId} is missing from the catalog`,
+        { purpose, selectedWorkoutId },
+      );
+    }
+    workout = found;
+    source = tutorialSource ? 'tutorial' : 'purpose';
+  } else {
+    const authored = selectAuthoredWorkoutForState(state, size);
+    selectedWorkoutId = authored.workout.id;
+    workout = authored.definition;
+    source = 'authored';
+    authoredMeta = {
+      size: authored.size,
+      catalogId: authored.catalog.catalogId,
+      catalogVersion: authored.catalog.catalogVersion,
+      engineVersion: authored.catalog.engineVersion,
+      progressionBandId: authored.workout.progressionBandId,
+      selectionWindowBandIds: authored.windowBandIds,
+    };
   }
+
   const intendedDifficulty = intendedDifficultyRaw ?? workout.intendedDifficulty;
   if (!isWorkoutDifficulty(intendedDifficulty)) {
     throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'intendedDifficulty is invalid');
   }
-  const tutorialBeat = state.level1Tutorial?.beat ?? null;
-  const expectedPurpose = tutorialExpectedWorkoutPurpose(tutorialBeat);
-  const source: WorkoutSelectionSource = (
-    isLevel1TutorialGating(state) && expectedPurpose === purpose
-  ) ? 'tutorial' : 'purpose';
   return {
     purpose,
     selectedWorkoutId,
@@ -216,5 +368,6 @@ export function serializeWorkoutSelectionView(
       requiresInvasionId: purpose === 'DEFENSE',
       workoutIdMustMatchSelection: isLevel1TutorialGating(state),
     },
+    ...authoredMeta,
   };
 }

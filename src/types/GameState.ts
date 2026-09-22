@@ -50,6 +50,7 @@ import { AICommitment, Army, ArmyId, FactionId, RegionId, Resources, Territory, 
 import { ActiveEvent, HistoryEntry } from '../events/EventModel';
 import { FitnessEstimate } from '../fitness/estimate/types';
 import { WorkoutSession } from '../fitness/session/types';
+import { PlayerProgressionState, emptyPlayerProgressionState } from '../fitness/progression/types';
 import { GameRewardResult } from '../rewards/types';
 
 /**
@@ -75,6 +76,7 @@ import { GameRewardResult } from '../rewards/types';
  *     (Farm/Mine/Lumber occupancy). Consumption and developments are not
  *     executed in this schema bump.
  * 12 = Level 1 tutorial controller (`level1Tutorial` beat + scripted-invasion stamps).
+ * playerFitness.progression is coerced onto existing schema 12 without a bump.
  */
 export const GAME_STATE_SCHEMA_VERSION = 12;
 
@@ -277,6 +279,8 @@ export interface PlayerFitnessState {
   /** At most one in-progress session. Not a historical dump. */
   activeSession: WorkoutSession | null;
   pendingReward: PendingWorkoutReward | null;
+  /** Authored band + movement-family readiness. Not a universal fitness scalar. */
+  progression: PlayerProgressionState;
 }
 
 export interface PlayerEmpirePause {
@@ -553,6 +557,7 @@ export function emptyPlayerFitnessState(): PlayerFitnessState {
     compactHistory: [],
     activeSession: null,
     pendingReward: null,
+    progression: emptyPlayerProgressionState(),
   };
 }
 

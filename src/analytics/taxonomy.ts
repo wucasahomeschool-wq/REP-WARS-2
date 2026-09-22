@@ -43,10 +43,13 @@ export const TELEMETRY_EVENT_TYPES = [
   'workout.feedback_submitted',
   'workout.completed',
   'workout.abandoned',
+  'workout.selected',
   'workout.fitness_result',
   'workout.game_reward',
   'workout.reward_applied',
   'workout.integrity_flag',
+  'progression.evidence_updated',
+  'progression.band_changed',
 
   // Economy / construction
   'construction.started',
@@ -117,6 +120,8 @@ const IMPORTANT: readonly string[] = [
   'workout.completed',
   'workout.abandoned',
   'workout.feedback_submitted',
+  'workout.selected',
+  'progression.band_changed',
   'construction.started',
   'resource.collected',
   'resource.golden_yield_used',

@@ -1,4 +1,8 @@
-import { exerciseCatalogById, getWorkoutDefinition } from '../catalog';
+import {
+  isAuthoredWorkoutDefinition,
+  mergedExerciseCatalogById,
+  resolveWorkoutDefinition,
+} from '../authoring/registry';
 import { isWorkoutDifficulty } from '../difficulty';
 import { FitnessEstimate } from '../estimate/types';
 import { clonePrescription, expectedPrescriptionKind } from '../guards';
@@ -51,7 +55,7 @@ function resolveWorkout(
   if (typeof input.workoutId !== 'string' || input.workoutId.trim() === '') {
     return sessionErr('session.invalid_workout', 'A workout or workoutId is required');
   }
-  const found = getWorkoutDefinition(input.workoutId);
+  const found = resolveWorkoutDefinition(input.workoutId);
   if (!found) {
     return sessionErr('session.unknown_workout', `Unknown workout ${input.workoutId}`, {
       workoutId: input.workoutId,
@@ -148,7 +152,7 @@ export function createWorkoutSession(input: CreateWorkoutSessionInput): SessionO
   const workoutResult = resolveWorkout(input);
   if (!workoutResult.ok) return workoutResult;
   const workout = workoutResult.value;
-  const exercisesById = input.exercisesById ?? exerciseCatalogById();
+  const exercisesById = input.exercisesById ?? mergedExerciseCatalogById();
   const definitionIssues = validateWorkoutDefinition(workout, exercisesById);
   if (definitionIssues.length > 0) {
     return sessionErr('session.invalid_workout', definitionIssues[0]!.message, {
@@ -157,10 +161,11 @@ export function createWorkoutSession(input: CreateWorkoutSessionInput): SessionO
   }
 
   const resolver = input.prescriptionResolver ?? { prescribe: prescribeWorkoutBaseline };
+  const skipPersonalize = isAuthoredWorkoutDefinition(workout);
   let prescribed: PrescribedWorkout;
   if (input.prescribedWorkout) {
     prescribed = clonePrescribedWorkout(input.prescribedWorkout);
-  } else if (input.fitnessEstimate) {
+  } else if (input.fitnessEstimate && !skipPersonalize) {
     const personalized = personalizeWorkout(workout, {
       playerId: input.playerId,
       fitnessEstimate: input.fitnessEstimate,
@@ -220,6 +225,7 @@ export function createWorkoutSession(input: CreateWorkoutSessionInput): SessionO
     feedbackState: 'NOT_APPLICABLE',
     feedback: null,
     ...(input.gameplayContext ? { gameplayContext: { ...input.gameplayContext } } : {}),
+    ...(workout.metadata.authored ? { authoredCatalog: { ...workout.metadata.authored } } : {}),
   };
   return sessionOk(session);
 }

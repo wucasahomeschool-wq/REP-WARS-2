@@ -12,9 +12,11 @@ import {
   evaluateFitness,
   evaluateFitnessEvidence,
   finalizeCompletedWorkout,
+  observationInfluenceScale,
   recencyFactor,
   skipExercise,
   submitWorkoutFeedback,
+  validateFitnessEstimate,
 } from '../src/fitness';
 import type {
   CompletedWorkoutRecord,
@@ -135,6 +137,8 @@ export function registerFitnessLevelTests(api: FitnessLevelTestApi): void {
     assert.ok(estimate.confidence < 0.2);
     assert.strictEqual(estimate.bodySectionLevels.GLOBAL, estimate.level);
     assert.strictEqual(estimate.bodySectionLevels.UPPER_BODY, estimate.level);
+    assert.strictEqual(estimate.observationCount, 0);
+    assert.ok(estimate.level >= FITNESS_EVALUATION_CONFIG.levelMin);
     assert.ok(!('troops' in estimate));
     assert.ok(!('xp' in estimate));
   });
@@ -195,26 +199,75 @@ export function registerFitnessLevelTests(api: FitnessLevelTestApi): void {
 
   console.log('Phase 17D — bounds and decrease resistance');
 
-  test('level cannot exceed the maximum', () => {
+  test('global Fitness Level can exceed 10 and is not upper-clamped', () => {
     let estimate = initialEstimate();
     estimate.level = 9.6;
     estimate.bodySectionLevels = { GLOBAL: 9.6, UPPER_BODY: 9.6, CORE: 9.6, LOWER_BODY: 9.6 };
+    const trail: number[] = [estimate.level];
     for (let i = 0; i < 8; i++) {
       const result = runEval(evidenceFor('TOO_EASY', 'VERY_HARD', `wses_max_${i}`), estimate);
-      estimate = must(applyFitnessEvaluation(estimate, result), 'apply max');
+      estimate = must(applyFitnessEvaluation(estimate, result), 'apply unbounded');
+      trail.push(estimate.level);
     }
-    assert.ok(estimate.level <= FITNESS_EVALUATION_CONFIG.levelMax);
+    assert.ok(estimate.level > 10);
+    const firstAbove = trail.findIndex((level) => level > 10);
+    assert.ok(firstAbove >= 0);
+    assert.ok(trail[trail.length - 1]! >= trail[firstAbove]!);
   });
 
-  test('level cannot fall below the minimum', () => {
+  test('a level already above 10 can continue increasing', () => {
     let estimate = initialEstimate();
-    estimate.level = 1.3;
-    estimate.bodySectionLevels = { GLOBAL: 1.3, UPPER_BODY: 1.3, CORE: 1.3, LOWER_BODY: 1.3 };
+    estimate.level = 10.4;
+    estimate.bodySectionLevels = { GLOBAL: 10.4, UPPER_BODY: 10.4, CORE: 10.4, LOWER_BODY: 10.4 };
+    const result = runEval(evidenceFor('TOO_EASY', 'VERY_HARD', 'wses_above_ten'), estimate);
+    estimate = must(applyFitnessEvaluation(estimate, result), 'apply above ten');
+    assert.ok(result.newLevel > 10.4);
+    assert.ok(estimate.level > 10.4);
+    assert.ok(estimate.bodySectionLevels.GLOBAL > 10);
+  });
+
+  test('body-section levels can exceed 10', () => {
+    let estimate = initialEstimate();
+    estimate.level = 9.8;
+    estimate.bodySectionLevels = { GLOBAL: 9.8, UPPER_BODY: 9.8, CORE: 9.8, LOWER_BODY: 9.8 };
+    for (let i = 0; i < 6; i++) {
+      const result = runEval(evidenceFor('TOO_EASY', 'VERY_HARD', `wses_section_max_${i}`), estimate);
+      estimate = must(applyFitnessEvaluation(estimate, result), 'apply section max');
+    }
+    assert.ok(estimate.bodySectionLevels.GLOBAL > 10);
+    assert.ok(
+      estimate.bodySectionLevels.UPPER_BODY > 10
+      || estimate.bodySectionLevels.CORE > 10
+      || estimate.bodySectionLevels.LOWER_BODY > 10,
+    );
+  });
+
+  test('levels never become negative', () => {
+    let estimate = initialEstimate();
+    estimate.level = 0.2;
+    estimate.bodySectionLevels = { GLOBAL: 0.2, UPPER_BODY: 0.2, CORE: 0.2, LOWER_BODY: 0.2 };
     for (let i = 0; i < 8; i++) {
       const result = runEval(evidenceFor('TOO_HARD', 'VERY_EASY', `wses_min_${i}`), estimate);
       estimate = must(applyFitnessEvaluation(estimate, result), 'apply min');
     }
     assert.ok(estimate.level >= FITNESS_EVALUATION_CONFIG.levelMin);
+    assert.ok(estimate.bodySectionLevels.GLOBAL >= 0);
+    assert.ok(estimate.bodySectionLevels.UPPER_BODY >= 0);
+    assert.ok(estimate.bodySectionLevels.CORE >= 0);
+    assert.ok(estimate.bodySectionLevels.LOWER_BODY >= 0);
+  });
+
+  test('level 0 is valid and negative estimates are rejected', () => {
+    const estimate = initialEstimate();
+    estimate.level = 0;
+    estimate.bodySectionLevels = { GLOBAL: 0, UPPER_BODY: 0, CORE: 0, LOWER_BODY: 0 };
+    assert.deepStrictEqual(validateFitnessEstimate(estimate), []);
+    estimate.level = 14.25;
+    estimate.bodySectionLevels.GLOBAL = 14.25;
+    assert.deepStrictEqual(validateFitnessEstimate(estimate), []);
+    estimate.level = -0.01;
+    const issues = validateFitnessEstimate(estimate);
+    assert.ok(issues.some((issue) => issue.includes('level is out of bounds')));
   });
 
   test('ordinary negative evidence moves less than equivalent positive evidence', () => {
@@ -237,25 +290,107 @@ export function registerFitnessLevelTests(api: FitnessLevelTestApi): void {
     assert.ok(estimate.level < start - 0.3);
   });
 
-  console.log('Phase 17D — recency and confidence influence');
+  console.log('Phase 17D — recency and observation-count influence');
 
-  test('low confidence responds more strongly than high confidence to the same evidence', () => {
-    const evidence = evidenceFor('TOO_EASY', 'HARD', 'wses_conf_step');
-    const low = initialEstimate();
-    const high = cloneFitnessEstimate(low);
-    high.confidence = 0.82;
-    const lowResult = runEval(evidence, low);
-    const highResult = runEval(evidence, high);
-    assert.ok(lowResult.influenceScale > highResult.influenceScale);
-    assert.ok(lowResult.boundedLevelChange > highResult.boundedLevelChange);
+  test('the first observation has much greater level influence than later comparable observations', () => {
+    const template = evidenceFor('TOO_EASY', 'HARD', 'wses_infl_template');
+    let estimate = initialEstimate(template.completedAt);
+    const rows: Array<{
+      observation: number;
+      priorLevel: number;
+      delta: number;
+      level: number;
+      confidenceBefore: number;
+      confidenceAfter: number;
+      influenceScale: number;
+    }> = [];
+    for (let i = 0; i < 10; i++) {
+      const evidence = JSON.parse(JSON.stringify(template)) as FitnessEvidence;
+      evidence.sessionId = `wses_infl_${i}`;
+      evidence.completedAt = template.completedAt + i * 1_000;
+      const result = runEval(evidence, estimate, evidence.completedAt, []);
+      rows.push({
+        observation: i + 1,
+        priorLevel: result.previousLevel,
+        delta: result.boundedLevelChange,
+        level: result.newLevel,
+        confidenceBefore: result.previousConfidence,
+        confidenceAfter: result.newConfidence,
+        influenceScale: result.influenceScale,
+      });
+      estimate = must(applyFitnessEvaluation(estimate, result, evidence.completedAt), 'apply infl');
+    }
+    for (let i = 0; i < 9; i++) {
+      assert.ok(
+        rows[i]!.delta > rows[i + 1]!.delta,
+        `delta #${i + 1} (${rows[i]!.delta}) should exceed delta #${i + 2} (${rows[i + 1]!.delta})`,
+      );
+      assert.ok(rows[i]!.influenceScale > rows[i + 1]!.influenceScale);
+    }
+    assert.ok(rows[0]!.delta > rows[1]!.delta);
+    assert.ok(rows[0]!.delta > rows[9]!.delta * 8);
+    assert.strictEqual(rows[0]!.influenceScale, observationInfluenceScale(0));
+    assert.strictEqual(rows[9]!.influenceScale, observationInfluenceScale(9));
   });
 
-  test('stale high-confidence beginner estimates lose influence so new evidence can raise the level', () => {
+  test('confidence continues rising and does not follow the level-influence decay', () => {
+    const template = evidenceFor('TOO_EASY', 'HARD', 'wses_conf_vs_infl');
+    let estimate = initialEstimate(template.completedAt);
+    const confidenceAfter: number[] = [];
+    const deltas: number[] = [];
+    for (let i = 0; i < 10; i++) {
+      const evidence = JSON.parse(JSON.stringify(template)) as FitnessEvidence;
+      evidence.sessionId = `wses_conf_vs_infl_${i}`;
+      evidence.completedAt = template.completedAt + i * 1_000;
+      const result = runEval(evidence, estimate, evidence.completedAt, []);
+      assert.ok(result.newConfidence > result.previousConfidence);
+      confidenceAfter.push(result.newConfidence);
+      deltas.push(result.boundedLevelChange);
+      estimate = must(applyFitnessEvaluation(estimate, result, evidence.completedAt), 'apply conf vs infl');
+    }
+    for (let i = 0; i < 9; i++) {
+      assert.ok(confidenceAfter[i + 1]! > confidenceAfter[i]!);
+      assert.ok(deltas[i + 1]! < deltas[i]!);
+    }
+    assert.ok(confidenceAfter[9]! > confidenceAfter[0]!);
+    assert.ok(deltas[9]! < deltas[0]!);
+  });
+
+  test('same observation count yields the same influence regardless of confidence', () => {
+    const evidence = evidenceFor('TOO_EASY', 'HARD', 'wses_conf_step');
+    const low = initialEstimate();
+    low.observationCount = 3;
+    low.confidence = 0.12;
+    const high = cloneFitnessEstimate(low);
+    high.confidence = 0.36;
+    const lowResult = runEval(evidence, low);
+    const highResult = runEval(evidence, high);
+    assert.strictEqual(lowResult.influenceScale, highResult.influenceScale);
+    assert.strictEqual(lowResult.influenceScale, observationInfluenceScale(3));
+    assert.ok(Math.abs(lowResult.boundedLevelChange - highResult.boundedLevelChange) < 0.001);
+    assert.ok(lowResult.newConfidence > lowResult.previousConfidence);
+    assert.ok(highResult.newConfidence > highResult.previousConfidence);
+  });
+
+  test('later observation counts shrink the level step under comparable evidence', () => {
+    const evidence = evidenceFor('TOO_EASY', 'HARD', 'wses_obs_count');
+    const first = initialEstimate();
+    first.observationCount = 0;
+    const later = cloneFitnessEstimate(first);
+    later.observationCount = 5;
+    const firstResult = runEval(evidence, first);
+    const laterResult = runEval(evidence, later);
+    assert.ok(firstResult.influenceScale > laterResult.influenceScale);
+    assert.ok(firstResult.boundedLevelChange > laterResult.boundedLevelChange);
+  });
+
+  test('stale high-confidence estimates decay confidence without inventing extra level influence', () => {
     const clock = new AdjustableClock(120 * MS_PER_DAY);
     const evidence = evidenceFor('TOO_EASY', 'HARD', 'wses_stale', { clock });
     const fresh = initialEstimate(evidence.completedAt);
     fresh.level = 3;
     fresh.confidence = 0.85;
+    fresh.observationCount = 4;
     fresh.bodySectionLevels = { GLOBAL: 3, UPPER_BODY: 3, CORE: 3, LOWER_BODY: 3 };
     fresh.lastUpdatedAt = evidence.completedAt;
     const stale = cloneFitnessEstimate(fresh);
@@ -264,9 +399,11 @@ export function registerFitnessLevelTests(api: FitnessLevelTestApi): void {
     const staleResult = runEval(evidence, stale, evidence.completedAt);
     assert.ok(staleResult.recencyFactor < 0.05);
     assert.ok(staleResult.decayedConfidence < freshResult.decayedConfidence);
-    assert.ok(staleResult.boundedLevelChange > freshResult.boundedLevelChange);
+    assert.strictEqual(staleResult.influenceScale, freshResult.influenceScale);
+    assert.ok(Math.abs(staleResult.boundedLevelChange - freshResult.boundedLevelChange) < 0.001);
     const applied = must(applyFitnessEvaluation(stale, staleResult), 'apply stale');
     assert.ok(applied.level > 3);
+    assert.ok(staleResult.newConfidence > staleResult.decayedConfidence);
   });
 
   test('recency factor is 1 at zero age and ~0.5 at one half-life', () => {

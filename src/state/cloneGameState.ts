@@ -39,6 +39,7 @@ import { cloneArmyMovement } from '../army/movement';
 import { cloneAttackIntent } from '../army/strategicAttack';
 import { cloneFitnessEstimate } from '../fitness/estimate/clone';
 import { cloneWorkoutSession } from '../fitness/session/clone';
+import { clonePlayerProgressionState, emptyPlayerProgressionState } from '../fitness/progression/types';
 import { cloneGameRewardResult } from '../rewards/validation';
 
 export function cloneMap<K, V>(m: Map<K, V>, cloneFn: (v: V) => V): Map<K, V> {
@@ -191,6 +192,9 @@ function clonePlayerFitness(fitness: PlayerFitnessState): PlayerFitnessState {
         context: { ...fitness.pendingReward.context },
       }
       : null,
+    progression: fitness.progression
+      ? clonePlayerProgressionState(fitness.progression)
+      : emptyPlayerProgressionState(),
   };
 }
 

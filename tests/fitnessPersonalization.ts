@@ -271,6 +271,13 @@ export function registerFitnessPersonalizationTests(api: FitnessPersonalizationT
     }
   });
 
+  test('raw Fitness Level above the mapping reference still personalizes without recapping the estimate', () => {
+    const prescribed = personalize(moderate, estimateAt(18, 0.95), 'MODERATE');
+    assert.strictEqual(prescribed.personalization!.fitnessLevelUsed, 18);
+    assert.ok(prescribed.personalization!.effectiveMultiplier <= FITNESS_PERSONALIZATION_CONFIG.maxMultiplier);
+    assert.ok(prescribed.personalization!.fitnessShift <= FITNESS_PERSONALIZATION_CONFIG.maxFitnessShift);
+  });
+
   console.log('Phase 17E — REST, stretching, body sections, purpose');
 
   test('REST prescriptions are not scaled as training volume', () => {
@@ -448,7 +455,7 @@ export function registerFitnessPersonalizationTests(api: FitnessPersonalizationT
     })), 'personalization.invalid_difficulty');
     assert.strictEqual(errCode(personalizeWorkout(moderate, {
       playerId: 'player_1',
-      fitnessEstimate: { ...estimate, level: 99 },
+      fitnessEstimate: { ...estimate, level: -1 },
       desiredDifficulty: 'MODERATE',
     })), 'personalization.invalid_estimate');
     assert.strictEqual(errCode(personalizeWorkout(moderate, {

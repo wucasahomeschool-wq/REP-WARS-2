@@ -1,4 +1,5 @@
 import { cloneFitnessEstimate } from '../fitness/estimate/clone';
+import { clonePlayerProgressionState, emptyPlayerProgressionState } from '../fitness/progression/types';
 import { GameState, PlayerFitnessState } from '../types/GameState';
 import { GameEvent } from '../orchestration/protocol';
 import { OrchestrationError, ErrorCode } from '../orchestration/errors';
@@ -42,6 +43,9 @@ export type WorldTransitionApplyResult =
 export function carryPlayerScopedFitness(from: PlayerFitnessState, onto: PlayerFitnessState): void {
   onto.estimate = from.estimate ? cloneFitnessEstimate(from.estimate) : null;
   onto.compactHistory = from.compactHistory.map((entry) => ({ ...entry }));
+  onto.progression = from.progression
+    ? clonePlayerProgressionState(from.progression)
+    : emptyPlayerProgressionState();
   onto.activeSession = null;
   onto.pendingReward = null;
   onto.lastWorkoutCompletedAtTick = null;

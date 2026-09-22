@@ -7,6 +7,11 @@
  * current gameplay purpose.
  *
  * Mapping is explicit and deterministic. Unknown catalog ids fail closed.
+ *
+ * When an authored-v2 catalog is installed and Level 1 tutorial gating is
+ * off, GET_WORKOUT_SELECTION / omitted START_WORKOUT workoutId use
+ * WorkoutSelectionEngine instead of this purpose table. The table remains
+ * for tutorial and empty-catalog compatibility.
  */
 import { getWorkoutDefinition } from './catalog';
 import { isWorkoutPurpose } from './purpose';

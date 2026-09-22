@@ -1,7 +1,5 @@
-import { getWorkoutDefinition } from '../fitness/catalog';
 import { isWorkoutDifficulty } from '../fitness/difficulty';
 import { isWorkoutPurpose } from '../fitness/purpose';
-import { selectedWorkoutIdForPurpose } from '../fitness/selection';
 import {
   beginWorkoutSession,
   completeExercise,
@@ -18,6 +16,7 @@ import {
 import type { IntegrityFlagType } from '../fitness/session';
 import { WorkoutPurpose } from '../fitness/types';
 import { persistTerminalSessionHistory } from '../fitness/history/persistSession';
+import { applyAuthoredProgression, ProgressionApplyResult } from '../fitness/progression';
 import { startConstruction, consumeConstructionEffect } from '../gameplay/construction/consume';
 import { isConstructionProjectType } from '../gameplay/construction/definitions';
 import { handlerResultForConstructionStart } from '../gameplay/construction/handlerResult';
@@ -33,7 +32,8 @@ import {
   shouldWaiveWorkoutFeedback,
 } from '../gameplay/tutorial/level1';
 import {
-  resolveStartWorkoutId,
+  parseWorkoutSize,
+  resolveStartWorkout,
   serializeWorkoutSelectionView,
 } from '../gameplay/workoutSelection';
 import { runWorkoutRewardPipeline } from '../rewards/pipeline/runWorkoutRewardPipeline';
@@ -87,6 +87,24 @@ function applyFirstWorkoutFeedbackWaiver(state: GameState, session: typeof state
 function fail(code: ErrorCode, message: string): HandlerResult {
   const errors: OrchestrationErrorBody[] = [{ code, message }];
   return { ...emptyResult(), commandSuccess: false, errors };
+}
+
+function serializeProgressionPayload(result: ProgressionApplyResult): Record<string, unknown> | null {
+  if (!result.applied || !result.evaluation) return null;
+  const evaluation = result.evaluation;
+  return {
+    decision: evaluation.decision,
+    bandBefore: evaluation.bandBefore,
+    bandAfter: evaluation.bandAfter,
+    bandChanged: evaluation.bandBefore !== evaluation.bandAfter,
+    catalogId: evaluation.evidence.catalogId,
+    catalogVersion: evaluation.evidence.catalogVersion,
+    engineVersion: evaluation.evidence.engineVersion,
+    completionRatio: evaluation.evidence.completionRatio,
+    feedback: evaluation.evidence.feedback,
+    completed: evaluation.evidence.completed,
+    abandoned: evaluation.evidence.abandoned,
+  };
 }
 
 export function handleStartConstruction(state: GameState, ctx: GameplayHandlerContext): HandlerResult {
@@ -192,6 +210,7 @@ export function handleGetWorkoutSelection(state: GameState, ctx: GameplayHandler
     ctx.req.playerId,
     purposeRaw,
     paramString(ctx.req, 'intendedDifficulty'),
+    paramString(ctx.req, 'size'),
   );
   return {
     ...emptyResult(),
@@ -206,12 +225,11 @@ export function handleStartWorkout(state: GameState, ctx: GameplayHandlerContext
   }
   const purpose: WorkoutPurpose = purposeRaw;
   assertLevel1TutorialWorkoutAllowed(state, purpose);
-  const selectedWorkoutId = selectedWorkoutIdForPurpose(purpose);
-  const workoutId = resolveStartWorkoutId(state, purpose, paramString(ctx.req, 'workoutId'));
-  const definition = getWorkoutDefinition(workoutId);
-  if (!definition) {
-    throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, `Unknown workout ${workoutId}`);
-  }
+  const size = parseWorkoutSize(paramString(ctx.req, 'size'));
+  const resolved = resolveStartWorkout(state, purpose, paramString(ctx.req, 'workoutId'), size);
+  const workoutId = resolved.workoutId;
+  const selectedWorkoutId = resolved.selectedWorkoutId;
+  const definition = resolved.definition;
   const difficultyRaw = paramString(ctx.req, 'intendedDifficulty') ?? definition.intendedDifficulty;
   if (!isWorkoutDifficulty(difficultyRaw)) {
     throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'intendedDifficulty is invalid');
@@ -267,8 +285,9 @@ export function handleStartWorkout(state: GameState, ctx: GameplayHandlerContext
     playerId: ctx.req.playerId,
     purpose,
     intendedDifficulty: difficultyRaw,
+    workout: definition,
     workoutId,
-    fitnessEstimate: state.playerFitness.estimate ?? undefined,
+    fitnessEstimate: definition.metadata.authored ? undefined : state.playerFitness.estimate ?? undefined,
     sessionId: paramString(ctx.req, 'sessionId'),
     now: sessionNow(state, ctx),
     gameplayContext: {
@@ -294,6 +313,16 @@ export function handleStartWorkout(state: GameState, ctx: GameplayHandlerContext
       invasionId,
       workoutId: created.value.workoutId,
       selectedWorkoutId,
+      selection: {
+        source: resolved.source,
+        selectedWorkoutId,
+        workoutId: created.value.workoutId,
+        size: size ?? created.value.authoredCatalog?.size ?? null,
+        catalogId: created.value.authoredCatalog?.catalogId ?? null,
+        catalogVersion: created.value.authoredCatalog?.catalogVersion ?? null,
+        engineVersion: created.value.authoredCatalog?.engineVersion ?? null,
+        progressionBandId: created.value.authoredCatalog?.progressionBandId ?? null,
+      },
     },
   };
 }
@@ -441,6 +470,7 @@ export function handleFinalizeWorkout(state: GameState, ctx: GameplayHandlerCont
     battle: ctx.registry.requireBattle(),
     history: ctx.registry.workoutHistory,
   });
+  const progression = applyAuthoredProgression(state, session, sessionNow(state, ctx));
   if (!result.ok) {
     return {
       ...fail(ErrorCode.ACTION_NOT_ALLOWED, result.error?.message ?? 'Workout reward pipeline failed'),
@@ -448,6 +478,7 @@ export function handleFinalizeWorkout(state: GameState, ctx: GameplayHandlerCont
         sessionId: result.sessionId,
         pendingReward: !!state.playerFitness.pendingReward,
         error: result.error,
+        progression: serializeProgressionPayload(progression),
       },
     };
   }
@@ -468,6 +499,7 @@ export function handleFinalizeWorkout(state: GameState, ctx: GameplayHandlerCont
       winner: result.invasionWinner,
       territoryOutcome: result.invasionTerritoryOutcome,
       territoryId: result.invasionTerritoryId,
+      progression: serializeProgressionPayload(progression),
     },
   };
 }
@@ -493,6 +525,7 @@ export function handleAbandonWorkout(state: GameState, ctx: GameplayHandlerConte
   persistTerminalSessionHistory(ctx.registry.workoutHistory, next.value, {
     completedAtWorldTick: playerFacingTick(state),
   });
+  const progression = applyAuthoredProgression(state, next.value, sessionNow(state, ctx));
   const invasionOutcome = session.purpose === 'DEFENSE'
     ? resolveAbandonedDefense(state, ctx, session.gameplayContext?.invasionId)
     : undefined;
@@ -503,6 +536,7 @@ export function handleAbandonWorkout(state: GameState, ctx: GameplayHandlerConte
       state: next.value.state,
       abandonmentReason: next.value.abandonmentReason,
       invasionOutcome,
+      progression: serializeProgressionPayload(progression),
     },
   };
 }
@@ -527,6 +561,7 @@ export function handleRecordIntegrityFlag(state: GameState, ctx: GameplayHandler
     persistTerminalSessionHistory(ctx.registry.workoutHistory, next.value, {
       completedAtWorldTick: playerFacingTick(state),
     });
+    applyAuthoredProgression(state, next.value, sessionNow(state, ctx));
   }
   const invasionOutcome = next.value.state === 'ABANDONED' && session.purpose === 'DEFENSE'
     ? resolveAbandonedDefense(state, ctx, session.gameplayContext?.invasionId)

@@ -12,7 +12,7 @@ export function validateFitnessEstimate(raw: unknown): string[] {
   if (!isRecord(raw)) return ['FitnessEstimate must be an object'];
   if (raw.modelVersion !== FITNESS_MODEL_VERSION) issues.push('modelVersion is invalid');
   if (typeof raw.playerId !== 'string' || raw.playerId.trim() === '') issues.push('playerId is invalid');
-  if (!isFiniteNumber(raw.level) || raw.level < FITNESS_EVALUATION_CONFIG.levelMin || raw.level > FITNESS_EVALUATION_CONFIG.levelMax) {
+  if (!isFiniteNumber(raw.level) || raw.level < FITNESS_EVALUATION_CONFIG.levelMin) {
     issues.push('level is out of bounds');
   }
   if (!isFiniteNumber(raw.confidence) || raw.confidence < FITNESS_EVALUATION_CONFIG.confidenceMin || raw.confidence > FITNESS_EVALUATION_CONFIG.confidenceMax) {
@@ -23,7 +23,7 @@ export function validateFitnessEstimate(raw: unknown): string[] {
   } else {
     for (const key of ['GLOBAL', 'UPPER_BODY', 'CORE', 'LOWER_BODY'] as const) {
       const value = raw.bodySectionLevels[key];
-      if (!isFiniteNumber(value) || value < FITNESS_EVALUATION_CONFIG.levelMin || value > FITNESS_EVALUATION_CONFIG.levelMax) {
+      if (!isFiniteNumber(value) || value < FITNESS_EVALUATION_CONFIG.levelMin) {
         issues.push(`bodySectionLevels.${key} is out of bounds`);
       }
     }
