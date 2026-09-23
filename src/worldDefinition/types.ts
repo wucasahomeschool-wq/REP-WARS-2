@@ -98,6 +98,69 @@ export interface TerritoryDefinition {
   polygon: WorldPolygon;
 }
 
+/** Stable visual-theme identity. Descriptive library text is not stored here. */
+export interface WorldThemeRef {
+  themeId: string;
+}
+
+/**
+ * Data-only challenge / rule-profile reference.
+ * The engine interprets challengeId (+ optional config); Map Assistant does not execute it.
+ */
+export interface WorldChallengeRef {
+  challengeId: string;
+  /** Plain JSON scalars only when present. */
+  config?: Record<string, string | number | boolean | null>;
+}
+
+export interface WorldCameraOverrides {
+  minZoom: number;
+  maxZoom: number;
+  initialZoom: number;
+}
+
+/** Authored visual scale / framing intent. Runtime camera systems consume this. */
+export interface WorldPresentationProfile {
+  scaleProfileId?: string;
+  cameraProfileId?: string;
+  lodProfileId?: string;
+  camera?: WorldCameraOverrides;
+}
+
+export type SemanticLocationKind = 'city' | 'mine' | 'farm' | 'landmark' | 'settlement';
+
+/** Gameplay-relevant place (not a decorative prop). */
+export interface SemanticLocationDefinition {
+  id: string;
+  kind: SemanticLocationKind;
+  territoryId: TerritoryId;
+  position: WorldVec2;
+  name?: string;
+  /** Optional composition / art reference; not the gameplay entity itself. */
+  visualAssetId?: string;
+}
+
+export type CompositionImportance = 'background' | 'normal' | 'landmark';
+
+/** Authored visual prop instance. Local scale is independent of nested-world placement. */
+export interface CompositionInstanceDefinition {
+  instanceId: string;
+  assetId: string;
+  position: WorldVec2;
+  rotationDegrees: number;
+  /** null / omitted means use the asset defaultScale from asset-scale.json. */
+  scale: number | null;
+  anchor: string;
+  depth: number;
+  importance?: CompositionImportance;
+  lodProfileId?: string;
+  territoryId?: TerritoryId | null;
+}
+
+export interface WorldCompositionDefinition {
+  instances: CompositionInstanceDefinition[];
+}
+
 export interface WorldDefinition {
   formatVersion: WorldFormatVersion;
   worldId: string;
@@ -113,6 +176,18 @@ export interface WorldDefinition {
   territories: TerritoryDefinition[];
   /** Level 1 AI split may differ by more than 1 when explicitly allowed. */
   allowUnevenAiSplit?: boolean;
+  /** Optional authored blurb. Omitted on older worlds. */
+  description?: string;
+  /** Optional theme identity. Omitted on older worlds. */
+  theme?: WorldThemeRef;
+  /** Zero or more challenge refs. Omitted when empty / absent on older worlds. */
+  challenges?: WorldChallengeRef[];
+  /** Optional presentation / camera / scale profile. */
+  presentation?: WorldPresentationProfile;
+  /** Optional semantic gameplay locations (city/mine/farm/…). */
+  locations?: SemanticLocationDefinition[];
+  /** Optional visual composition (props). Omitted when empty. */
+  composition?: WorldCompositionDefinition;
 }
 
 export interface WorldValidationIssue {

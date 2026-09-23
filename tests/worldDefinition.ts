@@ -651,4 +651,64 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
       assert.ok(!('scoutedTurnsAgo' in t));
     }
   });
+
+  test('optional theme/challenge/presentation/locations/composition validate structurally', () => {
+    const def = cloneWorld(requireTiny());
+    def.description = 'Optional blurb';
+    def.theme = { themeId: 'barren_desert' };
+    def.challenges = [
+      { challengeId: 'drought', config: { severity: 0.5 } },
+      { challengeId: 'difficult_travel' },
+    ];
+    def.presentation = {
+      scaleProfileId: 'regional_world',
+      cameraProfileId: 'world_default',
+      camera: { minZoom: 0.8, maxZoom: 2.5, initialZoom: 1.0 },
+    };
+    def.locations = [{
+      id: 'loc_mine_1',
+      kind: 'mine',
+      territoryId: def.territories[0]!.id,
+      position: { x: 1, y: 2 },
+      name: 'Iron Pit',
+    }];
+    def.composition = {
+      instances: [{
+        instanceId: 'prop_01',
+        assetId: 'oak_tree',
+        position: { x: 3, y: 4 },
+        rotationDegrees: 0,
+        scale: 0.85,
+        anchor: 'bottom-center',
+        depth: 3,
+        importance: 'normal',
+        territoryId: def.territories[0]!.id,
+      }],
+    };
+    assert.deepStrictEqual(validateWorldDefinition(def), []);
+  });
+
+  test('worlds without optional architecture metadata remain valid', () => {
+    const def = cloneWorld(requireTiny());
+    assert.strictEqual(def.theme, undefined);
+    assert.strictEqual(def.challenges, undefined);
+    assert.strictEqual(def.presentation, undefined);
+    assert.strictEqual(def.locations, undefined);
+    assert.strictEqual(def.composition, undefined);
+    assert.deepStrictEqual(validateWorldDefinition(def), []);
+  });
+
+  test('invalid optional architecture fields are rejected', () => {
+    const badTheme = cloneWorld(requireTiny());
+    badTheme.theme = { themeId: '' };
+    assert.ok(codesOf(badTheme).includes('theme.missing_id'));
+
+    const badCam = cloneWorld(requireTiny());
+    badCam.presentation = { camera: { minZoom: 2, maxZoom: 1, initialZoom: 1.5 } };
+    assert.ok(codesOf(badCam).includes('presentation.camera'));
+
+    const dupCh = cloneWorld(requireTiny());
+    dupCh.challenges = [{ challengeId: 'drought' }, { challengeId: 'drought' }];
+    assert.ok(codesOf(dupCh).includes('challenge.duplicate'));
+  });
 }

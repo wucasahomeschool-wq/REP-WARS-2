@@ -47,6 +47,7 @@ regression tests.
 | Faction list, starting owners, starting armies/resources | Faction snapshots, armies, resources |
 | AI `WorldPersonalityDefinition` | `WarlordSnapshot.personality` / `ambition` via `PersonalitySystem.fromTraits` |
 | Contained/nested completed worlds (references only) | Not inlined; no cross-level adjacency |
+| Optional `description`, `theme.themeId`, `challenges[]`, `presentation`, `locations[]`, `composition` | Not copied into live GameState; client may read via world-definition serialization |
 
 Do **not** duplicate polygons into each GameState snapshot. Persistence
 stores identity (`definitionWorldId` / format / level / player faction)
@@ -55,6 +56,34 @@ plus the mutable overlay. Geometry is resolved later with
 region membership, terrain, resource output, and authored personalities
 are rebound from the catalog so GameState cannot silently disagree with
 the WorldDefinition.
+
+### Optional authored metadata (Map Assistant / empire architecture)
+
+These fields are **optional** on `rep-wars-world.v1`. Older worlds without
+them remain valid. They describe what the world intrinsically is — not
+live player state.
+
+| Field | Meaning | Authoring notes |
+| --- | --- | --- |
+| `description` | Optional blurb | Free text |
+| `theme` | `{ themeId }` | Stable identity only. The 112-theme library JSON is editor data; descriptive names/twists are **not** copied into the world file unless you choose to put them in `description`. |
+| `challenges` | `[{ challengeId, config? }]` | Multiple allowed. Separate from theme. Config is plain JSON scalars. Engine interprets; Map Assistant does not execute. |
+| `presentation` | scale/camera/lod profile ids + optional zoom overrides | Authored framing intent. Not a runtime camera simulator. |
+| `locations` | semantic city/mine/farm/landmark/settlement | Gameplay entities, distinct from decorative props. |
+| `composition.instances` | visual props with local scale | Local prop scale is independent of `containedWorlds.placement.scale` and presentation scale. |
+
+**Scale hierarchy (do not collapse these):**
+
+```text
+asset defaultScale / anchor
+  → composition instance scale / rotation / position
+  → containedWorlds.placement (whole child world as a unit)
+  → parent presentation.scaleProfileId / camera
+```
+
+Nested placement never rewrites a child world's local geography or prop
+scales. Theme selection never rewrites authored boundary geometry.
+
 
 The persistence envelope (`PersistedWorldRecord`) also copies that
 identity so a stored row can answer: which authored world, which format,

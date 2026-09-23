@@ -1,0 +1,154 @@
+{
+  "formatVersion": "rep-wars-world.v1",
+  "worldId": "w_gate1_vertical_slice",
+  "level": 1,
+  "name": "Gate 1 Vertical Slice",
+  "playerFactionId": "f_player",
+  "island": {
+    "rings": [[
+      { "x": -5, "y": -5 }, { "x": 105, "y": -5 }, { "x": 105, "y": 105 },
+      { "x": -5, "y": 105 }, { "x": -5, "y": -5 }
+    ]]
+  },
+  "completion": {
+    "type": "control_fraction",
+    "fraction": 0.75
+  },
+  "containedWorlds": [],
+  "factions": [
+    {
+      "id": "f_player",
+      "role": "player",
+      "name": "Player",
+      "homeTerritoryId": "t_a",
+      "startingResources": { "gold": 300, "food": 300, "iron": 50, "wood": 50, "stone": 50 },
+      "startingArmy": { "soldiers": 0, "knights": 0, "siegeEngines": 0, "locationTerritoryId": "t_a" },
+      "personality": null
+    },
+    {
+      "id": "f_ai_1",
+      "role": "ai",
+      "name": "AI One",
+      "homeTerritoryId": "t_b",
+      "startingResources": { "gold": 400, "food": 400, "iron": 80, "wood": 60, "stone": 60 },
+      "startingArmy": { "soldiers": 220, "knights": 20, "siegeEngines": 0, "locationTerritoryId": "t_b" },
+      "personality": {
+        "id": "p_ai_1",
+        "label": "Gate1 AI One",
+        "ambition": 0.55,
+        "traits": {
+          "aggression": 0.4,
+          "defensiveness": 0.6,
+          "expansionism": 0.45,
+          "opportunism": 0.5,
+          "diplomacy": 0.4,
+          "economics": 0.5,
+          "riskTolerance": 0.35,
+          "patience": 0.55,
+          "forgivingness": 0.4,
+          "loyalty": 0.5
+        }
+      }
+    },
+    {
+      "id": "f_ai_2",
+      "role": "ai",
+      "name": "AI Two",
+      "homeTerritoryId": "t_d",
+      "startingResources": { "gold": 350, "food": 350, "iron": 70, "wood": 50, "stone": 50 },
+      "startingArmy": { "soldiers": 180, "knights": 15, "siegeEngines": 0, "locationTerritoryId": "t_d" },
+      "personality": {
+        "id": "p_ai_2",
+        "label": "Gate1 AI Two",
+        "ambition": 0.65,
+        "traits": {
+          "aggression": 0.7,
+          "defensiveness": 0.35,
+          "expansionism": 0.6,
+          "opportunism": 0.65,
+          "diplomacy": 0.25,
+          "economics": 0.35,
+          "riskTolerance": 0.6,
+          "patience": 0.3,
+          "forgivingness": 0.25,
+          "loyalty": 0.35
+        }
+      }
+    }
+  ],
+  "startingDiplomacy": [
+    { "a": "f_ai_1", "b": "f_ai_2", "state": "tense", "opinion": -15 }
+  ],
+  "regions": [
+    {
+      "id": "r_west",
+      "name": "West Reach",
+      "worldId": "w_gate1_vertical_slice",
+      "territoryIds": ["t_a", "t_c"]
+    },
+    {
+      "id": "r_east",
+      "name": "East Reach",
+      "worldId": "w_gate1_vertical_slice",
+      "territoryIds": ["t_b", "t_d"]
+    }
+  ],
+  "territories": [
+    {
+      "id": "t_a",
+      "regionId": "r_west",
+      "startingOwnerFactionId": "f_player",
+      "neighborIds": ["t_b", "t_c"],
+      "terrain": "plains",
+      "resourceOutput": { "food": 18, "gold": 8, "iron": 0, "wood": 6, "stone": 4 },
+      "polygon": {
+        "rings": [[
+          { "x": 0, "y": 50 }, { "x": 50, "y": 50 }, { "x": 50, "y": 100 },
+          { "x": 0, "y": 100 }, { "x": 0, "y": 50 }
+        ]]
+      }
+    },
+    {
+      "id": "t_b",
+      "regionId": "r_east",
+      "startingOwnerFactionId": "f_ai_1",
+      "neighborIds": ["t_a", "t_d"],
+      "terrain": "hills",
+      "resourceOutput": { "food": 10, "gold": 6, "iron": 12, "wood": 4, "stone": 8 },
+      "polygon": {
+        "rings": [[
+          { "x": 50, "y": 50 }, { "x": 100, "y": 50 }, { "x": 100, "y": 100 },
+          { "x": 50, "y": 100 }, { "x": 50, "y": 50 }
+        ]]
+      }
+    },
+    {
+      "id": "t_c",
+      "regionId": "r_west",
+      "startingOwnerFactionId": "f_ai_1",
+      "neighborIds": ["t_a", "t_d"],
+      "terrain": "forest",
+      "resourceOutput": { "food": 8, "gold": 4, "iron": 0, "wood": 20, "stone": 2 },
+      "polygon": {
+        "rings": [[
+          { "x": 0, "y": 0 }, { "x": 50, "y": 0 }, { "x": 50, "y": 50 },
+          { "x": 0, "y": 50 }, { "x": 0, "y": 0 }
+        ]]
+      }
+    },
+    {
+      "id": "t_d",
+      "regionId": "r_east",
+      "startingOwnerFactionId": "f_ai_2",
+      "neighborIds": ["t_b", "t_c"],
+      "terrain": "coastal",
+      "resourceOutput": { "food": 12, "gold": 14, "iron": 2, "wood": 4, "stone": 4 },
+      "polygon": {
+        "rings": [[
+          { "x": 50, "y": 0 }, { "x": 100, "y": 0 }, { "x": 100, "y": 50 },
+          { "x": 50, "y": 50 }, { "x": 50, "y": 0 }
+        ]]
+      }
+    }
+  ]
+}

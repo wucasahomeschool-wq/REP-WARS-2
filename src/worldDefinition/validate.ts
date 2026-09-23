@@ -322,6 +322,193 @@ export function validateWorldDefinition(def: WorldDefinition): WorldValidationIs
     push('completion.type', `unknown completion type ${(def.completion as { type: string }).type}`);
   }
 
+  if (def.description !== undefined && typeof def.description !== 'string') {
+    push('world.description', 'description must be a string when present');
+  }
+
+  if (def.theme !== undefined) {
+    if (!def.theme || typeof def.theme !== 'object' || Array.isArray(def.theme)) {
+      push('theme.invalid', 'theme must be an object with themeId');
+    } else if (typeof def.theme.themeId !== 'string' || !def.theme.themeId.trim()) {
+      push('theme.missing_id', 'theme.themeId must be a non-empty string');
+    }
+  }
+
+  if (def.challenges !== undefined) {
+    if (!Array.isArray(def.challenges)) {
+      push('challenge.invalid', 'challenges must be an array when present');
+    } else {
+      const seenChallenge = new Set<string>();
+      for (const ch of def.challenges) {
+        if (!ch || typeof ch !== 'object' || Array.isArray(ch)) {
+          push('challenge.invalid', 'each challenge must be an object');
+          continue;
+        }
+        if (typeof ch.challengeId !== 'string' || !ch.challengeId.trim()) {
+          push('challenge.missing_id', 'challenge.challengeId must be a non-empty string');
+          continue;
+        }
+        if (seenChallenge.has(ch.challengeId)) {
+          push('challenge.duplicate', `duplicate challengeId ${ch.challengeId}`);
+        }
+        seenChallenge.add(ch.challengeId);
+        if (ch.config !== undefined) {
+          if (!ch.config || typeof ch.config !== 'object' || Array.isArray(ch.config)) {
+            push('challenge.config', `challenge ${ch.challengeId} config must be a plain object`);
+          } else {
+            for (const [k, v] of Object.entries(ch.config)) {
+              const ok =
+                v === null ||
+                typeof v === 'string' ||
+                typeof v === 'boolean' ||
+                (typeof v === 'number' && Number.isFinite(v));
+              if (!ok) {
+                push('challenge.config', `challenge ${ch.challengeId} config.${k} must be a JSON scalar`);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (def.presentation !== undefined) {
+    if (!def.presentation || typeof def.presentation !== 'object' || Array.isArray(def.presentation)) {
+      push('presentation.invalid', 'presentation must be an object when present');
+    } else {
+      const p = def.presentation;
+      for (const key of ['scaleProfileId', 'cameraProfileId', 'lodProfileId'] as const) {
+        const v = p[key];
+        if (v !== undefined && (typeof v !== 'string' || !v.trim())) {
+          push('presentation.profile', `presentation.${key} must be a non-empty string when present`);
+        }
+      }
+      if (p.camera !== undefined) {
+        if (!p.camera || typeof p.camera !== 'object' || Array.isArray(p.camera)) {
+          push('presentation.camera', 'presentation.camera must be an object');
+        } else {
+          const { minZoom, maxZoom, initialZoom } = p.camera;
+          const nums = [minZoom, maxZoom, initialZoom];
+          if (nums.some((n) => typeof n !== 'number' || !Number.isFinite(n) || n <= 0)) {
+            push('presentation.camera', 'camera zoom values must be finite and positive');
+          } else if (minZoom < 0.05 || maxZoom > 64 || minZoom > maxZoom) {
+            push('presentation.camera', 'camera zoom bounds must satisfy 0.05 <= minZoom <= maxZoom <= 64');
+          } else if (initialZoom < minZoom || initialZoom > maxZoom) {
+            push('presentation.camera', 'initialZoom must be within [minZoom, maxZoom]');
+          }
+        }
+      }
+    }
+  }
+
+  const LOCATION_KINDS = new Set(['city', 'mine', 'farm', 'landmark', 'settlement']);
+  if (def.locations !== undefined) {
+    if (!Array.isArray(def.locations)) {
+      push('location.invalid', 'locations must be an array when present');
+    } else {
+      const seenLoc = new Set<string>();
+      for (const loc of def.locations) {
+        if (!loc || typeof loc !== 'object' || Array.isArray(loc)) {
+          push('location.invalid', 'each location must be an object');
+          continue;
+        }
+        if (typeof loc.id !== 'string' || !loc.id.trim()) {
+          push('location.missing_id', 'location id is required');
+          continue;
+        }
+        if (seenLoc.has(loc.id)) push('location.duplicate_id', `duplicate location id ${loc.id}`);
+        seenLoc.add(loc.id);
+        if (!LOCATION_KINDS.has(loc.kind)) {
+          push('location.kind', `location ${loc.id} has invalid kind ${String(loc.kind)}`);
+        }
+        if (!territoryIds.has(loc.territoryId)) {
+          push('location.territory', `location ${loc.id} territoryId ${loc.territoryId} does not exist`);
+        }
+        if (
+          !loc.position ||
+          typeof loc.position.x !== 'number' ||
+          typeof loc.position.y !== 'number' ||
+          !Number.isFinite(loc.position.x) ||
+          !Number.isFinite(loc.position.y)
+        ) {
+          push('location.position', `location ${loc.id} position must be finite {x,y}`);
+        }
+        if (loc.name !== undefined && typeof loc.name !== 'string') {
+          push('location.name', `location ${loc.id} name must be a string when present`);
+        }
+        if (loc.visualAssetId !== undefined && typeof loc.visualAssetId !== 'string') {
+          push('location.visual', `location ${loc.id} visualAssetId must be a string when present`);
+        }
+      }
+    }
+  }
+
+  const IMPORTANCE = new Set(['background', 'normal', 'landmark']);
+  if (def.composition !== undefined) {
+    if (!def.composition || typeof def.composition !== 'object' || Array.isArray(def.composition)) {
+      push('composition.invalid', 'composition must be an object when present');
+    } else if (!Array.isArray(def.composition.instances)) {
+      push('composition.instances', 'composition.instances must be an array');
+    } else {
+      const seenInst = new Set<string>();
+      for (const inst of def.composition.instances) {
+        if (!inst || typeof inst !== 'object' || Array.isArray(inst)) {
+          push('composition.invalid', 'each composition instance must be an object');
+          continue;
+        }
+        if (typeof inst.instanceId !== 'string' || !inst.instanceId.trim()) {
+          push('composition.missing_id', 'composition instanceId is required');
+          continue;
+        }
+        if (seenInst.has(inst.instanceId)) {
+          push('composition.duplicate_id', `duplicate composition instanceId ${inst.instanceId}`);
+        }
+        seenInst.add(inst.instanceId);
+        if (typeof inst.assetId !== 'string' || !inst.assetId.trim()) {
+          push('composition.asset', `instance ${inst.instanceId} assetId is required`);
+        }
+        if (
+          !inst.position ||
+          typeof inst.position.x !== 'number' ||
+          typeof inst.position.y !== 'number' ||
+          !Number.isFinite(inst.position.x) ||
+          !Number.isFinite(inst.position.y)
+        ) {
+          push('composition.position', `instance ${inst.instanceId} position must be finite {x,y}`);
+        }
+        if (typeof inst.rotationDegrees !== 'number' || !Number.isFinite(inst.rotationDegrees)) {
+          push('composition.rotation', `instance ${inst.instanceId} rotationDegrees must be finite`);
+        }
+        if (
+          inst.scale !== null &&
+          inst.scale !== undefined &&
+          (typeof inst.scale !== 'number' || !Number.isFinite(inst.scale) || inst.scale <= 0)
+        ) {
+          push('composition.scale', `instance ${inst.instanceId} scale must be null or a positive finite number`);
+        }
+        if (typeof inst.anchor !== 'string' || !inst.anchor.trim()) {
+          push('composition.anchor', `instance ${inst.instanceId} anchor is required`);
+        }
+        if (typeof inst.depth !== 'number' || !Number.isFinite(inst.depth)) {
+          push('composition.depth', `instance ${inst.instanceId} depth must be finite`);
+        }
+        if (inst.importance !== undefined && !IMPORTANCE.has(inst.importance)) {
+          push('composition.importance', `instance ${inst.instanceId} has invalid importance`);
+        }
+        if (inst.lodProfileId !== undefined && (typeof inst.lodProfileId !== 'string' || !inst.lodProfileId.trim())) {
+          push('composition.lod', `instance ${inst.instanceId} lodProfileId must be a non-empty string`);
+        }
+        if (
+          inst.territoryId !== undefined &&
+          inst.territoryId !== null &&
+          !territoryIds.has(inst.territoryId)
+        ) {
+          push('composition.territory', `instance ${inst.instanceId} territoryId does not exist`);
+        }
+      }
+    }
+  }
+
   issues.sort((a, b) => a.code.localeCompare(b.code) || a.message.localeCompare(b.message));
   return issues;
 }

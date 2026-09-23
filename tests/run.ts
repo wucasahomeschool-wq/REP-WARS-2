@@ -88,6 +88,10 @@ import { registerOrchestratorIntegrationTests } from './orchestratorIntegration'
 import { registerLevelAnchorTests } from './levelAnchors';
 import { registerPlayerIdentityTests } from './playerIdentity';
 import { registerWorldTransitionTests } from './worldTransition';
+import { registerGate1VerticalSliceTests } from './gate1VerticalSlice';
+import { registerGate1VerticalSliceWorkoutTests } from './gate1VerticalSliceWorkout';
+import { registerGate1VerticalSliceAttackTests } from './gate1VerticalSliceAttack';
+import { registerGate1VerticalSlicePersistenceTests } from './gate1VerticalSlicePersistence';
 import { authoredWorldFields, plantOwnedCities } from './worldTestHelpers';
 import { getConstructionProjectDefinition, GAMEPLAY_CONFIG } from '../src/gameplay';
 
@@ -3235,6 +3239,14 @@ registerPersistenceTests({ test });
 registerPlayerIdentityTests({ test });
 
 registerWorldTransitionTests({ test });
+
+registerGate1VerticalSliceTests({ test });
+
+registerGate1VerticalSliceWorkoutTests({ test });
+
+registerGate1VerticalSliceAttackTests({ test });
+
+registerGate1VerticalSlicePersistenceTests({ test });
 
 registerWorldDefinitionTests({ test });
 

@@ -1,162 +1,115 @@
-# REP WARS Map Assistant
+# REP WARS Map Assistant 4.0
 
 Standalone **authoring** tool for `rep-wars-world.v1` JSON.
 
-It is an editor, not a game engine and **not a world generator**. It does not
-simulate battles, AI turns, economy, Fitness, rewards, or player progress.
+It is a **vector boundary editor**, not a game engine and not a world generator.
+The drawing is a boundary network. The software finds the spaces enclosed by
+those vector lines. It does not rasterize, flood-fill, or guess territories
+from pixels.
 
-The Map Builder is a **drawing canvas**. You draw enclosed land. You are not
-constructing polygons, boundary objects, or a planar graph while drawing.
+```
+USER DRAWING  →  VECTOR BOUNDARY NETWORK  →  PLANAR GRAPH
+          →  ENCLOSED FACES  →  TERRITORY POLYGONS
+```
+
+## Philosophy
+
+**The lines are the boundaries.**
+
+- The island starts as one closed outline (one territory).
+- Internal lines split that land into faces.
+- Live preview updates as the graph changes.
+- **COMMIT GEOGRAPHY** writes faces into the playable WorldDefinition.
+- Visual props never change geography.
 
 ## Drawing
 
-New maps start **blank** — no island, no territories, no default polygon.
+New maps start **blank** — no island, no territories.
 
-Use the **Draw**, **Rectangle**, **Eraser**, **Select**, **Pan**, and **SCALE**
-tools on the canvas:
+1. **Island** — draw a closed outer boundary. Preview shows one territory.
+2. **Boundary** — draw internal lines. Endpoints snap to the existing network
+   (island, internals, or junctions). Crossing an existing line splits it at
+   the intersection. Dangling lines that do not snap are rejected.
+3. Continue until the live faces look right.
+4. Press **COMMIT GEOGRAPHY**.
+5. Assign regions, factions, terrain, theme, challenges, presentation, and
+   semantic locations in the sidebar.
+6. Switch to **Composition** to place scenery (local prop scale).
+7. Use **3/4 preview** to check oblique placement.
+8. Review **Nested** for contained-world placement; import a previous level
+   via the World menu when coarsening.
+9. **Validate**, then export playable World JSON and (optionally) visual
+   composition JSON.
 
-1. **Draw** — press and drag freehand (outline, then any dividing lines).
-2. **Rectangle** — press one corner, drag, release. The rectangle is ink in the
-   same raw drawing; it is not a territory by itself.
-3. **Eraser** — pending ink only. Committed source strokes are locked. Erasing
-   them does **not** change the converted map.
-4. **SCALE** — uniformly resize the whole authored map around its bounds center.
-   Converted geometry, committed source strokes, and pending strokes use the
-   **same** transform and stay in their buckets. This is not zoom.
-5. Zoom and pan freely, then continue drawing.
-6. Loose ends, overshoot, and crossings are allowed.
-7. When the picture looks right, press **CONVERT TO MAP**.
+Tools: Island, Boundary, Select, Move node, Delete, Place prop, Place location, Pan.
 
-### CONVERT TO MAP is a permanent commit
+Undo/redo applies to graph edits, commits, props, and metadata snapshots.
 
-The first successful conversion locks the island, territories, IDs, adjacency,
-and world structure. Later drawing is **pending**. The next CONVERT interprets
-**only pending strokes** and appends new territories. It never re-rasterizes,
-merges, splits, or resizes already-committed geometry.
+## Theme library
 
-Typical additive workflow: draw land → CONVERT → draw more enclosed land around
-it → CONVERT again. Repeat as needed. Pressing CONVERT with nothing pending is a
-no-op (it will not duplicate territories).
+Themes load from `tools/map_assistant/data/rep-wars-world-theme-library-112.json`
+(or `MAP_ASSISTANT_THEME_LIBRARY`). Theme names are **not** hardcoded in Python.
+Only `theme.themeId` is persisted on the world. Library descriptive text is
+display-only. Challenges are authored separately — selecting a theme never
+auto-enables a challenge.
 
-A failed pending conversion leaves the committed map and the pending strokes
-unchanged so you can edit and retry.
+## Scale hierarchy
 
-Raw drawing is **not** an editor for committed map geometry. After convert,
-switch to the structured **World editor** sidebar to change regions, ownership,
-resources, terrain, and other metadata.
+```text
+asset defaultScale / anchor
+  → composition instance scale / rotation / position
+  → containedWorlds.placement (whole nested world)
+  → presentation.scaleProfileId / camera
+```
 
-In RAW view, committed source ink is shown dimmer/dashed and is not erasable.
-Pending ink stays bright cyan.
+Do not confuse asset scale, local prop scale, nested-world placement scale,
+and world presentation scale. Geography commit does not rewrite presentation
+or containedWorlds placement.
 
-Older editor documents that already contain a converted map plus
-`_editorDrawing.strokes` (no `committedStrokes` field) treat that converted
-geometry as committed and migrate existing strokes into committed source so a
-later CONVERT cannot duplicate the map.
+## What is not in this tool
 
-### Island extension
+- Raster conversion, flood-fill, gap-closing, pixel contours
+- Automatic prop scattering
+- AI map generation
+- Gameplay simulation / challenge execution
+- Runtime LOD, culling, Empire Overview, campaign player nesting
+- Camera / nested-world navigation simulation
 
-New land may grow the committed island. The converter keeps the existing island
-when new territories already sit inside it. Otherwise it tries a shared-edge
-union with the pending island / new territory rings when the rings are small
-enough for exact shared-edge union. If that cannot attach safely, it uses a
-convex hull of committed island vertices plus new territory vertices
-(append-only; may fill concavities; never shrinks). A 0.2% hull expand is
-applied only if float error would leave a committed vertex just outside.
-Incomplete pending drawing never clips the committed island.
+## Scale JSON
 
-Typical next-level authoring: open Level 1 → SCALE larger → draw **new** enclosed
-territories → CONVERT TO MAP to append. Erasing old source ink will not rebuild
-or delete the locked Level 1 tiles. Use the structured editor (or Clear all map
-geometry) for committed edits.
-
-The structured **World editor** sidebar stays on the right: world metadata,
-regions (including multi-select **MOVE TO REGION**), warlords/personality,
-territory fields, diplomacy, contained worlds, and validation. Drawing tools
-never rewrite committed geography.
-
-## Scale tool
-
-**SCALE** is an authoring transform. It does not change zoom, gameplay, or
-WorldDefinition semantics other than coordinates.
-
-- Factor `2` doubles size; `0.5` halves it; `1` leaves geometry unchanged.
-- Allowed range is **0.05–20**.
-- Anchor is the center of the current map bounds (converted island/territories
-  plus raw strokes). X and Y use the same factor.
-- If both raw drawing and converted geometry exist, **both** are scaled with
-  that same transform so RAW view and MAP view stay aligned. Committed source
-  strokes stay committed; pending strokes stay pending.
-- Raw-only documents scale strokes only. Converted-only documents scale
-  polygons only and do not invent strokes.
-- One undo restores raw drawing and converted geometry together.
-- `_editorConvertReport` is cleared so CONVERT TO MAP runs against current
-  pending drawing instead of a stale report.
-- `containedWorlds[].placement` is **not** scaled. Nested-world origin/scale
-  stay sidebar metadata; coarsened tiles that already live in `territories[]`
-  do scale because they are current-map geometry.
-
-**Export JSON** validates the **converted** `rep-wars-world.v1` world. Open
-drawing strokes by themselves are not an export error. **Save** keeps the editor
-document, including raw strokes, so work in progress can be resumed.
-
-After conversion, use the structured editor for regions, ownership, AI warlords,
-personality, resources, terrain, adjacency, and other metadata.
-
-**Regions:** Ctrl+click / Shift+click to multi-select territories, then
-**MOVE TO REGION** to assign them in one undoable operation.
+If `assets/asset-scale.json` or `tools/map_assistant/asset-scale.json` exists,
+its `defaultScale` and `anchor` values are used as asset defaults. Instance
+scale overrides are stored on each placed prop. Missing scale data is not
+invented in the export.
 
 ## Launch
 
-Requires a normal Python 3 install with Tkinter (included on Windows and most
-desktop Pythons). No pip packages.
+Requires Python 3 with Tkinter. No pip packages.
 
 ```text
 python tools/map_assistant/map_assistant.py
 python tools/map_assistant/map_assistant.py path/to/world.json
 python tools/map_assistant/map_assistant.py --self-test
-python tools/map_assistant/map_assistant.py --validate docs/examples/world-level1-tiny.json
+python tools/map_assistant/map_assistant.py --validate worlds/level-1.json
 python tools/map_assistant/map_assistant.py --gui-smoke
 ```
 
 The `.py` file is copyable into another directory and still launches.
 
-## What you author
+## Exports
 
-- Irregular **island** polygon (the rectangular window is not the world)
-- Irregular **territory** polygons (no hex grid)
-- Named **regions**; unnamed territories (IDs only, e.g. `t_01`)
-- Explicit **adjacency** (`neighborIds`, kept reciprocal in the editor)
-- Explicit **starting ownership** (Level 1: exactly one player tile)
-- Per-world **AI warlords** and personality trait values
-- Contained-world **references** (not inlined playable tiles)
-
-## Previous-level import
-
-**Contained → Import Previous Level JSON** is a coarsening step, not CONVERT TO MAP.
-
-1. Start a **blank** next-level world (set `level` on the World tab, or let import bump it).
-2. Open **Contained**.
-3. Choose a completed previous-level `rep-wars-world.v1` JSON file.
-4. Preview the source name, level, region count, and coarsened outlines.
-5. Confirm **Import & Convert**.
-
-The previous world becomes **one region** in the current file. Each previous **region** becomes one current **territory** whose polygon is the union of that region's tiles. Adjacency is rebuilt from shared region boundaries. The source file is only referenced from `containedWorlds` (`worldId`, `regionId`, `placement`) and is never rewritten.
-
-The previous playable graph is **not** copied into `territories[]`. Raw drawing conversion stays a separate workflow.
-
-## What is not in the world file
-
-- Territory display names
-- Cities
-- Scouting / fog / visibility
-- EXPAND
-- Capitals / `isCapital`
-- Raw editor drawing strokes (`_editorDrawing`, including `committedStrokes`
-  and pending `strokes`)
-
-Export is refused until the converted world passes validation. Loading a
-playable file that fails validation does not replace the current working world.
-Editor documents that include `_editorDrawing` can be reopened even before
-conversion produces a valid world.
+- **Save** writes an editor document (WorldDefinition + `_editorBoundaryGraph`
+  + `_editorGeographyDirty`). Visual props live on playable
+  `world.composition`; legacy `_editorComposition` is still **read** on open.
+- **Export playable World JSON** is `rep-wars-world.v1` with editor keys
+  stripped. Optional fields (`theme`, `challenges`, `presentation`,
+  `locations`, `composition`, `description`) are omitted when empty so older
+  dumps stay unchanged.
+- **Export visual composition JSON** is `rep-wars-visual-composition.v1`
+  (same instance model as `world.composition`).
 
 Schema mirrors `docs/WORLD_DEFINITION.md` and `src/worldDefinition/types.ts`.
+
+Existing playable worlds (Level 1 / Level 2) open as committed geography. The
+editor does not reinterpret those polygons back into a drawing. Re-authoring
+uses a new vector graph; **COMMIT GEOGRAPHY** writes faces into the WorldDefinition.

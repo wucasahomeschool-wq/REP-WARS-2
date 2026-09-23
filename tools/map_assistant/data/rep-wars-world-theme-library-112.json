@@ -1,0 +1,799 @@
+{
+  "schemaVersion": "rep-wars.world-theme-library.v0.3",
+  "libraryName": "Rep Wars World Theme Library",
+  "status": "candidate-library",
+  "themeCount": 112,
+  "notes": [
+    "Combined candidate theme library from the Rep Wars design discussion.",
+    "Core World is treated as the baseline gameplay world rather than one of the 112 special candidate themes.",
+    "Christmas Tree Mountains and Tuna Isles are included from the earlier established-theme baseline.",
+    "Themes are candidate world identities, not final campaign-level assignments.",
+    "Theme identity and reusable strategic challenge systems should remain separate in the eventual game architecture."
+  ],
+  "themes": [
+    {
+      "themeId": "tutorial_realm",
+      "name": "Tutorial Realm",
+      "visualIdentity": "Guided introductory world designed to teach the core systems.",
+      "strategicChallenge": "Tutorial progression and scripted learning.",
+      "twist": "Structured introduction to the core game."
+    },
+    {
+      "themeId": "barren_desert",
+      "name": "Barren Desert",
+      "visualIdentity": "Arid desert landscape with scarce food and harsh terrain.",
+      "strategicChallenge": "Drought and food scarcity.",
+      "twist": "Drought can evolve into declining food, famine, and unrest."
+    },
+    {
+      "themeId": "frozen_world",
+      "name": "Frozen World",
+      "visualIdentity": "Frozen landscapes, snow, ice, and harsh winter conditions.",
+      "strategicChallenge": "Harsh travel and environmental conditions.",
+      "twist": "Winter conditions make movement and resources more difficult."
+    },
+    {
+      "themeId": "archipelago",
+      "name": "Archipelago",
+      "visualIdentity": "Fragmented island world separated by water.",
+      "strategicChallenge": "Isolation and fragmented geography.",
+      "twist": "Expansion requires dealing with separated pockets of territory."
+    },
+    {
+      "themeId": "christmas_tree_mountains",
+      "name": "Christmas Tree Mountains",
+      "visualIdentity": "Whimsical evergreen mountain world with snow, decorated-looking pine trees, and cozy settlements.",
+      "strategicChallenge": "Winter conditions without making the level a duplicate of the main frozen world.",
+      "twist": "Dense forests make expansion visually and strategically interesting."
+    },
+    {
+      "themeId": "tuna_isles",
+      "name": "Tuna Isles",
+      "visualIdentity": "Absurd, playful ocean world with bizarre island shapes and aquatic visual motifs.",
+      "strategicChallenge": "Isolated territory and unusual resource placement.",
+      "twist": "A deliberately silly world identity."
+    },
+    {
+      "themeId": "ancient_wildwood",
+      "name": "Ancient Wildwood",
+      "visualIdentity": "Enormous old-growth forest with clearings, giant trees, mossy areas, and ruins.",
+      "strategicChallenge": "Dense terrain makes movement and expansion more difficult.",
+      "twist": "Established areas can become highly productive once developed."
+    },
+    {
+      "themeId": "the_emerald_basin",
+      "name": "The Emerald Basin",
+      "visualIdentity": "Lush, extremely fertile green valley.",
+      "strategicChallenge": "Abundant resources attract rapid AI expansion.",
+      "twist": "The player has a rich environment, but so does everybody else."
+    },
+    {
+      "themeId": "thornlands",
+      "name": "Thornlands",
+      "visualIdentity": "Beautiful but tangled wilderness filled with dense thorny vegetation.",
+      "strategicChallenge": "Expansion through undeveloped land costs more.",
+      "twist": "Cleared and developed territory becomes disproportionately valuable."
+    },
+    {
+      "themeId": "the_great_wetlands",
+      "name": "The Great Wetlands",
+      "visualIdentity": "Marshes, islands, boardwalk settlements, mist, and shallow water.",
+      "strategicChallenge": "Ordinary overland movement is restricted.",
+      "twist": "Waterways become the efficient travel network."
+    },
+    {
+      "themeId": "whispering_pines",
+      "name": "Whispering Pines",
+      "visualIdentity": "Huge northern pine forest with scattered valleys and mountain lakes.",
+      "strategicChallenge": "Long distances between settlements.",
+      "twist": "Remote settlements are harder to support but can become valuable frontier strongholds."
+    },
+    {
+      "themeId": "iron_hills",
+      "name": "Iron Hills",
+      "visualIdentity": "Rugged mountains, mines, cliffs, and winding valleys.",
+      "strategicChallenge": "Expansion is constrained by geography.",
+      "twist": "Resource-rich mountain territory is strategically important."
+    },
+    {
+      "themeId": "the_great_canyon",
+      "name": "The Great Canyon",
+      "visualIdentity": "Massive canyon network with bridges, plateaus, and river bottoms.",
+      "strategicChallenge": "Chokepoints and difficult crossings dominate expansion.",
+      "twist": "A small number of crossings can control large portions of the map."
+    },
+    {
+      "themeId": "skyreach_highlands",
+      "name": "Skyreach Highlands",
+      "visualIdentity": "Rolling highlands, dramatic ridges, and elevated plateaus.",
+      "strategicChallenge": "Movement between elevations is slower or more costly.",
+      "twist": "High ground provides useful strategic advantages."
+    },
+    {
+      "themeId": "shattered_peaks",
+      "name": "Shattered Peaks",
+      "visualIdentity": "Jagged mountain landscape divided into isolated valleys.",
+      "strategicChallenge": "Fragmented expansion and difficult connections.",
+      "twist": "Conquering a mountain pass can suddenly connect several regions."
+    },
+    {
+      "themeId": "the_craterlands",
+      "name": "The Craterlands",
+      "visualIdentity": "Enormous impact crater with a fertile interior and harsh outer rim.",
+      "strategicChallenge": "Valuable central territory is surrounded by difficult approaches.",
+      "twist": "The world naturally creates a fight-toward-the-middle structure."
+    },
+    {
+      "themeId": "the_great_delta",
+      "name": "The Great Delta",
+      "visualIdentity": "Rivers branching into many channels, fertile islands, and river cities.",
+      "strategicChallenge": "Water divides territory constantly.",
+      "twist": "River corridors provide unusually efficient movement and trade."
+    },
+    {
+      "themeId": "the_lake_kingdoms",
+      "name": "The Lake Kingdoms",
+      "visualIdentity": "Enormous inland lake surrounded by developed shores and islands.",
+      "strategicChallenge": "Water divides otherwise nearby regions.",
+      "twist": "Central lake territories become valuable connectors."
+    },
+    {
+      "themeId": "the_coral_coast",
+      "name": "The Coral Coast",
+      "visualIdentity": "Colorful coastal world with shallow seas, beaches, and little islands.",
+      "strategicChallenge": "Coastal territory is unusually valuable.",
+      "twist": "Expansion naturally follows the shoreline."
+    },
+    {
+      "themeId": "thousand_isles",
+      "name": "Thousand Isles",
+      "visualIdentity": "Extreme archipelago, much more fragmented than the first archipelago world.",
+      "strategicChallenge": "Isolation is severe.",
+      "twist": "Tiny islands become stepping stones for expansion."
+    },
+    {
+      "themeId": "the_river_kingdom",
+      "name": "The River Kingdom",
+      "visualIdentity": "One enormous river winding through the entire world.",
+      "strategicChallenge": "The river divides the map into distinct strategic zones.",
+      "twist": "Bridges and crossings become exceptionally important."
+    },
+    {
+      "themeId": "island_of_embers",
+      "name": "Island of Embers",
+      "visualIdentity": "Volcanic island chain, black rock, ash, and glowing volcanic areas.",
+      "strategicChallenge": "Periodic environmental disruptions.",
+      "twist": "Dangerous areas can contain exceptionally valuable resources."
+    },
+    {
+      "themeId": "the_firebelt",
+      "name": "The Firebelt",
+      "visualIdentity": "Broad volcanic region with several active volcanic zones.",
+      "strategicChallenge": "Territory near volcanic areas is risky to develop.",
+      "twist": "Risky land is also unusually resource-rich."
+    },
+    {
+      "themeId": "obsidian_frontier",
+      "name": "Obsidian Frontier",
+      "visualIdentity": "Dark volcanic landscape with obsidian formations and dramatic cliffs.",
+      "strategicChallenge": "Scarce ordinary building resources.",
+      "twist": "Rare resources encourage expansion into otherwise undesirable regions."
+    },
+    {
+      "themeId": "the_mushroom_vale",
+      "name": "The Mushroom Vale",
+      "visualIdentity": "Oversized mushrooms, glowing forests, and colorful valleys.",
+      "strategicChallenge": "Resource locations are scattered unusually far apart.",
+      "twist": "Seemingly useless regions can turn out to be excellent development areas."
+    },
+    {
+      "themeId": "the_overgrown_empire",
+      "name": "The Overgrown Empire",
+      "visualIdentity": "Abandoned settlements being reclaimed by vegetation.",
+      "strategicChallenge": "Valuable old infrastructure is scattered throughout the wilderness.",
+      "twist": "Exploration and development of old ruins are unusually important."
+    },
+    {
+      "themeId": "the_land_of_giants",
+      "name": "The Land of Giants",
+      "visualIdentity": "Enormous environmental features such as giant trees, huge rocks, rivers, and sprawling valleys.",
+      "strategicChallenge": "Long distances.",
+      "twist": "A territory can look small on the strategic map while representing a very large local area."
+    },
+    {
+      "themeId": "the_golden_age",
+      "name": "The Golden Age",
+      "visualIdentity": "Already-developed farmland, prosperous cities, roads, and established settlements.",
+      "strategicChallenge": "Everybody starts with advantages.",
+      "twist": "The player develops an already-civilized world rather than starting from wilderness."
+    },
+    {
+      "themeId": "the_frontier",
+      "name": "The Frontier",
+      "visualIdentity": "Developed heartland on one side and unexplored wilderness on the other.",
+      "strategicChallenge": "Expansion versus consolidating what you already own.",
+      "twist": "The map has a visible frontier that gradually moves outward."
+    },
+    {
+      "themeId": "the_trade_roads",
+      "name": "The Trade Roads",
+      "visualIdentity": "Crossroads, villages, merchant towns, and long roads connecting regions.",
+      "strategicChallenge": "Strategically useful land is concentrated around transportation corridors.",
+      "twist": "Controlling connections matters almost as much as controlling territory."
+    },
+    {
+      "themeId": "the_broken_kingdom",
+      "name": "The Broken Kingdom",
+      "visualIdentity": "Ruins of a former civilization scattered across a fragmented landscape.",
+      "strategicChallenge": "Valuable developed locations are dispersed.",
+      "twist": "Rebuilding old infrastructure is more attractive than developing completely new territory."
+    },
+    {
+      "themeId": "the_richlands",
+      "name": "The Richlands",
+      "visualIdentity": "Extraordinarily fertile, resource-rich world.",
+      "strategicChallenge": "Rapid AI expansion because everybody wants the same abundance.",
+      "twist": "This is intentionally an aggressive-expansion economy rather than a scarcity world."
+    },
+    {
+      "themeId": "the_empty_expanse",
+      "name": "The Empty Expanse",
+      "visualIdentity": "Enormous open plains with very little natural obstruction.",
+      "strategicChallenge": "Few places to hide behind geography; borders are broad and exposed.",
+      "twist": "Expansion can happen in many directions simultaneously."
+    },
+    {
+      "themeId": "the_golden_plains",
+      "name": "The Golden Plains",
+      "visualIdentity": "Endless golden grass, wheat fields, and rolling hills.",
+      "strategicChallenge": "Very open geography with few natural defensive barriers.",
+      "twist": "Expansion is easy, but defending a huge frontier is difficult."
+    },
+    {
+      "themeId": "the_green_steppe",
+      "name": "The Green Steppe",
+      "visualIdentity": "Broad green plains dotted with small lakes and settlements.",
+      "strategicChallenge": "Long exposed borders.",
+      "twist": "Mobile expansion and rapid territorial changes."
+    },
+    {
+      "themeId": "the_painted_prairie",
+      "name": "The Painted Prairie",
+      "visualIdentity": "Wildflowers, prairie grass, distant mesas, and colorful skies.",
+      "strategicChallenge": "Few concentrated resource areas.",
+      "twist": "Development is spread broadly rather than concentrated."
+    },
+    {
+      "themeId": "the_great_savannah",
+      "name": "The Great Savannah",
+      "visualIdentity": "Tall grasses, scattered trees, and rocky outcrops.",
+      "strategicChallenge": "Resources are widely dispersed.",
+      "twist": "Seasonal abundance and scarcity."
+    },
+    {
+      "themeId": "the_windlands",
+      "name": "The Windlands",
+      "visualIdentity": "Huge windswept plains with dramatic grass movement and exposed hills.",
+      "strategicChallenge": "Travel and construction conditions fluctuate.",
+      "twist": "Periodic high-wind events temporarily change which areas are practical."
+    },
+    {
+      "themeId": "the_rolling_kingdom",
+      "name": "The Rolling Kingdom",
+      "visualIdentity": "Gently rolling countryside with villages, farms, and hedgerows.",
+      "strategicChallenge": "Moderate everywhere, extreme nowhere.",
+      "twist": "Unusually balanced map that rewards long-term development."
+    },
+    {
+      "themeId": "redstone_badlands",
+      "name": "Redstone Badlands",
+      "visualIdentity": "Red cliffs, mesas, dry valleys, and winding ravines.",
+      "strategicChallenge": "Chokepoints created by canyon geography.",
+      "twist": "Apparently small regions can control large portions of the map."
+    },
+    {
+      "themeId": "the_salt_flats",
+      "name": "The Salt Flats",
+      "visualIdentity": "White salt plains, shallow pools, and distant mountains.",
+      "strategicChallenge": "Almost no natural food resources.",
+      "twist": "Enormous open strategic visibility."
+    },
+    {
+      "themeId": "dustbowl_country",
+      "name": "Dustbowl Country",
+      "visualIdentity": "Dry farmland, dust storms, and abandoned homesteads.",
+      "strategicChallenge": "Food production is unreliable.",
+      "twist": "Weather can temporarily turn productive land into problematic land."
+    },
+    {
+      "themeId": "sunken_valley",
+      "name": "Sunken Valley",
+      "visualIdentity": "A huge depression surrounded by elevated terrain.",
+      "strategicChallenge": "Valuable central territory is surrounded by difficult approaches.",
+      "twist": "Control of the rim and control of the interior are very different strategic goals."
+    },
+    {
+      "themeId": "the_dry_riverlands",
+      "name": "The Dry Riverlands",
+      "visualIdentity": "Enormous dry riverbeds winding through an arid world.",
+      "strategicChallenge": "Settlements naturally cluster around old watercourses.",
+      "twist": "Rare water sources become strategic anchors."
+    },
+    {
+      "themeId": "emerald_jungle",
+      "name": "Emerald Jungle",
+      "visualIdentity": "Dense tropical vegetation, waterfalls, and giant trees.",
+      "strategicChallenge": "Dense terrain restricts expansion and visibility.",
+      "twist": "Cleared land becomes unusually valuable."
+    },
+    {
+      "themeId": "the_monsoon_realm",
+      "name": "The Monsoon Realm",
+      "visualIdentity": "Tropical forests, rice-like agriculture, and huge rivers.",
+      "strategicChallenge": "Periodic heavy rainfall.",
+      "twist": "Flood seasons temporarily alter routes and agricultural productivity."
+    },
+    {
+      "themeId": "orchid_isles",
+      "name": "Orchid Isles",
+      "visualIdentity": "Lush islands covered in unusual flowers and vegetation.",
+      "strategicChallenge": "Fragmented geography.",
+      "twist": "Some tiny islands contain disproportionately valuable resources."
+    },
+    {
+      "themeId": "the_green_labyrinth",
+      "name": "The Green Labyrinth",
+      "visualIdentity": "Dense vegetation broken by narrow corridors and clearings.",
+      "strategicChallenge": "Expansion routes are constrained.",
+      "twist": "Discovering the best routes becomes strategically important."
+    },
+    {
+      "themeId": "the_jungle_coast",
+      "name": "The Jungle Coast",
+      "visualIdentity": "Tropical jungle meeting long beaches and coastal rivers.",
+      "strategicChallenge": "Resources and settlements are split between interior and coast.",
+      "twist": "Two very different expansion directions compete for attention."
+    },
+    {
+      "themeId": "the_black_marsh",
+      "name": "The Black Marsh",
+      "visualIdentity": "Dark wetlands, twisted trees, pools, and fog.",
+      "strategicChallenge": "Large portions of the map are difficult to traverse.",
+      "twist": "Safe dry ground becomes extremely valuable."
+    },
+    {
+      "themeId": "mistfen",
+      "name": "Mistfen",
+      "visualIdentity": "Pale mist, marsh grasses, boardwalks, and isolated settlements.",
+      "strategicChallenge": "Visibility and navigation problems.",
+      "twist": "Some information about neighboring territory is temporarily obscured."
+    },
+    {
+      "themeId": "reed_kingdom",
+      "name": "Reed Kingdom",
+      "visualIdentity": "Enormous reed beds, shallow water, and floating settlements.",
+      "strategicChallenge": "Conventional roads are less useful.",
+      "twist": "Waterways become the primary infrastructure."
+    },
+    {
+      "themeId": "the_flooded_forest",
+      "name": "The Flooded Forest",
+      "visualIdentity": "Half-submerged forests, islands of dry land, and rivers everywhere.",
+      "strategicChallenge": "Seasonal flooding.",
+      "twist": "The map gradually changes which routes are convenient."
+    },
+    {
+      "themeId": "frostpine_valley",
+      "name": "Frostpine Valley",
+      "visualIdentity": "Snowy pine forests, frozen lakes, and mountain villages.",
+      "strategicChallenge": "Winter travel and resource pressure.",
+      "twist": "Sheltered valleys are disproportionately valuable."
+    },
+    {
+      "themeId": "the_glacier_frontier",
+      "name": "The Glacier Frontier",
+      "visualIdentity": "Glaciers, rocky valleys, and frozen rivers.",
+      "strategicChallenge": "Very limited buildable land.",
+      "twist": "Habitable territory is concentrated into narrow corridors."
+    },
+    {
+      "themeId": "autumn_highlands",
+      "name": "Autumn Highlands",
+      "visualIdentity": "Mountains covered in brilliant autumn forests.",
+      "strategicChallenge": "Seasonal resource fluctuation.",
+      "twist": "The world visually changes as time progresses."
+    },
+    {
+      "themeId": "the_white_basin",
+      "name": "The White Basin",
+      "visualIdentity": "Broad snowy basin surrounded by mountains.",
+      "strategicChallenge": "One large enclosed area with limited entrances.",
+      "twist": "Whoever controls the passes controls access to the interior."
+    },
+    {
+      "themeId": "the_northern_lakes",
+      "name": "The Northern Lakes",
+      "visualIdentity": "Countless icy lakes separated by forest and rocky hills.",
+      "strategicChallenge": "Fragmented geography without becoming a full archipelago.",
+      "twist": "Lake corridors create unusual travel networks."
+    },
+    {
+      "themeId": "the_sapphire_coast",
+      "name": "The Sapphire Coast",
+      "visualIdentity": "Cliffs, beaches, coastal forests, and bright blue water.",
+      "strategicChallenge": "Long vulnerable coastline.",
+      "twist": "Valuable coastal territory attracts intense competition."
+    },
+    {
+      "themeId": "the_storm_coast",
+      "name": "The Storm Coast",
+      "visualIdentity": "Dramatic cliffs, rough seas, lighthouses, and stormy weather.",
+      "strategicChallenge": "Periodic storms disrupt coastal activity.",
+      "twist": "Protected harbors become exceptionally valuable."
+    },
+    {
+      "themeId": "the_sunset_coast",
+      "name": "The Sunset Coast",
+      "visualIdentity": "Warm coastal plains, vineyards or farms, fishing villages, and cliffs.",
+      "strategicChallenge": "Abundant development opportunities.",
+      "twist": "Prosperity attracts rapid AI expansion."
+    },
+    {
+      "themeId": "the_broken_coast",
+      "name": "The Broken Coast",
+      "visualIdentity": "Deeply indented coastline with countless bays and peninsulas.",
+      "strategicChallenge": "Complicated borders.",
+      "twist": "Narrow land bridges and coastal chokepoints."
+    },
+    {
+      "themeId": "the_grand_river",
+      "name": "The Grand River",
+      "visualIdentity": "One enormous river winding through the whole world.",
+      "strategicChallenge": "River crossings.",
+      "twist": "Bridges become strategic infrastructure."
+    },
+    {
+      "themeId": "seven_lakes",
+      "name": "Seven Lakes",
+      "visualIdentity": "Seven enormous interconnected lakes.",
+      "strategicChallenge": "Land between lakes is fragmented.",
+      "twist": "Each lake basin has its own strategic character."
+    },
+    {
+      "themeId": "the_waterways",
+      "name": "The Waterways",
+      "visualIdentity": "Canals, rivers, ponds, and developed river settlements.",
+      "strategicChallenge": "Movement becomes strongly route-dependent.",
+      "twist": "Infrastructure connecting waterways becomes strategically important."
+    },
+    {
+      "themeId": "the_lake_of_crowns",
+      "name": "The Lake of Crowns",
+      "visualIdentity": "A huge central lake surrounded by prosperous settlements.",
+      "strategicChallenge": "The best land is concentrated around the water.",
+      "twist": "The central lake organizes the whole map."
+    },
+    {
+      "themeId": "the_fallen_empire",
+      "name": "The Fallen Empire",
+      "visualIdentity": "Broken roads, ruined cities, old walls, and abandoned settlements.",
+      "strategicChallenge": "Development is uneven.",
+      "twist": "Old infrastructure can be reclaimed instead of built from scratch."
+    },
+    {
+      "themeId": "the_ancient_roads",
+      "name": "The Ancient Roads",
+      "visualIdentity": "An old civilization's enormous road network still crisscrossing the map.",
+      "strategicChallenge": "Roads dictate efficient expansion.",
+      "twist": "Controlling major junctions provides strategic advantages."
+    },
+    {
+      "themeId": "the_lost_kingdom",
+      "name": "The Lost Kingdom",
+      "visualIdentity": "Scattered ruins hidden among forests, hills, and fields.",
+      "strategicChallenge": "Valuable locations are dispersed.",
+      "twist": "Exploration and redevelopment become unusually important."
+    },
+    {
+      "themeId": "the_reclaimed_land",
+      "name": "The Reclaimed Land",
+      "visualIdentity": "Abandoned settlements gradually being overtaken by nature.",
+      "strategicChallenge": "Developed territory starts in poor condition.",
+      "twist": "Rebuilding old places can be more valuable than establishing new ones."
+    },
+    {
+      "themeId": "the_orchard_kingdom",
+      "name": "The Orchard Kingdom",
+      "visualIdentity": "Massive orchards, agricultural towns, mills, and countryside.",
+      "strategicChallenge": "Fertile land attracts expansion.",
+      "twist": "Food abundance becomes an economic strength."
+    },
+    {
+      "themeId": "the_merchant_coast",
+      "name": "The Merchant Coast",
+      "visualIdentity": "Bustling ports, roads, markets, and coastal settlements.",
+      "strategicChallenge": "Economically valuable territory becomes highly contested.",
+      "twist": "Trade routes influence where empires expand."
+    },
+    {
+      "themeId": "blossom_kingdom",
+      "name": "Blossom Kingdom",
+      "visualIdentity": "Flowering trees, bright green fields, streams, and blooming valleys.",
+      "strategicChallenge": "Rapid natural growth continually changes the appearance of undeveloped areas.",
+      "twist": "Fertile regions become especially desirable."
+    },
+    {
+      "themeId": "the_vernal_vale",
+      "name": "The Vernal Vale",
+      "visualIdentity": "Spring rain, wildflowers, misty hills, and fresh forests.",
+      "strategicChallenge": "Temporary wet terrain affects travel.",
+      "twist": "Waterways and farmland gradually become more important."
+    },
+    {
+      "themeId": "cherry_blossom_highlands",
+      "name": "Cherry Blossom Highlands",
+      "visualIdentity": "Pink flowering forests and dramatic green mountain valleys.",
+      "strategicChallenge": "Difficult terrain divides otherwise fertile land.",
+      "twist": "Beautiful but strategically awkward mountain corridors."
+    },
+    {
+      "themeId": "the_awakening",
+      "name": "The Awakening",
+      "visualIdentity": "A dormant world bursting back into life.",
+      "strategicChallenge": "Different areas become productive at different times.",
+      "twist": "The world gradually becomes greener and more developed-looking."
+    },
+    {
+      "themeId": "rainy_springlands",
+      "name": "Rainy Springlands",
+      "visualIdentity": "Lush countryside, puddles, streams, rain, and fresh vegetation.",
+      "strategicChallenge": "Frequent rainfall disrupts some routes.",
+      "twist": "Agriculture is exceptionally valuable."
+    },
+    {
+      "themeId": "endless_summer",
+      "name": "Endless Summer",
+      "visualIdentity": "Sunny countryside, beaches, bright forests, and long days.",
+      "strategicChallenge": "Abundant resources encourage rapid expansion.",
+      "twist": "Almost everyone wants the same fertile territory."
+    },
+    {
+      "themeId": "sunflower_fields",
+      "name": "Sunflower Fields",
+      "visualIdentity": "Gigantic sunflower fields, farms, windmills, and rolling countryside.",
+      "strategicChallenge": "Agricultural land is concentrated into a few major regions.",
+      "twist": "Controlling those regions dramatically improves the economy."
+    },
+    {
+      "themeId": "the_summer_coast",
+      "name": "The Summer Coast",
+      "visualIdentity": "Bright beaches, cliffs, palms, fishing towns, and blue water.",
+      "strategicChallenge": "Long coastlines create exposed borders.",
+      "twist": "Coastal settlements are unusually valuable."
+    },
+    {
+      "themeId": "midsummer_realm",
+      "name": "Midsummer Realm",
+      "visualIdentity": "Perpetual golden-hour lighting, warm forests, and enormous fields.",
+      "strategicChallenge": "Relatively little natural obstruction.",
+      "twist": "Expansion is easy, but defending a huge frontier is difficult."
+    },
+    {
+      "themeId": "crimson_autumn",
+      "name": "Crimson Autumn",
+      "visualIdentity": "Red, orange, and gold forests everywhere.",
+      "strategicChallenge": "Seasonal harvesting becomes important.",
+      "twist": "Food-rich regions become strategic targets."
+    },
+    {
+      "themeId": "harvest_kingdom",
+      "name": "Harvest Kingdom",
+      "visualIdentity": "Enormous pumpkin patches, barns, orchards, wheat fields, and villages.",
+      "strategicChallenge": "Players compete for the most productive agricultural regions.",
+      "twist": "Exceptionally strong food economy."
+    },
+    {
+      "themeId": "the_foggy_fall",
+      "name": "The Foggy Fall",
+      "visualIdentity": "Autumn forests, misty hills, fallen leaves, and quiet villages.",
+      "strategicChallenge": "Visibility is reduced in some regions.",
+      "twist": "Exploration becomes more important."
+    },
+    {
+      "themeId": "maple_highlands",
+      "name": "Maple Highlands",
+      "visualIdentity": "Mountains covered in brilliant red and orange maple forests.",
+      "strategicChallenge": "Difficult mountain travel.",
+      "twist": "Valleys contain unusually valuable settlements."
+    },
+    {
+      "themeId": "haunted_harvest",
+      "name": "Haunted Harvest",
+      "visualIdentity": "Autumn countryside, pumpkins, crooked trees, moonlight, and old farms.",
+      "strategicChallenge": "Periodic unrest or event activity.",
+      "twist": "Spooky abandoned locations can become valuable once reclaimed."
+    },
+    {
+      "themeId": "witchwood",
+      "name": "Witchwood",
+      "visualIdentity": "Twisted forests, glowing mushrooms, strange clearings, and tiny cottages.",
+      "strategicChallenge": "Confusing terrain and poor visibility.",
+      "twist": "Hidden shortcuts connect otherwise distant areas."
+    },
+    {
+      "themeId": "moonlit_marsh",
+      "name": "Moonlit Marsh",
+      "visualIdentity": "Foggy wetlands beneath a giant moon.",
+      "strategicChallenge": "Movement through the marsh is difficult.",
+      "twist": "Dry islands act as valuable strategic anchors."
+    },
+    {
+      "themeId": "the_midnight_kingdom",
+      "name": "The Midnight Kingdom",
+      "visualIdentity": "Perpetual nighttime, lantern-lit cities, dark forests, and starry skies.",
+      "strategicChallenge": "Visibility is limited outside developed territory.",
+      "twist": "Cities become islands of security."
+    },
+    {
+      "themeId": "crimson_moon",
+      "name": "Crimson Moon",
+      "visualIdentity": "A strange red moon hanging over an autumn landscape.",
+      "strategicChallenge": "Temporary world events become more frequent.",
+      "twist": "The map visually changes during special events."
+    },
+    {
+      "themeId": "frosted_kingdom",
+      "name": "Frosted Kingdom",
+      "visualIdentity": "Snowy villages, frozen rivers, decorated towns, and pine forests.",
+      "strategicChallenge": "Winter travel.",
+      "twist": "Settlements near sheltered valleys are especially valuable."
+    },
+    {
+      "themeId": "the_great_snowfall",
+      "name": "The Great Snowfall",
+      "visualIdentity": "A world buried under enormous amounts of snow.",
+      "strategicChallenge": "Routes periodically become difficult.",
+      "twist": "Previously insignificant corridors become important when others are blocked."
+    },
+    {
+      "themeId": "christmas_village",
+      "name": "Christmas Village",
+      "visualIdentity": "Cozy winter villages, lights, snow-covered pine trees, and decorated buildings.",
+      "strategicChallenge": "Resource scarcity.",
+      "twist": "Settlements are densely concentrated."
+    },
+    {
+      "themeId": "candy_cane_mountains",
+      "name": "Candy Cane Mountains",
+      "visualIdentity": "Whimsical snowy mountains with bright red-and-white visual motifs.",
+      "strategicChallenge": "Steep terrain.",
+      "twist": "Narrow passes dominate the map."
+    },
+    {
+      "themeId": "the_long_night",
+      "name": "The Long Night",
+      "visualIdentity": "Winter twilight, auroras, snow, and frozen lakes.",
+      "strategicChallenge": "Harsh travel and resource conditions.",
+      "twist": "The player develops around a few safe, prosperous regions."
+    },
+    {
+      "themeId": "snowglobe_kingdom",
+      "name": "Snowglobe Kingdom",
+      "visualIdentity": "Tiny-looking cozy villages inside enormous snowy landscapes.",
+      "strategicChallenge": "Fragmented terrain.",
+      "twist": "Dense settlements surrounded by huge wilderness."
+    },
+    {
+      "themeId": "monsoon_kingdom",
+      "name": "Monsoon Kingdom",
+      "visualIdentity": "Tropical forests, heavy rain, and swelling rivers.",
+      "strategicChallenge": "Flooding changes routes.",
+      "twist": "Waterways become the dominant transportation network."
+    },
+    {
+      "themeId": "stormlands",
+      "name": "Stormlands",
+      "visualIdentity": "Dark clouds, dramatic skies, plains, and cliffs.",
+      "strategicChallenge": "Periodic storms disrupt activity.",
+      "twist": "Sheltered regions become strategic safe havens."
+    },
+    {
+      "themeId": "thunder_valley",
+      "name": "Thunder Valley",
+      "visualIdentity": "Huge mountains and valleys frequently lit by lightning.",
+      "strategicChallenge": "Difficult crossings.",
+      "twist": "The safest routes wind through narrow valleys."
+    },
+    {
+      "themeId": "the_four_winds",
+      "name": "The Four Winds",
+      "visualIdentity": "A world divided into visibly different wind and weather zones.",
+      "strategicChallenge": "Different regions behave differently.",
+      "twist": "The player adapts expansion direction to changing conditions."
+    },
+    {
+      "themeId": "eclipse_realm",
+      "name": "Eclipse Realm",
+      "visualIdentity": "A world permanently caught beneath a giant eclipse.",
+      "strategicChallenge": "Unstable environmental conditions.",
+      "twist": "Sections of the map have dramatically different lighting."
+    },
+    {
+      "themeId": "starlight_kingdom",
+      "name": "Starlight Kingdom",
+      "visualIdentity": "Dark blue landscape under an enormous star-filled sky.",
+      "strategicChallenge": "Distant settlements are difficult to support.",
+      "twist": "Isolated developed regions become valuable strongholds."
+    },
+    {
+      "themeId": "aurora_lands",
+      "name": "Aurora Lands",
+      "visualIdentity": "Northern lights, snowy hills, lakes, and forests.",
+      "strategicChallenge": "Harsh terrain.",
+      "twist": "Visual landmarks make certain regions exceptionally recognizable."
+    },
+    {
+      "themeId": "the_twin_moons",
+      "name": "The Twin Moons",
+      "visualIdentity": "Every night has two enormous moons.",
+      "strategicChallenge": "Periodic environmental changes.",
+      "twist": "A distinct visual cycle separates this world from earlier maps."
+    },
+    {
+      "themeId": "giant_mushroom_forest",
+      "name": "Giant Mushroom Forest",
+      "visualIdentity": "Enormous mushrooms replacing ordinary trees.",
+      "strategicChallenge": "Unusual terrain density.",
+      "twist": "Mushrooms create natural corridors and barriers."
+    },
+    {
+      "themeId": "mirrorlands",
+      "name": "Mirrorlands",
+      "visualIdentity": "Strangely symmetrical geography, reflective lakes, and mirrored valleys.",
+      "strategicChallenge": "Opposing sides of the map tend to have similar resources.",
+      "twist": "Expansion decisions become surprisingly symmetrical."
+    },
+    {
+      "themeId": "the_giant_s_garden",
+      "name": "The Giant's Garden",
+      "visualIdentity": "Ordinary-looking flowers, rocks, and plants rendered at enormous scale.",
+      "strategicChallenge": "Huge distances between meaningful locations.",
+      "twist": "Familiar props feel like massive terrain features."
+    },
+    {
+      "themeId": "the_tiny_kingdom",
+      "name": "The Tiny Kingdom",
+      "visualIdentity": "Densely packed miniature-looking settlements and tiny islands.",
+      "strategicChallenge": "Very little empty territory.",
+      "twist": "Territorial competition becomes extremely concentrated."
+    },
+    {
+      "themeId": "upside_down_valley",
+      "name": "Upside-Down Valley",
+      "visualIdentity": "Visually surreal cliffs and hanging-looking formations while remaining a 2D playable world.",
+      "strategicChallenge": "Unusual geography and limited corridors.",
+      "twist": "Orientation and landmarks feel completely different from previous worlds."
+    },
+    {
+      "themeId": "the_floating_isles",
+      "name": "The Floating Isles",
+      "visualIdentity": "Isolated floating-looking landmasses surrounded by clouds and sky effects.",
+      "strategicChallenge": "Extreme fragmentation.",
+      "twist": "Territory connections are sparse and strategically important."
+    },
+    {
+      "themeId": "the_living_forest",
+      "name": "The Living Forest",
+      "visualIdentity": "Enormous trees, shifting clearings, and vegetation-covered settlements.",
+      "strategicChallenge": "Some routes become less convenient as nature spreads.",
+      "twist": "Undeveloped territory visually takes over the map."
+    },
+    {
+      "themeId": "the_impossible_coast",
+      "name": "The Impossible Coast",
+      "visualIdentity": "Bizarre coastline with enormous natural arches, circular bays, narrow peninsulas, and strange islands.",
+      "strategicChallenge": "Highly irregular geography.",
+      "twist": "The map itself creates unexpected strategic pathways."
+    }
+  ]
+}

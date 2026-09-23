@@ -168,6 +168,15 @@ export type {
   WorldLoadResult,
   WorldFileRegistration,
   AuthoredWorldIdentity,
+  WorldThemeRef,
+  WorldChallengeRef,
+  WorldPresentationProfile,
+  WorldCameraOverrides,
+  SemanticLocationDefinition,
+  SemanticLocationKind,
+  WorldCompositionDefinition,
+  CompositionInstanceDefinition,
+  CompositionImportance,
 } from './worldDefinition';
 
 // ====== ORCHESTRATOR (Phase 10) ======

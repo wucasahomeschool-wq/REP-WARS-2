@@ -19,16 +19,25 @@ export {
 } from './identity';
 export type { AuthoredWorldIdentity } from './identity';
 export type {
+  CompositionImportance,
+  CompositionInstanceDefinition,
   ContainedWorldDefinition,
   RegionDefinition,
+  SemanticLocationDefinition,
+  SemanticLocationKind,
   TerritoryDefinition,
+  WorldCameraOverrides,
+  WorldChallengeRef,
   WorldCompletion,
+  WorldCompositionDefinition,
   WorldDefinition,
   WorldFactionDefinition,
   WorldLoadResult,
   WorldPersonalityDefinition,
   WorldPolygon,
+  WorldPresentationProfile,
   WorldStartingArmy,
+  WorldThemeRef,
   WorldValidationIssue,
   WorldVec2,
 } from './types';
