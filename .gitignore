@@ -2,3 +2,16 @@ node_modules/
 dist/
 *.tsbuildinfo
 .DS_Store
+
+# Unity (project at Unity/)
+Unity/Library/
+Unity/Temp/
+Unity/Obj/
+Unity/Build/
+Unity/Builds/
+Unity/Logs/
+Unity/UserSettings/
+
+# Editor
+.vscode/
+.cursor/

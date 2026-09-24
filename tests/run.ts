@@ -86,6 +86,7 @@ import { registerWorkoutPauseResumeTests } from './workoutPauseResume';
 import { registerAnalyticsTests } from './analytics';
 import { registerOrchestratorIntegrationTests } from './orchestratorIntegration';
 import { registerLevelAnchorTests } from './levelAnchors';
+import { runHttpBridgeTest } from './httpBridge';
 import { registerPlayerIdentityTests } from './playerIdentity';
 import { registerWorldTransitionTests } from './worldTransition';
 import { registerGate1VerticalSliceTests } from './gate1VerticalSlice';
@@ -3268,8 +3269,21 @@ registerOrchestratorIntegrationTests({ test });
 
 registerLevelAnchorTests({ test });
 
-console.log('');
-console.log(`Results: ${passed} passed, ${failed} failed`);
-if (failed > 0) {
-  process.exit(1);
-}
+void (async () => {
+  console.log('HTTP command bridge');
+  try {
+    await runHttpBridgeTest();
+    passed++;
+    console.log('  ✓ GET_GAME_STATE over HTTP');
+  } catch (err) {
+    failed++;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('  ✗ GET_GAME_STATE over HTTP');
+    console.error(`    ${msg}`);
+  }
+  console.log('');
+  console.log(`Results: ${passed} passed, ${failed} failed`);
+  if (failed > 0) {
+    process.exit(1);
+  }
+})();
