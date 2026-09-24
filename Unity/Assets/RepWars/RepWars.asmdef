@@ -1,7 +1,9 @@
 {
   "name": "RepWars",
   "rootNamespace": "RepWars",
-  "references": [],
+  "references": [
+    "Unity.InputSystem"
+  ],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

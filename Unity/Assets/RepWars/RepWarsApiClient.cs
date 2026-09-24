@@ -22,18 +22,9 @@ namespace RepWars
     }
 
     [Serializable]
-    public class RepWarsGameStateFields
-    {
-        public string playerFactionId;
-        public string worldName;
-        public int worldLevel;
-        public int turn;
-    }
-
-    [Serializable]
     public class RepWarsCommandPayload
     {
-        public RepWarsGameStateFields gameState;
+        public PublicGameState gameState;
     }
 
     [Serializable]
@@ -58,7 +49,7 @@ namespace RepWars
 
     /// <summary>
     /// Posts CommandRequest JSON to the Rep Wars HTTP bridge.
-    /// Dictionary fields on gameState are left in RawJson and are not mapped.
+    /// GET_GAME_STATE is deserialized into PublicGameState. Unused snapshot fields stay in RawJson.
     /// </summary>
     public class RepWarsApiClient
     {
@@ -76,7 +67,55 @@ namespace RepWars
             yield return PostCommand("GET_GAME_STATE", playerId, "unity-get-game-state", onComplete);
         }
 
+        public IEnumerator GetWorldDefinition(string playerId, Action<RepWarsCommandResult> onComplete)
+        {
+            yield return PostCommand("GET_WORLD_DEFINITION", playerId, "unity-get-world-definition", onComplete, false);
+        }
+
+        public IEnumerator GetVisibleWorld(string playerId, Action<VisibleWorldResult> onComplete)
+        {
+            RepWarsCommandResult raw = null;
+            yield return PostCommand("GET_VISIBLE_WORLD", playerId, "unity-get-visible-world", result => raw = result, false);
+            var parsed = new VisibleWorldResult();
+            if (raw == null)
+            {
+                parsed.Failure = "GET_VISIBLE_WORLD returned no result";
+                onComplete?.Invoke(parsed);
+                yield break;
+            }
+            parsed.TransportOk = raw.TransportOk;
+            parsed.Failure = raw.Failure;
+            parsed.RawJson = raw.RawJson;
+            if (!raw.TransportOk)
+            {
+                onComplete?.Invoke(parsed);
+                yield break;
+            }
+            try
+            {
+                var adapted = PublicGameStateJson.AdaptTerritoriesForJsonUtility(raw.RawJson);
+                var response = JsonUtility.FromJson<VisibleWorldResponse>(adapted);
+                parsed.World = response != null && response.payload != null ? response.payload.visibleWorld : null;
+            }
+            catch (Exception ex)
+            {
+                parsed.TransportOk = false;
+                parsed.Failure = "Malformed visible world: " + ex.Message;
+            }
+            if (parsed.TransportOk && parsed.World == null)
+            {
+                parsed.TransportOk = false;
+                parsed.Failure = "Visible world payload was missing";
+            }
+            onComplete?.Invoke(parsed);
+        }
+
         public IEnumerator PostCommand(string commandId, string playerId, string requestId, Action<RepWarsCommandResult> onComplete)
+        {
+            yield return PostCommand(commandId, playerId, requestId, onComplete, true);
+        }
+
+        public IEnumerator PostCommand(string commandId, string playerId, string requestId, Action<RepWarsCommandResult> onComplete, bool parseGameState)
         {
             var result = new RepWarsCommandResult();
             var body = JsonUtility.ToJson(new RepWarsCommandRequest
@@ -114,7 +153,22 @@ namespace RepWars
 
             try
             {
-                result.Response = JsonUtility.FromJson<RepWarsCommandResponse>(result.RawJson);
+                if (parseGameState)
+                {
+                    var adapted = PublicGameStateJson.AdaptTerritoriesForJsonUtility(result.RawJson);
+                    result.Response = JsonUtility.FromJson<RepWarsCommandResponse>(adapted);
+                }
+                else
+                {
+                    result.Response = new RepWarsCommandResponse
+                    {
+                        success = result.RawJson.IndexOf("\"success\":true", System.StringComparison.Ordinal) >= 0,
+                    };
+                    if (!result.Response.success)
+                    {
+                        result.Failure = "Command failed";
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -154,5 +208,36 @@ namespace RepWars
             var first = response.errors[0];
             return "Command failed: " + first.code + " " + first.message;
         }
+    }
+
+    [Serializable]
+    public class VisibleWorldSnapshot
+    {
+        public string worldName;
+        public int worldLevel;
+        public string viewerFactionId;
+        public PublicTerritory[] territories;
+        public PublicArmy[] armies;
+    }
+
+    [Serializable]
+    public class VisibleWorldPayload
+    {
+        public VisibleWorldSnapshot visibleWorld;
+    }
+
+    [Serializable]
+    public class VisibleWorldResponse
+    {
+        public bool success;
+        public VisibleWorldPayload payload;
+    }
+
+    public class VisibleWorldResult
+    {
+        public bool TransportOk;
+        public string RawJson;
+        public string Failure;
+        public VisibleWorldSnapshot World;
     }
 }
