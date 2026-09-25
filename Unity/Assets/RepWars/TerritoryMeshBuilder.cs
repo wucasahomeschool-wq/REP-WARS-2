@@ -31,6 +31,22 @@ namespace RepWars
             return mesh;
         }
 
+        /// <summary>
+        /// World-space UVs so one Plains tile repeats across the projected mesh.
+        /// The mesh triangles stay the authored polygon, so the texture cannot spill past the coast.
+        /// </summary>
+        public static void ApplyWorldUVs(Mesh mesh, float worldUnitsPerTile)
+        {
+            var tile = Mathf.Max(0.01f, worldUnitsPerTile);
+            var vertices = mesh.vertices;
+            var uvs = new Vector2[vertices.Length];
+            for (var i = 0; i < vertices.Length; i++)
+            {
+                uvs[i] = new Vector2(vertices[i].x / tile, vertices[i].y / tile);
+            }
+            mesh.uv = uvs;
+        }
+
         static int[] Triangulate(List<Vector2> points)
         {
             var index = new List<int>(points.Count);

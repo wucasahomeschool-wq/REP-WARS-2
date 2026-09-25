@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c4e8a1b07d2f4e6a9c3b5d1e8f7042ab, type: 3}
+  m_Name: RepWarsPropCatalog
+  m_EditorClassIdentifier: 
+  entries:
+  - assetId: background-removed-barrel-1-standard
+    sprite: {fileID: 21300000, guid: 2dfc89eef975603f40d91614f9b08548, type: 3}
+  - assetId: background-removed-brush-cluster-1-standard
+    sprite: {fileID: 21300000, guid: 404de15df0fcfac430f2b0ed9e4a89af, type: 3}
+  - assetId: background-removed-brush-cluster-2-standard
+    sprite: {fileID: 21300000, guid: 5c079a3e803a2a8d659f016a50f0a81e, type: 3}
+  - assetId: background-removed-cart-1-standard
+    sprite: {fileID: 21300000, guid: c011332b0574b95482e0a6213889ee16, type: 3}
+  - assetId: background-removed-dead-tree-1-standard
+    sprite: {fileID: 21300000, guid: 425606c62700ce26b59944cbf1c483f9, type: 3}
+  - assetId: background-removed-fence-1-standard
+    sprite: {fileID: 21300000, guid: 8d65059f26e4e7cabcf8f33819d8aa7e, type: 3}
+  - assetId: background-removed-grass-shoot-2-standard
+    sprite: {fileID: 21300000, guid: 08f90b7ac441f1948331e9660b650d1d, type: 3}
+  - assetId: background-removed-large-brush-and-tree-cluster-1-standard
+    sprite: {fileID: 21300000, guid: a40d4f5ecfcdb0a9d154f9a51d3d5112, type: 3}
+  - assetId: background-removed-log-1-standard
+    sprite: {fileID: 21300000, guid: b7b1bd31fc2b28ae9251b1cbca11ce05, type: 3}
+  - assetId: background-removed-rock-1-standard
+    sprite: {fileID: 21300000, guid: a79955c2ac4b692648dad5b71e08cf68, type: 3}
+  - assetId: background-removed-rock-2
+    sprite: {fileID: 21300000, guid: ed75a961876ddb04ad5484ae72da09a4, type: 3}
+  - assetId: background-removed-rock-3-standard
+    sprite: {fileID: 21300000, guid: 3b38a077683db5ccd1cfa30bbc4e675e, type: 3}
+  - assetId: background-removed-tree-3--broadleaf--standard
+    sprite: {fileID: 21300000, guid: 61b4d7cca0a805f16253695d11cd2f29, type: 3}
+  - assetId: background-removed-tree-5--broadleaf--standard
+    sprite: {fileID: 21300000, guid: 7b5b931c7c624e5a098004d1a3cf4859, type: 3}
+  - assetId: background-removed-tree-cluster-1-standard
+    sprite: {fileID: 21300000, guid: fa8a5d9cda7a74000e9fb919fe166edb, type: 3}
+  - assetId: background-removed-tree-cluster-2-standard
+    sprite: {fileID: 21300000, guid: f2fe288bbcb414c0dbea43b980c3bc72, type: 3}
+  - assetId: background-removed-tree-cluster-4-standard
+    sprite: {fileID: 21300000, guid: b4abc5acca22a08baa70ef7027716104, type: 3}
+  - assetId: background-removed-trough-1-standard
+    sprite: {fileID: 21300000, guid: 795fdbcbaea410338e79565e3e9a9f78, type: 3}
+  - assetId: background-removed-well-1-standard
+    sprite: {fileID: 21300000, guid: 0603aa9ff99bfbe56b7e6587aafa6401, type: 3}
+  - assetId: background-removed-wooden-box-1-standard
+    sprite: {fileID: 21300000, guid: ee49c18aaa41f536902f6e579c8c6d71, type: 3}
+  - assetId: stump-1
+    sprite: {fileID: 21300000, guid: fcee20f3f3f0a5e2676111eabafc0bb0, type: 3}
+  - assetId: tree-1-pine
+    sprite: {fileID: 21300000, guid: 58fbf6da1c37ea485bc41863e2e02e8b, type: 3}
+  - assetId: tree-2-broadleaf
+    sprite: {fileID: 21300000, guid: 252e118a33ecff976d179890e6ee7d96, type: 3}
+  - assetId: tree-cluster-3
+    sprite: {fileID: 21300000, guid: bbf808c38406c5e6dd7e4b2879ed32fc, type: 3}
+  authoredWorld: {fileID: 4900000, guid: 0c32a8c77810c6270fd02fe28267e069, type: 3}

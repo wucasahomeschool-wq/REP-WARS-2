@@ -20,11 +20,15 @@ namespace RepWars
 
     public class AuthoredProp
     {
+        public string instanceId;
         public string assetId;
         public string territoryId;
         public Vector2 position;
         public float rotationDegrees;
-        public float scale = 1f;
+        public float scale;
+        public bool hasScale;
+        public string anchor;
+        public float depth;
     }
 
     public class AuthoredLocation
@@ -381,10 +385,17 @@ namespace RepWars
             {
                 var key = cursor.ReadString();
                 cursor.Expect(':');
-                if (key == "assetId" && cursor.Peek() == '"') prop.assetId = cursor.ReadString();
+                if (key == "instanceId" && cursor.Peek() == '"') prop.instanceId = cursor.ReadString();
+                else if (key == "assetId" && cursor.Peek() == '"') prop.assetId = cursor.ReadString();
                 else if (key == "territoryId" && cursor.Peek() == '"') prop.territoryId = cursor.ReadString();
-                else if (key == "rotationDegrees") prop.rotationDegrees = cursor.ReadNumber();
-                else if (key == "scale") prop.scale = cursor.ReadNumber();
+                else if (key == "rotationDegrees" && cursor.Peek() != 'n') prop.rotationDegrees = cursor.ReadNumber();
+                else if (key == "scale" && cursor.Peek() != 'n')
+                {
+                    prop.scale = cursor.ReadNumber();
+                    prop.hasScale = true;
+                }
+                else if (key == "anchor" && cursor.Peek() == '"') prop.anchor = cursor.ReadString();
+                else if (key == "depth" && cursor.Peek() != 'n') prop.depth = cursor.ReadNumber();
                 else if (key == "position" && cursor.Peek() == '{') prop.position = ReadPoint(cursor);
                 else cursor.SkipValue();
                 if (cursor.Peek() == ',')

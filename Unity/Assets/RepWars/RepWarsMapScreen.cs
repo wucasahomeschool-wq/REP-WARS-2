@@ -23,11 +23,15 @@ namespace RepWars
 
         static readonly Color Sea = Hex(0x1b, 0x1f, 0x24);
         static readonly Color Border = Hex(0x2a, 0x30, 0x38);
+        const float OwnershipWashAlpha = 0.22f;
+
         static readonly Color Ink = Hex(0xf0, 0xe6, 0xc8);
         static readonly Color Highlight = Hex(0xf0, 0xe6, 0xc8);
 
         PublicGameState gameState;
         AuthoredWorld world;
+        RepWarsPropCatalog propCatalog;
+        Material propMaterial;
         VisibleWorldSnapshot visibleWorld;
         string status = "Loading Level 1...";
         TextMesh hud;
@@ -94,9 +98,15 @@ namespace RepWars
                 Fail(definitionResult != null ? definitionResult.Failure : "GET_WORLD_DEFINITION failed");
                 yield break;
             }
+            propCatalog = Resources.Load<RepWarsPropCatalog>("RepWarsPropCatalog");
+            if (propCatalog == null || propCatalog.authoredWorld == null)
+            {
+                Fail("Level 1 prop catalog is missing");
+                yield break;
+            }
             try
             {
-                world = WorldDefinitionReader.Read(definitionResult.RawJson);
+                world = WorldDefinitionReader.Read(propCatalog.authoredWorld.text);
             }
             catch (System.Exception ex)
             {
@@ -141,15 +151,23 @@ namespace RepWars
                 var ground = new GameObject("Terrain_" + territory.id);
                 ground.transform.SetParent(piece.transform, false);
                 var groundFilter = ground.AddComponent<MeshFilter>();
-                groundFilter.sharedMesh = TerritoryMeshBuilder.Build(ring);
+                var groundMesh = TerritoryMeshBuilder.Build(ring);
+                var plains = PlainsSprite();
+                if (plains != null)
+                {
+                    TerritoryMeshBuilder.ApplyWorldUVs(groundMesh, plains.rect.width / plains.pixelsPerUnit);
+                }
+                groundFilter.sharedMesh = groundMesh;
                 var groundRenderer = ground.AddComponent<MeshRenderer>();
-                groundRenderer.sharedMaterial = TerritoryMaterial(TerrainColor(territory.terrain));
+                groundRenderer.sharedMaterial = plains != null
+                    ? PlainsMaterial(plains)
+                    : TerritoryMaterial(TerrainColor(territory.terrain));
                 groundRenderer.sortingOrder = 0;
                 var filter = piece.AddComponent<MeshFilter>();
                 filter.sharedMesh = TerritoryMeshBuilder.Build(ring);
                 var renderer = piece.AddComponent<MeshRenderer>();
                 var ownerColor = ColorFor(owner);
-                ownerColor.a = 0.72f;
+                ownerColor.a = OwnershipWashAlpha;
                 renderer.sharedMaterial = TerritoryMaterial(ownerColor);
                 renderer.sortingOrder = 1;
                 var outline = piece.AddComponent<LineRenderer>();
@@ -201,24 +219,12 @@ namespace RepWars
 
         void LabelRegions(Transform parent, Bounds bounds, bool hasBounds)
         {
-            var characterSize = hasBounds ? Mathf.Max(0.12f, bounds.size.y * 0.0065f) : 0.2f;
+            var characterSize = hasBounds ? Mathf.Max(0.07f, bounds.size.y * 0.0048f) : 0.09f;
             foreach (var region in world.regions)
             {
-                Vector2 sum = Vector2.zero;
-                var count = 0;
-                foreach (var territory in world.territories)
-                {
-                    if (territory.regionId != region.id || territory.ring.Count == 0) continue;
-                    foreach (var point in territory.ring)
-                    {
-                        sum += point;
-                        count++;
-                    }
-                }
-                if (count == 0 || string.IsNullOrEmpty(region.name)) continue;
+                if (string.IsNullOrEmpty(region.name) || !TryRegionLabelPoint(region.id, out var projected)) continue;
                 var labelObject = new GameObject("Region_" + region.id);
                 labelObject.transform.SetParent(parent, false);
-                var projected = MapProjection.Project(new Vector2(sum.x / count, sum.y / count));
                 labelObject.transform.position = new Vector3(projected.x, projected.y, -0.5f);
                 var label = labelObject.AddComponent<TextMesh>();
                 label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -226,7 +232,7 @@ namespace RepWars
                 label.characterSize = characterSize;
                 label.anchor = TextAnchor.MiddleCenter;
                 label.alignment = TextAlignment.Center;
-                label.color = Ink;
+                label.color = new Color(Ink.r, Ink.g, Ink.b, 0.82f);
                 label.text = region.name;
                 var labelRenderer = label.GetComponent<MeshRenderer>();
                 labelRenderer.sortingOrder = 30;
@@ -260,9 +266,8 @@ namespace RepWars
             var camera = Camera.main;
             if (camera == null || !hasMapBounds) return;
             var framed = mapBounds;
-            framed.Encapsulate(new Vector3(mapBounds.min.x - mapBounds.size.x * 0.5f, mapBounds.center.y, 0f));
             var aspect = Mathf.Max(0.1f, camera.aspect);
-            var size = Mathf.Max(framed.extents.y, framed.extents.x / aspect) * 1.08f;
+            var size = Mathf.Max(framed.extents.y, framed.extents.x / aspect) * 1.22f;
             mapCamera = camera.GetComponent<RepWarsMapCamera>();
             if (mapCamera == null) mapCamera = camera.gameObject.AddComponent<RepWarsMapCamera>();
             mapCamera.Frame(framed.center, size, aspect);
@@ -279,24 +284,17 @@ namespace RepWars
 
         void PlaceAuthoredVisuals(Transform parent)
         {
-            Debug.Log("[RepWars] authored props=" + world.props.Count + " locations=" + world.locations.Count);
+            var rendered = 0;
+            var skipped = 0;
             foreach (var prop in world.props)
             {
-                if (string.IsNullOrEmpty(prop.assetId)) continue;
-                var marker = new GameObject("Prop_" + prop.assetId);
-                marker.transform.SetParent(parent, false);
-                var projected = MapProjection.Project(prop.position);
-                marker.transform.position = new Vector3(projected.x, projected.y, 0f);
-                marker.transform.rotation = Quaternion.Euler(0f, 0f, -prop.rotationDegrees);
-                var label = marker.AddComponent<TextMesh>();
-                label.text = prop.assetId;
-                label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                label.fontSize = 32;
-                label.characterSize = 0.8f;
-                label.anchor = TextAnchor.MiddleCenter;
-                label.color = new Color(0.85f, 0.75f, 0.45f);
-                label.GetComponent<MeshRenderer>().sortingOrder = 12;
+                if (!PlaceProp(parent, prop)) skipped++;
+                else rendered++;
             }
+            Debug.Log("[RepWars] authored props=" + world.props.Count
+                + " rendered=" + rendered
+                + " skipped=" + skipped
+                + " locations=" + world.locations.Count);
             foreach (var location in world.locations)
             {
                 if (!location.hasPosition && string.IsNullOrEmpty(location.name)) continue;
@@ -313,6 +311,47 @@ namespace RepWars
                 label.color = Ink;
                 label.GetComponent<MeshRenderer>().sortingOrder = 14;
             }
+        }
+
+        bool PlaceProp(Transform parent, AuthoredProp prop)
+        {
+            if (string.IsNullOrEmpty(prop.assetId)) return false;
+            if (!prop.hasScale)
+            {
+                Debug.LogWarning("[RepWars] prop " + prop.instanceId + " has no authored scale");
+                return false;
+            }
+            var sprite = propCatalog != null ? propCatalog.Find(prop.assetId) : null;
+            if (sprite == null)
+            {
+                Debug.LogWarning("[RepWars] no sprite registered for " + prop.assetId);
+                return false;
+            }
+            if (!RepWarsPropPlacement.UsesImportedPivot(prop.anchor))
+            {
+                Debug.LogWarning("[RepWars] prop " + prop.instanceId + " has unsupported anchor " + prop.anchor);
+                return false;
+            }
+            var marker = new GameObject("Prop_" + (string.IsNullOrEmpty(prop.instanceId) ? prop.assetId : prop.instanceId));
+            marker.transform.SetParent(parent, false);
+            var rotation = Quaternion.Euler(0f, 0f, -prop.rotationDegrees);
+            var projected = MapProjection.Project(prop.position);
+            marker.transform.SetPositionAndRotation(new Vector3(projected.x, projected.y, 0f), rotation);
+            marker.transform.localScale = new Vector3(prop.scale, prop.scale, 1f);
+            var renderer = marker.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+            renderer.sharedMaterial = PropMaterial();
+            renderer.sortingOrder = RepWarsPropPlacement.SortingOrder(prop.depth);
+            return true;
+        }
+
+        Material PropMaterial()
+        {
+            if (propMaterial != null) return propMaterial;
+            var shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
+            if (shader == null) shader = Shader.Find("Sprites/Default");
+            propMaterial = new Material(shader);
+            return propMaterial;
         }
 
         static Color TerrainColor(string terrain)
@@ -345,10 +384,10 @@ namespace RepWars
                 var token = marker.AddComponent<TextMesh>();
                 token.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 token.fontSize = 48;
-                token.characterSize = 0.55f;
+                token.characterSize = 0.16f;
                 token.anchor = TextAnchor.MiddleCenter;
                 token.alignment = TextAlignment.Center;
-                token.color = Color.white;
+                token.color = new Color(Ink.r, Ink.g, Ink.b, 0.92f);
                 token.text = army.troops + " troops";
                 token.GetComponent<MeshRenderer>().sortingOrder = 20;
                 placed++;
@@ -476,6 +515,50 @@ namespace RepWars
             status = message;
             if (hud != null) hud.text = message;
             Debug.LogError("[RepWars] " + message);
+        }
+
+        bool TryRegionLabelPoint(string regionId, out Vector2 point)
+        {
+            var has = false;
+            var min = Vector2.zero;
+            var max = Vector2.zero;
+            foreach (var territory in world.territories)
+            {
+                if (territory.regionId != regionId) continue;
+                for (var i = 0; i < territory.ring.Count; i++)
+                {
+                    var projected = MapProjection.Project(territory.ring[i]);
+                    if (!has)
+                    {
+                        min = max = projected;
+                        has = true;
+                    }
+                    else
+                    {
+                        min = Vector2.Min(min, projected);
+                        max = Vector2.Max(max, projected);
+                    }
+                }
+            }
+            point = has ? new Vector2((min.x + max.x) * 0.5f, max.y - (max.y - min.y) * 0.16f) : Vector2.zero;
+            return has;
+        }
+
+        Sprite plainsSprite;
+
+        Sprite PlainsSprite()
+        {
+            if (plainsSprite == null) plainsSprite = Resources.Load<Sprite>("Terrain/Plains 1");
+            return plainsSprite;
+        }
+
+        Material PlainsMaterial(Sprite plains)
+        {
+            var material = TerritoryMaterial(Color.white);
+            var texture = plains.texture;
+            texture.wrapMode = TextureWrapMode.Repeat;
+            material.SetTexture("_MainTex", texture);
+            return material;
         }
 
         static Material TerritoryMaterial(Color color)
