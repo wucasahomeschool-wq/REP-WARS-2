@@ -1,9 +1,10 @@
-import { InMemoryWorkoutHistoryStore } from '../fitness/history/inMemoryStore';
 import { getCommandDefinition } from '../orchestration/commandIndex';
 import { createDefaultRegistry, Orchestrator } from '../orchestration';
 import { CommandRequest, CommandResponse } from '../orchestration/protocol';
 import { FixedWorldTimeAuthority } from '../persistence/timeAuthority';
 import { isCommandExposed } from './allowlist';
+import { aiInvasionFixtureMode, arrangeLevel1SoAiAttacks, openAiInvasionFromDecision } from './aiInvasionFixture';
+import { isRoutingHistoryStore } from '../persistence/supabase/commandHistoryBuffer';
 import { PlayerWorldPersistence } from './persistencePort';
 
 export class CommandNotExposedError extends Error {
@@ -35,17 +36,32 @@ export interface CommandSessionHost {
 }
 
 export function createSessionHost(persistence: PlayerWorldPersistence): CommandSessionHost {
-  const historyStore = new InMemoryWorkoutHistoryStore();
   const registry = createDefaultRegistry();
-  registry.workoutHistory = historyStore;
+  registry.workoutHistory = persistence.history;
   registry.timeAuthority = new FixedWorldTimeAuthority(0);
   const sessions = new Map<string, PlayerSession>();
 
   function boot(playerId: string): PlayerSession {
     const ensured = persistence.ensure(playerId);
+    const mode = aiInvasionFixtureMode();
+    const awaitingTutorial = ensured.state.level1Tutorial?.beat === 'FIRST_WORKOUT_PENDING';
+    if (mode && awaitingTutorial) {
+      arrangeLevel1SoAiAttacks(ensured.state, mode);
+    }
+    const orchestrator = new Orchestrator(ensured.state, registry);
+    let expectedVersion = ensured.record.stateVersion;
+    if (mode && awaitingTutorial) {
+      const opened = openAiInvasionFromDecision(orchestrator, playerId);
+      const saved = persistence.save(playerId, orchestrator.getState(), expectedVersion);
+      if (!saved.ok) {
+        throw new PersistenceFailedError(saved.code, saved.message);
+      }
+      expectedVersion = saved.record.stateVersion;
+      console.log(`AI invasion fixture ${mode}: ${opened.invasionId} on ${opened.targetId} (${opened.attackerSoldiers} troops)`);
+    }
     return {
-      orchestrator: new Orchestrator(ensured.state, registry),
-      expectedVersion: ensured.record.stateVersion,
+      orchestrator,
+      expectedVersion,
       chain: Promise.resolve(),
     };
   }
@@ -68,12 +84,53 @@ export function createSessionHost(persistence: PlayerWorldPersistence): CommandS
     const current = session;
     const run = current.chain.then(() => {
       const definition = getCommandDefinition(request.commandId);
-      const response = current.orchestrator.execute(request);
+      const atomic = definition?.changesState
+        && persistence.commitWorld
+        && isRoutingHistoryStore(persistence.history);
+      if (atomic && persistence.commitWorld && isRoutingHistoryStore(persistence.history)) {
+        const history = persistence.history;
+        history.begin(request.playerId);
+        let response: CommandResponse;
+        try {
+          response = current.orchestrator.execute(request);
+          const saved = persistence.commitWorld(
+            request.playerId,
+            current.orchestrator.getState(),
+            current.expectedVersion,
+            history.drain(request.playerId),
+          );
+          if (!saved.ok) {
+            reload(request.playerId, current);
+            throw new PersistenceFailedError(saved.code, saved.message);
+          }
+          current.expectedVersion = saved.record.stateVersion;
+          return response;
+        } finally {
+          history.end(request.playerId);
+        }
+      }
+      const historyBackup = definition?.changesState
+        ? persistence.history.clonePlayer(request.playerId)
+        : null;
+      let response: CommandResponse;
+      try {
+        response = current.orchestrator.execute(request);
+      } catch (err) {
+        if (historyBackup) persistence.history.replacePlayer(request.playerId, historyBackup);
+        throw err;
+      }
       if (definition?.changesState) {
         const saved = persistence.save(request.playerId, current.orchestrator.getState(), current.expectedVersion);
         if (!saved.ok) {
+          let message = saved.message;
+          try {
+            if (historyBackup) persistence.history.replacePlayer(request.playerId, historyBackup);
+          } catch (rollbackErr) {
+            const rollbackMessage = rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr);
+            message = `${message} Rollback failed: ${rollbackMessage}`;
+          }
           reload(request.playerId, current);
-          throw new PersistenceFailedError(saved.code, saved.message);
+          throw new PersistenceFailedError(saved.code, message);
         }
         current.expectedVersion = saved.record.stateVersion;
       }

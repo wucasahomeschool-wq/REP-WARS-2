@@ -227,6 +227,7 @@ export function overwriteGameState(target: GameState, source: GameState): void {
   target.schemaVersion = next.schemaVersion;
   target.turn = next.turn;
   target.worldTick = next.worldTick;
+  target.lastProcessedAtMs = next.lastProcessedAtMs;
   target.lastFoodConsumptionTick = next.lastFoodConsumptionTick;
   target.lastAiDecisionTick = next.lastAiDecisionTick;
   target.worldSeed = next.worldSeed;
@@ -269,6 +270,7 @@ export function cloneGameState(state: GameState): GameState {
     schemaVersion: state.schemaVersion,
     turn: state.turn,
     worldTick: state.worldTick,
+    lastProcessedAtMs: state.lastProcessedAtMs,
     lastFoodConsumptionTick: state.lastFoodConsumptionTick,
     lastAiDecisionTick: new Map(state.lastAiDecisionTick),
     worldSeed: state.worldSeed,

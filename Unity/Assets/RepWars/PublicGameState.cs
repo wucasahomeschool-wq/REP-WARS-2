@@ -14,6 +14,52 @@ namespace RepWars
         public string regionName;
         public string owner;
         public string terrain;
+        public int fortification;
+        public int garrison;
+        public bool farm;
+        public bool mine;
+        public bool lumber;
+        public PublicResources resourceOutput;
+    }
+
+    [Serializable]
+    public class PublicResources
+    {
+        public int gold;
+        public int food;
+        public int iron;
+        public int wood;
+        public int stone;
+    }
+
+    [Serializable]
+    public class PublicFaction
+    {
+        public string id;
+        public string name;
+    }
+
+    [Serializable]
+    public class PublicCity
+    {
+        public string id;
+        public string territoryId;
+    }
+
+    [Serializable]
+    public class PublicConstruction
+    {
+        public string id;
+        public string territoryId;
+        public string projectType;
+        public int remainingTicks;
+        public string status;
+    }
+
+    [Serializable]
+    public class PublicProgression
+    {
+        public string currentBandId;
     }
 
     /// <summary>
@@ -26,6 +72,77 @@ namespace RepWars
         public string owner;
         public string location;
         public int troops;
+    }
+
+    [Serializable]
+    public class PublicPrescription
+    {
+        public string kind;
+        public int repetitions;
+        public int durationSeconds;
+    }
+
+    [Serializable]
+    public class PublicExerciseStep
+    {
+        public string exerciseId;
+        public int order;
+        public string exerciseType;
+        public bool isRest;
+        public bool skippable;
+        public PublicPrescription prescription;
+    }
+
+    [Serializable]
+    public class PublicActiveWorkout
+    {
+        public string sessionId;
+        public string workoutId;
+        public string purpose;
+        public string state;
+        public string feedbackState;
+        public PublicExerciseStep currentExercise;
+        public PublicExerciseStep[] prescribedExercises;
+    }
+
+    [Serializable]
+    public class PublicTutorial
+    {
+        public bool active;
+        public string beat;
+        public string expectedAction;
+        public string expectedPurpose;
+        public string expectedWorkoutId;
+        public bool nextActionAllowed;
+        public string scriptedInvasionId;
+        public string[] firstAttackTerritoryIds;
+        public string[] finalAttackTerritoryIds;
+    }
+
+    [Serializable]
+    public class PublicInvasion
+    {
+        public string invasionId;
+        public string status;
+        public string territoryId;
+        public string attackerFactionId;
+        public int remainingResponseTicks;
+        public bool defenseInProgress;
+    }
+
+    [Serializable]
+    public class PublicGameplay
+    {
+        public int bankedTroops;
+        public PublicResources resources;
+        public int fitnessLevel;
+        public bool fitnessKnown;
+        public PublicProgression progression;
+        public PublicCity[] cities;
+        public PublicConstruction[] constructions;
+        public PublicActiveWorkout activeWorkout;
+        public PublicTutorial tutorial;
+        public PublicInvasion[] activeInvasionsAgainstPlayer;
     }
 
     /// <summary>
@@ -41,6 +158,9 @@ namespace RepWars
         public string playerFactionId;
         public PublicTerritory[] territories;
         public PublicArmy[] armies;
+        public PublicFaction[] factions;
+        public PublicTutorial tutorial;
+        public PublicGameplay playerGameplay;
 
         public int TerritoryCount
         {
@@ -75,6 +195,64 @@ namespace RepWars
             SkipValue(json, ref end);
             var array = ObjectMapToValueArray(json.Substring(start, end - start));
             return json.Substring(0, start) + array + json.Substring(end);
+        }
+
+        public static void NoteFitness(string json, PublicGameState state)
+        {
+            if (state == null || state.playerGameplay == null || string.IsNullOrEmpty(json)) return;
+            var gameplay = ObjectSlice(json, "playerGameplay");
+            state.playerGameplay.fitnessKnown = gameplay.IndexOf("\"fitnessLevel\":null", StringComparison.Ordinal) < 0
+                && gameplay.IndexOf("\"fitnessLevel\":", StringComparison.Ordinal) >= 0;
+        }
+
+        /// <summary>
+        /// JsonUtility replaces a JSON null object with an empty instance.
+        /// A finished exercise and a cleared session must stay absent.
+        /// </summary>
+        public static void NormalizeWorkout(PublicGameState state)
+        {
+            if (state == null || state.playerGameplay == null) return;
+            var workout = state.playerGameplay.activeWorkout;
+            if (workout == null) return;
+            if (string.IsNullOrEmpty(workout.sessionId))
+            {
+                state.playerGameplay.activeWorkout = null;
+                return;
+            }
+            var step = workout.currentExercise;
+            if (step != null && string.IsNullOrEmpty(step.exerciseId)) workout.currentExercise = null;
+        }
+
+        static string ObjectSlice(string json, string key)
+        {
+            var token = "\"" + key + "\":";
+            var index = json.IndexOf(token, StringComparison.Ordinal);
+            if (index < 0) return "";
+            index += token.Length;
+            while (index < json.Length && char.IsWhiteSpace(json[index])) index++;
+            if (index >= json.Length || json[index] != '{') return "";
+            var depth = 0;
+            var start = index;
+            for (var i = index; i < json.Length; i++)
+            {
+                if (json[i] == '"')
+                {
+                    i++;
+                    while (i < json.Length && json[i] != '"')
+                    {
+                        if (json[i] == '\\') i++;
+                        i++;
+                    }
+                    continue;
+                }
+                if (json[i] == '{') depth++;
+                else if (json[i] == '}')
+                {
+                    depth--;
+                    if (depth == 0) return json.Substring(start, i - start + 1);
+                }
+            }
+            return "";
         }
 
         static string ObjectMapToValueArray(string objectJson)

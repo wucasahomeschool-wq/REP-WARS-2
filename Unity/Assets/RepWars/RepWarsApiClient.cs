@@ -115,15 +115,24 @@ namespace RepWars
             yield return PostCommand(commandId, playerId, requestId, onComplete, true);
         }
 
+        public IEnumerator PostCommand(string commandId, string playerId, string requestId, string parametersJson, Action<RepWarsCommandResult> onComplete)
+        {
+            yield return PostCommand(commandId, playerId, requestId, onComplete, true, parametersJson);
+        }
+
         public IEnumerator PostCommand(string commandId, string playerId, string requestId, Action<RepWarsCommandResult> onComplete, bool parseGameState)
         {
+            yield return PostCommand(commandId, playerId, requestId, onComplete, parseGameState, null);
+        }
+
+        public IEnumerator PostCommand(string commandId, string playerId, string requestId, Action<RepWarsCommandResult> onComplete, bool parseGameState, string parametersJson)
+        {
             var result = new RepWarsCommandResult();
-            var body = JsonUtility.ToJson(new RepWarsCommandRequest
-            {
-                commandId = commandId,
-                playerId = playerId,
-                requestId = requestId,
-            });
+            var parameters = string.IsNullOrEmpty(parametersJson) ? "" : ",\"parameters\":" + parametersJson;
+            var body = "{\"commandId\":" + Quote(commandId)
+                + ",\"playerId\":" + Quote(playerId)
+                + ",\"requestId\":" + Quote(requestId)
+                + parameters + "}";
             var request = new UnityWebRequest(BaseUrl + "/commands", UnityWebRequest.kHttpVerbPOST);
             request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
             request.downloadHandler = new DownloadHandlerBuffer();
@@ -157,6 +166,11 @@ namespace RepWars
                 {
                     var adapted = PublicGameStateJson.AdaptTerritoriesForJsonUtility(result.RawJson);
                     result.Response = JsonUtility.FromJson<RepWarsCommandResponse>(adapted);
+                    if (result.Response != null && result.Response.payload != null)
+                    {
+                        PublicGameStateJson.NoteFitness(adapted, result.Response.payload.gameState);
+                        PublicGameStateJson.NormalizeWorkout(result.Response.payload.gameState);
+                    }
                 }
                 else
                 {
@@ -197,6 +211,11 @@ namespace RepWars
             result.TransportOk = true;
             onComplete?.Invoke(result);
             request.Dispose();
+        }
+
+        static string Quote(string value)
+        {
+            return "\"" + (value ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
         }
 
         static string DescribeCommandFailure(RepWarsCommandResponse response)

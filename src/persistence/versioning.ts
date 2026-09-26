@@ -106,7 +106,7 @@ function reviveNestedCollections(state: Record<string, unknown>): void {
 }
 
 /**
- * Bring a decoded GameState-shaped object forward to schema 12.
+ * Bring a decoded GameState-shaped object forward to the current schema.
  * Missing maps are created empty; major corruption still fails later invariants.
  */
 export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
@@ -208,6 +208,9 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   const worldTick = typeof state.worldTick === 'number' && Number.isInteger(state.worldTick) && state.worldTick >= 0
     ? state.worldTick
     : 0;
+  if (!Number.isInteger(state.lastProcessedAtMs)) {
+    state.lastProcessedAtMs = null;
+  }
   if (!Number.isInteger(state.lastFoodConsumptionTick) || (state.lastFoodConsumptionTick as number) < 0) {
     state.lastFoodConsumptionTick = worldTick;
   }

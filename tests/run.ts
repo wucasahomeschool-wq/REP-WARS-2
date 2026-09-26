@@ -76,6 +76,14 @@ import { registerTerritoryDefenseTests } from './territoryDefense';
 import { registerAiEconomyTests } from './aiEconomy';
 import { registerInvasionLifecycleTests } from './invasionLifecycle';
 import { registerPersistenceTests } from './persistence';
+import { registerRealtimeClockTests } from './realtimeClock';
+import { registerSupabasePersistenceTests } from './supabasePersistence';
+import {
+  assertFailedWorldSaveRollsHistoryBack,
+  registerDevelopmentPersistenceTests,
+  runSupabaseServerRestart,
+} from './serverRestartDurability';
+import { registerAtomicCommitTests, runAtomicCommitProof } from './atomicCommit';
 import { registerWorldDefinitionTests } from './worldDefinition';
 import { registerLevel1ProductionTests } from './level1Production';
 import { registerLevel1TutorialTests } from './level1Tutorial';
@@ -1701,7 +1709,7 @@ test('createGameState() contains the expected major state domains', () => {
   const expected = [
     'activeEvents', 'activeInvasions', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'commitments', 'constructions',
     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
-    'factions', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'territories', 'territoryEconomy', 'territoryInfrastructure',
+    'factions', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'territories', 'territoryEconomy', 'territoryInfrastructure',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
@@ -1714,6 +1722,7 @@ test('createGameState() contains the expected major state domains', () => {
   assert.strictEqual(state.activeEvents.length, 0);
   assert.strictEqual(state.eventHistory.length, 0);
   assert.strictEqual(state.worldTick, 0);
+  assert.strictEqual(state.lastProcessedAtMs, null);
   assert.strictEqual(state.lastFoodConsumptionTick, 0);
   assert.strictEqual(state.lastAiDecisionTick.size, 0);
   assert.strictEqual(state.territoryInfrastructure.size, state.territories.size);
@@ -3237,6 +3246,14 @@ registerInvasionLifecycleTests({ test });
 
 registerPersistenceTests({ test });
 
+registerRealtimeClockTests({ test });
+
+registerSupabasePersistenceTests({ test });
+
+registerDevelopmentPersistenceTests({ test });
+
+registerAtomicCommitTests({ test });
+
 registerPlayerIdentityTests({ test });
 
 registerWorldTransitionTests({ test });
@@ -3279,6 +3296,36 @@ void (async () => {
     failed++;
     const msg = err instanceof Error ? err.message : String(err);
     console.error('  ✗ GET_GAME_STATE over HTTP');
+    console.error(`    ${msg}`);
+  }
+  try {
+    await assertFailedWorldSaveRollsHistoryBack();
+    passed++;
+    console.log('  ✓ failed world save rolls workout history back');
+  } catch (err) {
+    failed++;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('  ✗ failed world save rolls workout history back');
+    console.error(`    ${msg}`);
+  }
+  try {
+    await runAtomicCommitProof();
+    passed++;
+    console.log('  ✓ atomic commit rolls both tables back together');
+  } catch (err) {
+    failed++;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('  ✗ atomic commit rolls both tables back together');
+    console.error(`    ${msg}`);
+  }
+  try {
+    await runSupabaseServerRestart();
+    passed++;
+    console.log('  ✓ supabase server restart restores the empire');
+  } catch (err) {
+    failed++;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('  ✗ supabase server restart restores the empire');
     console.error(`    ${msg}`);
   }
   console.log('');

@@ -51,7 +51,8 @@ export interface SupabaseWorkoutHistoryRow {
 }
 
 export const SUPABASE_DDL = `
--- Phase 17L contract only. Not executed in this phase.
+-- Column contract for supabase/migrations/20260926012500_persistence_envelope.sql.
+-- The migration is the executable copy. It also enables row level security.
 create table if not exists player_worlds (
   player_id text primary key,
   world_id text not null,

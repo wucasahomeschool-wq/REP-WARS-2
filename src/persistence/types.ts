@@ -93,6 +93,12 @@ export interface GameStateStore {
     mutate: (state: GameState) => void,
     expectedVersion?: number,
   ): SaveWorldResult & { state?: GameState };
+  /**
+   * Undo the last successful save for this player in this process.
+   * Used when a paired workout-history write fails. No effect if this
+   * store has not saved since the last revert.
+   */
+  revertLastSave(playerId: string): void;
 }
 
 export interface PersistenceSaveStats {

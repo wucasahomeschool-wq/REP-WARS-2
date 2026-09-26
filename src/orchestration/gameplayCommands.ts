@@ -16,6 +16,7 @@ import {
 import type { IntegrityFlagType } from '../fitness/session';
 import { WorkoutPurpose } from '../fitness/types';
 import { persistTerminalSessionHistory } from '../fitness/history/persistSession';
+import { WORLD_TICK_DURATION_MS } from '../world/realtimeClock';
 import { applyAuthoredProgression, ProgressionApplyResult } from '../fitness/progression';
 import { startConstruction, consumeConstructionEffect } from '../gameplay/construction/consume';
 import { isConstructionProjectType } from '../gameplay/construction/definitions';
@@ -72,7 +73,7 @@ function emptyResult(): HandlerResult {
 }
 
 function sessionNow(state: GameState, ctx: GameplayHandlerContext): number {
-  return paramNumber(ctx.req, 'now') ?? state.worldTick * 60_000;
+  return paramNumber(ctx.req, 'now') ?? state.worldTick * WORLD_TICK_DURATION_MS;
 }
 
 function applyFirstWorkoutFeedbackWaiver(state: GameState, session: typeof state.playerFitness.activeSession): typeof session {

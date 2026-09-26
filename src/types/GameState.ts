@@ -76,9 +76,10 @@ import { GameRewardResult } from '../rewards/types';
  *     (Farm/Mine/Lumber occupancy). Consumption and developments are not
  *     executed in this schema bump.
  * 12 = Level 1 tutorial controller (`level1Tutorial` beat + scripted-invasion stamps).
- * playerFitness.progression is coerced onto existing schema 12 without a bump.
+ *     playerFitness.progression is coerced onto schema 12 without its own bump.
+ * 13 = Authoritative real-time clock watermark (`lastProcessedAtMs`).
  */
-export const GAME_STATE_SCHEMA_VERSION = 12;
+export const GAME_STATE_SCHEMA_VERSION = 13;
 
 export type InvasionId = string;
 
@@ -360,11 +361,18 @@ export interface GameState {
   turn: number;
   /**
    * Canonical continuous simulation time. Monotonic integer ticks from
-   * world start (`0`). Deterministic: advanced only by `ADVANCE_WORLD`
-   * / `ContinuousWorldEngine`, never by `Date.now()`. Elapsed simulation
-   * time from start is this value.
+   * world start (`0`). `ADVANCE_WORLD` runs the simulation for a requested
+   * number of these ticks. The real-time clock may also move this counter
+   * forward by whole elapsed minutes; it does not run that simulation.
    */
   worldTick: number;
+  /**
+   * UTC epoch milliseconds the current `worldTick` has been processed
+   * through. `null` means the wall clock is not anchored yet. The first
+   * clock observation anchors here and does not invent ticks back to the
+   * unix epoch.
+   */
+  lastProcessedAtMs: number | null;
   /**
    * Last world tick at which Food consumption was applied (or skipped
    * while Level 1-gated). Schema 11 stores the stamp only — consume is
@@ -535,10 +543,16 @@ export interface GameState {
 /** Initial continuous-clock fields. `worldTick` 0 means no simulation time has elapsed. */
 export function emptyWorldClock(): {
   worldTick: number;
+  lastProcessedAtMs: number | null;
   lastFoodConsumptionTick: number;
   lastAiDecisionTick: Map<FactionId, number>;
 } {
-  return { worldTick: 0, lastFoodConsumptionTick: 0, lastAiDecisionTick: new Map() };
+  return {
+    worldTick: 0,
+    lastProcessedAtMs: null,
+    lastFoodConsumptionTick: 0,
+    lastAiDecisionTick: new Map(),
+  };
 }
 
 export function emptyPlayerRewardState(): PlayerRewardState {

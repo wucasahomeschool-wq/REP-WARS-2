@@ -1,5 +1,5 @@
 import { createCommandHttpServer } from './http';
-import { createInMemoryPersistence } from './persistencePort';
+import { createDevelopmentPersistence } from './persistencePort';
 import { createSessionHost } from './session';
 
 function resolvePort(): number {
@@ -11,12 +11,16 @@ function resolvePort(): number {
   return port;
 }
 
-const persistence = createInMemoryPersistence();
+const persistence = createDevelopmentPersistence();
 const host = createSessionHost(persistence);
 const server = createCommandHttpServer(host);
 const port = resolvePort();
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`Rep Wars HTTP bridge listening on http://127.0.0.1:${port}`);
-  console.log('In-memory persistence: the empire is lost when this process exits.');
+  if (persistence.name === 'supabase') {
+    console.log('Supabase persistence: this empire reloads after the process exits.');
+  } else {
+    console.log('In-memory persistence: the empire is lost when this process exits.');
+  }
 });

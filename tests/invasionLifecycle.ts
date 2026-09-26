@@ -213,10 +213,10 @@ export function registerInvasionLifecycleTests(api: InvasionLifecycleTestApi): v
 
   console.log('Phase 17K — invasion lifecycle & defense timeout');
 
-  test('schema version is 12 and completion timeout is 12 hours, separate from the 30-minute response window', () => {
+  test('schema version is 13 and completion timeout is 12 hours, separate from the 30-minute response window', () => {
     const state = playerState();
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 12);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 13);
     assert.strictEqual(GAMEPLAY_CONFIG.playerProtectionMinutes, 1440);
     assert.strictEqual(GAMEPLAY_CONFIG.defenseResponseMinutes, 30);
     assert.strictEqual(GAMEPLAY_CONFIG.defenseWorkoutMaxDurationMinutes, 12 * 60);

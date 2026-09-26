@@ -235,6 +235,10 @@ export {
   commitmentDurationTicksFor,
   catchUpWorld,
   nextCatchUpElapsedTicks,
+  WORLD_TICK_DURATION_MS,
+  utcEpochMs,
+  elapsedWholeTicks,
+  advanceAuthoritativeWorldClock,
 } from './world';
 export type {
   WorldAdvanceResult,
@@ -245,6 +249,7 @@ export type {
   WorldCommitmentResolutionRecord,
   WorldEventStepResult,
   CatchUpWorldResult,
+  WorldClockAdvance,
 } from './world';
 
 export {

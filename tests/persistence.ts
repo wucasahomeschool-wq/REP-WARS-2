@@ -464,7 +464,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     const loaded = store.load(PLAYER_ID);
     assert.ok(loaded.ok, loaded.ok ? '' : loaded.message);
     assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 12);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 13);
     assert.strictEqual(loaded.state.lastFoodConsumptionTick, 40);
     assert.ok(loaded.state.territoryInfrastructure instanceof Map);
     assert.strictEqual(loaded.state.territoryInfrastructure.size, 0);
@@ -493,7 +493,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     project.lastProgressTick = 90;
     project.remainingTicks = 7;
     const loaded = reloadRoundTrip(state);
-    assert.strictEqual(loaded.schemaVersion, 12);
+    assert.strictEqual(loaded.schemaVersion, 13);
     assert.strictEqual(loaded.lastFoodConsumptionTick, 60);
     assert.strictEqual(loaded.factions.get(PLAYER_FACTION)!.stability, 64);
     assert.strictEqual(loaded.factions.get(PLAYER_FACTION)!.resources.food, 321);
@@ -1054,8 +1054,19 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
   });
 
   test('Supabase adapter is a boundary and does not touch engines', () => {
-    const store = new SupabaseGameStateStore();
-    assert.throws(() => store.load(PLAYER_ID), (err: unknown) => err instanceof PersistenceError && err.code === 'persistence.not_configured');
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    try {
+      const store = new SupabaseGameStateStore();
+      const loaded = store.load(PLAYER_ID);
+      assert.strictEqual(loaded.ok, false);
+      if (!loaded.ok) assert.strictEqual(loaded.code, 'persistence.not_configured');
+    } finally {
+      if (url !== undefined) process.env.SUPABASE_URL = url;
+      if (key !== undefined) process.env.SUPABASE_SERVICE_ROLE_KEY = key;
+    }
   });
 
   test('jsonRoundTrip helper is JSON-safe for history entries', () => {

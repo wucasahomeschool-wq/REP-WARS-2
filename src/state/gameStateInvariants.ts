@@ -58,6 +58,9 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
   if (!Number.isInteger(state.worldTick) || state.worldTick < 0 || !Number.isFinite(state.worldTick)) {
     push('world.invalid_tick', `worldTick ${state.worldTick} must be a non-negative integer`);
   }
+  if (state.lastProcessedAtMs !== null && (!Number.isInteger(state.lastProcessedAtMs) || !Number.isFinite(state.lastProcessedAtMs))) {
+    push('world.invalid_processed_at', `lastProcessedAtMs ${String(state.lastProcessedAtMs)} must be an integer epoch millisecond or null`);
+  }
   if (!Number.isInteger(state.lastFoodConsumptionTick) || state.lastFoodConsumptionTick < 0 || !Number.isFinite(state.lastFoodConsumptionTick)) {
     push('economy.invalid_food_consumption_tick', `lastFoodConsumptionTick ${state.lastFoodConsumptionTick} must be a non-negative integer`);
   }

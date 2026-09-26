@@ -23,8 +23,6 @@ namespace RepWars
 
         static readonly Color Sea = Hex(0x1b, 0x1f, 0x24);
         static readonly Color Border = Hex(0x2a, 0x30, 0x38);
-        const float OwnershipWashAlpha = 0.22f;
-
         static readonly Color Ink = Hex(0xf0, 0xe6, 0xc8);
         static readonly Color Highlight = Hex(0xf0, 0xe6, 0xc8);
 
@@ -38,6 +36,7 @@ namespace RepWars
         TextMesh territoryInfo;
         RepWarsMapCamera mapCamera;
         RepWarsTerritoryView selected;
+        public bool suppressMapInput;
 
         void Start()
         {
@@ -52,12 +51,42 @@ namespace RepWars
             }
             EnsureHud();
             hud.text = status;
+            if (GetComponent<RepWarsPlayLoop>() == null) gameObject.AddComponent<RepWarsPlayLoop>();
             StartCoroutine(Boot());
+        }
+
+        public string SelectedTerritoryId
+        {
+            get { return selected != null ? selected.territoryId : null; }
+        }
+
+        public PublicGameState LiveState
+        {
+            get { return gameState; }
+        }
+
+        public void ApplySnapshot(PublicGameState next)
+        {
+            if (next != null) gameState = next;
+        }
+
+        public void PresentAuthoritative(PublicGameState next, VisibleWorldSnapshot visible)
+        {
+            if (next == null) return;
+            gameState = next;
+            if (visible != null) visibleWorld = visible;
+            var existing = GameObject.Find("Level1Map");
+            if (existing != null) DestroyImmediate(existing);
+            selected = null;
+            if (territoryInfo != null) territoryInfo.text = "";
+            BuildMap();
+            FrameCamera();
+            if (hud != null) hud.text = "";
         }
 
         void Update()
         {
-            if (mapCamera == null || world == null) return;
+            if (mapCamera == null || world == null || suppressMapInput) return;
             mapCamera.Tick();
             if (!mapCamera.TryPick(out var point)) return;
             PickWorldPoint(point);
@@ -75,7 +104,7 @@ namespace RepWars
             if (selected != null && selected != view) selected.SetSelected(false);
             selected = view;
             if (selected != null) selected.SetSelected(true);
-            if (territoryInfo != null) territoryInfo.text = selected == null ? "Select a territory" : FormatTerritory(selected.territoryId);
+            if (territoryInfo != null) territoryInfo.text = "";
             Debug.Log("[RepWars] select " + (selected == null ? "none" : selected.territoryId));
         }
 
@@ -126,7 +155,8 @@ namespace RepWars
             BuildMap();
             FrameCamera();
             status = null;
-            hud.text = FormatEmpire();
+            if (hud != null) hud.text = "";
+            if (territoryInfo != null) territoryInfo.text = "";
             Debug.Log("[RepWars] map world=" + world.name
                 + " level=" + world.level
                 + " territories=" + world.territories.Count
@@ -163,13 +193,6 @@ namespace RepWars
                     ? PlainsMaterial(plains)
                     : TerritoryMaterial(TerrainColor(territory.terrain));
                 groundRenderer.sortingOrder = 0;
-                var filter = piece.AddComponent<MeshFilter>();
-                filter.sharedMesh = TerritoryMeshBuilder.Build(ring);
-                var renderer = piece.AddComponent<MeshRenderer>();
-                var ownerColor = ColorFor(owner);
-                ownerColor.a = OwnershipWashAlpha;
-                renderer.sharedMaterial = TerritoryMaterial(ownerColor);
-                renderer.sortingOrder = 1;
                 var outline = piece.AddComponent<LineRenderer>();
                 outline.positionCount = territory.ring.Count;
                 outline.loop = true;
@@ -186,7 +209,7 @@ namespace RepWars
                 view.selectedColor = Highlight;
                 var collider = piece.AddComponent<PolygonCollider2D>();
                 collider.SetPath(0, OpenRing(ring));
-                PlaceArmies(piece.transform, territory, ring);
+                PlaceArmies(piece.transform, territory, ring, owner);
                 for (var i = 0; i < ring.Count; i++)
                 {
                     outline.SetPosition(i, ring[i]);
@@ -368,30 +391,26 @@ namespace RepWars
             }
         }
 
-        void PlaceArmies(Transform territoryTransform, AuthoredTerritory territory, List<Vector2> ring)
+        void PlaceArmies(Transform territoryTransform, AuthoredTerritory territory, List<Vector2> ring, string owner)
         {
             if (gameState.armies == null) return;
             var centroid = Vector2.zero;
             for (var i = 0; i < ring.Count; i++) centroid += ring[i];
             centroid /= ring.Count;
             var placed = 0;
+            var tint = Color.Lerp(Color.white, ColorFor(owner), 0.28f);
             foreach (var army in gameState.armies)
             {
                 if (army == null || army.location != territory.id) continue;
-                var marker = new GameObject("Army_" + army.id);
-                marker.transform.SetParent(territoryTransform, false);
-                marker.transform.position = new Vector3(centroid.x, centroid.y - placed * 1.6f, -0.8f);
-                var token = marker.AddComponent<TextMesh>();
-                token.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                token.fontSize = 48;
-                token.characterSize = 0.16f;
-                token.anchor = TextAnchor.MiddleCenter;
-                token.alignment = TextAlignment.Center;
-                token.color = new Color(Ink.r, Ink.g, Ink.b, 0.92f);
-                token.text = army.troops + " troops";
-                token.GetComponent<MeshRenderer>().sortingOrder = 20;
+                var view = RepWarsArmyVisual.Create(
+                    territoryTransform,
+                    centroid + new Vector2(0f, -1.15f - placed * 1.8f),
+                    army.troops,
+                    tint);
+                view.name = "Army_" + army.id;
                 placed++;
-                Debug.Log("[RepWars] army " + army.id + " at " + territory.id + " troops=" + army.troops);
+                Debug.Log("[RepWars] army " + army.id + " at " + territory.id + " troops=" + army.troops
+                    + " visible=" + RepWarsArmyVisual.VisibleCount(army.troops));
             }
         }
 

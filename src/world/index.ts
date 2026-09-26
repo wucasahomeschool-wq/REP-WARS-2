@@ -12,6 +12,14 @@ export { catchUpWorld, nextCatchUpElapsedTicks, handleSyncPlayerWorld } from './
 export type { CatchUpWorldResult } from './catchup';
 export { runEventEngineTurn, EventTickResult } from './eventTick';
 export {
+  WORLD_TICK_DURATION_MS,
+  currentUtcNowMs,
+  utcEpochMs,
+  elapsedWholeTicks,
+  advanceAuthoritativeWorldClock,
+} from './realtimeClock';
+export type { WorldClockAdvance } from './realtimeClock';
+export {
   parseElapsedTicks,
   commitmentDurationTicksFor,
   stampCommitmentTiming,

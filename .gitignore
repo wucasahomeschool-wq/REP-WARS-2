@@ -15,3 +15,8 @@ Unity/UserSettings/
 # Editor
 .vscode/
 .cursor/
+
+# Local secrets. Never commit Supabase keys or database passwords.
+.env
+.env.*
+!.env.example

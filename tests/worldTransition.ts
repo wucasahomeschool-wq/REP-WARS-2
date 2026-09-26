@@ -126,6 +126,7 @@ function failingStore(inner: InMemoryGameStateStore): GameStateStore {
       message: 'injected persistence failure',
       persisted: false,
     }),
+    revertLastSave: () => undefined,
   };
 }
 

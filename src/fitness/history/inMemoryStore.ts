@@ -1,5 +1,6 @@
 import { FitnessEvidence } from '../evaluation/types';
 import { cloneWorkoutHistoryEntry } from './record';
+import { filterWorkoutHistory } from './select';
 import {
   SameExerciseQuery,
   WorkoutHistoryEntry,
@@ -7,29 +8,7 @@ import {
   WorkoutHistoryStore,
 } from './types';
 
-export const DEFAULT_HISTORY_LIMIT = 64;
-
-function applyQuery(entries: WorkoutHistoryEntry[], query: WorkoutHistoryQuery = {}): WorkoutHistoryEntry[] {
-  const limit = query.limit ?? DEFAULT_HISTORY_LIMIT;
-  const exclude = query.excludeSessionId;
-  const since = query.since;
-  const before = query.before;
-  const filtered = entries.filter((entry) => {
-    if (exclude && entry.sessionId === exclude) return false;
-    if (query.completedOnly && entry.completionState !== 'COMPLETED') return false;
-    if (query.eligibleOnly && !entry.eligibleForFitnessEvaluation) return false;
-    const at = entry.completedAt ?? entry.abandonedAt ?? entry.createdAt;
-    if (since !== undefined && at < since) return false;
-    if (before !== undefined && at >= before) return false;
-    return true;
-  });
-  filtered.sort((a, b) => {
-    const aAt = a.completedAt ?? a.abandonedAt ?? a.createdAt;
-    const bAt = b.completedAt ?? b.abandonedAt ?? b.createdAt;
-    return bAt - aAt;
-  });
-  return filtered.slice(0, Math.max(0, limit)).map(cloneWorkoutHistoryEntry);
-}
+export { DEFAULT_HISTORY_LIMIT } from './select';
 
 export class InMemoryWorkoutHistoryStore implements WorkoutHistoryStore {
   private readonly players = new Map<string, Map<string, WorkoutHistoryEntry>>();
@@ -49,16 +28,16 @@ export class InMemoryWorkoutHistoryStore implements WorkoutHistoryStore {
   }
 
   recentCompleted(playerId: string, query: WorkoutHistoryQuery = {}): WorkoutHistoryEntry[] {
-    return applyQuery(this.all(playerId), { ...query, completedOnly: true, eligibleOnly: true });
+    return filterWorkoutHistory(this.all(playerId), { ...query, completedOnly: true, eligibleOnly: true });
   }
 
   completedSince(playerId: string, since: number, query: WorkoutHistoryQuery = {}): WorkoutHistoryEntry[] {
-    return applyQuery(this.all(playerId), { ...query, since, completedOnly: true, eligibleOnly: true });
+    return filterWorkoutHistory(this.all(playerId), { ...query, since, completedOnly: true, eligibleOnly: true });
   }
 
   sameExercisePrior(playerId: string, query: SameExerciseQuery): WorkoutHistoryEntry[] {
     const matches = this.all(playerId).filter((entry) => entry.exerciseIds.includes(query.exerciseId));
-    return applyQuery(matches, { ...query, completedOnly: true, eligibleOnly: true });
+    return filterWorkoutHistory(matches, { ...query, completedOnly: true, eligibleOnly: true });
   }
 
   evidenceForFitness(playerId: string, query: WorkoutHistoryQuery = {}): FitnessEvidence[] {

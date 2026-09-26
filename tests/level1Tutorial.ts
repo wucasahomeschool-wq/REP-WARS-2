@@ -283,7 +283,7 @@ export function registerLevel1TutorialTests(api: Level1TutorialTestApi): void {
     assert.strictEqual(synced.state.playerRewards.bankedTroops, banked);
   });
 
-  test('schema 11 Level 1 snapshots hydrate onto schema 12 without replaying a completed world', () => {
+  test('schema 11 Level 1 snapshots hydrate onto the current schema without replaying a completed world', () => {
     const state = createGameState({ seed: 8 });
     for (const tile of state.territories.values()) tile.owner = 'f_player';
     for (const faction of state.factions.values()) {
@@ -297,7 +297,7 @@ export function registerLevel1TutorialTests(api: Level1TutorialTestApi): void {
     snap.schemaVersion = 11;
     delete snap.level1Tutorial;
     const loaded = hydratePersistedPayload(snap);
-    assert.strictEqual(loaded.schemaVersion, 12);
+    assert.strictEqual(loaded.schemaVersion, GAME_STATE_SCHEMA_VERSION);
     assert.strictEqual(loaded.level1Tutorial?.completed, true);
     assert.strictEqual(evaluateWorldCompletion(loaded)?.complete, true);
   });

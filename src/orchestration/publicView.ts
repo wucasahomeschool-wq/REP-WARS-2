@@ -136,6 +136,7 @@ export function serializePublicGameState(state: GameState, viewerFactionId: Fact
     schemaVersion: state.schemaVersion,
     turn: state.turn,
     worldTick: state.worldTick,
+    lastProcessedAtMs: state.lastProcessedAtMs,
     worldSeed: state.worldSeed,
     playerFactionId: state.playerFactionId,
     viewerFactionId,
@@ -266,6 +267,7 @@ export function serializeVisibleWorld(state: GameState, viewerFactionId: Faction
   return {
     turn: state.turn,
     worldTick: state.worldTick,
+    lastProcessedAtMs: state.lastProcessedAtMs,
     viewerFactionId,
     definitionWorldId: state.definitionWorldId,
     worldLevel: state.worldLevel,
