@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4a2e9464867e3c42952796c608cc5ce, type: 3}
+  m_Name: RepWarsCharacterRegistry
+  m_EditorClassIdentifier: RepWars::RepWars.Characters.RepWarsCharacterRegistry
+  bases:
+  - {fileID: 11400000, guid: ca514ba66c364b14ea7ce084a511a0f6, type: 2}
+  - {fileID: 11400000, guid: d91619d47452aa640a6a3c3c895c9c7d, type: 2}
+  appearances:
+  - {fileID: 11400000, guid: 81953f729ca17c249afb4744e3c3ef4a, type: 2}
+  - {fileID: 11400000, guid: d67ddc8a6c6dbe941b5bfc55ada23288, type: 2}
+  variants:
+  - {fileID: 11400000, guid: 42b310200521df74eab26d8464482b75, type: 2}
+  - {fileID: 11400000, guid: 35e88c90b538ac34eb26649d27803051, type: 2}
+  - {fileID: 11400000, guid: cf063e8512f4ae140ab9c534f64b6447, type: 2}
+  - {fileID: 11400000, guid: d63458409cb11474881cffe65db5ee0a, type: 2}
+  rigs:
+  - {fileID: 11400000, guid: 126e8c0a8d84ecc48ab63487b5d1797b, type: 2}
+  - {fileID: 11400000, guid: 4c24f31c62a83434cac980e41a2b4866, type: 2}
+  animationProfiles:
+  - {fileID: 11400000, guid: d389c93bd5bc5e641a2b93aae209ddc6, type: 2}
+  - {fileID: 11400000, guid: 0d5af0a404f64064295eab7f560265cc, type: 2}
+  emperorCatalog: {fileID: 11400000, guid: 0b3c6e62f33488148b03b9d264e8af4d, type: 2}
+  infantryCatalog: {fileID: 11400000, guid: 3db92eef4d6c21346b277a4a4a94ff9b, type: 2}
+  defaultActorPrefab: {fileID: 5739826852394962300, guid: f1dfbb8302c13494b9bdacc0a5c91f51, type: 3}

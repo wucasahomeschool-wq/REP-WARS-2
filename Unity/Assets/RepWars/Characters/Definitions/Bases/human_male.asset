@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 665fed8f043f2d548a103fd46ac85c0b, type: 3}
+  m_Name: human_male
+  m_EditorClassIdentifier: RepWars::RepWars.Characters.CharacterBaseDefinition
+  baseId: human_male
+  displayName: Human (Male)
+  compatibilityTier: 0
+  rigProfileId: humanoid_v1
+  animationProfileId: humanoid_locomotion_v1
+  actorPrefab: {fileID: 0}
+  backendKind: 0
+  defaultScale: 1
+  intrinsicVisuals:
+  - layerId: legs
+    sprite: {fileID: 21300000, guid: 0c015d4a4d18deb47929a209b877aef9, type: 3}
+    localPosition: {x: 0, y: 0.25}
+    localScale: {x: 1, y: 1}
+    sortingOrder: 0
+    receivesTint: 0
+  - layerId: arms
+    sprite: {fileID: 21300000, guid: 342a51174015ba642a7c6dd3402ae73e, type: 3}
+    localPosition: {x: 0, y: 0.84}
+    localScale: {x: 1, y: 1}
+    sortingOrder: 0
+    receivesTint: 0
+  - layerId: torso
+    sprite: {fileID: 21300000, guid: da6c9654799acb44dbfa9f16cf49fa12, type: 3}
+    localPosition: {x: 0, y: 0.78}
+    localScale: {x: 1, y: 1}
+    sortingOrder: 1
+    receivesTint: 0
+  - layerId: head
+    sprite: {fileID: 21300000, guid: 4dfda3bece82a24418b6442690402dec, type: 3}
+    localPosition: {x: 0, y: 1.28}
+    localScale: {x: 1, y: 1}
+    sortingOrder: 2
+    receivesTint: 0

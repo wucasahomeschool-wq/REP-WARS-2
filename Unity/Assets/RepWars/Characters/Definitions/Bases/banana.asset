@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 665fed8f043f2d548a103fd46ac85c0b, type: 3}
+  m_Name: banana
+  m_EditorClassIdentifier: RepWars::RepWars.Characters.CharacterBaseDefinition
+  baseId: banana
+  displayName: Banana
+  compatibilityTier: 1
+  rigProfileId: banana_v1
+  animationProfileId: banana_locomotion_v1
+  actorPrefab: {fileID: 0}
+  backendKind: 0
+  defaultScale: 1
+  intrinsicVisuals:
+  - layerId: banana_body
+    sprite: {fileID: 21300000, guid: 813697117012c1147bce2b4cd0eb2825, type: 3}
+    localPosition: {x: 0, y: 0.6875}
+    localScale: {x: 1, y: 1}
+    sortingOrder: 0
+    receivesTint: 0

@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23b0781e840cfa5478722cf19e0a0582, type: 3}
+  m_Name: RepWarsInfantryCatalog
+  m_EditorClassIdentifier: RepWars::RepWars.Characters.RepWarsInfantryCatalog
+  entries:
+  - catalogEntryId: infantry_generic
+    variantId: generic_soldier
+    displayName: Generic Soldier
+    tags:
+    - human
+    sortOrder: 0
+  - catalogEntryId: infantry_banana
+    variantId: banana_soldier
+    displayName: Banana Soldier
+    tags:
+    - novelty
+    sortOrder: 1
+  defaultInfantryVariantId: generic_soldier
