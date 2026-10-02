@@ -16,7 +16,9 @@ export const DEFAULT_WORLD_ID = 'local';
  * must keep the same `playerId` (`docs/PLAYER_IDENTITY.md`).
  *
  * Canonical persisted (authoritative):
- *   schemaVersion, turn, worldTick, lastFoodConsumptionTick, lastAiDecisionTick, worldSeed,
+ *   schemaVersion, turn, worldTick, lastProcessedAtMs,
+ *   accruedTargetWorldTick, subTickMicroticks, accrualDivisionRemainder, lastAccrualAtMs,
+ *   lastFoodConsumptionTick, lastAiDecisionTick, worldSeed,
  *   factions (resources, diplomacy, memory, goals, armies refs),
  *   playerFactionId, definitionWorldId/definitionFormatVersion/worldLevel/worldName,
  *   territories (ownership, garrison, fortification — not polygons),

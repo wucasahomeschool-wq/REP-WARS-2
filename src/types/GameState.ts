@@ -78,8 +78,11 @@ import { GameRewardResult } from '../rewards/types';
  * 12 = Level 1 tutorial controller (`level1Tutorial` beat + scripted-invasion stamps).
  *     playerFitness.progression is coerced onto schema 12 without its own bump.
  * 13 = Authoritative real-time clock watermark (`lastProcessedAtMs`).
+ * 14 = Durable world accrual (`accruedTargetWorldTick`, `subTickMicroticks`,
+ *     `accrualDivisionRemainder`, `lastAccrualAtMs`). Accrual does not
+ *     process gameplay and does not replace `lastProcessedAtMs`.
  */
-export const GAME_STATE_SCHEMA_VERSION = 13;
+export const GAME_STATE_SCHEMA_VERSION = 14;
 
 export type InvasionId = string;
 
@@ -360,19 +363,38 @@ export interface GameState {
    */
   turn: number;
   /**
-   * Canonical continuous simulation time. Monotonic integer ticks from
-   * world start (`0`). `ADVANCE_WORLD` runs the simulation for a requested
-   * number of these ticks. The real-time clock may also move this counter
-   * forward by whole elapsed minutes; it does not run that simulation.
+   * Highest simulation tick whose gameplay consequences have been fully
+   * processed and committed. Accrual does not move this. The legacy
+   * unscaled clock still can, until a scheduler replaces it.
    */
   worldTick: number;
   /**
-   * UTC epoch milliseconds the current `worldTick` has been processed
-   * through. `null` means the wall clock is not anchored yet. The first
-   * clock observation anchors here and does not invent ticks back to the
-   * unix epoch.
+   * Legacy unscaled clock watermark: real time through which
+   * `advanceAuthoritativeWorldClock` has already moved `worldTick`.
+   * `null` means that clock has not anchored. Not the accrual authority.
+   * `lastAccrualAtMs` owns rated real-time accrual.
    */
   lastProcessedAtMs: number | null;
+  /**
+   * Highest whole simulation tick earned from rated real time, processed
+   * or not. Always at least `worldTick` once accrual has anchored.
+   * The gap `accruedTargetWorldTick - worldTick` is unprocessed backlog.
+   */
+  accruedTargetWorldTick: number;
+  /** Fractional tick beyond `accruedTargetWorldTick`. Range [0, 1_000_000). */
+  subTickMicroticks: number;
+  /**
+   * Exact division leftover from rated accrual. Range [0, 60_000).
+   * Carried so split observations match one combined observation.
+   */
+  accrualDivisionRemainder: number;
+  /**
+   * UTC epoch milliseconds through which rated accrual has already been
+   * counted. `null` means this world has not been observed by the accrual
+   * authority yet. The first observation anchors here and does not convert
+   * earlier wall-clock time into ticks.
+   */
+  lastAccrualAtMs: number | null;
   /**
    * Last world tick at which Food consumption was applied (or skipped
    * while Level 1-gated). Schema 11 stores the stamp only — consume is
@@ -544,12 +566,20 @@ export interface GameState {
 export function emptyWorldClock(): {
   worldTick: number;
   lastProcessedAtMs: number | null;
+  accruedTargetWorldTick: number;
+  subTickMicroticks: number;
+  accrualDivisionRemainder: number;
+  lastAccrualAtMs: number | null;
   lastFoodConsumptionTick: number;
   lastAiDecisionTick: Map<FactionId, number>;
 } {
   return {
     worldTick: 0,
     lastProcessedAtMs: null,
+    accruedTargetWorldTick: 0,
+    subTickMicroticks: 0,
+    accrualDivisionRemainder: 0,
+    lastAccrualAtMs: null,
     lastFoodConsumptionTick: 0,
     lastAiDecisionTick: new Map(),
   };

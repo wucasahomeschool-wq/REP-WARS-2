@@ -464,7 +464,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     const loaded = store.load(PLAYER_ID);
     assert.ok(loaded.ok, loaded.ok ? '' : loaded.message);
     assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 13);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 14);
     assert.strictEqual(loaded.state.lastFoodConsumptionTick, 40);
     assert.ok(loaded.state.territoryInfrastructure instanceof Map);
     assert.strictEqual(loaded.state.territoryInfrastructure.size, 0);
@@ -493,7 +493,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     project.lastProgressTick = 90;
     project.remainingTicks = 7;
     const loaded = reloadRoundTrip(state);
-    assert.strictEqual(loaded.schemaVersion, 13);
+    assert.strictEqual(loaded.schemaVersion, 14);
     assert.strictEqual(loaded.lastFoodConsumptionTick, 60);
     assert.strictEqual(loaded.factions.get(PLAYER_FACTION)!.stability, 64);
     assert.strictEqual(loaded.factions.get(PLAYER_FACTION)!.resources.food, 321);

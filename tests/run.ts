@@ -77,6 +77,10 @@ import { registerAiEconomyTests } from './aiEconomy';
 import { registerInvasionLifecycleTests } from './invasionLifecycle';
 import { registerPersistenceTests } from './persistence';
 import { registerRealtimeClockTests } from './realtimeClock';
+import { registerTimeToTickTests } from './timeToTick';
+import { registerWorldAccrualTests } from './worldAccrual';
+import { registerTemporalBoundaryTests } from './temporalBoundaries';
+import { registerPresenceLeaseTests } from './presenceLeases';
 import { registerSupabasePersistenceTests } from './supabasePersistence';
 import {
   assertFailedWorldSaveRollsHistoryBack,
@@ -1707,9 +1711,9 @@ test('createGameState() contains the expected major state domains', () => {
   const state = createGameState({ seed: 42 });
   const keys = Object.keys(state).sort();
   const expected = [
-    'activeEvents', 'activeInvasions', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'commitments', 'constructions',
+    'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'commitments', 'constructions',
     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
-    'factions', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'territories', 'territoryEconomy', 'territoryInfrastructure',
+    'factions', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
@@ -1723,6 +1727,11 @@ test('createGameState() contains the expected major state domains', () => {
   assert.strictEqual(state.eventHistory.length, 0);
   assert.strictEqual(state.worldTick, 0);
   assert.strictEqual(state.lastProcessedAtMs, null);
+  assert.strictEqual(state.accruedTargetWorldTick, 0);
+  assert.strictEqual(state.subTickMicroticks, 0);
+  assert.strictEqual(state.accrualDivisionRemainder, 0);
+  assert.strictEqual(state.lastAccrualAtMs, null);
+  assert.ok(state.worldTick <= state.accruedTargetWorldTick);
   assert.strictEqual(state.lastFoodConsumptionTick, 0);
   assert.strictEqual(state.lastAiDecisionTick.size, 0);
   assert.strictEqual(state.territoryInfrastructure.size, state.territories.size);
@@ -3247,6 +3256,14 @@ registerInvasionLifecycleTests({ test });
 registerPersistenceTests({ test });
 
 registerRealtimeClockTests({ test });
+
+registerTimeToTickTests({ test });
+
+registerWorldAccrualTests({ test });
+
+registerTemporalBoundaryTests({ test });
+
+registerPresenceLeaseTests({ test });
 
 registerSupabasePersistenceTests({ test });
 

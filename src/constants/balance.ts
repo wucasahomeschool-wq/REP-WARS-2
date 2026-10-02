@@ -232,12 +232,28 @@ export const BALANCE = {
       RETREAT: 0,
     } as Record<ActionType, number>,
     /**
-     * Infrastructure only — not applied this phase. Future online/offline
-     * catch-up would scale how many ticks are requested, not punish the
-     * player for being away.
+     * Unused Phase 13 placeholders. World advancement does not read them.
+     * Authoritative online/offline progression is `BALANCE.temporal`.
      */
     onlineSimulationRate: 1,
     offlineSimulationRate: 1,
+  },
+
+  /**
+   * Time-to-tick progression. One simulation tick is `WORLD_TICK_DURATION_MS`
+   * of real time at 1.0×. Rates are integer parts per `ratePpmDenominator`,
+   * not binary floats. This is the only definition domain code may use.
+   */
+  temporal: {
+    ratePpmDenominator: 1_000_000,
+    onlineRatePpm: 1_000_000,
+    offlineRatePpm: 100_000,
+    microticksPerSimulationTick: 1_000_000,
+    /**
+     * Default authenticated gameplay-session lease. Presence is derived
+     * from leases; this duration is not itself a simulation rate.
+     */
+    presenceLeaseDurationMs: 90_000,
   },
 
   /**

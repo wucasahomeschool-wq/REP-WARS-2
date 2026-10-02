@@ -106,6 +106,54 @@ function reviveNestedCollections(state: Record<string, unknown>): void {
 }
 
 /**
+ * Legacy worlds did not accrue under this authority. Start them at the
+ * processed tick with no fractional progress and no wall-clock watermark.
+ * `lastProcessedAtMs` is left untouched and is not copied forward.
+ * An anchored payload whose target is missing or already behind `worldTick`
+ * is re-baselined the same way, so a later observation cannot replay it.
+ */
+function migrateTemporalAccrual(state: Record<string, unknown>, schema: number, worldTick: number): void {
+  const fieldsPresent = 'accruedTargetWorldTick' in state
+    && 'subTickMicroticks' in state
+    && 'accrualDivisionRemainder' in state
+    && 'lastAccrualAtMs' in state;
+  if (schema < 14 || !fieldsPresent) {
+    state.accruedTargetWorldTick = worldTick;
+    state.subTickMicroticks = 0;
+    state.accrualDivisionRemainder = 0;
+    state.lastAccrualAtMs = null;
+    return;
+  }
+
+  const target = nonNegativeSafeInt(state.accruedTargetWorldTick);
+  const anchored = Number.isSafeInteger(state.lastAccrualAtMs as number);
+  if (!anchored) {
+    state.lastAccrualAtMs = null;
+    state.subTickMicroticks = 0;
+    state.accrualDivisionRemainder = 0;
+    state.accruedTargetWorldTick = Math.max(target ?? worldTick, worldTick);
+    return;
+  }
+
+  // Processed ticks already committed cannot sit past the accrued target.
+  // Re-baseline instead of replaying the old watermark: that watermark may
+  // overlap time the legacy clock already turned into worldTick.
+  if (target === null || target < worldTick) {
+    state.accruedTargetWorldTick = worldTick;
+    state.subTickMicroticks = 0;
+    state.accrualDivisionRemainder = 0;
+    state.lastAccrualAtMs = null;
+    return;
+  }
+
+  state.accruedTargetWorldTick = target;
+}
+
+function nonNegativeSafeInt(value: unknown): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+/**
  * Bring a decoded GameState-shaped object forward to the current schema.
  * Missing maps are created empty; major corruption still fails later invariants.
  */
@@ -211,6 +259,7 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   if (!Number.isInteger(state.lastProcessedAtMs)) {
     state.lastProcessedAtMs = null;
   }
+  migrateTemporalAccrual(state, schema, worldTick);
   if (!Number.isInteger(state.lastFoodConsumptionTick) || (state.lastFoodConsumptionTick as number) < 0) {
     state.lastFoodConsumptionTick = worldTick;
   }

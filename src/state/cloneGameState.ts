@@ -228,6 +228,10 @@ export function overwriteGameState(target: GameState, source: GameState): void {
   target.turn = next.turn;
   target.worldTick = next.worldTick;
   target.lastProcessedAtMs = next.lastProcessedAtMs;
+  target.accruedTargetWorldTick = next.accruedTargetWorldTick;
+  target.subTickMicroticks = next.subTickMicroticks;
+  target.accrualDivisionRemainder = next.accrualDivisionRemainder;
+  target.lastAccrualAtMs = next.lastAccrualAtMs;
   target.lastFoodConsumptionTick = next.lastFoodConsumptionTick;
   target.lastAiDecisionTick = next.lastAiDecisionTick;
   target.worldSeed = next.worldSeed;
@@ -271,6 +275,10 @@ export function cloneGameState(state: GameState): GameState {
     turn: state.turn,
     worldTick: state.worldTick,
     lastProcessedAtMs: state.lastProcessedAtMs,
+    accruedTargetWorldTick: state.accruedTargetWorldTick,
+    subTickMicroticks: state.subTickMicroticks,
+    accrualDivisionRemainder: state.accrualDivisionRemainder,
+    lastAccrualAtMs: state.lastAccrualAtMs,
     lastFoodConsumptionTick: state.lastFoodConsumptionTick,
     lastAiDecisionTick: new Map(state.lastAiDecisionTick),
     worldSeed: state.worldSeed,

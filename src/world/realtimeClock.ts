@@ -6,6 +6,10 @@ import { GameState } from '../types/GameState';
  * The economy config documents the prototype clock as 1 tick = 1 minute.
  * Workout session time already falls back to `worldTick * 60_000`.
  * This is that same duration, in UTC epoch milliseconds.
+ *
+ * Online and offline scaling does not happen here. Rated conversion and
+ * activity rate promotion live in `timeToTick.ts`. This clock remains one
+ * unscaled minute per whole tick.
  */
 export const WORLD_TICK_DURATION_MS = 60_000;
 
@@ -65,9 +69,10 @@ export function elapsedWholeTicks(lastProcessedAtMs: number, nowMs: number): num
 }
 
 /**
- * Move the authoritative tick forward by whole elapsed minutes.
- * Does not run AI, events, construction, or catch-up. A future scheduler
- * reads `elapsedTicks` and decides what work to perform.
+ * Move the legacy unscaled tick forward by whole elapsed minutes.
+ * Does not run AI, events, construction, or catch-up, and does not update
+ * `accruedTargetWorldTick`. Rated accrual is `accrueAuthoritativeWorldTime`.
+ * A future scheduler reads accrued backlog and decides what work to perform.
  *
  * A null watermark anchors at `now` and adds zero ticks.
  * The same timestamp, or any remainder shorter than one tick, does not move

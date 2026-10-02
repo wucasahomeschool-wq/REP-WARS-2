@@ -15,6 +15,8 @@ import { AICommitment, GameStateSnapshot } from '../types';
 import { GameState } from '../types/GameState';
 import { isActiveCommitmentStatus, validateCommitmentTarget } from '../engine/DecisionEngine';
 import { collectNeighborGraphIssues } from '../map/graphInvariants';
+import { BALANCE } from '../constants/balance';
+import { WORLD_TICK_DURATION_MS } from '../world/realtimeClock';
 
 export interface GameStateInvariantViolation {
   /** Short machine-checkable category, e.g. `'army.negative_troops'`. */
@@ -60,6 +62,40 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
   }
   if (state.lastProcessedAtMs !== null && (!Number.isInteger(state.lastProcessedAtMs) || !Number.isFinite(state.lastProcessedAtMs))) {
     push('world.invalid_processed_at', `lastProcessedAtMs ${String(state.lastProcessedAtMs)} must be an integer epoch millisecond or null`);
+  }
+  if (!Number.isSafeInteger(state.accruedTargetWorldTick) || state.accruedTargetWorldTick < 0) {
+    push('world.invalid_accrued_target', `accruedTargetWorldTick ${String(state.accruedTargetWorldTick)} must be a non-negative safe integer`);
+  }
+  if (
+    !Number.isInteger(state.subTickMicroticks)
+    || state.subTickMicroticks < 0
+    || state.subTickMicroticks >= BALANCE.temporal.microticksPerSimulationTick
+  ) {
+    push('world.invalid_subtick', `subTickMicroticks ${String(state.subTickMicroticks)} is outside the fixed-point range`);
+  }
+  if (
+    !Number.isInteger(state.accrualDivisionRemainder)
+    || state.accrualDivisionRemainder < 0
+    || state.accrualDivisionRemainder >= WORLD_TICK_DURATION_MS
+  ) {
+    push('world.invalid_accrual_remainder', `accrualDivisionRemainder ${String(state.accrualDivisionRemainder)} is outside the fixed-point range`);
+  }
+  if (state.lastAccrualAtMs !== null && !Number.isSafeInteger(state.lastAccrualAtMs)) {
+    push('world.invalid_accrual_at', `lastAccrualAtMs ${String(state.lastAccrualAtMs)} must be a safe integer epoch millisecond or null`);
+  }
+  if (state.lastAccrualAtMs === null && (state.subTickMicroticks !== 0 || state.accrualDivisionRemainder !== 0)) {
+    push('world.unanchored_fraction', 'Fractional accrual cannot exist before lastAccrualAtMs is set');
+  }
+  if (
+    state.lastAccrualAtMs !== null
+    && Number.isSafeInteger(state.worldTick)
+    && Number.isSafeInteger(state.accruedTargetWorldTick)
+    && state.worldTick > state.accruedTargetWorldTick
+  ) {
+    push(
+      'world.accrued_target_behind',
+      `worldTick ${state.worldTick} is ahead of accruedTargetWorldTick ${state.accruedTargetWorldTick}`,
+    );
   }
   if (!Number.isInteger(state.lastFoodConsumptionTick) || state.lastFoodConsumptionTick < 0 || !Number.isFinite(state.lastFoodConsumptionTick)) {
     push('economy.invalid_food_consumption_tick', `lastFoodConsumptionTick ${state.lastFoodConsumptionTick} must be a non-negative integer`);
