@@ -11,7 +11,7 @@ import { snapshotGameState } from '../src/persistence/snapshot';
 import { GAME_STATE_PERSISTENCE_FORMAT } from '../src/persistence/types';
 import { migrateGameStatePayload } from '../src/persistence/versioning';
 import { MemoryPlayerWorldTable, SupabaseGameStateStore } from '../src/persistence/supabase/adapter';
-import { GameState } from '../src/types/GameState';
+import { GAME_STATE_SCHEMA_VERSION, GameState } from '../src/types/GameState';
 import {
   WORLD_TICK_DURATION_MS,
   advanceAuthoritativeWorldClock,
@@ -113,7 +113,7 @@ export function registerWorldAccrualTests(api: WorldAccrualTestApi): void {
     const loaded = store.load('repwars_accrual_legacy');
     assert.strictEqual(loaded.ok, true);
     if (!loaded.ok) return;
-    assert.strictEqual(loaded.state.schemaVersion, 14);
+    assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
     assert.strictEqual(loaded.state.worldTick, 40);
     assert.strictEqual(loaded.state.accruedTargetWorldTick, 40);
     assert.strictEqual(loaded.state.subTickMicroticks, 0);
@@ -167,7 +167,7 @@ export function registerWorldAccrualTests(api: WorldAccrualTestApi): void {
     const loaded = store.load('repwars_accrual_schema11');
     assert.strictEqual(loaded.ok, true);
     if (!loaded.ok) return;
-    assert.strictEqual(loaded.state.schemaVersion, 14);
+    assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
     assert.strictEqual(loaded.state.worldTick, 40);
     assert.strictEqual(loaded.state.lastFoodConsumptionTick, 40);
     assert.strictEqual(loaded.state.lastProcessedAtMs, T0);

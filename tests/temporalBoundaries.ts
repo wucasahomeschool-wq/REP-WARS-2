@@ -93,7 +93,7 @@ export function registerTemporalBoundaryTests(api: TemporalBoundaryTestApi): voi
     assert.strictEqual(accrueSimulationTime(emptyFixedPointAccrual(), 0, 'ONLINE').subTickMicroticks, 0);
     assert.ok(accrueSimulationTime(emptyFixedPointAccrual(), 1, 'ONLINE').subTickMicroticks >= 1);
     assert.strictEqual(realMillisecondsForSimulationWork(1, 0, 'OFFLINE'), 10 * MINUTE);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 14);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 15);
     assert.strictEqual(BALANCE.temporal.onlineRatePpm, 1_000_000);
     assert.strictEqual(BALANCE.temporal.offlineRatePpm, 100_000);
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'world', 'temporalBoundaries.ts'), 'utf8');

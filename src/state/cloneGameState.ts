@@ -232,6 +232,7 @@ export function overwriteGameState(target: GameState, source: GameState): void {
   target.subTickMicroticks = next.subTickMicroticks;
   target.accrualDivisionRemainder = next.accrualDivisionRemainder;
   target.lastAccrualAtMs = next.lastAccrualAtMs;
+  target.gameplaySessionLeases = next.gameplaySessionLeases;
   target.lastFoodConsumptionTick = next.lastFoodConsumptionTick;
   target.lastAiDecisionTick = next.lastAiDecisionTick;
   target.worldSeed = next.worldSeed;
@@ -269,6 +270,19 @@ export function overwriteGameState(target: GameState, source: GameState): void {
  * `playerRewards`, and `activeInvasions`.
  * See tests/run.ts, "GameState clone isolation".
  */
+function cloneGameplaySessionLease(
+  lease: GameState['gameplaySessionLeases'][number],
+): GameState['gameplaySessionLeases'][number] {
+  return {
+    sessionId: lease.sessionId,
+    openedAtMs: lease.openedAtMs,
+    expiresAtMs: lease.expiresAtMs,
+    endedAtMs: lease.endedAtMs,
+    lastReceiptAtMs: lease.lastReceiptAtMs,
+    lastRenewalRequestId: lease.lastRenewalRequestId,
+  };
+}
+
 export function cloneGameState(state: GameState): GameState {
   return {
     schemaVersion: state.schemaVersion,
@@ -279,6 +293,7 @@ export function cloneGameState(state: GameState): GameState {
     subTickMicroticks: state.subTickMicroticks,
     accrualDivisionRemainder: state.accrualDivisionRemainder,
     lastAccrualAtMs: state.lastAccrualAtMs,
+    gameplaySessionLeases: state.gameplaySessionLeases.map(cloneGameplaySessionLease),
     lastFoodConsumptionTick: state.lastFoodConsumptionTick,
     lastAiDecisionTick: new Map(state.lastAiDecisionTick),
     worldSeed: state.worldSeed,

@@ -18,6 +18,7 @@ export const DEFAULT_WORLD_ID = 'local';
  * Canonical persisted (authoritative):
  *   schemaVersion, turn, worldTick, lastProcessedAtMs,
  *   accruedTargetWorldTick, subTickMicroticks, accrualDivisionRemainder, lastAccrualAtMs,
+ *   gameplaySessionLeases,
  *   lastFoodConsumptionTick, lastAiDecisionTick, worldSeed,
  *   factions (resources, diplomacy, memory, goals, armies refs),
  *   playerFactionId, definitionWorldId/definitionFormatVersion/worldLevel/worldName,

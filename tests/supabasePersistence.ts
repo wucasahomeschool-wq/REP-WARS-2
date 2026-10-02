@@ -132,7 +132,7 @@ export function registerSupabasePersistenceTests(api: SupabasePersistenceTestApi
     assert.strictEqual(replaced, true);
     const loaded = new SupabaseGameStateStore(table).load(PLAYER);
     assert.strictEqual(loaded.ok, true);
-    if (loaded.ok) assert.strictEqual(loaded.state.schemaVersion, 14);
+    if (loaded.ok) assert.strictEqual(loaded.state.schemaVersion, 15);
   });
 
   test('compare-and-swap increments the version and a stale write leaves the row unchanged', () => {

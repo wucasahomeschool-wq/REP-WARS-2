@@ -81,6 +81,7 @@ import { registerTimeToTickTests } from './timeToTick';
 import { registerWorldAccrualTests } from './worldAccrual';
 import { registerTemporalBoundaryTests } from './temporalBoundaries';
 import { registerPresenceLeaseTests } from './presenceLeases';
+import { registerGameplaySessionLeasePersistenceTests } from './gameplaySessionLeases';
 import { registerSupabasePersistenceTests } from './supabasePersistence';
 import {
   assertFailedWorldSaveRollsHistoryBack,
@@ -1713,7 +1714,7 @@ test('createGameState() contains the expected major state domains', () => {
   const expected = [
     'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'commitments', 'constructions',
     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
-    'factions', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure',
+    'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
@@ -1731,6 +1732,7 @@ test('createGameState() contains the expected major state domains', () => {
   assert.strictEqual(state.subTickMicroticks, 0);
   assert.strictEqual(state.accrualDivisionRemainder, 0);
   assert.strictEqual(state.lastAccrualAtMs, null);
+  assert.deepStrictEqual(state.gameplaySessionLeases, []);
   assert.ok(state.worldTick <= state.accruedTargetWorldTick);
   assert.strictEqual(state.lastFoodConsumptionTick, 0);
   assert.strictEqual(state.lastAiDecisionTick.size, 0);
@@ -3264,6 +3266,8 @@ registerWorldAccrualTests({ test });
 registerTemporalBoundaryTests({ test });
 
 registerPresenceLeaseTests({ test });
+
+registerGameplaySessionLeasePersistenceTests({ test });
 
 registerSupabasePersistenceTests({ test });
 

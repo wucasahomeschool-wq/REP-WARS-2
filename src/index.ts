@@ -109,6 +109,8 @@ export {
   cloneGameState,
   overwriteGameState,
   checkGameStateInvariants,
+  insertGameplaySessionLease,
+  replaceGameplaySessionLease,
   isGameStateStructurallyValid,
   GameStateInvariantViolation,
   toDecisionEngineSnapshot,

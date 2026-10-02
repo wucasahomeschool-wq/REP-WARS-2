@@ -50,6 +50,7 @@ import { AICommitment, Army, ArmyId, FactionId, RegionId, Resources, Territory, 
 import { ActiveEvent, HistoryEntry } from '../events/EventModel';
 import { FitnessEstimate } from '../fitness/estimate/types';
 import { WorkoutSession } from '../fitness/session/types';
+import type { GameplaySessionLease } from '../world/presenceLeases';
 import { PlayerProgressionState, emptyPlayerProgressionState } from '../fitness/progression/types';
 import { GameRewardResult } from '../rewards/types';
 
@@ -81,8 +82,10 @@ import { GameRewardResult } from '../rewards/types';
  * 14 = Durable world accrual (`accruedTargetWorldTick`, `subTickMicroticks`,
  *     `accrualDivisionRemainder`, `lastAccrualAtMs`). Accrual does not
  *     process gameplay and does not replace `lastProcessedAtMs`.
+ * 15 = Durable gameplay-session leases (`gameplaySessionLeases`). Leases
+ *     are presence authority. They do not accrue time or compact history.
  */
-export const GAME_STATE_SCHEMA_VERSION = 14;
+export const GAME_STATE_SCHEMA_VERSION = 15;
 
 export type InvasionId = string;
 
@@ -396,6 +399,13 @@ export interface GameState {
    */
   lastAccrualAtMs: number | null;
   /**
+   * Authoritative gameplay-session leases for this player world.
+   * Presence is derived from this set. Expired and ended leases remain
+   * until a later committed frontier can prove they are safe to forget.
+   * An empty array is not historical offline time and not an online session.
+   */
+  gameplaySessionLeases: GameplaySessionLease[];
+  /**
    * Last world tick at which Food consumption was applied (or skipped
    * while Level 1-gated). Schema 11 stores the stamp only — consume is
    * not executed yet. Initialized to `worldTick` so later enablement
@@ -562,7 +572,11 @@ export interface GameState {
   // persistence envelope, not this type.
 }
 
-/** Initial continuous-clock fields. `worldTick` 0 means no simulation time has elapsed. */
+/**
+ * Initial clock fields and an empty gameplay-session lease set.
+ * `worldTick` 0 means no simulation time has elapsed. Creating a world
+ * does not open a lease.
+ */
 export function emptyWorldClock(): {
   worldTick: number;
   lastProcessedAtMs: number | null;
@@ -570,6 +584,7 @@ export function emptyWorldClock(): {
   subTickMicroticks: number;
   accrualDivisionRemainder: number;
   lastAccrualAtMs: number | null;
+  gameplaySessionLeases: GameplaySessionLease[];
   lastFoodConsumptionTick: number;
   lastAiDecisionTick: Map<FactionId, number>;
 } {
@@ -580,6 +595,7 @@ export function emptyWorldClock(): {
     subTickMicroticks: 0,
     accrualDivisionRemainder: 0,
     lastAccrualAtMs: null,
+    gameplaySessionLeases: [],
     lastFoodConsumptionTick: 0,
     lastAiDecisionTick: new Map(),
   };

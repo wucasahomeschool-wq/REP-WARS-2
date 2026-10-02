@@ -7,6 +7,7 @@ export {
 } from './createGameState';
 export { cloneGameState, overwriteGameState, cloneMap, cloneTerritory, cloneArmy, cloneWarlordSnapshot } from './cloneGameState';
 export { checkGameStateInvariants, isGameStateStructurallyValid, GameStateInvariantViolation } from './gameStateInvariants';
+export { insertGameplaySessionLease, replaceGameplaySessionLease } from './gameplaySessionLeases';
 export {
   toDecisionEngineSnapshot,
   toWorldStepInput,

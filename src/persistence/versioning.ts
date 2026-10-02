@@ -149,6 +149,15 @@ function migrateTemporalAccrual(state: Record<string, unknown>, schema: number, 
   state.accruedTargetWorldTick = target;
 }
 
+/**
+ * Pre-lease saves have no session authority. Initialize an empty set.
+ * A current-schema payload is left untouched, including a missing or
+ * malformed field, so invariants can reject corrupt authority.
+ */
+function migrateGameplaySessionLeases(state: Record<string, unknown>, schema: number): void {
+  if (schema < 15) state.gameplaySessionLeases = [];
+}
+
 function nonNegativeSafeInt(value: unknown): number | null {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
@@ -260,6 +269,7 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
     state.lastProcessedAtMs = null;
   }
   migrateTemporalAccrual(state, schema, worldTick);
+  migrateGameplaySessionLeases(state, schema);
   if (!Number.isInteger(state.lastFoodConsumptionTick) || (state.lastFoodConsumptionTick as number) < 0) {
     state.lastFoodConsumptionTick = worldTick;
   }

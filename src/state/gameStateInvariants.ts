@@ -17,6 +17,7 @@ import { isActiveCommitmentStatus, validateCommitmentTarget } from '../engine/De
 import { collectNeighborGraphIssues } from '../map/graphInvariants';
 import { BALANCE } from '../constants/balance';
 import { WORLD_TICK_DURATION_MS } from '../world/realtimeClock';
+import { validateGameplaySessionLease } from '../world/presenceLeases';
 
 export interface GameStateInvariantViolation {
   /** Short machine-checkable category, e.g. `'army.negative_troops'`. */
@@ -53,6 +54,31 @@ function toEngineSnapshotView(state: GameState): GameStateSnapshot {
  * array means `state` is structurally valid. Never throws — callers
  * (tests, a future Orchestrator) decide what to do with violations.
  */
+function checkGameplaySessionLeases(
+  state: GameState,
+  push: (code: string, message: string) => void,
+): void {
+  const leases = state.gameplaySessionLeases;
+  if (!Array.isArray(leases)) {
+    push('world.invalid_gameplay_session_leases', 'gameplaySessionLeases must be an array');
+    return;
+  }
+  const seen = new Set<string>();
+  for (const lease of leases) {
+    try {
+      validateGameplaySessionLease(lease);
+    } catch {
+      push('world.invalid_gameplay_session_leases', 'gameplaySessionLeases contains invalid authority');
+      return;
+    }
+    if (seen.has(lease.sessionId)) {
+      push('world.invalid_gameplay_session_leases', 'gameplaySessionLeases contains a duplicate session id');
+      return;
+    }
+    seen.add(lease.sessionId);
+  }
+}
+
 export function checkGameStateInvariants(state: GameState): GameStateInvariantViolation[] {
   const violations: GameStateInvariantViolation[] = [];
   const push = (code: string, message: string) => violations.push({ code, message });
@@ -97,6 +123,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       `worldTick ${state.worldTick} is ahead of accruedTargetWorldTick ${state.accruedTargetWorldTick}`,
     );
   }
+  checkGameplaySessionLeases(state, push);
   if (!Number.isInteger(state.lastFoodConsumptionTick) || state.lastFoodConsumptionTick < 0 || !Number.isFinite(state.lastFoodConsumptionTick)) {
     push('economy.invalid_food_consumption_tick', `lastFoodConsumptionTick ${state.lastFoodConsumptionTick} must be a non-negative integer`);
   }
