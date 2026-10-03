@@ -1,0 +1,3009 @@
+{
+  "schemaVersion": "rep-wars-temporal-master.v1.0",
+  "status": "GAME_READY_FROZEN",
+  "name": "Rep Wars Canonical Temporal Architecture and Action Timing Catalog — v1.0 Game Ready",
+  "provenance": {
+    "audit": "rep-wars-temporal-pass-7-full-cross-system-audit.json",
+    "correctionStages": [
+      "rep-wars-temporal-corrections-stage-1-military-lifecycle-reservations.json",
+      "rep-wars-temporal-corrections-stage-2-ai-concurrency-reactive-diplomacy.json",
+      "rep-wars-temporal-corrections-stage-3-clock-authority-fractional-accrual-workout-deadline.json",
+      "rep-wars-temporal-corrections-stage-4-world-events-recurring-order.json",
+      "rep-wars-temporal-corrections-stage-5-exploration-expansion-construction.json",
+      "rep-wars-temporal-corrections-stage-6-catchup-scheduler-final-schema.json"
+    ],
+    "auditFindingsResolved": 18,
+    "unresolvedAuditFindings": 0
+  },
+  "clock": {
+    "simulationTickBaselineMinutes": 1,
+    "clockDomains": {
+      "SIMULATION_TIME": {
+        "unit": "integer simulation ticks plus persisted fixed-point sub-tick state",
+        "affectedByOnlineOfflineRate": true,
+        "owns": [
+          "world action durations",
+          "construction",
+          "force/resource transport",
+          "AI commitments and availability",
+          "resource production",
+          "invasion response windows",
+          "diplomatic response windows",
+          "world-event simulation durations",
+          "simulation cooldowns"
+        ]
+      },
+      "REAL_WORLD_TIME": {
+        "unit": "server UTC epoch milliseconds",
+        "affectedByOnlineOfflineRate": false,
+        "owns": [
+          "presence lease boundaries",
+          "workout server receipt timestamps",
+          "defense-workout 720-minute maximum deadline",
+          "telemetry timestamps",
+          "real elapsed time feeding simulation accrual"
+        ]
+      },
+      "PROCESSING_TIME": {
+        "unit": "implementation-only runtime duration",
+        "affectedByOnlineOfflineRate": false,
+        "owns": [
+          "scheduler polling",
+          "database latency",
+          "request latency",
+          "64-tick processing slices"
+        ],
+        "mayChangeGameplayOutcome": false
+      }
+    },
+    "rates": {
+      "ratePpmDenominator": 1000000,
+      "onlineRatePpm": 1000000,
+      "offlineRatePpm": 100000,
+      "onlineEquivalentMultiplier": 1.0,
+      "offlineEquivalentMultiplier": 0.1,
+      "singleCentralTunable": true
+    },
+    "presenceAuthority": {
+      "owner": "SERVER",
+      "clientMayDirectlySetMode": false,
+      "model": "expiring authenticated gameplay-session leases",
+      "defaultPresenceLeaseMs": 90000,
+      "onlineDefinition": "ONLINE while at least one authenticated gameplay session has an unexpired server-issued presence lease.",
+      "offlineDefinition": "OFFLINE when no authenticated gameplay-session lease remains valid.",
+      "heartbeatRule": "A valid heartbeat extends only that authenticated session's lease from server receipt time. Client-supplied timestamps do not rewrite rate history.",
+      "disconnectRule": "Explicit authenticated disconnect may end that session lease immediately; unexpected disconnect falls back to lease expiry.",
+      "multiSessionRule": "The world stays ONLINE while any valid session lease remains active.",
+      "lateHeartbeatRule": "A heartbeat received after all leases expired begins a new ONLINE segment at server receipt time and does not retroactively erase the OFFLINE interval."
+    },
+    "fixedPointAccrual": {
+      "microticksPerSimulationTick": 1000000,
+      "realMillisecondsPerBaselineTick": 60000,
+      "persistedFields": [
+        "worldTick",
+        "accruedTargetWorldTick",
+        "subTickMicroticks",
+        "accrualDivisionRemainder",
+        "lastAccrualAtMs"
+      ],
+      "fieldRanges": {
+        "subTickMicroticks": "0..999999",
+        "accrualDivisionRemainder": "0..59999"
+      },
+      "integerAlgorithmForOneConstantRateSegment": [
+        "elapsedRealMs = segmentEndMs - lastAccrualAtMs",
+        "numerator = elapsedRealMs * ratePpm + accrualDivisionRemainder",
+        "accruedMicroticks = floor(numerator / 60000)",
+        "accrualDivisionRemainder = numerator mod 60000",
+        "subTickMicroticks = subTickMicroticks + accruedMicroticks",
+        "newWholeTicks = floor(subTickMicroticks / 1000000)",
+        "subTickMicroticks = subTickMicroticks mod 1000000",
+        "accruedTargetWorldTick = accruedTargetWorldTick + newWholeTicks",
+        "lastAccrualAtMs = segmentEndMs",
+        "Do NOT advance worldTick in the accrual layer. The simulation-boundary scheduler separately processes worldTick toward accruedTargetWorldTick."
+      ],
+      "implementationArithmetic": "Use integer arithmetic with sufficient range, preferably BigInt internally, for elapsedRealMs * ratePpm.",
+      "requestFrequencyInvariant": "Given identical authoritative rate/boundary history, any partition of the same real-time interval must produce the same accruedTargetWorldTick, subTickMicroticks, accrualDivisionRemainder, and lastAccrualAtMs.",
+      "fractionLossAllowed": false,
+      "fieldSemantics": {
+        "worldTick": "Highest simulation tick whose complete authoritative world processing has successfully committed.",
+        "accruedTargetWorldTick": "Highest whole simulation tick earned/accrued from authoritative real time, whether or not world processing has caught up to it yet.",
+        "subTickMicroticks": "Fractional simulation time beyond accruedTargetWorldTick; range 0..999999.",
+        "accrualDivisionRemainder": "Exact fixed-point division remainder carried across accrual segments; range 0..59999.",
+        "lastAccrualAtMs": "Server UTC time through which real time has already been converted into accruedTargetWorldTick/sub-tick state. This may advance ahead of worldTick."
+      },
+      "coreInvariant": "worldTick <= accruedTargetWorldTick",
+      "pendingWholeTicksFormula": "pendingWholeTicks = accruedTargetWorldTick - worldTick",
+      "accrualCommitRule": "The accrual fields may commit even while simulation processing remains behind, because accruedTargetWorldTick durably records the backlog. No already-accrued whole tick is lost or re-accrued merely because processing stops after a bounded slice."
+    },
+    "rateTransitionAccounting": {
+      "rule": "Every real-time interval is split at each authoritative ONLINE/OFFLINE transition. Each segment accrues using the rate active only for that segment.",
+      "mixedIntervalForbiddenShortcut": "Never apply the current rate to an earlier mixed-rate interval.",
+      "segmentBoundaries": [
+        "last valid presence lease expiry that changes ONLINE to OFFLINE",
+        "server acceptance of a new authenticated session that changes OFFLINE to ONLINE",
+        "other authoritative real-world deadlines that must resolve before later elapsed time"
+      ]
+    },
+    "noTimeRewind": true
+  },
+  "sameTickOrder": {
+    "stages": [
+      {
+        "order": 1,
+        "name": "SCHEDULED_COMPLETIONS_AND_ARRIVALS",
+        "examples": [
+          "force/transport arrival",
+          "construction completion",
+          "scout completion",
+          "expansion phase completion",
+          "AI commitment completion",
+          "world-event natural end where applicable"
+        ]
+      },
+      {
+        "order": 2,
+        "name": "IMMEDIATE_STATE_CONSEQUENCES",
+        "examples": [
+          "garrison merge",
+          "attack-arrival branch creation",
+          "direct battle resolution",
+          "fog reveal",
+          "territory-control change",
+          "structure creation"
+        ]
+      },
+      {
+        "order": 3,
+        "name": "INTERRUPTIONS_AND_INVALIDATIONS",
+        "examples": [
+          "route/action invalidation caused by earlier state changes",
+          "reservation release/transform",
+          "commitment failure caused by lost prerequisites"
+        ]
+      },
+      {
+        "order": 4,
+        "name": "DEADLINES_EXPIRATIONS_AND_COOLDOWN_ENDS",
+        "examples": [
+          "invasion response expiry",
+          "diplomatic proposal expiry",
+          "event response expiry",
+          "cooldown eligibility changes"
+        ]
+      },
+      {
+        "order": 5,
+        "name": "RECURRING_WORLD_PROCESSES",
+        "subOrder": [
+          "ACTIVE_EVENT_EFFECTS",
+          "RESOURCE_PRODUCTION_AND_CONTINUOUS_ACCRUAL",
+          "FOOD_CONSUMPTION_CYCLE",
+          "LEVEL1_TUTORIAL_SYNC_WHILE_ACTIVE",
+          "WORLD_EVENT_ELIGIBILITY_SWEEPS",
+          "OTHER_AUTHORED_RECURRING_WORLD_PROCESSES"
+        ],
+        "subOrderSemantics": {
+          "ACTIVE_EVENT_EFFECTS": "Apply due effects of already-active events first; these effects may modify resources, Stability, ownership, or modifiers.",
+          "RESOURCE_PRODUCTION_AND_CONTINUOUS_ACCRUAL": "Accrue/produce resources using ownership/structures/modifiers established by earlier same-tick stages and active-event effects.",
+          "FOOD_CONSUMPTION_CYCLE": "Apply each due Food-consumption boundary after production/accrual and before tutorial/event-eligibility evaluation. Any resulting Stability change is visible to all later same-tick subsystems.",
+          "LEVEL1_TUTORIAL_SYNC_WHILE_ACTIVE": "Run the temporary tutorial compatibility hook after economy/food state is current and before event eligibility is evaluated, so scripted tutorial state changes are visible to later same-tick event/AI logic.",
+          "WORLD_EVENT_ELIGIBILITY_SWEEPS": "Evaluate new world-event eligibility after due active-event effects, production, Food/Stability changes, and tutorial state changes.",
+          "OTHER_AUTHORED_RECURRING_WORLD_PROCESSES": "Run remaining authored recurring processes in their explicitly defined stable subsystem/ID order."
+        }
+      },
+      {
+        "order": 6,
+        "name": "AI_DIRECTOR_DECISION_OPPORTUNITIES",
+        "subOrder": [
+          "REQUIRED_RESPONSE",
+          "REACTIVE_DEFENSE",
+          "COMMITMENT_RECOVERY",
+          "PROACTIVE"
+        ]
+      }
+    ],
+    "tieBreakRule": "Within an equal stage/substage, use stable ascending authoritative ID unless a subsystem defines a stronger deterministic rule.",
+    "worldEventSpecialRules": {
+      "requiredChoiceNaturalEndGuard": "A required-choice event that is still awaiting a valid response does not complete in the scheduled-completion stage merely because eventEndTick is reached.",
+      "eventEndAtResponseDeadline": "When responseDeadlineTick == eventEndTick, response expiry/default consequence resolves in the deadline stage before terminal event completion.",
+      "recurringEffectAtEndTick": false,
+      "cooldownAnchor": "terminalResolutionTick"
+    }
+  },
+  "catchUpScheduler": {
+    "architecture": "REAL_TIME_ACCRUAL_DRIVER -> DURABLE_ACCRUAL_BACKLOG -> SIMULATION_BOUNDARY_SCHEDULER",
+    "processingSliceTicks": 64,
+    "processingSliceMeaning": "Maximum simulation ticks processed in one slice/checkpoint unit; never a limit on elapsed/accrued time.",
+    "strategy": "EVENT_DRIVEN_NEXT_BOUNDARY_WITH_SAFE_ANALYTICAL_COMPRESSION",
+    "frontier": {
+      "sourceOfTruth": "Authoritative persisted domain state plus deterministic cadence derivation.",
+      "implementation": "May use a min-heap/priority queue and indexes; the in-memory data structure is an optimization, not authority.",
+      "sortOrder": [
+        "boundary simulation tick ascending",
+        "canonical same-tick stage priority",
+        "subsystem priority where explicitly defined",
+        "stable authoritative ID ascending"
+      ],
+      "staleEntryRule": "Before execution, validate that the frontier entry still matches authoritative object status/version. Discard/rebuild stale entries rather than executing them.",
+      "refreshRule": "After any boundary changes authoritative state, remove/replace affected object's future frontier entries and enqueue newly created boundaries.",
+      "commandFenceRule": "Each nonterminal admitted mutating command contributes one ADMITTED_MUTATING_COMMAND_FENCE at admittedTargetWorldTick. Persisted command admission state is authoritative; the frontier entry is reconstructable and may not be the sole copy.",
+      "commandFenceStaleRule": "A command-fence frontier entry is stale only when its authoritative admission is terminal or its persisted admittedTargetWorldTick changed through a valid migration/repair. Never discard a nonterminal admission merely because worldTick has reached its fence."
+    },
+    "hardBoundaryTypes": [
+      "FORCE_TRANSIT_ARRIVAL",
+      "RESOURCE_OR_TRADE_TRANSPORT_ARRIVAL",
+      "CONSTRUCTION_COMPLETION",
+      "SCOUT_COMPLETION",
+      "EXPANSION_TRAVEL_ARRIVAL",
+      "EXPANSION_ESTABLISHMENT_COMPLETION",
+      "INVASION_RESPONSE_DEADLINE",
+      "DIPLOMATIC_RESPONSE_DEADLINE",
+      "AI_COMMITMENT_COMPLETION",
+      "AI_NEXT_DECISION_ELIGIBLE_TICK",
+      "AI_DIRECTOR_SWEEP",
+      "WORLD_EVENT_START",
+      "WORLD_EVENT_EFFECT_TICK",
+      "WORLD_EVENT_RESPONSE_DEADLINE",
+      "WORLD_EVENT_END",
+      "WORLD_EVENT_ELIGIBILITY_SWEEP",
+      "WORLD_EVENT_COOLDOWN_END",
+      "FOOD_CONSUMPTION_CYCLE",
+      "LEVEL1_TUTORIAL_SYNC",
+      "OTHER_AUTHORED_STATE_CHANGING_COMPLETION_DEADLINE_OR_THRESHOLD",
+      "STATEFUL_REAL_WORLD_BOUNDARY_GATE",
+      "ADMITTED_MUTATING_COMMAND_FENCE"
+    ],
+    "processBacklogAlgorithm": [
+      "1. Accrual layer first advances accruedTargetWorldTick/fractional state through authoritative server time; it does not advance worldTick.",
+      "2. Reconstruct/revalidate pending stateful real-world gates and nonterminal admitted mutating commands from authoritative persisted state.",
+      "3. At the current worldTick, resolve all due interstitial temporal obligations before testing caught-up state. Merge gates with gateAfterWorldTick <= worldTick and commands with admittedTargetWorldTick <= worldTick using commandFenceExecutionOrder.",
+      "4. If caughtUpPredicate is true after those obligations resolve, return caught up.",
+      "5. Set sliceTargetTick = min(worldTick + 64, accruedTargetWorldTick).",
+      "6. Find earliestPendingCommandFenceTick among nonterminal admissions where admittedTargetWorldTick > worldTick. If one exists, clamp sliceTargetTick = min(sliceTargetTick, earliestPendingCommandFenceTick).",
+      "7. Query the deterministic frontier for the earliest canonical hard boundary tick B such that worldTick < B <= sliceTargetTick. ADMITTED_MUTATING_COMMAND_FENCE is a canonical hard boundary and therefore prevents analytical compression across its tick.",
+      "8. If no hard boundary exists, analytically process only the proven-safe span [worldTick + 1, sliceTargetTick], set worldTick = sliceTargetTick, and checkpoint. Then continue at step 3 so any command/gate due exactly at the new worldTick is resolved before later processing.",
+      "9. If B exists and B > worldTick + 1, analytically process only [worldTick + 1, B - 1], set worldTick = B - 1 in the same atomic span commit, checkpoint, and continue toward B.",
+      "10. Process simulation tick B exactly once using canonical same-tick ordering for all simulation-stage boundaries due at B. ADMITTED_MUTATING_COMMAND_FENCE itself is not a simulation-stage mutation; it marks a mandatory post-tick stop.",
+      "11. Commit/retain worldTick = B and refresh affected frontier entries.",
+      "12. Before any tick B + 1 processing, resolve interstitial temporal obligations now due at B using commandFenceExecutionOrder. This includes commands whose admittedTargetWorldTick == B and stateful real-world gates whose gateAfterWorldTick == B.",
+      "13. For each due admitted command, perform full domain validation against the authoritative state at its admitted temporal position, then execute or reject it exactly once; terminalize its admission atomically with any gameplay mutation.",
+      "14. Re-evaluate frontier/gates/commands after every command or gate because a resolved obligation may create, cancel, or invalidate future boundaries.",
+      "15. Repeat from step 3 until caughtUpPredicate is true or the invocation processing budget ends.",
+      "16. If processing budget ends early, return partial progress. accruedTargetWorldTick and all durable command/gate obligations remain authoritative and recoverable on the next invocation."
+    ],
+    "safeSpanCompression": {
+      "generalRule": "A span may be compressed only when applying the compressible system analytically over the full span is mathematically identical to processing each tick and no skipped intermediate state can affect another system.",
+      "compressibleByDefault": [
+        "RESOURCE_PRODUCTION when ownership, producing structures, modifiers, caps/threshold behavior, and event effects remain constant",
+        "territory/resource accrual that is explicitly telescoping and has no intermediate threshold side effects",
+        "independent bookkeeping proven not to influence validation, RNG, ownership, AI, events, or deadlines"
+      ],
+      "mustStopBefore": [
+        "any hard boundary",
+        "ownership change",
+        "construction/structure state change",
+        "production modifier change",
+        "resource cap/threshold crossing when the crossing changes subsequent behavior",
+        "food-consumption boundary",
+        "world-event effect/start/end/eligibility boundary",
+        "AI decision opportunity that can consume RNG or create state",
+        "tutorial beat boundary",
+        "stateful real-world boundary gate",
+        "any point where a previously constant analytical formula would change",
+        "admitted mutating command fence",
+        "any due nonterminal admitted command at the current processed tick"
+      ],
+      "roundingRule": "Analytical compression must preserve the same integer rounding/remainder semantics as canonical per-tick processing. If equivalence cannot be proven, classify that system/boundary as chronological instead."
+    },
+    "recurringCadenceOptimization": {
+      "RESOURCE_PRODUCTION": {
+        "cadenceTicks": 1,
+        "hardBoundaryEveryTick": false,
+        "rule": "Do not enqueue every production tick when a safe span can be compressed."
+      },
+      "AI_DIRECTOR_SWEEP": {
+        "cadenceTicks": 5,
+        "hardBoundaryRule": "Treat as a hard boundary when at least one faction may become eligible for REQUIRED_RESPONSE, REACTIVE_DEFENSE, COMMITMENT_RECOVERY, or PROACTIVE evaluation at that sweep.",
+        "skipRule": "May skip a sweep only when authoritative indexes prove no AI opportunity can exist and skipping consumes no RNG.",
+        "anchorTick": 0,
+        "nextBoundaryFormula": "5 * ceil((currentWorldTick + 1) / 5)",
+        "phaseRule": "Only canonical ticks divisible by 5 are Director sweep opportunities."
+      },
+      "WORLD_EVENT_ELIGIBILITY_SWEEP": {
+        "cadenceTicks": 10,
+        "hardBoundaryRule": "Hard boundary whenever event eligibility/selection could change authoritative state or consume RNG.",
+        "sameTickSubOrder": "After active-event effects, production/accrual, Food consumption, and active tutorial sync.",
+        "anchorTick": 0,
+        "nextBoundaryFormula": "10 * ceil((currentWorldTick + 1) / 10)",
+        "phaseRule": "Only canonical ticks divisible by 10 are world-event eligibility sweep opportunities."
+      },
+      "ACTIVE_EVENT_EFFECT": {
+        "cadenceTicks": 5,
+        "hardBoundaryRule": "Every scheduled effect tick of an active recurring event is a hard boundary."
+      },
+      "FOOD_CONSUMPTION_CYCLE": {
+        "cadenceTicks": 60,
+        "hardBoundaryRule": "Every due food-consumption cycle is a hard boundary while the process is enabled.",
+        "sameTickSubOrder": "After resource production/accrual; before tutorial sync and world-event eligibility."
+      },
+      "LEVEL1_TUTORIAL_SYNC": {
+        "cadenceTicksWhileActive": 1,
+        "hardBoundaryRule": "Every tick remains a hard boundary while the current compatibility tutorial controller requires per-tick sync.",
+        "sameTickSubOrder": "After Food consumption; before world-event eligibility."
+      }
+    },
+    "rngDeterminism": {
+      "rule": "Optimization may not change the number, order, or identity of authoritative RNG draws.",
+      "requirements": [
+        "Never analytically compress across an RNG-consuming boundary.",
+        "Use the same canonical same-tick ordering and stable-ID tie-breaks live and during catch-up.",
+        "Persist already-created commitments/events rather than rerolling historical choices after restart.",
+        "Skipping a recurring sweep is legal only when it is proven to consume no RNG and produce no state."
+      ]
+    },
+    "commandTemporalGate": {
+      "mutatingCommandRule": "Every mutating command uses commandAdmissionContract. On first durable admission at server receipt time T, accrue through T, persist the command temporal position, and treat it as a scheduler fence. If processing cannot reach it in one invocation, keep it pending instead of assigning a new receipt time on retry.",
+      "syncRule": "SYNC_PLAYER_WORLD may intentionally return partial catch-up progress and be repeated until worldTick == accruedTargetWorldTick.",
+      "readRule": "Read endpoints may expose whether the snapshot is caught up. A product API that promises current authoritative state must finish catch-up before returning that state; otherwise it must explicitly mark the snapshot as temporally stale/partial.",
+      "caughtUpFormula": "isCaughtUp = (worldTick == accruedTargetWorldTick) AND no unresolved stateful real-world gate with gateAfterWorldTick <= worldTick AND no nonterminal admitted mutating command with admittedTargetWorldTick <= worldTick",
+      "idempotencyRule": "Same commandId + same payloadHash resumes/returns the existing admission; same commandId + different payloadHash is rejected.",
+      "pendingCommandRule": "Accepted pending commands survive slices/restarts. ADMITTED_MUTATING_COMMAND_FENCE is a canonical hard boundary; the scheduler must stop at the command's admittedTargetWorldTick, execute/reject the command, and terminalize it before any later tick.",
+      "deadlineRule": "Deadline-sensitive validity uses immutable firstServerReceivedAtMs and commandAdmissionContract exact-boundary ordering.",
+      "executionRule": "When worldTick reaches a pending command's admittedTargetWorldTick, the command becomes an interstitial due obligation. It is processed by commandFenceExecutionOrder before tick worldTick + 1."
+    },
+    "checkpointing": {
+      "safeCheckpointUnits": [
+        "committed accrual-state update",
+        "compressed no-boundary span",
+        "fully processed state-changing boundary tick",
+        "stateful real-world boundary gate resolution",
+        "end of 64-tick processing slice"
+      ],
+      "atomicity": "Each checkpoint commits all state changes for that unit through existing CAS/transaction semantics. A failure leaves the previously committed worldTick/accruedTargetWorldTick pair intact and retryable."
+    },
+    "liveVsCatchUpEquivalence": "For identical authoritative initial state, real-time/rate history, commands, persisted decisions, and RNG seeds, live incremental processing and offline catch-up must reach the same authoritative state.",
+    "boundaryTypes": [
+      "FORCE_TRANSIT_ARRIVAL",
+      "RESOURCE_OR_TRADE_TRANSPORT_ARRIVAL",
+      "CONSTRUCTION_COMPLETION",
+      "SCOUT_COMPLETION",
+      "EXPANSION_TRAVEL_ARRIVAL",
+      "EXPANSION_ESTABLISHMENT_COMPLETION",
+      "INVASION_RESPONSE_DEADLINE",
+      "DIPLOMATIC_RESPONSE_DEADLINE",
+      "AI_COMMITMENT_COMPLETION",
+      "AI_NEXT_DECISION_ELIGIBLE_TICK",
+      "AI_DIRECTOR_SWEEP",
+      "WORLD_EVENT_START",
+      "WORLD_EVENT_EFFECT_TICK",
+      "WORLD_EVENT_RESPONSE_DEADLINE",
+      "WORLD_EVENT_END",
+      "WORLD_EVENT_ELIGIBILITY_SWEEP",
+      "WORLD_EVENT_COOLDOWN_END",
+      "FOOD_CONSUMPTION_CYCLE",
+      "LEVEL1_TUTORIAL_SYNC",
+      "OTHER_AUTHORED_STATE_CHANGING_COMPLETION_DEADLINE_OR_THRESHOLD",
+      "STATEFUL_REAL_WORLD_BOUNDARY_GATE",
+      "ADMITTED_MUTATING_COMMAND_FENCE"
+    ],
+    "caughtUpPredicate": {
+      "formula": "isCaughtUp = (worldTick == accruedTargetWorldTick) AND no unresolved stateful real-world gate with gateAfterWorldTick <= worldTick AND no nonterminal admitted mutating command with admittedTargetWorldTick <= worldTick",
+      "meaning": "Accrued simulation ticks alone are not sufficient for temporal currency. Due cross-domain gates and due admitted commands must also be terminally resolved before a snapshot can be called caught up."
+    },
+    "commandFenceExecutionOrder": {
+      "scope": "Interstitial obligations at or before the current processed worldTick: persisted real-world boundary gates and nonterminal admitted mutating commands.",
+      "primaryOrder": "effective real-world timestamp ascending",
+      "timestamps": {
+        "command": "firstServerReceivedAtMs",
+        "gate": "boundaryAtMs"
+      },
+      "sameTimestampPriority": [
+        "A command explicitly defined as inclusive for this exact matching real-world deadline executes before that matching expiry gate.",
+        "Otherwise a stateful real-world expiry gate executes before a command at the same timestamp.",
+        "Commands sharing the same timestamp are ordered by commandId ascending.",
+        "Gates sharing the same timestamp/priority are ordered by stableTieBreakId ascending."
+      ],
+      "simulationPositionRule": "A command cannot execute before worldTick reaches admittedTargetWorldTick. Once reached, it must execute/reject before any later simulation tick.",
+      "revalidationRule": "After each obligation resolves, revalidate the remaining due obligations because domain state may have changed."
+    },
+    "boundaryIdentifierRegistry": {
+      "AI_DIRECTOR_SWEEP": {
+        "canonicalId": "AI_DIRECTOR_SWEEP",
+        "cadenceTicks": 5,
+        "anchorTick": 0,
+        "hardBoundaryCondition": "Register/process at canonical anchored sweep ticks when at least one faction may have a decision opportunity or when evaluating the sweep can consume RNG/create state.",
+        "deprecatedAliases": [
+          "AI_DIRECTOR_PERIODIC_SWEEP",
+          "AI_DIRECTOR_PERIODIC_SWEEP_AT_ANCHORED_MULTIPLE_OF_5"
+        ]
+      },
+      "WORLD_EVENT_ELIGIBILITY_SWEEP": {
+        "canonicalId": "WORLD_EVENT_ELIGIBILITY_SWEEP",
+        "cadenceTicks": 10,
+        "anchorTick": 0,
+        "hardBoundaryCondition": "Register/process at canonical anchored sweep ticks when eligibility/selection can consume RNG or create state.",
+        "deprecatedAliases": [
+          "WORLD_EVENT_ELIGIBILITY_SWEEP_AT_ANCHORED_MULTIPLE_OF_10"
+        ]
+      },
+      "aliasRule": "Deprecated aliases are migration/documentation names only. Runtime frontier registration, persistence, logging used for deterministic replay, and scheduler dispatch use canonicalId exclusively. Never enqueue both an alias and its canonical boundary."
+    }
+  },
+  "routeTiming": {
+    "calculator": "SHARED_ROUTE_DURATION",
+    "ticksPerHop": {
+      "NORMAL": 2,
+      "MODERATE": 3,
+      "DIFFICULT": 4,
+      "SEVERE": 5
+    },
+    "roadReductionTicksPerEligibleHop": 1,
+    "minimumTicksPerHop": 1
+  },
+  "reservationRules": {
+    "principle": "Any time-bound action that exclusively controls, moves, consumes, or reserves authoritative entities/quantities must acquire its required reservations atomically with commitment creation.",
+    "types": {
+      "EXCLUSIVE_ENTITY": {
+        "scopeExamples": [
+          "forceId",
+          "army formation id"
+        ],
+        "rule": "An indivisible entity may not be committed to more than one conflicting active action."
+      },
+      "QUANTITY": {
+        "scopeExamples": [
+          "troop quantity",
+          "resource quantity"
+        ],
+        "rule": "Reserved or in-transit quantity is removed from available quantity for all subsequent validation."
+      },
+      "CAPACITY_SLOT": {
+        "scopeExamples": [
+          "construction slot",
+          "other authored limited local action capacity"
+        ],
+        "rule": "A limited slot may not be double-booked across overlapping actions."
+      },
+      "PLAYER_INVASION_SLOT": {
+        "scopeKey": "defendingTerritoryId",
+        "rule": "Baseline allows one active/inbound player-response invasion reservation per player-controlled defending territory.",
+        "acquireAt": "Eligible attack commitment against the player-controlled territory.",
+        "releaseAt": "Terminal invasion resolution, attack cancellation, or attack invalidation.",
+        "newConflictingAttack": "Reject player command or mark AI candidate unavailable/reselect.",
+        "lateAcquisitionRule": "An attack that did not require the slot at commitment but finds a player-controlled target at arrival must acquire it atomically at arrival before creating the invasion.",
+        "lateAcquisitionFailure": "Invalidate the arriving attack; never create a second invasion or bypass the player response lifecycle.",
+        "sameTickCompetitionRule": "Stable canonical arrival ordering determines which same-tick claimant acquires the slot first."
+      }
+    },
+    "notExclusiveByDefault": [
+      "route segment",
+      "road",
+      "territory generally",
+      "whole faction"
+    ],
+    "reservationRecord": {
+      "requiredFields": [
+        "reservationId",
+        "reservationType",
+        "ownerActionOrCommitmentId",
+        "scopeKey",
+        "createdAtTick",
+        "status"
+      ],
+      "optionalFields": [
+        "quantity",
+        "resourceType",
+        "forceId",
+        "territoryId",
+        "capacityId",
+        "metadata"
+      ],
+      "statusEnum": [
+        "ACTIVE",
+        "TRANSFORMED",
+        "RELEASED"
+      ]
+    },
+    "acquisitionLifecycle": [
+      "Validate command prerequisites against current authoritative state.",
+      "Determine the exact reservations required.",
+      "Attempt to acquire all required reservations in the same authoritative CAS/transaction that creates the action/commitment.",
+      "If any required reservation conflicts or quantity is unavailable, reject the entire operation with no partial acquisition or partial mutation."
+    ],
+    "duringAction": [
+      "Reservations persist in authoritative state for the lifetime of the action unless transformed.",
+      "Reserved entities/quantities are unavailable to conflicting actions.",
+      "A later decision may use unrelated unreserved entities and quantities.",
+      "Routes and territories remain shareable unless an explicit slot reservation says otherwise."
+    ],
+    "troopDispatch": {
+      "rule": "When troops are dispatched, committed troops are detached from the source garrison into a uniquely identified force/formation owned by the transit/action.",
+      "availabilityExample": "If a garrison has 100 troops and 40 are dispatched, 60 remain available at the source and 40 belong to the moving force.",
+      "doubleUseForbidden": true
+    },
+    "resourceShipment": {
+      "rule": "At shipment dispatch, shipped resources leave the available source balance and enter the shipment manifest/in-transit state.",
+      "doubleSpendForbidden": true,
+      "arrivalTransform": "On valid arrival, the in-transit manifest is consumed and destination authoritative balance receives the shipment."
+    },
+    "constructionCost": {
+      "rule": "Construction cost follows the construction contract: consumed/committed at construction start. A cost that has already been consumed is not also represented as available or independently reservable."
+    },
+    "releaseAndTransform": {
+      "completion": [
+        "Transform reservations into their arrival/result state where appropriate.",
+        "Merge reinforcement force into destination garrison where valid.",
+        "Deliver shipment manifest to destination balance where valid.",
+        "Release capacity slots when construction reaches a terminal state.",
+        "Release PLAYER_INVASION_SLOT at terminal invasion resolution."
+      ],
+      "cancellationFailureInvalidation": [
+        "Apply the action's authored terminal-state consequences first.",
+        "Release or transform every reservation still owned by that action atomically with terminalization.",
+        "Never leave an orphaned ACTIVE reservation behind a terminal action."
+      ]
+    },
+    "restartRecovery": {
+      "sourceOfTruth": "Persisted authoritative reservation representation plus persisted domain actions/commitments. The reservation representation is explicitly part of persistenceRecovery.authoritativeTemporalFieldsThatMustPersist.",
+      "rebuildRule": "On restart, rebuild in-memory reservation indexes from persisted reservations; do not infer availability from UI/client state.",
+      "crossValidation": [
+        "ACTIVE reservation whose owning action is terminal is an orphan and must be released/repaired through deterministic recovery logic.",
+        "Active time-bound action missing a required reservation is an invariant violation; fail safe rather than executing with unlocked resources.",
+        "Do not create duplicate reservations when rebuilding indexes."
+      ]
+    },
+    "conflictBehavior": {
+      "playerCommand": "Reject deterministically with no authoritative mutation.",
+      "aiCandidate": "Mark candidate action unavailable for that decision opportunity; AI may choose another valid candidate."
+    },
+    "atomicity": "Reservation acquisition, commitment creation, and associated source-quantity detachment/consumption must be one authoritative atomic commit."
+  },
+  "systems": {
+    "military": {
+      "forceTransitPurposes": [
+        "REDEPLOY",
+        "ATTACK",
+        "REINFORCE",
+        "RETREAT"
+      ],
+      "travelPrimitive": "FORCE_TRANSIT",
+      "playerInvasionResponseWindowTicks": 30,
+      "invasionDeadlineBoundary": "EXCLUSIVE",
+      "battleResolutionTicks": 0,
+      "attackerCooldownTicks": 30,
+      "playerTargetArrivalRule": "Create player-invasion response lifecycle; do not resolve battle immediately.",
+      "nonPlayerResponseArrivalRule": "Resolve valid hostile battle as immediate arrival consequence.",
+      "attackerCooldownAnchor": "engagementResolutionTick",
+      "attackerCooldownUntilFormula": "engagementResolutionTick + 30",
+      "playerInvasionStates": [
+        "AWAITING_PLAYER_RESPONSE",
+        "DEFENSE_WORKOUT_ACTIVE",
+        "AUTO_DEFENSE_RESOLUTION",
+        "WORKOUT_DEFENSE_RESOLUTION",
+        "COMPLETED",
+        "CANCELLED",
+        "FAILED",
+        "INVALIDATED"
+      ],
+      "playerInvasionSlotReservation": "Acquire at attack commit when target is player-controlled; otherwise acquire atomically at arrival if ownership changed to player. If unavailable at arrival, invalidate the attack.",
+      "defenseWorkoutStartBoundary": "currentSimulationTick < responseDeadlineTick"
+    },
+    "construction": {
+      "durationsTicks": {
+        "BUILD_ROAD": 6,
+        "BUILD_FARM": 8,
+        "BUILD_LUMBER": 8,
+        "BUILD_MINE": 10,
+        "BUILD_FORTIFICATION": 12,
+        "BUILD_CITY": 24,
+        "UPGRADE_FARM": 10,
+        "UPGRADE_LUMBER": 10,
+        "UPGRADE_MINE": 12,
+        "UPGRADE_FORTIFICATION": 16,
+        "UPGRADE_CITY_LEVEL_2": 18,
+        "UPGRADE_CITY_LEVEL_3": 30,
+        "UPGRADE_CITY_LEVEL_4": 45,
+        "UPGRADE_ROAD": 10
+      },
+      "acceleration": {
+        "instant": true,
+        "formula": "newCompletionTick = max(currentSimulationTick, oldCompletionTick - accelerationTicks)",
+        "mayCompleteSameTick": true
+      },
+      "cancellation": {
+        "instant": true,
+        "automaticRefund": false,
+        "allowedOnlyWhileInProgress": true
+      },
+      "stateMachine": [
+        "PROPOSED",
+        "IN_PROGRESS",
+        "COMPLETED",
+        "CANCELLED",
+        "FAILED",
+        "INVALIDATED"
+      ],
+      "canonicalCompletionBoundaryField": "completionTick",
+      "alreadyDueCompletionPrecedesAccelerationOrCancellation": true,
+      "repeatedAccelerationUsesCurrentAuthoritativeCompletionTick": true,
+      "cancellationReleasesCapacityReservation": true
+    },
+    "logistics": {
+      "localResourceTransferTicks": 1,
+      "resourceShipment": "SHARED_ROUTE_DURATION",
+      "troopRedeployment": "FORCE_TRANSIT",
+      "troopReinforcement": "FORCE_TRANSIT",
+      "tradeShipment": "SHARED_ROUTE_DURATION",
+      "marketDelivery": "RESOURCE_SHIPMENT purpose MARKET_DELIVERY",
+      "troopReinforcementLegacyInstantStatus": "REPLACE_AT_MIGRATION"
+    },
+    "economy": {
+      "resourceProductionCadenceTicks": 1,
+      "marketBuyTicks": 0,
+      "marketSellTicks": 0,
+      "productionCatchUp": "ANALYTICAL_COMPRESSION_WHEN_SAFE",
+      "foodConsumption": {
+        "cadenceTicks": 60,
+        "anchor": "lastFoodConsumptionTick",
+        "clockDomain": "SIMULATION_TIME",
+        "offlineCatchUpClass": "CHRONOLOGICAL",
+        "amountFormulaStatus": "OPEN_PRODUCT_DECISION_OUTSIDE_TEMPORAL_SCOPE"
+      }
+    },
+    "diplomacy": {
+      "defaultProposalResponseWindowTicks": 30,
+      "proposalCreationTicks": 0,
+      "proposalResponseTicks": 0,
+      "pendingThreadExclusivity": true,
+      "resendCooldownTicks": {
+        "NEGOTIATE_REJECT_OR_EXPIRE": 10,
+        "TRADE_REJECT_OR_EXPIRE": 10,
+        "OFFER_PEACE_REJECT_OR_EXPIRE": 30
+      },
+      "declareWarTicks": 0,
+      "pendingThreadKeys": {
+        "NEGOTIATE": "NEGOTIATE|senderFactionId|recipientFactionId",
+        "TRADE_PROPOSAL": "TRADE_PROPOSAL|senderFactionId|recipientFactionId",
+        "OFFER_PEACE": "OFFER_PEACE|min(factionA,factionB)|max(factionA,factionB)"
+      },
+      "resendCooldownAnchor": "proposalTerminalResolutionTick",
+      "resendCooldownDirection": "ORIGINAL_SENDER_ONLY_AFTER_REJECTED_OR_EXPIRED"
+    },
+    "exploration": {
+      "scoutingFormula": "SHARED_ROUTE_DURATION(route) + 2",
+      "surveyTicks": 2,
+      "scoutingRoadEligible": true,
+      "neutralExpansionFormula": "SHARED_ROUTE_DURATION(adjacentHop) + 3",
+      "establishmentTicks": 3,
+      "neutralExpansionRoadEligible": true,
+      "neutralExpansionPhases": [
+        "TRAVELING",
+        "ESTABLISHING_CONTROL"
+      ],
+      "neutralExpansionTravelFormula": "SHARED_ROUTE_DURATION(adjacentHop)",
+      "neutralExpansionEstablishmentTicks": 3,
+      "neutralExpansionArrivalRevalidation": true,
+      "neutralExpansionCompletionRevalidation": true
+    },
+    "ai": {
+      "decisionTicks": 0,
+      "directorPeriodicSweepTicks": 5,
+      "postInstantOrCompletedActionReassessmentDelayTicks": 1,
+      "waitTicks": 3,
+      "defendStanceTicks": 4,
+      "globalFactionBlockingCommitment": false,
+      "oneNewProactiveCommitmentPerOpportunity": true,
+      "opportunityPriority": [
+        "REQUIRED_RESPONSE",
+        "REACTIVE_DEFENSE",
+        "COMMITMENT_RECOVERY",
+        "PROACTIVE"
+      ],
+      "waitScope": "FACTION_PROACTIVE_GATE_ONLY",
+      "waitBypasses": [
+        "REQUIRED_RESPONSE",
+        "REACTIVE_DEFENSE",
+        "COMMITMENT_RECOVERY"
+      ],
+      "defendStanceScope": "ONE_TERRITORY",
+      "defendStanceScopeKey": "AI_DEFEND_STANCE|territoryId",
+      "concurrencyRule": "Multiple non-conflicting commitments per faction are allowed; scope/reservation conflicts govern eligibility.",
+      "directorPeriodicSweepAnchorTick": 0,
+      "directorPeriodicSweepFormula": "ticks 5,10,15,...; next = 5 * ceil((currentWorldTick + 1) / 5)"
+    },
+    "worldEvents": {
+      "eligibilitySweepTicks": 10,
+      "defaultResponseWindowTicks": 30,
+      "activeEffectCadenceTicks": 5,
+      "durationClassesTicks": {
+        "INSTANT": 0,
+        "SHORT": 10,
+        "STANDARD": 30,
+        "LONG": 60,
+        "EXTENDED": 120
+      },
+      "factionCooldownTicks": 30,
+      "majorWorldCooldownTicks": 60,
+      "effectCompletionBoundary": "EXCLUSIVE",
+      "cooldownAnchor": "terminalResolutionTick",
+      "requiredChoiceState": "AWAITING_RESPONSE",
+      "responseDeadlineFormula": "min(eventStartTick + authoredResponseWindowTicks, eventEndTick) unless response-bearing lifetime is explicitly extended",
+      "requiredChoiceMaySilentlyComplete": false,
+      "firstRecurringEffectTickFormula": "eventStartTick + effectCadenceTicks",
+      "recurringEffectAtEventEndTick": false,
+      "legacyTurnStatus": "DERIVED_COMPATIBILITY_ONLY",
+      "canonicalClock": "SIMULATION_TIME",
+      "activeLegacyTurnBoundaryMigrationFormula": "currentWorldTick + max(0, legacyTargetTurn - currentTurn) * ticksPerEventTurn",
+      "eligibilitySweepAnchorTick": 0,
+      "eligibilitySweepFormula": "ticks 10,20,30,...; next = 10 * ceil((currentWorldTick + 1) / 10)"
+    },
+    "workouts": {
+      "defenseWorkoutMaximumRealMinutes": 720,
+      "defenseWorkoutDeadlineClockDomain": "REAL_WORLD_TIME",
+      "affectedByOnlineOfflineMultiplier": false,
+      "sessionClockDomain": "REAL_WORLD_TIME",
+      "sessionPauseMayPauseWorld": false,
+      "sessionPauseMayExtendDefenseDeadline": false,
+      "defenseFinalizeAction": "WORKOUT_DEFENSE_RESOLUTION when timely/valid",
+      "defenseAbandonAction": "AUTO_DEFENSE_RESOLUTION",
+      "beginTimingType": "INSTANT",
+      "completeSubmissionTimingType": "INSTANT",
+      "instantOperationsClockDomain": "REAL_WORLD_TIME",
+      "instantOperationsDurationField": "NONE_UNIT_NEUTRAL"
+    }
+  },
+  "actionCatalog": [
+    {
+      "actionId": "FORCE_TRANSIT",
+      "system": "military_logistics",
+      "timingType": "FORMULA_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "durationFormula": "SHARED_ROUTE_DURATION(route)",
+      "reservationRequirements": [
+        "EXCLUSIVE_ENTITY(forceId)",
+        "QUANTITY(detachedTroops where applicable)"
+      ],
+      "completionEffect": "Apply arrival, then semantic arrival consequence/revalidation.",
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "BATTLE_RESOLUTION",
+      "system": "military",
+      "timingType": "INSTANT",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "INVASION_RESPONSE_WINDOW",
+      "system": "military",
+      "timingType": "RESPONSE_WINDOW",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": false,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "responseWindowTicks": 30,
+      "deadlineBoundary": "EXCLUSIVE",
+      "durationFormula": "responseDeadlineTick = attackArrivalTick + 30",
+      "completionEffect": "If still AWAITING_PLAYER_RESPONSE at deadline, transition to AUTO_DEFENSE_RESOLUTION.",
+      "reservationRequirements": [
+        "PLAYER_INVASION_SLOT(defendingTerritoryId)"
+      ],
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "ATTACKER_COOLDOWN",
+      "system": "military",
+      "timingType": "COOLDOWN",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "cooldownTicks": 30,
+      "completionEffect": "Attack cooldown gate ends when currentSimulationTick >= engagementResolutionTick + 30.",
+      "notes": "Cooldown begins only after an engagement actually resolves in combat. Final relative-timing normalization reduced the cooldown from 60 to 30 ticks.",
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "BUILD_ROAD",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 6,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "BUILD_FARM",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 8,
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "BUILD_LUMBER",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 8,
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "BUILD_MINE",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 10,
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "BUILD_FORTIFICATION",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 12,
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "BUILD_CITY",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 24,
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "UPGRADE_FARM",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 10,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "UPGRADE_LUMBER",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 10,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "UPGRADE_MINE",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 12,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "UPGRADE_FORTIFICATION",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 16,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "UPGRADE_CITY_LEVEL_2",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 18,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "UPGRADE_CITY_LEVEL_3",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 30,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "UPGRADE_CITY_LEVEL_4",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 45,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "UPGRADE_ROAD",
+      "system": "construction",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 10,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "ACCELERATE_CONSTRUCTION",
+      "system": "construction",
+      "timingType": "INSTANT",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "CANCEL_CONSTRUCTION",
+      "system": "construction",
+      "timingType": "INSTANT",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "LOCAL_RESOURCE_TRANSFER",
+      "system": "logistics",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 1,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "RESOURCE_SHIPMENT",
+      "system": "logistics",
+      "timingType": "FORMULA_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "durationFormula": "SHARED_ROUTE_DURATION(route)",
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING",
+      "purposeEnum": [
+        "RESOURCE_TRANSFER",
+        "MARKET_DELIVERY"
+      ],
+      "notes": "Owns physical resource transport for generic resource transfer and MARKET_DELIVERY. MARKET_DELIVERY is a purpose of this primitive, not a separate timer."
+    },
+    {
+      "actionId": "TRADE_SHIPMENT",
+      "system": "logistics",
+      "timingType": "FORMULA_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "durationFormula": "SHARED_ROUTE_DURATION(route)",
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "RESOURCE_PRODUCTION",
+      "system": "economy",
+      "timingType": "RECURRING",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "ANALYTICAL_COMPRESSION",
+      "cadenceTicks": 1,
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "MARKET_BUY",
+      "system": "economy",
+      "timingType": "INSTANT",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "MARKET_SELL",
+      "system": "economy",
+      "timingType": "INSTANT",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "NEGOTIATE",
+      "system": "diplomacy",
+      "timingType": "INSTANT",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "responseWindowTicks": 30,
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "OFFER_PEACE",
+      "system": "diplomacy",
+      "timingType": "INSTANT",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "responseWindowTicks": 30,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "TRADE_PROPOSAL",
+      "system": "diplomacy",
+      "timingType": "INSTANT",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "responseWindowTicks": 30,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "DECLARE_WAR",
+      "system": "diplomacy",
+      "timingType": "INSTANT",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "SCOUT",
+      "system": "exploration",
+      "timingType": "FORMULA_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "durationFormula": "SHARED_ROUTE_DURATION(route) + 2",
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "EXPAND_NEUTRAL",
+      "system": "exploration",
+      "timingType": "FORMULA_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "durationFormula": "SHARED_ROUTE_DURATION(adjacentHop) + 3",
+      "completionEffect": "Two-phase lifecycle: travel arrival revalidation, then 3-tick establishment, then ownership change if still eligible.",
+      "notes": "Scheduler must expose EXPANSION_TRAVEL_ARRIVAL and EXPANSION_ESTABLISHMENT_COMPLETION as separate boundaries.",
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "AI_DECISION",
+      "system": "ai",
+      "timingType": "INSTANT",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": false,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "AI_DIRECTOR_SWEEP",
+      "system": "ai",
+      "timingType": "RECURRING",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": false,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "cadenceTicks": 5,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING",
+      "anchorTick": 0,
+      "nextBoundaryFormula": "5 * ceil((currentWorldTick + 1) / 5)",
+      "notes": "Global recurring sweep phase is canonical: ticks 5,10,15,... . Do not derive phase from request time or legacy lastAiDecisionTick."
+    },
+    {
+      "actionId": "AI_WAIT",
+      "system": "ai",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": false,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 3,
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "AI_DEFEND_STANCE",
+      "system": "ai",
+      "timingType": "FIXED_DURATION",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": false,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "baseDurationTicks": 4,
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "AI_POST_ACTION_REASSESSMENT_DELAY",
+      "system": "ai",
+      "timingType": "COOLDOWN",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": false,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "cooldownTicks": 1,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "WORLD_EVENT_ELIGIBILITY_SWEEP",
+      "system": "world_events",
+      "timingType": "RECURRING",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "cadenceTicks": 10,
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING",
+      "anchorTick": 0,
+      "nextBoundaryFormula": "10 * ceil((currentWorldTick + 1) / 10)",
+      "notes": "Global recurring eligibility sweep phase is canonical: ticks 10,20,30,... . Active-event effect ticks remain event-instance anchored separately."
+    },
+    {
+      "actionId": "ACTIVE_EVENT_EFFECT",
+      "system": "world_events",
+      "timingType": "RECURRING",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "cadenceTicks": 5,
+      "notes": "First recurring effect occurs at eventStartTick + cadence; no recurring effect at eventEndTick by default.",
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "WORLD_EVENT_RESPONSE",
+      "system": "world_events",
+      "timingType": "RESPONSE_WINDOW",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "responseWindowTicks": 30,
+      "durationFormula": "responseDeadlineTick = min(eventStartTick + authoredResponseWindowTicks, eventEndTick) unless explicitly extended",
+      "deadlineBoundary": "RESPONSE_MUST_PRECEDE_EXPIRY_STAGE_AT_DEADLINE_TICK",
+      "completionEffect": "Required-choice event resolves selected/default response before terminal completion.",
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "FACTION_EVENT_COOLDOWN",
+      "system": "world_events",
+      "timingType": "COOLDOWN",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "cooldownTicks": 30,
+      "notes": "Cooldown begins at terminalResolutionTick.",
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "WORLD_MAJOR_EVENT_COOLDOWN",
+      "system": "world_events",
+      "timingType": "COOLDOWN",
+      "clockDomain": "SIMULATION_TIME",
+      "playerAiParity": true,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "cooldownTicks": 60,
+      "notes": "Cooldown begins at terminalResolutionTick.",
+      "implementationStatus": "DESIGNED_CANONICAL_PRIMITIVE_IMPLEMENTATION_MAY_BE_PENDING"
+    },
+    {
+      "actionId": "WORKOUT_BEGIN",
+      "system": "workouts",
+      "timingType": "INSTANT",
+      "clockDomain": "REAL_WORLD_TIME",
+      "playerAiParity": false,
+      "offlineCatchUpClass": "RECONCILE",
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "WORKOUT_COMPLETE_SUBMISSION",
+      "system": "workouts",
+      "timingType": "INSTANT",
+      "clockDomain": "REAL_WORLD_TIME",
+      "playerAiParity": false,
+      "offlineCatchUpClass": "RECONCILE",
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    },
+    {
+      "actionId": "DEFENSE_WORKOUT_MAXIMUM",
+      "system": "workouts",
+      "timingType": "REAL_WORLD_DEADLINE",
+      "clockDomain": "REAL_WORLD_TIME",
+      "playerAiParity": false,
+      "offlineCatchUpClass": "CHRONOLOGICAL",
+      "durationMs": 43200000,
+      "implementationStatus": "CURRENT_OR_MIGRATED_CORE"
+    }
+  ],
+  "invariants": [
+    "There is one authoritative simulation timeline.",
+    "Online/offline simulation speed is server-authoritative and centrally configured.",
+    "Player and AI use identical physical action durations for equivalent actions.",
+    "AI decisions consume zero simulation ticks; AI actions may consume time.",
+    "The same force/resource quantity cannot be committed to conflicting actions.",
+    "Movement timing is route-derived and shared across systems.",
+    "A player invasion response window is not generically pausable.",
+    "Starting a valid defense workout before invasion deadline closes the response phase.",
+    "Defense-workout maximum is 720 real-world minutes and is not slowed offline.",
+    "Recurring world processes use deterministic same-tick sub-order.",
+    "Catch-up may compress only mathematically equivalent spans.",
+    "Catch-up optimization may not change RNG draw order.",
+    "The 64-tick processing slice is not a gameplay-time cap.",
+    "All persisted commitments and scheduled states survive restart.",
+    "No temporal operation moves authoritative time backward.",
+    "AI WAIT blocks only proactive AI opportunities; required responses, reactive defense, recovery, and existing commitment resolution continue.",
+    "AI DEFEND_STANCE is territory-scoped and cannot freeze an entire faction.",
+    "Multiple AI commitments may coexist only when their scope keys and reservations do not conflict.",
+    "Diplomatic pending-thread identity and resend cooldown direction are deterministic and persisted/reconstructable.",
+    "Construction completion already due at the authoritative current tick resolves before acceleration or cancellation.",
+    "Repeated construction acceleration always uses the current authoritative completionTick.",
+    "Every current timing-sensitive operation is accounted for by actionCatalog, temporalOperationCoverageLedger, instantOperationLedger, or workoutSessionClockContract.",
+    "INSTANT action-catalog records carry no zero-valued tick or millisecond duration field.",
+    "Real-time accrual and simulation processing use separate durable cursors: accruedTargetWorldTick may advance ahead of worldTick.",
+    "Partial catch-up can commit progress without losing or re-accruing the unprocessed backlog.",
+    "The scheduler never processes worldTick beyond accruedTargetWorldTick.",
+    "Stateful real-world deadline gates are applied after all whole simulation ticks accrued by the deadline and before any later simulation tick.",
+    "Long catch-up uses the same chronological boundaries, same-tick ordering, and RNG order as live processing.",
+    "Cross-territory REINFORCE is canonical FORCE_TRANSIT; the legacy instant reinforce handler cannot remain authoritative after migration.",
+    "If an attack target becomes player-controlled during transit, PLAYER_INVASION_SLOT must be acquired atomically at arrival before invasion creation.",
+    "Failure to acquire a newly required PLAYER_INVASION_SLOT invalidates the arriving attack rather than bypassing the response lifecycle.",
+    "Authoritative reservation state survives restart and is rebuilt before new conflicting commands are accepted.",
+    "FOOD_CONSUMPTION_CYCLE has a deterministic same-tick position after production/accrual and before tutorial sync, event eligibility, and AI decisions.",
+    "Operative canonical rules reference only sections/fields within this master; old Pass/Stage names are historical provenance only.",
+    "Legacy one-per-faction AI commitments migrate idempotently into the canonical multi-commitment collection before multi-commitment execution is enabled.",
+    "MARKET_DELIVERY uses RESOURCE_SHIPMENT purpose MARKET_DELIVERY and cannot create an independent transport timer.",
+    "Workout begin/completion instant summary semantics are unit-neutral and do not use tick-named zero-duration fields.",
+    "Pre-temporal saves enter canonical time at one explicit server cutover boundary; legacy lastProcessedAtMs is not trusted as the initial accrual cursor.",
+    "Immediately after successful cutover, worldTick == accruedTargetWorldTick and both fractional accrual fields are zero.",
+    "Durably admitted mutating commands preserve immutable firstServerReceivedAtMs across catch-up slices and retries.",
+    "The scheduler may accrue beyond a pending command but may not process simulation state beyond its admitted temporal fence before executing/rejecting it.",
+    "A valid exact-deadline defense-workout completion uses its first durable server receipt time, not retry time.",
+    "Global AI Director sweeps are phase-anchored to simulation tick 0 and occur only on ticks divisible by 5.",
+    "Global world-event eligibility sweeps are phase-anchored to simulation tick 0 and occur only on ticks divisible by 10.",
+    "Server restart, request timing, and legacy lastAiDecisionTick cannot shift the phase of canonical global recurring sweeps.",
+    "Internal ADVANCE_WORLD in SYNTHETIC_TEST mode increases accruedTargetWorldTick and never directly increments worldTick.",
+    "Synthetic simulation-time advancement does not advance REAL_WORLD_TIME deadlines.",
+    "The canonical attacker cooldown for newly resolved engagements is 30 simulation ticks.",
+    "A nonterminal admitted mutating command at or before worldTick prevents isCaughtUp from becoming true.",
+    "ADMITTED_MUTATING_COMMAND_FENCE is a canonical hard boundary and safe analytical compression may not cross it.",
+    "Once worldTick reaches a command's admittedTargetWorldTick, that command executes/rejects and terminalizes before any later simulation tick.",
+    "AI Director recurring sweeps use only canonical boundary identifier AI_DIRECTOR_SWEEP; deprecated periodic/anchored aliases are never separately enqueued.",
+    "World-event eligibility sweeps use only canonical boundary identifier WORLD_EVENT_ELIGIBILITY_SWEEP; its anchored alias is never separately enqueued.",
+    "Command idempotency payload fingerprints are computed by the server using COMMAND_FINGERPRINT_V1 and persisted with their fingerprint version."
+  ],
+  "supersession": [
+    "The final master supersedes all conflicting values or semantics in Passes 0-6.",
+    "Stage 1 supersedes teleporting reinforcement, dual movement timing ownership, generic invasion pausing, and ambiguous attack-arrival behavior.",
+    "Stage 2 supersedes one-faction-one-blocking-commitment behavior and provisional WAIT/DEFEND values.",
+    "Stage 3 supersedes client/loosely inferred presence, undefined fractional accrual, and 720 simulation-tick defense-workout maximum.",
+    "Stage 4 supersedes ambiguous event response lifetime, recurring-process sub-order, and event effect/cooldown anchors.",
+    "Stage 5 supersedes fixed route-insensitive scouting/expansion and incomplete construction acceleration/cancellation semantics.",
+    "Stage 6 supersedes naïve tick-by-tick catch-up assumptions and all earlier schema-shape differences.",
+    "Revision Pass 1 embeds the exact fixed-point accrual algorithm; prior summaries that only named remainder fields are incomplete.",
+    "Revision Pass 1 embeds server-authoritative presence/rate-transition accounting; client or loosely inferred online/offline state is not authoritative.",
+    "Revision Pass 1 embeds real-world defense-workout deadline ordering; later submissions cannot retroactively defeat expiry.",
+    "Revision Pass 1 embeds temporal persistence/restart/CAS requirements; in-memory scheduler state is never authoritative.",
+    "Revision Pass 2 embeds the complete attack-arrival/player-invasion/defense-workout lifecycle; abbreviated earlier summaries are incomplete.",
+    "Revision Pass 2 anchors the 60-tick attacker cooldown to engagementResolutionTick.",
+    "Revision Pass 2 embeds atomic reservation acquisition, quantity detachment, release/transform, and restart reconstruction semantics.",
+    "Revision Pass 3 embeds the full required-choice world-event lifecycle, response clamping, recurring-effect anchors, and terminal cooldown anchors.",
+    "Revision Pass 3 makes WORLD_EVENT_END subordinate to unresolved required-choice response semantics.",
+    "Revision Pass 3 replaces flattened neutral expansion with explicit TRAVELING and ESTABLISHING_CONTROL phases and two scheduler boundaries.",
+    "Revision Pass 4 removes legacy playerFacingTick/playerEmpirePause from invasion/world-time authority.",
+    "Revision Pass 4 removes the legacy 1440-tick post-workout protection gate from canonical invasion eligibility.",
+    "Revision Pass 4 retains food consumption as a scheduler-owned 60-tick simulation process while leaving the still-open consumption-amount product rule outside temporal scope.",
+    "Revision Pass 4 retains workout-session timing as a separate REAL_WORLD_TIME subsystem and forbids workout pause from freezing world/invasion time.",
+    "Revision Pass 4 migrates active turn-based event/goal timing into canonical simulation ticks and requires runtime verification before promoting or removing treaty expiresTurn.",
+    "Revision Pass 4 retains Level 1 tutorial worldTick stamps and integrates its current tick hook as a temporary chronological scheduler process.",
+    "Revision Pass 5 restores explicit AI opportunity bypass rules, territory-scoped DEFEND_STANCE, and scope/reservation-based multi-commitment concurrency.",
+    "Revision Pass 5 defines ordered NEGOTIATE/TRADE_PROPOSAL pending threads, unordered OFFER_PEACE pending threads, and sender-side rejection/expiry resend cooldowns.",
+    "Revision Pass 5 restores the complete construction state machine and same-tick acceleration/cancellation precedence.",
+    "Revision Pass 5 defines actionCatalog as temporal primitives rather than the command index and accounts for intentionally excluded operations through explicit ledgers.",
+    "Revision Pass 5 normalizes INSTANT records to unit-neutral zero-duration semantics with no baseDurationTicks:0 fields.",
+    "Regression Correction Pass 1 separates accruedTargetWorldTick from processed worldTick so bounded catch-up cannot lose or duplicate elapsed time.",
+    "Regression Correction Pass 1 embeds the full deterministic next-boundary catch-up loop, safe-span compression rules, recurring-boundary optimization, RNG invariance, and command catch-up gate.",
+    "Regression Correction Pass 2 explicitly replaces the current instant REINFORCE handler with canonical timed FORCE_TRANSIT reinforcement after migration.",
+    "Regression Correction Pass 2 defines late PLAYER_INVASION_SLOT acquisition when target ownership changes to the player during attack transit.",
+    "Regression Correction Pass 2 makes authoritative reservation state an explicit persistence requirement.",
+    "Regression Correction Pass 3 fixes the recurring-process sub-order so Food/Stability changes are visible deterministically to tutorial, event eligibility, and AI logic.",
+    "Regression Correction Pass 3 removes operative dependencies on historical Pass/Stage documents; those names remain only as provenance/supersession history.",
+    "Regression Correction Pass 3 adds an idempotent migration from the legacy one-per-faction AI commitment representation to the canonical multi-commitment collection.",
+    "Regression Correction Pass 3 maps MARKET_DELIVERY to RESOURCE_SHIPMENT purpose MARKET_DELIVERY.",
+    "Regression Correction Pass 3 removes tick-named zero-duration workout summary fields.",
+    "Final Correction Pass 1 supersedes the old MIG-002 behavior that trusted pre-cutover lastProcessedAtMs as the initial accrual watermark.",
+    "Final Correction Pass 1 adds a versioned production cutover with no retroactive canonical accrual before migrationServerNowMs.",
+    "Final Correction Pass 1 replaces stateless retry-based catch-up for mutating commands with durable idempotent command admission and processing fences.",
+    "Final Correction Pass 2 defines tick-0 phase anchors for AI Director and world-event eligibility global recurring sweeps.",
+    "Final Correction Pass 2 defines ADVANCE_WORLD as a synthetic accrued-target adapter for internal tests/CLI rather than a direct worldTick mutator.",
+    "Final Correction Pass 2 supersedes the 60-tick attacker cooldown with a 30-tick canonical cooldown for new engagements.",
+    "Final Cleanup supersedes the incomplete command-fence scheduler integration by making ADMITTED_MUTATING_COMMAND_FENCE a first-class hard boundary and due interstitial obligation.",
+    "Final Cleanup normalizes recurring AI/event sweep boundary names to one canonical identifier per logical sweep.",
+    "Final Cleanup defines server-authoritative COMMAND_FINGERPRINT_V1 for deterministic idempotency comparison."
+  ],
+  "revisionState": {
+    "sourceMaster": "rep-wars-temporal-master-regression-correction-pass-2.json",
+    "sourceAudit": "rep-wars-temporal-final-regression-audit-pass5.json",
+    "regressionCorrectionPassesCompleted": [
+      1,
+      2,
+      3
+    ],
+    "regressionCorrectionPassesRemaining": [],
+    "findingsResolvedThisPass": [
+      "RG-006",
+      "RG-007",
+      "RG-008",
+      "RG-009",
+      "RG-010"
+    ],
+    "findingsResolvedTotalFromRegressionAudit": 10,
+    "remainingRegressionAuditFindings": 0,
+    "freezeAllowed": false,
+    "freezeGate": "All regression-audit findings have now been addressed, but one final fresh regression audit against this file is still required before freezing rep-wars-temporal-master-v1.0-game-ready.json."
+  },
+  "canonicalAuthority": {
+    "isSelfContainedImplementationAuthority": true,
+    "rule": "For every temporal behavior implemented after this document is frozen, the final master must contain the complete normative rule. Historical pass/correction files are provenance only and are not required to implement the system.",
+    "historicalArtifactsNormative": false,
+    "conflictRule": "If any historical pass, audit, chat summary, or earlier handoff conflicts with this v1.0 master, this v1.0 master wins.",
+    "implementationRule": "Implement temporal behavior from this v1.0 file; do not depend on undocumented assumptions from earlier artifacts.",
+    "version": "1.0",
+    "frozen": true
+  },
+  "realWorldBoundaryProcessing": {
+    "principle": "Before a command at server receipt time T is evaluated, authoritative state must first be advanced through every real-world temporal boundary strictly before T and through the elapsed simulation time accrued up to T.",
+    "boundaryTypes": [
+      "presence lease expiration that changes simulation rate mode",
+      "server-authoritative OFFLINE-to-ONLINE transition",
+      "defense-workout maximum completion deadline"
+    ],
+    "defenseWorkout": {
+      "maximumRealMinutes": 720,
+      "durationMs": 43200000,
+      "deadlineFormula": "workoutCompletionDeadlineAtMs = authoritativeWorkoutStartedAtMs + 43_200_000",
+      "clockDomain": "REAL_WORLD_TIME",
+      "affectedByOnlineOfflineMultiplier": false,
+      "timestampAuthority": "SERVER_RECEIPT_TIME",
+      "exactDeadlineBoundary": "INCLUSIVE_FOR_VALID_DURABLY_ADMITTED_COMPLETION",
+      "completionRule": "A valid linked completion whose durable command admission has firstServerReceivedAtMs <= workoutCompletionDeadlineAtMs may resolve the defense workout, subject to normal workout/domain validation.",
+      "lateCompletionRule": "A completion received after workoutCompletionDeadlineAtMs cannot retroactively restore the guaranteed-defense path.",
+      "expirySequence": [
+        "Accrue simulation time up to the real-world deadline using all authoritative rate segments.",
+        "Process every whole simulation tick accrued by that deadline.",
+        "If the invasion remains DEFENSE_WORKOUT_ACTIVE and no valid completion has been accepted by the deadline, expire the defense-workout opportunity.",
+        "Transition the invasion to its automatic-defense resolution path.",
+        "Only then continue processing later real time."
+      ],
+      "clientTimestampRule": "Client-authored timestamps are metadata and may not extend, backdate, or defeat the server-authoritative deadline.",
+      "retryRule": "Retry uses immutable firstServerReceivedAtMs from commandAdmissionContract and cannot become late solely because catch-up took time."
+    },
+    "durableBoundaryGates": {
+      "purpose": "Allow lastAccrualAtMs/accruedTargetWorldTick to advance beyond a real-world gameplay deadline without letting simulation processing cross the deadline's logical position before its state transition is applied.",
+      "recordShape": [
+        "boundaryId",
+        "boundaryType",
+        "boundaryAtMs",
+        "gateAfterWorldTick",
+        "status",
+        "stableTieBreakId"
+      ],
+      "gateFormula": "When accrual reaches a stateful real-world boundary at boundaryAtMs, first accrue exactly through boundaryAtMs. Persist gateAfterWorldTick = accruedTargetWorldTick as of that boundary.",
+      "processingRule": "The simulation scheduler may process through gateAfterWorldTick, but it may not process tick gateAfterWorldTick + 1 until all pending stateful real-world gates for gateAfterWorldTick have resolved in boundaryAtMs/stable-ID order.",
+      "sameGateOrdering": "boundaryAtMs ascending, then stableTieBreakId ascending.",
+      "defenseWorkoutDeadline": "DEFENSE_WORKOUT_MAXIMUM creates a stateful real-world boundary gate. After all whole simulation ticks accrued by the deadline have been processed, apply the workout-expiry transition before any later simulation tick.",
+      "exactDeadlineCompletionException": "The existing inclusive exact-deadline rule remains authoritative: a valid linked WORKOUT_COMPLETE_SUBMISSION received by the server at exactly boundaryAtMs is evaluated before that specific expiry gate. Submissions after boundaryAtMs are late.",
+      "restartRule": "Pending gates are persisted or deterministically reconstructable from authoritative domain deadlines and must survive restart.",
+      "admittedCommandInteraction": "At boundaryAtMs, an admitted command explicitly inclusive for that exact deadline resolves before the matching expiry gate; otherwise the expiry gate resolves first.",
+      "sameTimestampPriority": [
+        "admitted command explicitly inclusive for this exact deadline",
+        "stateful real-world expiry gate",
+        "other admitted mutating command",
+        "stable ID tie-break within the same priority"
+      ]
+    }
+  },
+  "persistenceRecovery": {
+    "authoritativeTemporalFieldsThatMustPersist": [
+      "worldTick / processed world tick",
+      "subTickMicroticks",
+      "accrualDivisionRemainder",
+      "lastAccrualAtMs",
+      "authoritative presence/session-lease state or enough data to reconstruct rate segments",
+      "all active action commitments",
+      "force and resource transits",
+      "construction projects",
+      "active invasions",
+      "active defense-workout link/deadline state",
+      "diplomatic proposals and cooldowns",
+      "active world events and their deadlines/cadences",
+      "AI next-decision eligibility and active commitments",
+      "other explicit scheduled completions/deadlines/cooldowns",
+      "stateVersion used by authoritative CAS persistence",
+      "lastFoodConsumptionTick or canonical next food-consumption boundary",
+      "Level 1 tutorial timing state while tutorial compatibility controller remains active",
+      "canonical migrated event tick boundaries",
+      "workout-session real-time state needed by the fitness subsystem",
+      "accruedTargetWorldTick",
+      "pending stateful real-world boundary gates or enough authoritative domain state to reconstruct their gateAfterWorldTick",
+      "authoritative temporal reservation records (EXCLUSIVE_ENTITY, QUANTITY, CAPACITY_SLOT, PLAYER_INVASION_SLOT) or a schema-equivalent persisted representation sufficient to reconstruct them exactly",
+      "temporalAuthorityVersion / canonical temporal cutover migration marker",
+      "pending admitted mutating command records and their idempotency/first-receipt metadata",
+      "canonical recurring sweep phase/anchor version or enough schema knowledge to reconstruct tick-0 anchored global sweeps",
+      "timeAuthorityMode only when using an internal synthetic test harness that persists test worlds"
+    ],
+    "temporalFrontier": {
+      "sourceOfTruth": "authoritative domain state",
+      "mayPersistFrontierAsOptimization": true,
+      "restartRule": "On restart, rebuild or validate the temporal frontier from authoritative persisted domain state. Never rely on an in-memory-only queue.",
+      "staleEntryRule": "If a reconstructed/persisted frontier item no longer matches authoritative status/version, revalidate or discard it rather than executing it."
+    },
+    "casAndAtomicity": {
+      "staleWriterRule": "A stale stateVersion/CAS writer must fail, reload current authoritative state, rebuild/revalidate temporal frontier, and retry through the normal command/advancement path.",
+      "boundaryAtomicityRule": "All authoritative mutations belonging to one temporal boundary must commit atomically. A boundary is not considered completed if only some of its mutations persisted.",
+      "partialFailureRule": "After a failed commit, authoritative persisted state remains the source of truth. On retry, the boundary is reconstructed from persisted state and must not be double-applied.",
+      "historicalDecisionRule": "Already-persisted historical AI decisions/commitments are never rerolled solely because of restart or catch-up."
+    },
+    "checkpointing": {
+      "processingSliceTicks": 64,
+      "classification": "IMPLEMENTATION_PROCESSING_LIMIT_ONLY",
+      "rule": "Checkpointing or invocation budget may stop processing work, but may not change the amount of authoritative time accrued or the eventual deterministic outcome."
+    },
+    "accrualVsProcessing": {
+      "accrualCheckpoint": "A successful accrual commit may advance lastAccrualAtMs/accruedTargetWorldTick without advancing worldTick. This is safe because the unprocessed difference is explicit durable backlog.",
+      "simulationCheckpoint": "A successful simulation checkpoint advances worldTick and domain state toward accruedTargetWorldTick without changing which real time has already been accrued.",
+      "crashAfterAccrualBeforeProcessing": "Restart sees worldTick < accruedTargetWorldTick and resumes backlog; no real time is lost.",
+      "crashAfterPartialProcessing": "Restart sees remaining accruedTargetWorldTick - worldTick backlog and resumes from the last committed worldTick.",
+      "crashBeforeAccrualCommit": "lastAccrualAtMs remains old, so the uncommitted real-time segment is safely recalculated."
+    },
+    "timeCursorInvariants": {
+      "processedCursor": "worldTick",
+      "accruedCursor": "accruedTargetWorldTick plus fixed-point fractional state through lastAccrualAtMs",
+      "invariant": "worldTick <= accruedTargetWorldTick",
+      "recoveryRule": "On load/restart, first reconstruct pending gates/frontier, then process the existing accrued backlog before accruing or applying later gameplay state as required."
+    },
+    "reservationPersistence": {
+      "canonicalRule": "Reservations are authoritative durable gameplay state, not an in-memory scheduler convenience.",
+      "mustPersist": [
+        "reservationId",
+        "reservationType",
+        "ownerActionOrCommitmentId",
+        "scopeKey",
+        "quantity/resource metadata when applicable",
+        "createdAtTick",
+        "status",
+        "any action-specific linkage required to reconstruct ownership"
+      ],
+      "atomicWriteRule": "Creating/releasing/transforming a reservation commits atomically with the domain action/commitment mutation that requires it.",
+      "restartRule": "After restart, rebuild in-memory reservation indexes from the persisted reservation representation before accepting new conflicting commands.",
+      "migrationRule": "If the current GameState schema does not yet have first-class reservation records, implementation may persist them inside the authoritative GameState JSON payload. A separate database table is not required merely for cleanliness.",
+      "reconstructionAlternative": "A reservation may be omitted as a standalone record only when it is deterministically and losslessly encoded by the owning persisted domain object. The final implementation must still expose one canonical reservation index after hydration.",
+      "invariantChecks": [
+        "No ACTIVE reservation may point to a terminal/missing owner action without deterministic recovery.",
+        "No active action requiring an exclusive reservation may hydrate without that reservation representation.",
+        "No quantity may be simultaneously available and reserved/in-transit.",
+        "PLAYER_INVASION_SLOT ownership must survive restart for pending-response/defense-active invasions and qualifying inbound attacks."
+      ]
+    },
+    "productionCutoverRecovery": {
+      "preCutoverCrash": "If the cutover CAS commit did not succeed, the next load reruns from the old authoritative payload.",
+      "postCutoverCrash": "If temporalAuthorityVersion = 1 persisted, hydrate the canonical clock exactly as stored and never rerun initialization.",
+      "legacyWatermarkRule": "Legacy pre-cutover lastProcessedAtMs is never used to synthesize missed canonical ticks."
+    },
+    "commandAdmissionPersistence": {
+      "canonicalRule": "Pending command admissions are authoritative temporal state and survive restart.",
+      "mustPersist": [
+        "commandId",
+        "actorId",
+        "commandType",
+        "payloadHash",
+        "payloadHashVersion",
+        "firstServerReceivedAtMs",
+        "requiredAccrualThroughMs",
+        "admittedTargetWorldTick",
+        "admittedSubTickMicroticks",
+        "status",
+        "deadlineContext when applicable",
+        "terminalResultOrError when terminal"
+      ],
+      "rebuildRule": "On hydration, rebuild pending command fences before processing later simulation state or accepting conflicting mutations.",
+      "terminalAtomicity": "Gameplay mutation and terminal admission transition share one authoritative commit.",
+      "orphanRule": "Resume persisted nonterminal admissions. Never blindly replay a mutation whose admission state is inconsistent.",
+      "fingerprintRule": "Hydration/retry comparison uses the persisted payloadHashVersion and payloadHash exactly. The server recomputes retry fingerprints; clients never author the authoritative fingerprint."
+    },
+    "recurringSweepRecovery": {
+      "sourceOfTruth": "Global AI/event sweep phase is schema-defined by recurringScheduleAnchors, not an in-memory timer or restart timestamp.",
+      "restartRule": "After restart, compute the next future anchored sweep directly from worldTick and cadence. Do not shift phase because of restart time."
+    },
+    "syntheticTimeRecovery": {
+      "productionRule": "Production persisted worlds use REAL_TIME_PRODUCTION and never resume from a synthetic grant source.",
+      "testRule": "A persisted synthetic test world may retain accruedTargetWorldTick backlog. Restart resumes canonical scheduler processing without replaying the synthetic grant."
+    }
+  },
+  "militaryLifecycle": {
+    "forceTransitPrimitive": {
+      "id": "FORCE_TRANSIT",
+      "purposeEnum": [
+        "REDEPLOY",
+        "ATTACK",
+        "REINFORCE",
+        "RETREAT"
+      ],
+      "timingFormula": "SHARED_ROUTE_DURATION(route)",
+      "travelOwner": "TEMPORAL_ROUTE_TRAVEL_SERVICE",
+      "rule": "Semantic commands own validation and arrival consequences; FORCE_TRANSIT alone owns physical travel duration."
+    },
+    "attackCommit": {
+      "timingType": "INSTANT",
+      "atomicRequirements": [
+        "Validate attacker faction, force/troops, target territory, route, hostility/war requirements, and attack eligibility.",
+        "Acquire all required temporal reservations atomically with creation of the attack commitment.",
+        "For an eligible attack whose current defender is the player, reserve the target territory's PLAYER_INVASION_SLOT at commit time.",
+        "Create FORCE_TRANSIT with movementPurpose ATTACK and a deterministic completionTick.",
+        "If any required reservation fails, reject the entire attack with no partial state mutation."
+      ]
+    },
+    "attackArrival": {
+      "arrivalTick": "FORCE_TRANSIT.completionTick",
+      "sequence": [
+        "Apply FORCE_TRANSIT arrival at arrivalTick.",
+        "Revalidate that the attacking force still exists and is valid.",
+        "Revalidate destination territory existence and current ownership.",
+        "Revalidate that combat remains legal against the current owner under authoritative diplomacy/war rules.",
+        "If arrival revalidation newly discovers a player-controlled eligible target and this attack does not already own PLAYER_INVASION_SLOT, atomically acquire the slot before invasion creation; if acquisition fails, invalidate the arriving attack.",
+        "If the target is still an eligible player-controlled hostile territory, create/activate the player-invasion response lifecycle and do not resolve battle on arrival.",
+        "Otherwise, if hostile combat is still legal and no player-response lifecycle applies, resolve direct battle immediately as an arrival consequence.",
+        "If combat prerequisites are no longer valid, transition the attack to INVALIDATED/FAILED and release or transform reservations explicitly."
+      ],
+      "ownershipChangeRule": "If target ownership changed after commitment, the attack may continue only when the current owner is still a legal hostile target under current authoritative rules; otherwise invalidate rather than silently attacking an ineligible owner.",
+      "playerOwnershipChangeDuringTransit": {
+        "trigger": "Attack commitment did not acquire PLAYER_INVASION_SLOT at launch because the destination was not player-controlled, but arrival revalidation finds that the destination is now an eligible player-controlled hostile territory.",
+        "requiredActionBeforeInvasionCreation": "Atomically acquire PLAYER_INVASION_SLOT(defendingTerritoryId) before creating the player-invasion response lifecycle.",
+        "success": [
+          "Acquire the slot in the same atomic arrival-resolution commit that creates the invasion state.",
+          "Transition attack into the normal AWAITING_PLAYER_RESPONSE lifecycle.",
+          "Set responseDeadlineTick = attackArrivalTick + 30.",
+          "Do not resolve battle immediately on arrival."
+        ],
+        "failure": {
+          "reason": "Another active/inbound player-response invasion already owns the defending territory's PLAYER_INVASION_SLOT.",
+          "canonicalOutcome": "INVALIDATE_ON_ARRIVAL",
+          "effects": [
+            "Do not create a second player-response invasion.",
+            "Do not resolve an immediate battle against the player as a fallback.",
+            "Transition the arriving attack to INVALIDATED because the required response slot is unavailable.",
+            "Release/transform the attacking force's reservations according to invalidation rules.",
+            "Do not create attacker battle cooldown because no engagement resolved."
+          ],
+          "why": "The baseline architecture intentionally supports one active player-response invasion per territory. A future multi-wave invasion system may replace this rule explicitly."
+        },
+        "determinism": "If multiple attacks arrive on the same tick and each newly requires the same PLAYER_INVASION_SLOT, canonical same-tick/stable-ID ordering determines which arrival attempts slot acquisition first."
+      }
+    },
+    "playerInvasion": {
+      "states": [
+        "AWAITING_PLAYER_RESPONSE",
+        "DEFENSE_WORKOUT_ACTIVE",
+        "AUTO_DEFENSE_RESOLUTION",
+        "WORKOUT_DEFENSE_RESOLUTION",
+        "COMPLETED",
+        "CANCELLED",
+        "FAILED",
+        "INVALIDATED"
+      ],
+      "terminalStates": [
+        "COMPLETED",
+        "CANCELLED",
+        "FAILED",
+        "INVALIDATED"
+      ],
+      "creation": {
+        "timingType": "INSTANT",
+        "createdTick": "attackArrivalTick",
+        "responseWindowTicks": 30,
+        "responseDeadlineFormula": "responseDeadlineTick = attackArrivalTick + 30",
+        "deadlineBoundary": "EXCLUSIVE_FOR_WORKOUT_START",
+        "battleAtArrival": false,
+        "reservation": "PLAYER_INVASION_SLOT remains held for the defending territory through terminal invasion resolution."
+      },
+      "awaitingPlayerResponse": {
+        "timelyWorkoutStartCondition": "currentSimulationTick < responseDeadlineTick",
+        "lateWorkoutStartCondition": "currentSimulationTick >= responseDeadlineTick",
+        "noResponseAtDeadline": [
+          "At responseDeadlineTick, if status is still AWAITING_PLAYER_RESPONSE, transition immediately to AUTO_DEFENSE_RESOLUTION.",
+          "Resolve automatic defense using authoritative defending state at responseDeadlineTick.",
+          "Continue immediately to terminal invasion resolution."
+        ],
+        "offlineRule": "The 30-tick response window continues on SIMULATION_TIME and therefore slows under the centralized offline simulation-rate multiplier. It is not paused."
+      },
+      "defenseWorkoutStart": {
+        "timingType": "INSTANT",
+        "requirements": [
+          "Invasion status is AWAITING_PLAYER_RESPONSE.",
+          "The workout is an eligible DEFENSE-purpose workout for this invasion.",
+          "The start is processed while currentSimulationTick < responseDeadlineTick."
+        ],
+        "effects": [
+          "Transition invasion to DEFENSE_WORKOUT_ACTIVE.",
+          "Record authoritative workoutSessionId linkage.",
+          "Record authoritative server workoutStartedAtMs.",
+          "Set workoutCompletionDeadlineAtMs = authoritativeWorkoutStartedAtMs + 43_200_000 as defined by realWorldBoundaryProcessing.defenseWorkout.",
+          "Close/satisfy the original 30-tick response phase; do not pause it."
+        ],
+        "originalResponseDeadlineAfterStart": "No longer controls battle timeout."
+      },
+      "defenseWorkoutActive": {
+        "maximumRealMinutes": 720,
+        "deadlineClockDomain": "REAL_WORLD_TIME",
+        "affectedByOnlineOfflineRate": false,
+        "validCompletion": [
+          "If a valid defense workout is completed and accepted by its authoritative real-world deadline, transition to WORKOUT_DEFENSE_RESOLUTION.",
+          "Apply the authored defense-workout outcome.",
+          "Continue to terminal invasion resolution."
+        ],
+        "abandonment": [
+          "If the linked defense workout is abandoned while the invasion is active, transition immediately to AUTO_DEFENSE_RESOLUTION.",
+          "Resolve using authoritative state at the abandonment boundary."
+        ],
+        "integrityInvalidation": [
+          "If the workout becomes invalid for the guaranteed-defense path, transition to AUTO_DEFENSE_RESOLUTION.",
+          "Do not restore the earlier invasion response window."
+        ],
+        "deadlineExpiry": [
+          "Use realWorldBoundaryProcessing and its durable stateful real-world boundary gate semantics.",
+          "If still DEFENSE_WORKOUT_ACTIVE when workoutCompletionDeadlineAtMs expires, transition to AUTO_DEFENSE_RESOLUTION.",
+          "A later workout submission cannot restore the guaranteed-defense path."
+        ]
+      },
+      "terminalResolution": {
+        "sequence": [
+          "Apply the authoritative battle/defense outcome exactly once.",
+          "Apply territory/garrison/force consequences.",
+          "Create attacker recovery cooldown when the engagement actually resolved in combat.",
+          "Release PLAYER_INVASION_SLOT.",
+          "Release/transform remaining reservations owned by the invasion/attack.",
+          "Set terminal status and persist atomically."
+        ]
+      }
+    },
+    "directBattle": {
+      "timingType": "INSTANT_AT_VALID_ATTACK_ARRIVAL",
+      "appliesWhen": [
+        "AI attacks a non-player hostile defender and no explicit response mechanic applies.",
+        "Player attacks an AI-controlled hostile defender.",
+        "Any other hostile combat path explicitly designated as direct resolution."
+      ],
+      "sequence": [
+        "Resolve battle once at arrivalTick.",
+        "Apply territory/force/garrison outcome.",
+        "Create attacker recovery cooldown if combat resolved.",
+        "Release/transform attack reservations.",
+        "Commit atomically."
+      ]
+    },
+    "attackerCooldown": {
+      "durationTicks": 30,
+      "clockDomain": "SIMULATION_TIME",
+      "anchor": "engagementResolutionTick",
+      "untilFormula": "attackerCooldownUntilTick = engagementResolutionTick + 30",
+      "appliesWhen": "A hostile engagement actually reaches a battle/defense resolution, including direct battle, automatic defense, or workout-defense resolution.",
+      "doesNotApplyWhen": [
+        "Attack is rejected before commitment.",
+        "Attack is cancelled before engagement under a legal cancellation path.",
+        "Attack invalidates before combat because the target is no longer legally attackable."
+      ],
+      "eligibilityBoundary": "Attacker may initiate another cooldown-gated attack when currentSimulationTick >= attackerCooldownUntilTick."
+    }
+  },
+  "worldEventLifecycle": {
+    "states": [
+      "SCHEDULED",
+      "STARTING",
+      "ACTIVE",
+      "AWAITING_RESPONSE",
+      "RESOLVING",
+      "COMPLETED",
+      "EXPIRED",
+      "CANCELLED",
+      "INVALIDATED"
+    ],
+    "terminalStates": [
+      "COMPLETED",
+      "EXPIRED",
+      "CANCELLED",
+      "INVALIDATED"
+    ],
+    "durationClassesTicks": {
+      "INSTANT": 0,
+      "SHORT": 10,
+      "STANDARD": 30,
+      "LONG": 60,
+      "EXTENDED": 120
+    },
+    "start": {
+      "eventStartTick": "currentSimulationTick at successful WORLD_EVENT_BEGIN",
+      "eventEndTickFormula": "eventEndTick = eventStartTick + authoredDurationTicks",
+      "instantEventRule": "INSTANT events resolve immediately and do not enter ordinary recurring-effect cadence unless explicitly authored otherwise."
+    },
+    "responseSemantics": {
+      "defaultResponseWindowTicks": 30,
+      "requiredChoice": {
+        "state": "AWAITING_RESPONSE",
+        "responseDeadlineFormula": "responseDeadlineTick = min(eventStartTick + authoredResponseWindowTicks, eventEndTick) unless the authored event explicitly extends the response-bearing lifetime",
+        "eventMaySilentlyCompleteWhileResponseValid": false,
+        "acceptedResponse": [
+          "Apply the selected response consequence immediately.",
+          "Transition through RESOLVING.",
+          "Then enter COMPLETED unless the event explicitly defines a post-choice ACTIVE phase."
+        ],
+        "expiredResponse": [
+          "At responseDeadlineTick, if still AWAITING_RESPONSE, apply the authored default/no-response consequence.",
+          "Transition through RESOLVING.",
+          "Enter EXPIRED or COMPLETED according to the event definition."
+        ]
+      },
+      "optionalChoice": {
+        "rule": "An optional response may not outlive the event unless the event explicitly extends its response-bearing lifetime.",
+        "eventMayCompleteNormally": true
+      },
+      "deadlineBoundary": "A response must be accepted before the response deadline stage processes at tick T; once expiry processes at T, later response handling at the same tick is too late."
+    },
+    "recurringEffects": {
+      "defaultCadenceTicks": 5,
+      "anchor": "eventStartTick",
+      "firstRecurringEffectTickFormula": "eventStartTick + effectCadenceTicks",
+      "subsequentRecurringEffectTickFormula": "eventStartTick + n * effectCadenceTicks for integer n >= 1",
+      "completionBoundary": "EXCLUSIVE",
+      "effectEligibilityRule": "Recurring effect applies only when effectTick < eventEndTick and event state is ACTIVE or AWAITING_RESPONSE with recurring effects enabled.",
+      "effectAtEventEndTick": false,
+      "initialStartEffect": {
+        "allowed": true,
+        "default": false,
+        "rule": "A one-time effect at eventStartTick must be explicitly authored and is separate from recurring cadence."
+      }
+    },
+    "naturalCompletion": {
+      "rule": "A natural event-end boundary may transition an ordinary ACTIVE event to RESOLVING/COMPLETED, but may not bypass an unresolved required-choice state whose response deadline is still valid.",
+      "requiredChoiceAtEndTick": "If required choice remains unresolved and responseDeadlineTick equals eventEndTick, process the response-expiry consequence through the deadline stage rather than silently applying ordinary natural completion."
+    },
+    "cooldowns": {
+      "factionEventCooldownTicks": 30,
+      "worldMajorEventCooldownTicks": 60,
+      "anchor": "terminalResolutionTick",
+      "factionCooldownEndFormula": "terminalResolutionTick + 30",
+      "worldMajorCooldownEndFormula": "terminalResolutionTick + 60",
+      "eligibilityBoundary": "Eligible when currentSimulationTick >= cooldownEndTick."
+    },
+    "aiInteraction": {
+      "requiredAiChoice": "Creates REQUIRED_RESPONSE AI opportunity.",
+      "aiDecisionPosition": "AI response opportunity occurs in the AI decision stage after recurring world processes.",
+      "deadlinePrecedence": "If deadline expiry is processed at tick T, AI may not respond afterward at tick T."
+    },
+    "offlineCatchUp": {
+      "chronologicalBoundaries": [
+        "event start",
+        "recurring effect tick",
+        "response deadline",
+        "event end",
+        "terminal resolution",
+        "cooldown end when eligibility depends on it",
+        "event eligibility sweep"
+      ],
+      "compressionRule": "Do not compress across an event boundary that can alter production, ownership, action eligibility, AI inputs, or subsequent event state."
+    }
+  },
+  "neutralExpansionLifecycle": {
+    "scope": "Adjacent neutral/unclaimed territory only under the current baseline.",
+    "states": [
+      "EXPANSION_COMMITTED",
+      "TRAVELING",
+      "ESTABLISHING_CONTROL",
+      "COMPLETED",
+      "CANCELLED",
+      "FAILED",
+      "INVALIDATED"
+    ],
+    "terminalStates": [
+      "COMPLETED",
+      "CANCELLED",
+      "FAILED",
+      "INVALIDATED"
+    ],
+    "commit": {
+      "timingType": "INSTANT",
+      "requirements": [
+        "Origin is valid and controlled by the expanding faction.",
+        "Destination is adjacent.",
+        "Destination is neutral/unclaimed and eligible for expansion.",
+        "Authoritative route/hop is valid.",
+        "Required reservations/capacity are available."
+      ],
+      "travelTicksFormula": "travelTicks = SHARED_ROUTE_DURATION(adjacentHop)",
+      "travelArrivalTickFormula": "travelArrivalTick = startTick + travelTicks",
+      "stateAfterCommit": "TRAVELING"
+    },
+    "travelPhase": {
+      "clockDomain": "SIMULATION_TIME",
+      "roadEligible": true,
+      "routeProfile": {
+        "NORMAL": 2,
+        "MODERATE": 3,
+        "DIFFICULT": 4,
+        "SEVERE": 5,
+        "ROAD_REDUCTION_PER_ELIGIBLE_HOP": 1,
+        "MINIMUM_TICKS_PER_HOP": 1
+      },
+      "arrivalBoundaryType": "EXPANSION_TRAVEL_ARRIVAL",
+      "arrivalSequence": [
+        "At travelArrivalTick, revalidate origin/action ownership and destination.",
+        "Revalidate that the destination is still neutral/unclaimed and expansion-eligible.",
+        "If valid, transition to ESTABLISHING_CONTROL.",
+        "If no longer valid, transition to FAILED/INVALIDATED and do not overwrite ownership."
+      ]
+    },
+    "establishmentPhase": {
+      "durationTicks": 3,
+      "establishmentStartTick": "travelArrivalTick after successful arrival revalidation",
+      "completionTickFormula": "establishmentCompletionTick = establishmentStartTick + 3",
+      "boundaryType": "EXPANSION_ESTABLISHMENT_COMPLETION",
+      "completionSequence": [
+        "At establishmentCompletionTick, revalidate destination eligibility again.",
+        "If destination is still neutral/unclaimed and all requirements remain valid, apply territory-control change instantly.",
+        "Transition expansion to COMPLETED.",
+        "Release/transform reservations atomically.",
+        "If target became controlled/ineligible, transition to FAILED/INVALIDATED instead."
+      ]
+    },
+    "enemyTerritoryRule": "Enemy-held territory must use military/invasion systems; neutral expansion may not become a conquest shortcut.",
+    "durationSummaryFormula": "totalNeutralExpansionTicks = SHARED_ROUTE_DURATION(adjacentHop) + 3",
+    "examples": {
+      "NORMAL_NO_ROAD": {
+        "travel": 2,
+        "establish": 3,
+        "total": 5
+      },
+      "NORMAL_WITH_ROAD": {
+        "travel": 1,
+        "establish": 3,
+        "total": 4
+      },
+      "SEVERE_NO_ROAD": {
+        "travel": 5,
+        "establish": 3,
+        "total": 8
+      },
+      "SEVERE_WITH_ROAD": {
+        "travel": 4,
+        "establish": 3,
+        "total": 7
+      }
+    },
+    "offlineCatchUp": "Travel arrival and establishment completion are separate chronological boundaries and may not be collapsed into one opaque completion when intervening state can change target validity."
+  },
+  "existingCodeTemporalMigrationLedger": {
+    "purpose": "Prevent REP-WARS-3 legacy/prototype timing mechanisms from coexisting as accidental second authorities after the canonical temporal architecture is implemented.",
+    "migrationPrinciple": "Each existing timing mechanism is explicitly RETAINED, MIGRATED, REPLACED, REMOVED_FROM_AUTHORITY, or VERIFIED_BEFORE_MIGRATION. No old timer continues to gate gameplay merely because its field still exists in persisted payloads.",
+    "sourceGroundTruth": {
+      "repositoryBranch": "REP-WARS-3",
+      "evidenceSummary": [
+        "GameState currently persists worldTick, lastProcessedAtMs, playerEmpirePause, attackerCooldowns, activeEvents, level1Tutorial, fitness-session state, lastFoodConsumptionTick, and other temporal stamps.",
+        "Current invasion deadlines use playerFacingTick and SET_PLAYER_PAUSE can freeze that clock.",
+        "Current player-protection eligibility uses lastWorkoutCompletedAtTick + 1440 ticks.",
+        "Current event state is turn-based while Level 1 tutorial stamps already use worldTick.",
+        "Workout session operations use a separate real/session-millisecond clock."
+      ]
+    },
+    "entries": [
+      {
+        "id": "MIG-001",
+        "legacyMechanism": "GameState.worldTick",
+        "decision": "RETAIN_AS_CANONICAL_SIMULATION_TICK",
+        "migration": "Keep existing worldTick exactly. At temporal cutover it remains the fully processed simulation cursor and accruedTargetWorldTick is initialized to the same value."
+      },
+      {
+        "id": "MIG-002",
+        "legacyMechanism": "GameState.lastProcessedAtMs",
+        "decision": "DO_NOT_TRUST_AS_INITIAL_CANONICAL_ACCRUAL_CURSOR",
+        "migration": "Do not carry legacy lastProcessedAtMs forward as the initial canonical accrual watermark. productionTemporalCutover sets lastAccrualAtMs = migrationServerNowMs after legacy clock-dependent state is migrated. The old value may remain diagnostic metadata."
+      },
+      {
+        "id": "MIG-003",
+        "legacyMechanism": "FixedWorldTimeAuthority / HTTP authority pinned to 0",
+        "decision": "REPLACE",
+        "migration": "Production synchronization must use the server-authoritative real-time accrual driver and presence-rate segmentation. A fixed target of 0 is development-only and may not remain production authority."
+      },
+      {
+        "id": "MIG-004",
+        "legacyMechanism": "SYNC_PLAYER_WORLD repeated catch-up",
+        "decision": "RETAIN_PUBLIC_INTENT_REPLACE_INTERNAL_TIME_SOURCE",
+        "migration": "SYNC_PLAYER_WORLD may remain a client-facing request to reconcile the world, but the server computes the target from authoritative wall time/rate history. The client does not supply authoritative elapsed ticks."
+      },
+      {
+        "id": "MIG-005",
+        "legacyMechanism": "ADVANCE_WORLD elapsedTicks command",
+        "decision": "RETAIN_AS_SYNTHETIC_TEST_TIME_AUTHORITY_ADAPTER",
+        "migration": "ADVANCE_WORLD remains internal dev/test/CLI only. In SYNTHETIC_TEST mode it must add requested elapsed ticks to accruedTargetWorldTick and then process through the canonical catch-up scheduler. It may never directly increment worldTick, alter lastAccrualAtMs, or act as a Unity/public production time authority."
+      },
+      {
+        "id": "MIG-006",
+        "legacyMechanism": "parseElapsedTicks max 64 / catch-up chunk",
+        "decision": "RETAIN_AS_PROCESSING_LIMIT",
+        "migration": "Keep 64 ticks only as an implementation processing/checkpoint slice. It is not a cap on real elapsed accrual, synthetic ADVANCE_WORLD grants, or recoverable catch-up."
+      },
+      {
+        "id": "MIG-007",
+        "legacyMechanism": "playerFacingTick invasion clock",
+        "decision": "REMOVE_FROM_AUTHORITY",
+        "migration": "New and migrated invasion response deadlines use canonical SIMULATION_TIME world ticks. playerFacingTick must no longer be a second deadline clock."
+      },
+      {
+        "id": "MIG-008",
+        "legacyMechanism": "playerEmpirePause / SET_PLAYER_PAUSE",
+        "decision": "REMOVE_FROM_TEMPORAL_AUTHORITY_AND_DEPRECATE",
+        "migration": "Before removing/ignoring the legacy pause field, migrate any active legacy invasion deadlines by preserving their remaining legacy response time. After migration, pause state cannot freeze world time, invasion time, AI, construction, logistics, events, or cooldowns.",
+        "activeInvasionMigration": [
+          "Evaluate the existing legacy playerFacingTick using the legacy implementation before the pause mechanism is removed.",
+          "For each pending-response invasion, legacyRemainingResponseTicks = max(0, legacyResponseDeadlineTick - legacyPlayerFacingTick).",
+          "Set canonical responseDeadlineTick = current worldTick + legacyRemainingResponseTicks.",
+          "Then clear/deprecate playerEmpirePause and stop reading it for temporal authority."
+        ]
+      },
+      {
+        "id": "MIG-009",
+        "legacyMechanism": "1440-tick post-workout player-protection gate",
+        "decision": "REMOVE",
+        "migration": "Stop using lastWorkoutCompletedAtTick + 1440 as attack-target eligibility. Do not create a replacement peace shield. lastWorkoutCompletedAtTick remains valid fitness/progression metadata only.",
+        "grandfathering": "No legacy protection timer remains as a second protection system after migration."
+      },
+      {
+        "id": "MIG-010",
+        "legacyMechanism": "activeInvasion defense-completion tick deadline",
+        "decision": "MIGRATE_TO_REAL_WORLD_DEADLINE",
+        "migration": [
+          "If the linked workout session has an authoritative server start timestamp, set workoutCompletionDeadlineAtMs = workoutStartedAtMs + 43_200_000.",
+          "If legacy persisted state lacks a trustworthy start timestamp, preserve the legacy remaining allowance at migration: remainingLegacyTicks = max(0, legacyCompletionDeadlineTick - legacyPlayerFacingTick), then set workoutCompletionDeadlineAtMs = migrationServerNowMs + remainingLegacyTicks * 60_000.",
+          "After migration, the deadline is REAL_WORLD_TIME and is not affected by online/offline simulation rate or workout pause."
+        ]
+      },
+      {
+        "id": "MIG-011",
+        "legacyMechanism": "attackerCooldowns.until",
+        "decision": "RETAIN_DATA_SHAPE_OR_MIGRATE_EQUIVALENT",
+        "migration": "Existing already-persisted future cooldown-until ticks may be preserved to avoid retroactively changing an in-progress legacy cooldown. All new cooldowns created after temporal cutover use attackerCooldownUntilTick = engagementResolutionTick + 30."
+      },
+      {
+        "id": "MIG-012",
+        "legacyMechanism": "Army.movement startedAtTick + durationTicks",
+        "decision": "RETAIN_AND_ADAPT",
+        "migration": "Existing in-flight movement remains valid. Derive completionTick = startedAtTick + durationTicks and register its arrival on the canonical temporal frontier; do not restart its travel."
+      },
+      {
+        "id": "MIG-013",
+        "legacyMechanism": "AICommitment startedAtTick + durationTicks",
+        "decision": "MIGRATE_ACTIVE_COMMITMENTS_WITHOUT_RETROACTIVE_RETUNING",
+        "migration": "For an active legacy commitment, preserve its already-authored remaining duration by deriving completionTick from the persisted legacy values. New commitments use the corrected canonical durations/scopes. Do not retroactively lengthen a legacy WAIT/DEFEND solely because the new baseline is 3/4 ticks."
+      },
+      {
+        "id": "MIG-014",
+        "legacyMechanism": "construction remainingTicks + lastProgressTick",
+        "decision": "RETAIN_OR_NORMALIZE_TO_COMPLETION_TICK",
+        "migration": "At migration boundary, first reconcile construction progress through current worldTick using legacy semantics. Then canonical scheduler may derive completionTick = current worldTick + remainingTicks. Do not restart completed progress."
+      },
+      {
+        "id": "MIG-015",
+        "legacyMechanism": "territoryEconomy.lastAccrualTick",
+        "decision": "RETAIN_AS_ACCRUAL_CURSOR",
+        "migration": "Preserve existing accrual cursor. Canonical analytical compression starts from the persisted cursor and may not double-accrue previously accounted ticks."
+      },
+      {
+        "id": "MIG-016",
+        "legacyMechanism": "lastFoodConsumptionTick / foodConsumption.ts cycles",
+        "decision": "RETAIN_AS_SCHEDULED_SIMULATION_PROCESS",
+        "migration": "Preserve lastFoodConsumptionTick and schedule the next eligible food-consumption boundary from it. Food consumption is not removed merely because generic production is analytically compressed.",
+        "temporalCadenceTicks": 60,
+        "catchUpClass": "CHRONOLOGICAL_BOUNDARY",
+        "compressionRule": "Production may compress between food-cycle boundaries, but each due food cycle is a chronological boundary because food/stability changes can affect later event inputs.",
+        "domainRuleStatus": "TEMPORAL_SPEC_DOES_NOT_CHOOSE_THE_STILL-OPEN_CONSUMPTION_BASIS",
+        "productGate": "The separate resource design still requires a product decision for how much Food is consumed. This temporal migration defines when the cycle occurs, not the unresolved amount formula."
+      },
+      {
+        "id": "MIG-017",
+        "legacyMechanism": "GameState.turn / WorldSimulator event-turn clock",
+        "decision": "MIGRATE_TO_DERIVED_COMPATIBILITY_ADAPTER",
+        "migration": "worldTick is the only simulation-time authority. turn may remain temporarily as a derived compatibility counter for the existing event engine, but it may not schedule gameplay independently.",
+        "conversionRule": "For an existing future turn-based deadline, remainingTurns = max(0, legacyTargetTurn - currentTurn); canonicalTargetTick = currentWorldTick + remainingTurns * ticksPerEventTurn."
+      },
+      {
+        "id": "MIG-018",
+        "legacyMechanism": "activeEvents/eventHistory turn-based timing",
+        "decision": "MIGRATE_ACTIVE_TIMING_TO_SIMULATION_TICKS",
+        "migration": [
+          "For every active event with a future turn-based boundary, compute remainingTurns relative to current GameState.turn at migration.",
+          "Convert each remaining boundary with remainingTurns * ticksPerEventTurn and anchor it to current worldTick.",
+          "Persist canonical eventStartTick/eventEndTick/effect/response boundaries defined by worldEventLifecycle.",
+          "Historical turn values may remain as non-authoritative legacy metadata."
+        ]
+      },
+      {
+        "id": "MIG-019",
+        "legacyMechanism": "StrategicGoal.deadlineTurn",
+        "decision": "MIGRATE_TO_DEADLINE_TICK",
+        "migration": "deadlineTick = currentWorldTick + max(0, deadlineTurn - currentTurn) * ticksPerEventTurn. After migration, deadlineTurn is legacy/deserialization metadata only and cannot independently expire a goal."
+      },
+      {
+        "id": "MIG-020",
+        "legacyMechanism": "DiplomaticRelationship.expiresTurn",
+        "decision": "VERIFY_RUNTIME_USE_THEN_MIGRATE_OR_REMOVE",
+        "migration": "The ground-truth audit marks runtime use unverified. Before implementation, trace all reads/writes. If active, convert future expiry with canonicalExpiryTick = currentWorldTick + max(0, expiresTurn - currentTurn) * ticksPerEventTurn and stop using expiresTurn as authority. If unused, remove/deprecate it rather than inventing new gameplay around it."
+      },
+      {
+        "id": "MIG-021",
+        "legacyMechanism": "level1Tutorial worldTick stamps / syncLevel1Tutorial",
+        "decision": "RETAIN_ON_SIMULATION_TIME",
+        "migration": "Tutorial stamps already use worldTick and require no unit conversion. While the current tutorial controller remains tick-hook based, expose LEVEL1_TUTORIAL_SYNC as an authored chronological world process during active tutorial state so catch-up cannot skip required beat transitions.",
+        "temporaryCadence": "1 simulation tick while the tutorial controller is active, unless later refactored into explicit next-beat boundaries."
+      },
+      {
+        "id": "MIG-022",
+        "legacyMechanism": "legacy AI reassessment interval",
+        "decision": "REPLACE_WITH_ANCHORED_GLOBAL_SWEEP_AND_POST_ACTION_BOUNDARIES",
+        "migration": "Do not use legacy lastAiDecisionTick to seed the phase of the new global Director sweep. At cutover, the next Director sweep is the smallest future world tick divisible by 5. Persisted active commitments and explicit post-action reassessment eligibility remain independent scheduled boundaries. Do not run the old 2-tick reassessment gate in parallel."
+      },
+      {
+        "id": "MIG-023",
+        "legacyMechanism": "TRANSITION_TO_NEXT_WORLD",
+        "decision": "RETAIN_INSTANT_WITH_TEMPORAL_RECONCILIATION",
+        "migration": "Before transition validation, reconcile the current world to authoritative server now. On successful world replacement, initialize the new world's temporal watermarks/fixed-point state atomically at the same server boundary so elapsed real time is not double-counted or lost."
+      },
+      {
+        "id": "MIG-024",
+        "legacyMechanism": "instant REINFORCE handler / immediate garrison add",
+        "decision": "REPLACE_WITH_FORCE_TRANSIT",
+        "migration": [
+          "Do not preserve the instant handler as canonical behavior.",
+          "After the new temporal system cutover, any cross-territory REINFORCE command creates a physical in-transit force with movementPurpose REINFORCE.",
+          "Existing already-resolved historical reinforcements require no retroactive migration.",
+          "If an old persisted action/commitment is pending at migration and represents REINFORCE, migrate it to a canonical REINFORCE commitment/transit using its preserved remaining legacy timing when available; otherwise resolve it deterministically before enabling the new handler.",
+          "Do not allow both legacy instant REINFORCE and canonical timed REINFORCE to be executable after cutover."
+        ]
+      },
+      {
+        "id": "MIG-025",
+        "legacyMechanism": "one canonical AI commitment per faction / legacy singleton commitment storage",
+        "decision": "MIGRATE_TO_MULTI_COMMITMENT_COLLECTION",
+        "migration": [
+          "Run as a versioned authoritative GameState payload migration before the new AI concurrency model is enabled.",
+          "For each faction with a persisted legacy active commitment, create exactly one canonical commitment record in the new collection keyed by commitmentId.",
+          "If the legacy record already contains a stable commitment identifier, preserve it. Otherwise derive a deterministic migration id from stable persisted fields such as factionId, action type, startedAtTick, and a migration-version discriminator; never use runtime randomness.",
+          "Preserve factionId, action type, payload, startedAtTick, legacy duration/remaining timing, and any already-authored completion semantics. Do not retroactively reroll or restart the commitment.",
+          "Derive canonical completionTick from the preserved legacy timing according to MIG-013.",
+          "Derive the commitment scope key from aiConcurrencyContract using the action/payload. Reconstruct required reservation records deterministically from the persisted domain objects; if a required exclusive reservation cannot be reconstructed safely, fail migration closed and require repair rather than running unlocked.",
+          "Insert the migrated commitment atomically with its reconstructed reservation/scope state.",
+          "After all legacy commitments have migrated successfully, retire the one-per-faction singleton field from temporal authority. It may remain temporarily as read-only compatibility data but must not gate AI availability or be written as the canonical store.",
+          "Hydration after the migration must read the new multi-commitment collection as the only canonical commitment source."
+        ],
+        "idempotency": "The migration is idempotent: rerunning it must recognize an already-migrated deterministic commitmentId and must not create a duplicate."
+      },
+      {
+        "id": "MIG-026",
+        "legacyMechanism": "absence of canonical fixed-point temporal state on pre-temporal saves",
+        "decision": "INITIALIZE_AT_EXPLICIT_SERVER_CUTOVER_BOUNDARY",
+        "migration": [
+          "Run productionTemporalCutover exactly once under temporalAuthorityVersion.",
+          "Preserve worldTick.",
+          "Set accruedTargetWorldTick = worldTick.",
+          "Set subTickMicroticks = 0.",
+          "Set accrualDivisionRemainder = 0.",
+          "Set lastAccrualAtMs = migrationServerNowMs.",
+          "Initialize presence/rate state at the same boundary.",
+          "Persist temporalAuthorityVersion = 1 atomically."
+        ]
+      },
+      {
+        "id": "MIG-027",
+        "legacyMechanism": "unanchored/global recurring AI and world-event sweep cadence",
+        "decision": "ANCHOR_TO_GLOBAL_SIMULATION_EPOCH_TICK_0",
+        "migration": [
+          "AI_DIRECTOR_SWEEP cadence=5, anchorTick=0; first future boundary is the smallest tick > current worldTick divisible by 5.",
+          "WORLD_EVENT_ELIGIBILITY_SWEEP cadence=10, anchorTick=0; first future boundary is the smallest tick > current worldTick divisible by 10.",
+          "Do not replay sweep opportunities at or before the migration/cutover worldTick.",
+          "Do not use request time, server restart time, or legacy lastAiDecisionTick as the new recurring phase."
+        ]
+      }
+    ]
+  },
+  "foodConsumptionTemporalContract": {
+    "processId": "FOOD_CONSUMPTION_CYCLE",
+    "clockDomain": "SIMULATION_TIME",
+    "cadenceTicks": 60,
+    "anchor": "lastFoodConsumptionTick",
+    "nextBoundaryFormula": "nextFoodConsumptionTick = lastFoodConsumptionTick + 60",
+    "offlineCatchUpClass": "CHRONOLOGICAL",
+    "appliesTo": "Every faction when the domain rule is enabled.",
+    "bankedResourceOnly": true,
+    "resourceSource": "faction.resources.food",
+    "sameTickPlacement": "RECURRING_WORLD_PROCESSES substage FOOD_CONSUMPTION_CYCLE: after ACTIVE_EVENT_EFFECTS and RESOURCE_PRODUCTION_AND_CONTINUOUS_ACCRUAL; before LEVEL1_TUTORIAL_SYNC_WHILE_ACTIVE, WORLD_EVENT_ELIGIBILITY_SWEEPS, OTHER_AUTHORED_RECURRING_WORLD_PROCESSES, and all AI decision opportunities.",
+    "compressionRule": "Do not compress across a due food-consumption boundary when its food/stability result can affect later event or AI inputs.",
+    "amountRule": {
+      "status": "OPEN_PRODUCT_DECISION_OUTSIDE_TEMPORAL_SCOPE",
+      "rule": "This temporal master defines cadence/ordering only and does not silently choose territory-count, flat-empire, or city-based consumption."
+    },
+    "stabilityInteraction": {
+      "ruleSource": "Existing resource design",
+      "temporalRule": "Any authored unpaid-food Stability change occurs on the food-consumption boundary before later same-tick AI decisions."
+    },
+    "sameTickVisibilityRule": "Any Food or Stability mutation created by the consumption cycle is authoritative immediately and must be visible to tutorial sync, world-event eligibility, other later recurring processes, and AI decisions on the same simulation tick."
+  },
+  "turnClockMigration": {
+    "canonicalAuthority": "worldTick",
+    "legacyTurnRole": "DERIVED_COMPATIBILITY_ONLY",
+    "ticksPerEventTurn": "Read from the existing event-engine configuration at migration time; do not assume a historical value when migrating saved worlds.",
+    "futureBoundaryConversionFormula": "canonicalTargetTick = currentWorldTick + max(0, legacyTargetTurn - currentTurn) * ticksPerEventTurn",
+    "activeEventRule": "Convert every future active-event temporal boundary to simulation ticks once, then use canonical event lifecycle fields.",
+    "historicalMetadataRule": "Old turn stamps may remain for audit/history but do not drive future simulation after migration.",
+    "strategicGoalRule": "deadlineTurn -> deadlineTick using the relative-turn formula.",
+    "treatyRule": "expiresTurn remains gated behind runtime-use verification; migrate if active, remove if unused.",
+    "tutorialRule": "Level 1 tutorial already uses worldTick, so retain those stamps directly."
+  },
+  "workoutSessionClockContract": {
+    "authorityBoundary": {
+      "sessionLocalElapsedTime": "REAL_WORLD_TIME",
+      "worldSimulationTime": "SIMULATION_TIME",
+      "rule": "Workout-session pause/resume mechanics never pause, rewind, or change the online/offline rate of world simulation."
+    },
+    "timestampAuthority": {
+      "authoritativeForGameplayDeadlines": "SERVER_RECEIPT_TIME",
+      "clientNow": "May be accepted only as fitness/session metadata according to fitness validation; it is never world-time authority."
+    },
+    "timingSensitiveOperations": {
+      "START_WORKOUT": {
+        "timingType": "INSTANT_AT_SERVER_RECEIPT",
+        "sessionEffect": "Create active workout session.",
+        "worldEffect": "No simulation ticks are consumed by the command itself. Before the command is evaluated, reconcile world time to authoritative server now.",
+        "defenseInteraction": "For DEFENSE purpose, militaryLifecycle.playerInvasion eligibility, response-deadline, and DEFENSE_WORKOUT_ACTIVE transition rules apply."
+      },
+      "PAUSE_WORKOUT": {
+        "timingType": "INSTANT_SESSION_TRANSITION",
+        "sessionEffect": "Pause session-local active-exercise elapsed accounting according to existing fitness semantics.",
+        "worldEffect": "Does not pause world simulation, invasion response, construction, transport, AI, event timing, or cooldowns.",
+        "defenseDeadlineEffect": "Does not pause or extend the 720-real-minute defense-workout maximum."
+      },
+      "RESUME_WORKOUT": {
+        "timingType": "INSTANT_SESSION_TRANSITION",
+        "sessionEffect": "Resume session-local workout accounting.",
+        "worldEffect": "Does not modify world rate or retroactively change elapsed simulation."
+      },
+      "RECORD_EXERCISE": {
+        "timingType": "INSTANT_INPUT",
+        "sessionEffect": "Update workout-session progress using existing fitness rules.",
+        "worldEffect": "None by itself."
+      },
+      "SKIP_REST": {
+        "timingType": "INSTANT_INPUT",
+        "sessionEffect": "Session-local transition according to fitness rules.",
+        "worldEffect": "None."
+      },
+      "SUBMIT_WORKOUT_FEEDBACK": {
+        "timingType": "INSTANT_INPUT",
+        "sessionEffect": "Update session/fitness feedback state.",
+        "worldEffect": "None by itself."
+      },
+      "FINALIZE_WORKOUT": {
+        "timingType": "INSTANT_AT_SERVER_RECEIPT",
+        "sessionEffect": "Terminalize a valid completed session and persist existing workout history/reward effects.",
+        "worldEffect": "Reward application remains an immediate state consequence at authoritative processed worldTick.",
+        "defenseInteraction": "If linked invasion is DEFENSE_WORKOUT_ACTIVE and finalization is valid and received on/before workoutCompletionDeadlineAtMs, transition to WORKOUT_DEFENSE_RESOLUTION."
+      },
+      "ABANDON_WORKOUT": {
+        "timingType": "INSTANT_AT_SERVER_RECEIPT",
+        "sessionEffect": "Terminalize the session as abandoned according to fitness semantics.",
+        "defenseInteraction": "If linked invasion is DEFENSE_WORKOUT_ACTIVE, immediately transition to AUTO_DEFENSE_RESOLUTION. Never restore the original 30-tick response window."
+      },
+      "RECORD_INTEGRITY_FLAG": {
+        "timingType": "INSTANT_AT_SERVER_RECEIPT",
+        "sessionEffect": "Apply existing fitness integrity behavior.",
+        "defenseInteraction": "If the integrity result invalidates the defense workout, immediately transition to AUTO_DEFENSE_RESOLUTION."
+      }
+    },
+    "offlineRule": "Workout-session real time and the defense-workout real-world deadline continue while the app is closed. World simulation accrues separately at the centralized offline simulation rate.",
+    "sessionFallbackRule": "Any existing fallback that derives a session timestamp from worldTick is compatibility behavior only; it must not make worldTick the fitness-session clock or cause workouts to advance world time."
+  },
+  "legacyProtectionSupersession": {
+    "legacyPlayerEmpirePause": {
+      "status": "DEPRECATED_NOT_AUTHORITATIVE",
+      "worldFreezeAllowed": false,
+      "invasionFreezeAllowed": false
+    },
+    "legacy1440TickWorkoutProtection": {
+      "status": "REMOVED",
+      "replacement": "No automatic shield. Protection comes from the canonical slower offline simulation rate, player-invasion response window, and optional defense-workout intervention."
+    },
+    "lastWorkoutCompletedAtTick": {
+      "status": "RETAIN_AS_FITNESS_METADATA",
+      "mayGateAttackEligibility": false
+    }
+  },
+  "aiConcurrencyContract": {
+    "principle": "AI decision availability is not equivalent to 'faction has any active commitment'. Multiple non-conflicting commitments may coexist.",
+    "globalFactionBlockingCommitment": false,
+    "opportunityPriority": [
+      "REQUIRED_RESPONSE",
+      "REACTIVE_DEFENSE",
+      "COMMITMENT_RECOVERY",
+      "PROACTIVE"
+    ],
+    "opportunitySemantics": {
+      "REQUIRED_RESPONSE": {
+        "meaning": "A persisted event/diplomatic/world-state response that must be handled before its authoritative deadline.",
+        "bypassesWait": true,
+        "stillMustPass": [
+          "actor is alive/active",
+          "response is still valid",
+          "deadline has not already expired",
+          "any required entity/resource reservation is available"
+        ]
+      },
+      "REACTIVE_DEFENSE": {
+        "meaning": "Immediate AI reaction to a threat or invasion affecting an eligible territory/force.",
+        "bypassesWait": true,
+        "stillMustPass": [
+          "actor is alive/active",
+          "reactive target is still valid",
+          "required scope/reservations do not conflict"
+        ]
+      },
+      "COMMITMENT_RECOVERY": {
+        "meaning": "Cleanup/recovery required because a persisted commitment became invalid, interrupted, or reached a recovery boundary.",
+        "bypassesWait": true,
+        "createsNewProactiveCommitment": false
+      },
+      "PROACTIVE": {
+        "meaning": "Ordinary AI initiative such as expansion, attack, build, trade, movement, or voluntary stance.",
+        "bypassesWait": false,
+        "oneNewCommitmentPerOpportunity": true
+      }
+    },
+    "wait": {
+      "actionId": "AI_WAIT",
+      "durationTicks": 3,
+      "scope": "FACTION_PROACTIVE_GATE_ONLY",
+      "startFormula": "proactiveBlockedUntilTick = waitStartTick + 3",
+      "activeRule": "While currentSimulationTick < proactiveBlockedUntilTick, PROACTIVE opportunities are skipped.",
+      "endBoundary": "PROACTIVE becomes eligible again when currentSimulationTick >= proactiveBlockedUntilTick.",
+      "doesNotBlock": [
+        "REQUIRED_RESPONSE",
+        "REACTIVE_DEFENSE",
+        "COMMITMENT_RECOVERY",
+        "completion/resolution of already-active commitments"
+      ],
+      "doesNotReserve": [
+        "whole faction",
+        "all armies",
+        "all territories",
+        "all resources"
+      ]
+    },
+    "defendStance": {
+      "actionId": "AI_DEFEND_STANCE",
+      "durationTicks": 4,
+      "scope": "ONE_TERRITORY",
+      "scopeKeyFormula": "AI_DEFEND_STANCE|territoryId",
+      "startTick": "commitmentStartedAtTick",
+      "completionTickFormula": "commitmentStartedAtTick + 4",
+      "duplicateRule": "A second active DEFEND_STANCE with the same territory scope key is not eligible.",
+      "concurrencyRule": "DEFEND_STANCE on territory A does not block unrelated movement, construction, diplomacy, or defense on territory B unless they conflict through an explicit reservation.",
+      "factionWideFreeze": false
+    },
+    "commitmentConcurrency": {
+      "rule": "Two commitments may coexist only when both their semantic scope keys and authoritative reservation footprints are non-conflicting.",
+      "conflictInputs": [
+        "EXCLUSIVE_ENTITY reservations",
+        "QUANTITY reservations",
+        "CAPACITY_SLOT reservations",
+        "PLAYER_INVASION_SLOT reservations",
+        "action-specific scope keys such as AI_DEFEND_STANCE|territoryId",
+        "diplomatic pending-thread keys"
+      ],
+      "examplesAllowed": [
+        "Construction in one territory while an unrelated army moves.",
+        "A diplomatic proposal while an unrelated construction is in progress.",
+        "A reactive defense using unreserved forces while another force is moving.",
+        "DEFEND_STANCE on one territory while another territory has a different stance/action."
+      ],
+      "examplesRejected": [
+        "Two commitments controlling the same exclusive force.",
+        "Two shipments spending the same reserved resource quantity.",
+        "Two constructions claiming the same capacity slot.",
+        "Two active DEFEND_STANCE commitments with the same territory scope key.",
+        "A duplicate pending diplomatic proposal on the same protected thread."
+      ]
+    },
+    "commitmentStore": {
+      "canonicalShape": "A collection keyed by commitmentId, capable of holding multiple active commitments per faction.",
+      "legacySingletonRule": "Any legacy one-active-commitment-per-faction field is compatibility state only and must not be the canonical concurrency gate.",
+      "queryRule": "AI availability is computed from active commitments, scope keys, reservations, WAIT proactive gate, deadlines, and actor lifecycle—not from a single boolean hasCommitment.",
+      "legacyDataMigration": {
+        "migrationEntry": "MIG-025",
+        "rule": "Persisted one-per-faction commitments are migrated one-for-one into the canonical commitmentId-keyed collection before multi-commitment execution is enabled.",
+        "postMigrationAuthority": "NEW_MULTI_COMMITMENT_COLLECTION_ONLY",
+        "legacySingletonWritable": false,
+        "idempotent": true
+      }
+    },
+    "actorLifecycle": {
+      "eliminatedActorRule": "An eliminated AI cannot create new opportunities or commitments.",
+      "activeCommitmentsOnElimination": [
+        "Invalidate/cancel commitments that require the eliminated actor.",
+        "Release/transform reservations atomically.",
+        "Do not allow an eliminated faction's future scheduled commitment to mutate world state."
+      ]
+    },
+    "deterministicSelection": {
+      "rule": "Within the highest eligible opportunity class, evaluate/resolve candidates in the existing deterministic AI ordering and stable tie-break rules.",
+      "rngInvariant": "Concurrency changes may not alter persisted historical RNG outcomes on restart."
+    }
+  },
+  "diplomacyProposalContract": {
+    "proposalTypes": [
+      "NEGOTIATE",
+      "TRADE_PROPOSAL",
+      "OFFER_PEACE"
+    ],
+    "pendingThreadKeys": {
+      "NEGOTIATE": {
+        "directionality": "ORDERED",
+        "formula": "NEGOTIATE|senderFactionId|recipientFactionId",
+        "reverseDirectionSameThread": false
+      },
+      "TRADE_PROPOSAL": {
+        "directionality": "ORDERED",
+        "formula": "TRADE_PROPOSAL|senderFactionId|recipientFactionId",
+        "reverseDirectionSameThread": false
+      },
+      "OFFER_PEACE": {
+        "directionality": "UNORDERED",
+        "formula": "OFFER_PEACE|min(factionA,factionB)|max(factionA,factionB)",
+        "reverseDirectionSameThread": true
+      }
+    },
+    "pendingExclusivity": {
+      "rule": "Only one ACTIVE/PENDING proposal may exist for a protected pendingThreadKey.",
+      "duplicateBehavior": "Reject the duplicate before creating a proposal/commitment or consuming reservations.",
+      "releaseRule": "Release the pending-thread lock when the proposal reaches ACCEPTED, REJECTED, EXPIRED, CANCELLED, or INVALIDATED."
+    },
+    "responseWindow": {
+      "defaultTicks": 30,
+      "clockDomain": "SIMULATION_TIME",
+      "deadlineRule": "Response deadline is persisted when the proposal is created and processed by the canonical deadline stage."
+    },
+    "resendCooldowns": {
+      "NEGOTIATE": 10,
+      "TRADE_PROPOSAL": 10,
+      "OFFER_PEACE": 30
+    },
+    "cooldownSemantics": {
+      "appliesAfterTerminalStates": [
+        "REJECTED",
+        "EXPIRED"
+      ],
+      "anchor": "proposalTerminalResolutionTick",
+      "formula": "resendAllowedAtTick = proposalTerminalResolutionTick + resendCooldownTicks",
+      "directionality": "SENDER_SIDE",
+      "senderCooldownKeyFormula": "proposalType|originalSenderFactionId|counterpartyFactionId",
+      "rule": "The original sender may not resend the same proposal type to the same counterparty until currentSimulationTick >= resendAllowedAtTick.",
+      "reverseDirectionRule": "A reverse-direction proposal is not blocked by the original sender's resend cooldown unless the unordered pending-thread rule or current diplomacy state independently makes it invalid.",
+      "acceptedRule": "No rejection/expiry resend cooldown is created on ACCEPTED; subsequent eligibility follows the new authoritative diplomacy state.",
+      "cancelledInvalidatedRule": "No baseline resend cooldown is implied unless that terminal path is explicitly authored later."
+    },
+    "sameTickRule": "If a proposal expires at tick T, expiry resolves in the deadline stage before any later same-tick AI opportunity can submit a response to that expired proposal.",
+    "restartRule": "Pending proposal thread keys, response deadlines, terminal state, and sender-side cooldown-until ticks are authoritative persisted state or are deterministically reconstructable from it."
+  },
+  "constructionLifecycle": {
+    "states": [
+      "PROPOSED",
+      "IN_PROGRESS",
+      "COMPLETED",
+      "CANCELLED",
+      "FAILED",
+      "INVALIDATED"
+    ],
+    "terminalStates": [
+      "COMPLETED",
+      "CANCELLED",
+      "FAILED",
+      "INVALIDATED"
+    ],
+    "canonicalTiming": {
+      "field": "completionTick",
+      "startRule": "On successful construction start, persist a deterministic completionTick from the authored duration.",
+      "legacyCompatibility": "Legacy remainingTicks/lastProgressTick are migrated by existingCodeTemporalMigrationLedger entry MIG-014; new temporal scheduling uses completionTick as the authoritative completion boundary."
+    },
+    "normalCompletion": {
+      "boundary": "SCHEDULED_COMPLETIONS_AND_ARRIVALS",
+      "rule": "When currentSimulationTick reaches completionTick, CONSTRUCTION_COMPLETE resolves before later command handling at that same authoritative time.",
+      "exactlyOnce": true,
+      "terminalEffects": [
+        "Create/apply the completed structure or upgrade.",
+        "Release/transform construction capacity and other reservations.",
+        "Remove the future completion frontier entry.",
+        "Transition to COMPLETED atomically."
+      ]
+    },
+    "acceleration": {
+      "actionId": "ACCELERATE_CONSTRUCTION",
+      "timingType": "INSTANT",
+      "eligibility": [
+        "Project status is IN_PROGRESS.",
+        "Project has not already completed at or before authoritative currentSimulationTick.",
+        "accelerationTicks is a positive integer."
+      ],
+      "commandPrecedence": "Before acceleration is evaluated, temporal reconciliation processes any construction completion already due at or before currentSimulationTick. An already-completed project cannot be accelerated.",
+      "formula": "newCompletionTick = max(currentSimulationTick, authoritativeCurrentCompletionTick - accelerationTicks)",
+      "repeatedAccelerationRule": "Every acceleration reads the project's current authoritative completionTick after all prior committed accelerations. Never calculate from a stale original completion tick.",
+      "sameTickCompletion": [
+        "If newCompletionTick > currentSimulationTick, persist the new completionTick and update/rebuild the temporal frontier entry.",
+        "If newCompletionTick == currentSimulationTick, immediately execute CONSTRUCTION_COMPLETE as a direct consequence in the same authoritative command/transaction path.",
+        "The project may never be scheduled into the past."
+      ],
+      "casRule": "A stale writer that calculated acceleration from an obsolete project version/completionTick must fail/reload through normal CAS handling rather than overwrite the newer schedule."
+    },
+    "cancellation": {
+      "actionId": "CANCEL_CONSTRUCTION",
+      "timingType": "INSTANT",
+      "eligibility": "Only IN_PROGRESS projects may be cancelled.",
+      "commandPrecedence": "If completion was already due at or before the reconciled currentSimulationTick, completion resolves first and cancellation is rejected as too late.",
+      "effects": [
+        "Transition project to CANCELLED.",
+        "Remove its future completion from the temporal frontier.",
+        "Release construction CAPACITY_SLOT and any remaining unconsumed action reservations atomically.",
+        "Do not create the structure/upgrade."
+      ],
+      "automaticRefund": false,
+      "refundRule": "No automatic refund exists in the temporal baseline. A later economy rule may explicitly author one without changing cancellation timing."
+    },
+    "terminalReservationInvariant": "No terminal construction may retain an ACTIVE construction-capacity reservation.",
+    "noNegativeRemainingTime": true,
+    "noCompletionInPast": true
+  },
+  "actionCatalogScope": {
+    "definition": "actionCatalog is the canonical catalog of gameplay temporal primitives and scheduled temporal processes. It is NOT the complete Orchestrator command index.",
+    "includedWhen": [
+      "The primitive has a simulation-time duration.",
+      "The primitive has a real-world deadline.",
+      "The primitive has a response window, cooldown, or recurring cadence.",
+      "The primitive creates a future temporal boundary used by the scheduler.",
+      "The primitive is instantaneous but its timing identity is required to compose a larger temporal lifecycle already represented by the catalog."
+    ],
+    "notRequiredInActionCatalogWhen": [
+      "The operation is read-only.",
+      "The operation is validation/authorization/persistence plumbing.",
+      "The operation is an instantaneous domain mutation with no independent future timing state and is explicitly named in instantOperationLedger.",
+      "The operation is an orchestration wrapper that composes catalog primitives and is explicitly mapped in temporalOperationCoverageLedger."
+    ],
+    "futurePrimitiveRule": "A designed future primitive may appear in actionCatalog before its current REP-WARS-3 command handler exists, but implementationStatus must make that distinction explicit.",
+    "absenceRule": "An operation may be absent from actionCatalog only if temporalOperationCoverageLedger or instantOperationLedger explicitly classifies it."
+  },
+  "instantOperationLedger": {
+    "purpose": "Explicitly account for current/future operations that are intentionally not independent duration-bearing catalog primitives.",
+    "operations": [
+      {
+        "operation": "GET_COMMAND_INDEX / GET_GAME_STATE / GET_VISIBLE_WORLD / GET_WORLD_DEFINITION / GET_FITNESS_CATALOG / GET_WORKOUT_SELECTION",
+        "classification": "READ_ONLY_OUTSIDE_ACTION_CATALOG",
+        "temporalEffect": "None; a server may reconcile state before a read when the product API requires fresh world state."
+      },
+      {
+        "operation": "LEGACY_REINFORCE_HANDLER",
+        "classification": "LEGACY_INSTANT_BEHAVIOR_TO_REPLACE",
+        "temporalEffect": "Current REP-WARS-3 adds garrison troops instantly. During temporal-architecture migration, replace this handler/path with canonical FORCE_TRANSIT purpose REINFORCE for cross-territory reinforcement. It must not remain as a second authority."
+      },
+      {
+        "operation": "COLLECT_RESOURCES",
+        "classification": "INSTANT_DOMAIN_MUTATION",
+        "temporalEffect": "Transfers already-accrued resources; does not create elapsed world time."
+      },
+      {
+        "operation": "SET_PLAYER_PAUSE",
+        "classification": "DEPRECATED_TEMPORAL_OPERATION",
+        "temporalEffect": "No canonical world/invasion pause authority after the migration defined by existingCodeTemporalMigrationLedger MIG-008 and legacyProtectionSupersession."
+      },
+      {
+        "operation": "SYNC_PLAYER_WORLD",
+        "classification": "ORCHESTRATION_RECONCILIATION_WRAPPER",
+        "temporalEffect": "Invokes the canonical real-time accrual driver and simulation boundary scheduler; not itself an in-world action."
+      },
+      {
+        "operation": "ADVANCE_WORLD",
+        "classification": "INTERNAL_DEV_TEST_DRIVER",
+        "temporalEffect": "Feeds deterministic simulation advancement for tests/internal use; not a public gameplay action."
+      },
+      {
+        "operation": "RESOLVE_COMMITMENT",
+        "classification": "INTERNAL_DISPATCHER",
+        "temporalEffect": "Resolves the referenced commitment/primitives; does not own a separate authored duration."
+      },
+      {
+        "operation": "TRANSITION_TO_NEXT_WORLD",
+        "classification": "INSTANT_WORLD_TRANSITION_WITH_RECONCILIATION",
+        "temporalEffect": "Reconcile the old world to authoritative server now, then atomically initialize the new world's temporal watermarks according to existingCodeTemporalMigrationLedger MIG-023."
+      },
+      {
+        "operation": "PAUSE_WORKOUT / RESUME_WORKOUT / RECORD_EXERCISE / SKIP_REST / SUBMIT_WORKOUT_FEEDBACK",
+        "classification": "SESSION_LOCAL_REAL_TIME_TRANSITIONS",
+        "temporalEffect": "Governed by workoutSessionClockContract; do not advance or pause simulation time."
+      },
+      {
+        "operation": "FINALIZE_WORKOUT / ABANDON_WORKOUT / RECORD_INTEGRITY_FLAG",
+        "classification": "SESSION_TERMINAL_OR_INTEGRITY_TRANSITIONS",
+        "temporalEffect": "Governed by workoutSessionClockContract and may trigger the invasion transitions already specified there."
+      },
+      {
+        "operation": "Validation / authorization / persistence commit / CAS retry",
+        "classification": "PROCESSING_TIME_ONLY",
+        "temporalEffect": "Never an in-world duration."
+      }
+    ]
+  },
+  "temporalOperationCoverageLedger": {
+    "ATTACK": "Composite: FORCE_TRANSIT where movement is required, then direct BATTLE_RESOLUTION or INVASION_RESPONSE_WINDOW lifecycle.",
+    "MOVE": "FORCE_TRANSIT.",
+    "BUILD / START_CONSTRUCTION": "Maps to the relevant BUILD_* or UPGRADE_* construction temporal primitive.",
+    "APPLY_CONSTRUCTION_ACCELERATION": "ACCELERATE_CONSTRUCTION.",
+    "NEGOTIATE": "NEGOTIATE proposal primitive and response/cooldown contract.",
+    "OFFER_PEACE": "OFFER_PEACE proposal primitive and response/cooldown contract; current code support may still be future.",
+    "TRADE": "TRADE_PROPOSAL plus TRADE_SHIPMENT when implemented; current code support may still be future.",
+    "DECLARE_WAR": "DECLARE_WAR instantaneous catalog primitive.",
+    "START_WORKOUT": "WORKOUT_BEGIN plus workoutSessionClockContract.",
+    "FINALIZE_WORKOUT": "WORKOUT_COMPLETE_SUBMISSION plus workoutSessionClockContract.",
+    "AI_DECIDE": "AI_DECISION; AI Director opportunity timing is AI_DIRECTOR_SWEEP and associated gates.",
+    "World event execution": "WORLD_EVENT_ELIGIBILITY_SWEEP, ACTIVE_EVENT_EFFECT, WORLD_EVENT_RESPONSE, and event cooldown primitives.",
+    "Economy recurring work": "RESOURCE_PRODUCTION and FOOD_CONSUMPTION_CYCLE contract; collection remains instant ledger.",
+    "Tutorial compatibility hook": "LEVEL1_TUTORIAL_SYNC migration-integrated chronological process.",
+    "REINFORCE": "Canonical post-migration operation: FORCE_TRANSIT with movementPurpose REINFORCE. Current instant REP-WARS-3 handler is legacy behavior and must be replaced, not run in parallel.",
+    "MARKET_DELIVERY": "RESOURCE_SHIPMENT with shipmentPurpose MARKET_DELIVERY; timing is SHARED_ROUTE_DURATION(route).",
+    "ADVANCE_WORLD": "INTERNAL SYNTHETIC_TEST time-authority adapter: accruedTargetWorldTick += requestedSyntheticTicks, then canonical scheduler processing. Never direct worldTick mutation."
+  },
+  "actionCatalogSchema": {
+    "requiredFieldsForEveryRecord": [
+      "actionId",
+      "system",
+      "timingType",
+      "clockDomain",
+      "playerAiParity",
+      "offlineCatchUpClass"
+    ],
+    "timingTypeValidation": {
+      "INSTANT": {
+        "durationFieldsAllowed": [],
+        "rule": "timingType itself encodes zero duration; do not write baseDurationTicks:0 or durationMs:0.",
+        "metadataStillAllowed": [
+          "responseWindowTicks",
+          "cooldownTicks",
+          "notes",
+          "completionEffect",
+          "reservationRequirements",
+          "implementationStatus"
+        ]
+      },
+      "FIXED_DURATION": {
+        "required": [
+          "baseDurationTicks"
+        ],
+        "clockDomain": "SIMULATION_TIME",
+        "constraint": "baseDurationTicks is a positive integer."
+      },
+      "FORMULA_DURATION": {
+        "required": [
+          "durationFormula"
+        ],
+        "constraint": "Formula must resolve in the record's clock domain; current route formulas resolve to SIMULATION_TIME ticks."
+      },
+      "RESPONSE_WINDOW": {
+        "required": [
+          "responseWindowTicks"
+        ],
+        "clockDomain": "SIMULATION_TIME",
+        "constraint": "responseWindowTicks is a positive integer unless a future real-world response type explicitly defines another unit."
+      },
+      "COOLDOWN": {
+        "required": [
+          "cooldownTicks"
+        ],
+        "clockDomain": "SIMULATION_TIME",
+        "constraint": "cooldownTicks is a positive integer."
+      },
+      "RECURRING": {
+        "required": [
+          "cadenceTicks"
+        ],
+        "clockDomain": "SIMULATION_TIME",
+        "constraint": "cadenceTicks is a positive integer."
+      },
+      "REAL_WORLD_DEADLINE": {
+        "required": [
+          "durationMs"
+        ],
+        "clockDomain": "REAL_WORLD_TIME",
+        "constraint": "durationMs is a positive integer number of milliseconds."
+      }
+    },
+    "unitRule": "Tick-named fields may appear only on SIMULATION_TIME timing values. Millisecond-named duration fields may appear only on REAL_WORLD_TIME duration/deadline values.",
+    "instantRule": "Instant records are unit-neutral and carry no zero-valued tick/millisecond duration field."
+  },
+  "accrualBacklogContract": {
+    "authoritySplit": {
+      "realTimeAccrualAuthority": "accruedTargetWorldTick + subTickMicroticks + accrualDivisionRemainder + lastAccrualAtMs",
+      "processedSimulationAuthority": "worldTick and all domain state committed through that tick",
+      "rule": "Real time may accrue ahead of processed simulation. The difference is an explicit durable backlog, never implicit in wall-clock arithmetic."
+    },
+    "invariants": [
+      "worldTick <= accruedTargetWorldTick.",
+      "pendingWholeTicks = accruedTargetWorldTick - worldTick.",
+      "lastAccrualAtMs may advance even when pendingWholeTicks > 0.",
+      "Processing worldTick never changes lastAccrualAtMs or re-accrues real time.",
+      "Accruing additional real time never silently marks unprocessed world ticks as processed.",
+      "No simulation tick is considered processed until all authoritative effects for that tick have committed."
+    ],
+    "example144Ticks": {
+      "initial": {
+        "worldTick": 1000,
+        "accruedTargetWorldTick": 1000
+      },
+      "afterRealTimeAccrual": {
+        "worldTick": 1000,
+        "accruedTargetWorldTick": 1144,
+        "pendingWholeTicks": 144
+      },
+      "afterFirst64TickProcessingSlice": {
+        "worldTick": 1064,
+        "accruedTargetWorldTick": 1144,
+        "pendingWholeTicks": 80,
+        "lastAccrualAtMs": "unchanged from the already-committed accrual cursor"
+      },
+      "afterSecond64TickProcessingSlice": {
+        "worldTick": 1128,
+        "accruedTargetWorldTick": 1144,
+        "pendingWholeTicks": 16
+      },
+      "afterFinal16Ticks": {
+        "worldTick": 1144,
+        "accruedTargetWorldTick": 1144,
+        "pendingWholeTicks": 0
+      }
+    },
+    "casRule": "Accrual-state updates and simulation-processing updates both use the existing stateVersion/CAS path. On conflict, reload all five temporal fields and authoritative domain state; never recompute from a stale lastAccrualAtMs or stale accruedTargetWorldTick."
+  },
+  "reinforcementTemporalContract": {
+    "canonicalPostMigrationRule": "Cross-territory troop reinforcement is a physical FORCE_TRANSIT action with movementPurpose REINFORCE.",
+    "legacyCurrentBehavior": "REP-WARS-3 currently has an instant garrison-add REINFORCE handler.",
+    "legacyStatus": "REPLACE_ON_TEMPORAL_ARCHITECTURE_IMPLEMENTATION",
+    "instantReinforceMayRemainCanonical": false,
+    "commandLifecycle": {
+      "commit": [
+        "Validate source territory/garrison, destination territory, route, ownership/alliance requirements, available troop quantity, and action eligibility.",
+        "Detach the committed troop quantity from the source garrison into a uniquely identified force/formation.",
+        "Acquire EXCLUSIVE_ENTITY/QUANTITY reservations atomically with the commitment.",
+        "Create FORCE_TRANSIT with movementPurpose REINFORCE and completionTick derived from SHARED_ROUTE_DURATION(route)."
+      ],
+      "transit": "Troops are unavailable at both source and destination while in transit except through the authoritative in-transit force record.",
+      "arrival": [
+        "Revalidate destination ownership/eligibility.",
+        "If valid, merge the reinforcing force into the destination garrison as an immediate arrival consequence.",
+        "If invalid, transition through explicit failure/interruption/reroute behavior rather than teleporting the troops.",
+        "Release/transform reservations atomically."
+      ]
+    },
+    "playerAiParity": true,
+    "offlineCatchUpClass": "CHRONOLOGICAL",
+    "roadEligible": true,
+    "timingFormula": "SHARED_ROUTE_DURATION(route)",
+    "sameTerritoryException": {
+      "allowed": true,
+      "rule": "A purely local reassignment inside the same territory may remain instantaneous if no territory connection is crossed and the operation is explicitly classified as local garrison management rather than cross-territory REINFORCE."
+    }
+  },
+  "marketDeliveryTemporalMapping": {
+    "operation": "MARKET_DELIVERY",
+    "canonicalPrimitive": "RESOURCE_SHIPMENT",
+    "shipmentPurpose": "MARKET_DELIVERY",
+    "timingFormula": "SHARED_ROUTE_DURATION(route)",
+    "separateTimerAllowed": false,
+    "rule": "A future physical market-delivery flow must create RESOURCE_SHIPMENT with purpose MARKET_DELIVERY. It may not introduce a third independent transport-duration system.",
+    "arrival": "On valid arrival, consume the shipment manifest and apply the market/destination delivery consequence atomically using the normal resource-shipment arrival path."
+  },
+  "finalPerfectionState": {
+    "sourceMaster": "rep-wars-temporal-master-final-cleanup.json",
+    "allPlannedCorrectionPassesComplete": true,
+    "finalNarrowRegressionAudit": "PASS",
+    "remainingKnownFindings": [],
+    "freezeAllowed": true,
+    "frozenAs": "rep-wars-temporal-master-v1.0-game-ready-clean.json"
+  },
+  "productionTemporalCutover": {
+    "purpose": "Move an existing pre-temporal REP-WARS-3 world onto the canonical fixed-point time authority without inventing retroactive simulation time or trusting the legacy unwired wall-clock watermark.",
+    "migrationMarker": {
+      "field": "temporalAuthorityVersion",
+      "canonicalVersion": 1,
+      "rule": "If temporalAuthorityVersion >= 1, cutover has already completed and initialization must never run again."
+    },
+    "capturedCutoverTime": {
+      "field": "migrationServerNowMs",
+      "authority": "SERVER_UTC",
+      "rule": "Capture once per cutover attempt and use the same value for every migration calculation in the successful atomic cutover."
+    },
+    "orderedCutoverAlgorithm": [
+      "Load the authoritative pre-temporal GameState under the existing stateVersion/CAS rules.",
+      "If temporalAuthorityVersion >= 1, do not rerun cutover.",
+      "Capture migrationServerNowMs once from the authoritative server clock.",
+      "While legacy clocks are still readable, migrate all legacy time-sensitive domain state: invasion response time, defense-workout deadlines, event timing, movement, construction, commitments, cooldowns, and tutorial timing.",
+      "Any migrated REAL_WORLD_TIME deadline already due at migrationServerNowMs must remain due; migration may not grant a fresh full duration.",
+      "Keep the existing worldTick exactly as the fully processed simulation cursor.",
+      "Set accruedTargetWorldTick = worldTick.",
+      "Set subTickMicroticks = 0.",
+      "Set accrualDivisionRemainder = 0.",
+      "Set lastAccrualAtMs = migrationServerNowMs.",
+      "Initialize presence/rate state at migrationServerNowMs. If a valid authenticated gameplay-session lease exists or is issued at cutover, ONLINE begins at that boundary; otherwise OFFLINE begins there.",
+      "Set temporalAuthorityVersion = 1 and persist migrated domain state, canonical clock fields, presence state, frontier/gates, and the migration marker in one CAS commit.",
+      "Only after that commit succeeds may canonical accrual begin from migrationServerNowMs forward."
+    ],
+    "legacyLastProcessedAtMs": {
+      "canonicalAuthorityAfterCutover": false,
+      "rule": "Do not use pre-cutover GameState.lastProcessedAtMs as the initial canonical accrual cursor for the current migration baseline.",
+      "allowedUse": "Legacy diagnostic metadata only unless a future migration proves a particular value came from the canonical production time authority."
+    },
+    "noRetroactiveAccrualRule": "Canonical accrual intentionally begins at migrationServerNowMs. Real time before that boundary is not converted into new-engine ticks.",
+    "newWorldInitialization": {
+      "worldTick": "authored/initial worldTick",
+      "accruedTargetWorldTick": "worldTick",
+      "subTickMicroticks": 0,
+      "accrualDivisionRemainder": 0,
+      "lastAccrualAtMs": "newWorldCreatedAtServerMs",
+      "temporalAuthorityVersion": 1
+    },
+    "idempotency": [
+      "Version-gate the cutover.",
+      "A failed CAS commit leaves old authoritative state unchanged; reload and recompute.",
+      "A successful cutover may never reset its canonical accrual cursor on later hydration."
+    ],
+    "cutoverInvariants": [
+      "Immediately after successful cutover: worldTick == accruedTargetWorldTick.",
+      "subTickMicroticks == 0 and accrualDivisionRemainder == 0 at the cutover boundary.",
+      "lastAccrualAtMs equals the committed migrationServerNowMs.",
+      "No pre-cutover wall-clock interval is double-counted.",
+      "Legacy time-sensitive state is migrated before legacy clock semantics are discarded."
+    ]
+  },
+  "commandAdmissionContract": {
+    "purpose": "Preserve a mutating command's temporal position and first authoritative server receipt time when catch-up needs multiple slices or retries.",
+    "scope": "All mutating gameplay commands; deadline-sensitive commands use additional boundary ordering.",
+    "idempotencyKey": {
+      "canonicalField": "commandId",
+      "source": "Reuse an existing stable client request identifier if present; otherwise add a client-generated opaque unique commandId to the mutating command envelope and reuse it unchanged on retries.",
+      "sameIdSamePayload": "Resume/return the existing admission or terminal result; never execute twice.",
+      "sameIdDifferentPayload": "Reject as IDEMPOTENCY_KEY_PAYLOAD_MISMATCH with no gameplay mutation.",
+      "clientTimestampAuthority": false,
+      "lookupScope": "(worldId, actorId, commandId)",
+      "serverFingerprintAuthority": true,
+      "clientSuppliedPayloadHashAuthority": false
+    },
+    "recordShape": [
+      "commandId",
+      "actorId",
+      "commandType",
+      "payloadHash",
+      "payloadHashVersion",
+      "firstServerReceivedAtMs",
+      "requiredAccrualThroughMs",
+      "admittedTargetWorldTick",
+      "admittedSubTickMicroticks",
+      "status",
+      "deadlineContext when applicable",
+      "terminalResultOrError when terminal"
+    ],
+    "statuses": [
+      "ADMITTED_WAITING_FOR_CATCHUP",
+      "READY_TO_EXECUTE",
+      "EXECUTING",
+      "TERMINAL_SUCCESS",
+      "TERMINAL_REJECTED"
+    ],
+    "firstReceiptAuthority": "firstServerReceivedAtMs is server-captured on first successful durable admission and is immutable on every retry.",
+    "admissionAlgorithm": [
+      "Authenticate/authorize the envelope and validate basic shape without applying the gameplay mutation.",
+      "Capture server receipt time T.",
+      "After server-side schema parsing/normalization, compute payloadHash and payloadHashVersion using payloadFingerprint. Never trust a client-supplied hash.",
+      "Look up (worldId, actorId, commandId). If an admission exists with the same payloadHashVersion and payloadHash, resume/return it. If either fingerprint version/hash differs, reject with IDEMPOTENCY_KEY_PAYLOAD_MISMATCH.",
+      "Accrue canonical time exactly through T using authoritative rate history. Accrual may move accruedTargetWorldTick but not worldTick.",
+      "Snapshot admittedTargetWorldTick = accruedTargetWorldTick and admittedSubTickMicroticks = subTickMicroticks as of T.",
+      "Persist the accrual update and new ADMITTED_WAITING_FOR_CATCHUP admission atomically under CAS. Temporal guarantees begin only after this commit succeeds.",
+      "Process toward the command fence. If processing budget ends, return accepted/pending keyed by commandId and keep the admission durable.",
+      "When the command temporal position is reached and all earlier obligations are resolved, mark READY_TO_EXECUTE.",
+      "Perform full domain validation against authoritative state at that temporal position.",
+      "Apply the domain mutation at most once and terminalize the admission in the same authoritative commit.",
+      "Retries with the same commandId resume/return the same result."
+    ],
+    "temporalFence": {
+      "rule": "A pending admitted command is a processing fence. Accrual may move beyond it, but simulation processing may not cross its admittedTargetWorldTick before the command executes/rejects at its proper position.",
+      "multipleCommands": "Order pending admissions by firstServerReceivedAtMs ascending, then commandId ascending. Commands in the same simulation tick execute in that order with no invented tick between them.",
+      "fractionalPosition": "admittedSubTickMicroticks records fractional position; whole-tick simulation state advances only on ticks. Within one tick, firstServerReceivedAtMs then commandId controls order."
+    },
+    "deadlineSensitiveCommands": {
+      "rule": "Deadline validity uses immutable firstServerReceivedAtMs, never a later retry time.",
+      "exactRealWorldDeadlineOrdering": [
+        "If a command-specific rule explicitly makes the exact real-world deadline inclusive, an admitted command with firstServerReceivedAtMs == boundaryAtMs executes before that matching expiry gate.",
+        "Otherwise the real-world expiry gate at the same boundaryAtMs resolves before the command.",
+        "Use commandId/boundary stable IDs for deterministic ties within one priority."
+      ],
+      "lateRule": "If firstServerReceivedAtMs is after the authoritative deadline, catch-up or retry cannot make the command timely."
+    },
+    "acceptanceResponseRule": "The server may return accepted/pending after durable admission even if execution waits on catch-up; return commandId for idempotent polling/retry.",
+    "failureAndRestart": {
+      "beforeAdmissionCommit": "No temporal guarantee exists until admission commits.",
+      "afterAdmissionBeforeExecution": "Restart reconstructs pending admissions/fences and preserves firstServerReceivedAtMs.",
+      "afterDomainMutationCommit": "Terminalize admission atomically with the gameplay mutation so retry cannot double-apply."
+    },
+    "invariants": [
+      "No commandId executes its gameplay mutation more than once.",
+      "No retry changes firstServerReceivedAtMs.",
+      "No scheduler processing crosses an earlier pending command fence.",
+      "Terminalization and associated gameplay mutation are atomic.",
+      "Client-authored timestamps never determine deadline validity.",
+      "Receipt-time preservation does not bypass normal domain validation."
+    ],
+    "payloadFingerprint": {
+      "version": "COMMAND_FINGERPRINT_V1",
+      "hashAlgorithm": "SHA-256",
+      "textEncoding": "UTF-8",
+      "computedBy": "SERVER",
+      "lookupScope": "(worldId, actorId, commandId)",
+      "fingerprintInput": {
+        "actorId": "authenticated authoritative actor identifier",
+        "commandType": "canonical command type after command-name normalization",
+        "payload": "validated and schema-normalized gameplay payload after server-side parsing/default normalization, with only gameplay-semantic command arguments included"
+      },
+      "excludedFields": [
+        "commandId",
+        "client timestamps",
+        "retry counters",
+        "network/HTTP metadata",
+        "authentication token/material",
+        "server receipt timestamps",
+        "connection/session transport metadata",
+        "client-supplied payloadHash/fingerprint"
+      ],
+      "canonicalSerialization": {
+        "format": "CANONICAL_JSON_V1",
+        "rules": [
+          "Serialize the fingerprintInput object, not the raw HTTP body.",
+          "Object keys are sorted lexicographically by Unicode code point at every nesting level.",
+          "Array element order is preserved exactly because array order may be gameplay-semantic.",
+          "Strings are serialized as standard JSON strings with deterministic JSON escaping.",
+          "Booleans and null use standard JSON literals.",
+          "Numbers must first pass command-schema validation/normalization; serialize them in the server's canonical finite JSON-number representation and reject NaN/Infinity.",
+          "Omitted optional values remain omitted after schema normalization; explicit null remains null only when the command schema treats null as semantically distinct.",
+          "Do not include properties unknown to the canonical command schema."
+        ],
+        "normalizationRule": "Semantically equivalent accepted inputs must be normalized by the command schema before serialization. Do not case-fold, reorder arrays, or otherwise change values unless that command's schema already defines that normalization."
+      },
+      "hashFormula": "payloadHash = lowercaseHex(SHA256(UTF8(CANONICAL_JSON_V1({actorId, commandType, payload}))))",
+      "persistedFields": [
+        "payloadHash",
+        "payloadHashVersion"
+      ],
+      "retryComparison": "For an existing (worldId, actorId, commandId), recompute COMMAND_FINGERPRINT_V1 on the retry. Matching version+hash resumes/returns the admission; any mismatch is IDEMPOTENCY_KEY_PAYLOAD_MISMATCH.",
+      "versioningRule": "Never reinterpret a persisted payloadHash under a different canonicalization algorithm. A future fingerprint format must use a new payloadHashVersion and define migration/compatibility explicitly."
+    }
+  },
+  "recurringScheduleAnchors": {
+    "clockDomain": "SIMULATION_TIME",
+    "globalEpochTick": 0,
+    "principle": "Global recurring sweeps use a canonical modular phase anchored to simulation tick 0. Their cadence alone is not sufficient; the phase is part of authoritative temporal behavior.",
+    "dueFormula": "A global sweep with cadence C and anchor A is due at tick T when T > A and (T - A) mod C == 0.",
+    "nextBoundaryFormula": "nextBoundaryTick(currentTick, cadence, anchor=0) = anchor + ceil((currentTick + 1 - anchor) / cadence) * cadence",
+    "schedules": {
+      "AI_DIRECTOR_SWEEP": {
+        "anchorTick": 0,
+        "cadenceTicks": 5,
+        "canonicalTicks": "5, 10, 15, 20, ...",
+        "nextTickFormula": "5 * ceil((currentWorldTick + 1) / 5)"
+      },
+      "WORLD_EVENT_ELIGIBILITY_SWEEP": {
+        "anchorTick": 0,
+        "cadenceTicks": 10,
+        "canonicalTicks": "10, 20, 30, 40, ...",
+        "nextTickFormula": "10 * ceil((currentWorldTick + 1) / 10)"
+      }
+    },
+    "migrationRule": [
+      "Do not replay global sweep boundaries at or before the cutover worldTick.",
+      "At cutover, compute the first future AI Director sweep as the smallest tick > worldTick divisible by 5.",
+      "At cutover, compute the first future world-event eligibility sweep as the smallest tick > worldTick divisible by 10.",
+      "Legacy lastAiDecisionTick may remain diagnostic metadata but does not define the new global AI sweep phase.",
+      "Persisted active commitments, post-action reassessment boundaries, event states, cooldowns, and other already-scheduled boundaries remain authoritative and are not delayed merely to align with a global sweep."
+    ],
+    "newWorldRule": "A new world beginning at worldTick 0 has its first global AI Director sweep at tick 5 and first world-event eligibility sweep at tick 10.",
+    "catchUpRule": "Live processing and catch-up must enumerate or safely skip the exact same anchored sweep ticks. Skipping remains legal only under the subsystem-specific proof rules and may not change RNG draw count/order.",
+    "sameTickRule": "When anchored sweeps coincide with other boundaries, canonical sameTickOrder determines subsystem execution. The anchor determines WHEN a sweep is due, not its priority inside the tick."
+  },
+  "syntheticTimeAuthority": {
+    "purpose": "Provide deterministic dev/test/CLI simulation-time advancement without bypassing the canonical accrued-target backlog or scheduler.",
+    "authorityModes": {
+      "REAL_TIME_PRODUCTION": "Authoritative production mode. Real server time plus presence/rate segments accrues simulation time. Synthetic ADVANCE_WORLD is unavailable.",
+      "SYNTHETIC_TEST": "Internal test/CLI mode. Explicit synthetic tick grants replace production wall-clock accrual for simulation-time advancement."
+    },
+    "modeIsolationRule": "One world-processing session uses one time authority mode. Do not mix production real-time accrual and synthetic tick grants as simultaneous authorities for the same interval.",
+    "publicExposure": {
+      "unityHttpAllowed": false,
+      "playerCommandAllowed": false,
+      "internalDevTestOnly": true
+    },
+    "advanceWorldSemantics": {
+      "input": "requestedSyntheticTicks: non-negative integer",
+      "semanticMaximum": "NONE_FROM_GAMEPLAY_RULES",
+      "algorithm": [
+        "Require timeAuthorityMode == SYNTHETIC_TEST.",
+        "Validate requestedSyntheticTicks is a non-negative integer.",
+        "Atomically increase accruedTargetWorldTick by requestedSyntheticTicks.",
+        "Do not directly increment worldTick.",
+        "Do not modify subTickMicroticks.",
+        "Do not modify accrualDivisionRemainder.",
+        "Do not modify lastAccrualAtMs.",
+        "Do not create or rewrite ONLINE/OFFLINE rate history.",
+        "Process the resulting backlog through the exact canonical catchUpScheduler, same-tick ordering, temporal fences, reservations, RNG ordering, and persistence semantics used by production time.",
+        "A single invocation may stop after a bounded processing slice; accruedTargetWorldTick retains all remaining synthetic backlog."
+      ]
+    },
+    "processingSliceRelationship": "The 64-tick processing slice is not a maximum synthetic grant. A test may grant more than 64 ticks; the scheduler still processes/checkpoints in bounded slices.",
+    "realWorldDeadlineRule": "ADVANCE_WORLD advances SIMULATION_TIME only. It does not move REAL_WORLD_TIME and therefore does not by itself expire presence leases, workout-session clocks, or defense-workout real-world deadlines. Tests that need real-world progression must advance/inject the test server clock separately.",
+    "determinismRule": "Granting N synthetic ticks and draining the canonical backlog must produce the same simulation state as N equivalent canonical simulation ticks under identical commands, persisted decisions, and RNG inputs.",
+    "persistenceRule": "Synthetic grants modify the same persisted accruedTargetWorldTick backlog as real-time accrual would, but only in an explicitly synthetic test environment."
+  },
+  "finalTimingBalanceDecision": {
+    "attackerCooldown": {
+      "previousTicks": 60,
+      "canonicalTicks": 30,
+      "status": "APPLIED",
+      "reason": "30 ticks better matches the established strategic timing ladder: movement 2-5, ordinary construction 6-16, City 24, human response windows 30, and City L3 30. It remains substantial without making an ordinary resolved engagement share the 60-tick world-scale duration/cooldown tier."
+    },
+    "playtestWatchNoChange": [
+      {
+        "value": "AI_POST_ACTION_REASSESSMENT_DELAY",
+        "canonicalTicks": 1,
+        "watchAlternative": 2
+      },
+      {
+        "value": "NEGOTIATE_RESEND_COOLDOWN",
+        "canonicalTicks": 10,
+        "watchAlternative": 15
+      },
+      {
+        "value": "TRADE_RESEND_COOLDOWN",
+        "canonicalTicks": 10,
+        "watchAlternative": 15
+      }
+    ]
+  },
+  "freezeMetadata": {
+    "version": "1.0",
+    "frozenDate": "2026-10-01",
+    "sourceMaster": "rep-wars-temporal-master-final-cleanup.json",
+    "sourceMasterSha256": "e05ec3ec239b73655ef1a09f2a00c3bf6273435162ca98ffa937ab8691d160c0",
+    "finalAudit": "rep-wars-temporal-final-narrow-regression-audit.json",
+    "finalAuditResult": "PASS",
+    "knownUnresolvedTemporalFindings": 0,
+    "numericRetuneRequiredBeforeImplementation": false,
+    "implementationAuthority": true,
+    "rule": "This file is the canonical v1.0 temporal implementation authority. Historical passes/audits are provenance only. Future changes require an explicit new version or amendment; do not silently reinterpret v1.0."
+  }
+}
