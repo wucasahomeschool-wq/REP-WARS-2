@@ -158,6 +158,23 @@ function migrateGameplaySessionLeases(state: Record<string, unknown>, schema: nu
   if (schema < 15) state.gameplaySessionLeases = [];
 }
 
+/**
+ * Schema 15 leases have no command receipt. Stamp an empty receipt so
+ * schema 16 can tell "no committed command" from a missing authority field.
+ * A payload already at schema 16 is not rewritten.
+ */
+function migrateGameplayCommandReceipts(state: Record<string, unknown>, schema: number): void {
+  if (schema >= 16) return;
+  const leases = state.gameplaySessionLeases;
+  if (!Array.isArray(leases)) return;
+  for (const lease of leases) {
+    if (!lease || typeof lease !== 'object' || Array.isArray(lease)) continue;
+    const record = lease as Record<string, unknown>;
+    if (!('lastCommandSequence' in record)) record.lastCommandSequence = null;
+    if (!('lastCommandReceipt' in record)) record.lastCommandReceipt = null;
+  }
+}
+
 function nonNegativeSafeInt(value: unknown): number | null {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
@@ -270,6 +287,7 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   }
   migrateTemporalAccrual(state, schema, worldTick);
   migrateGameplaySessionLeases(state, schema);
+  migrateGameplayCommandReceipts(state, schema);
   if (!Number.isInteger(state.lastFoodConsumptionTick) || (state.lastFoodConsumptionTick as number) < 0) {
     state.lastFoodConsumptionTick = worldTick;
   }

@@ -12,6 +12,11 @@ namespace RepWars
     {
         public string baseUrl = RepWarsApiClient.DefaultBaseUrl;
         public string playerId = "player_local";
+        bool heartbeatStarted;
+        bool quitting;
+
+        public RepWarsApiClient Client { get; private set; }
+        public RepWarsGameplaySession GameplaySession { get; private set; }
 
         static readonly Color[] OwnerPalette =
         {
@@ -51,8 +56,43 @@ namespace RepWars
             }
             EnsureHud();
             hud.text = status;
+            Client = new RepWarsApiClient(baseUrl);
+            GameplaySession = new RepWarsGameplaySession();
             if (GetComponent<RepWarsPlayLoop>() == null) gameObject.AddComponent<RepWarsPlayLoop>();
             StartCoroutine(Boot());
+        }
+
+        public RepWarsGameplaySession EnsureGameplaySession()
+        {
+            if (Client == null) Client = new RepWarsApiClient(baseUrl);
+            if (GameplaySession == null) GameplaySession = new RepWarsGameplaySession();
+            return GameplaySession;
+        }
+
+        public void EnsureHeartbeat()
+        {
+            EnsureGameplaySession();
+            if (heartbeatStarted || quitting) return;
+            heartbeatStarted = true;
+            StartCoroutine(RepWarsSessionDriver.Heartbeat(Client, GameplaySession, playerId, () => quitting));
+        }
+
+        void OnApplicationPause(bool paused)
+        {
+            // Losing focus does not end the gameplay session. Heartbeats continue while the app is running.
+            if (paused) return;
+        }
+
+        void OnApplicationFocus(bool hasFocus)
+        {
+            // Focus returning does not open or end a session.
+            if (hasFocus) return;
+        }
+
+        void OnApplicationQuit()
+        {
+            quitting = true;
+            RepWarsSessionDriver.EndBestEffort(Client, GameplaySession, playerId);
         }
 
         public string SelectedTerritoryId
@@ -110,18 +150,21 @@ namespace RepWars
 
         IEnumerator Boot()
         {
-            var client = new RepWarsApiClient(baseUrl);
+            if (Client == null) Client = new RepWarsApiClient(baseUrl);
+            if (GameplaySession == null) GameplaySession = new RepWarsGameplaySession();
             RepWarsCommandResult stateResult = null;
-            yield return client.GetGameState(playerId, result => stateResult = result);
+            yield return Client.GetGameState(playerId, result => stateResult = result);
             if (stateResult == null || !stateResult.TransportOk || stateResult.Response.payload == null)
             {
                 Fail(stateResult != null ? stateResult.Failure : "GET_GAME_STATE failed");
                 yield break;
             }
             gameState = stateResult.Response.payload.gameState;
+            yield return RepWarsSessionDriver.Open(Client, GameplaySession, playerId, false);
+            EnsureHeartbeat();
 
             RepWarsCommandResult definitionResult = null;
-            yield return client.GetWorldDefinition(playerId, result => definitionResult = result);
+            yield return Client.GetWorldDefinition(playerId, result => definitionResult = result);
             if (definitionResult == null || !definitionResult.TransportOk)
             {
                 Fail(definitionResult != null ? definitionResult.Failure : "GET_WORLD_DEFINITION failed");
@@ -149,7 +192,7 @@ namespace RepWars
             }
 
             VisibleWorldResult visibleResult = null;
-            yield return client.GetVisibleWorld(playerId, result => visibleResult = result);
+            yield return Client.GetVisibleWorld(playerId, result => visibleResult = result);
             if (visibleResult != null && visibleResult.TransportOk) visibleWorld = visibleResult.World;
 
             BuildMap();

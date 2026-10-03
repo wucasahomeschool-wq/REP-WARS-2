@@ -58,7 +58,7 @@ export function registerPresenceLeaseTests(api: PresenceLeaseTestApi): void {
     assert.strictEqual(BALANCE.temporal.presenceLeaseDurationMs, LEASE_MS);
     assert.strictEqual(BALANCE.temporal.onlineRatePpm, 1_000_000);
     assert.strictEqual(BALANCE.temporal.offlineRatePpm, 100_000);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 15);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 16);
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'world', 'presenceLeases.ts'), 'utf8');
     assert.ok(!src.includes('GameState'));
     assert.ok(!src.includes('Math.'));

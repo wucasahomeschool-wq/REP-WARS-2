@@ -82,6 +82,9 @@ import { registerWorldAccrualTests } from './worldAccrual';
 import { registerTemporalBoundaryTests } from './temporalBoundaries';
 import { registerPresenceLeaseTests } from './presenceLeases';
 import { registerGameplaySessionLeasePersistenceTests } from './gameplaySessionLeases';
+import { runGameplaySessionLifecycleTests } from './gameplaySessionLifecycle';
+import { runCommandIdempotencyTests } from './commandIdempotency';
+import { runSessionReplayTests } from './sessionReplay';
 import { registerSupabasePersistenceTests } from './supabasePersistence';
 import {
   assertFailedWorldSaveRollsHistoryBack,
@@ -3349,6 +3352,42 @@ void (async () => {
     console.error('  ✗ supabase server restart restores the empire');
     console.error(`    ${msg}`);
   }
+  await runCommandIdempotencyTests(async (name, fn) => {
+    try {
+      await fn();
+      passed++;
+      console.log(`  ✓ ${name}`);
+    } catch (err) {
+      failed++;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`  ✗ ${name}`);
+      console.error(`    ${msg}`);
+    }
+  });
+  await runSessionReplayTests(async (name, fn) => {
+    try {
+      await fn();
+      passed++;
+      console.log(`  ✓ ${name}`);
+    } catch (err) {
+      failed++;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`  ✗ ${name}`);
+      console.error(`    ${msg}`);
+    }
+  });
+  await runGameplaySessionLifecycleTests(async (name, fn) => {
+    try {
+      await fn();
+      passed++;
+      console.log(`  ✓ ${name}`);
+    } catch (err) {
+      failed++;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`  ✗ ${name}`);
+      console.error(`    ${msg}`);
+    }
+  });
   console.log('');
   console.log(`Results: ${passed} passed, ${failed} failed`);
   if (failed > 0) {

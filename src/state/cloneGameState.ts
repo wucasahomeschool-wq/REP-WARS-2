@@ -280,6 +280,19 @@ function cloneGameplaySessionLease(
     endedAtMs: lease.endedAtMs,
     lastReceiptAtMs: lease.lastReceiptAtMs,
     lastRenewalRequestId: lease.lastRenewalRequestId,
+    lastRenewalSequence: lease.lastRenewalSequence ?? null,
+    openedByRequestId: lease.openedByRequestId ?? null,
+    lastCommandSequence: lease.lastCommandSequence ?? null,
+    lastCommandReceipt: lease.lastCommandReceipt == null
+      ? null
+      : {
+        sequence: lease.lastCommandReceipt.sequence,
+        requestId: lease.lastCommandReceipt.requestId,
+        commandId: lease.lastCommandReceipt.commandId,
+        success: lease.lastCommandReceipt.success,
+        payload: JSON.parse(JSON.stringify(lease.lastCommandReceipt.payload)) as Record<string, unknown>,
+        errors: lease.lastCommandReceipt.errors.map((error) => ({ code: error.code, message: error.message })),
+      },
   };
 }
 

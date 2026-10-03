@@ -207,7 +207,7 @@ export function registerEconomyFoundationTests({ test }: EconomyFoundationTestAp
   test('schema 15 seeds food clock at worldTick and empty infrastructure occupancy', () => {
     const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'iron_kingdom' });
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 15);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 16);
     assert.strictEqual(state.lastFoodConsumptionTick, state.worldTick);
     assert.strictEqual(state.territoryInfrastructure.size, state.territories.size);
     for (const territory of state.territories.values()) {

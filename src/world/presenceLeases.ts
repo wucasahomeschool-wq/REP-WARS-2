@@ -31,8 +31,42 @@ export interface GameplaySessionLease {
   /** Explicit disconnect instant. Null when the lease ends only by expiry. */
   endedAtMs: number | null;
   lastReceiptAtMs: number;
-  /** Null until a renewal has committed. A replay of this id must not extend again. */
+  /**
+   * Request id of the latest committed renewal. This alone remembers one id.
+   * Older renewals stay idempotent through `lastRenewalSequence`.
+   */
   lastRenewalRequestId: string | null;
+  /**
+   * Monotonic renewal order for this session. Null until a sequenced renewal
+   * commits. It is not a timestamp. A later HTTP arrival cannot apply an
+   * equal or lower sequence again.
+   */
+  lastRenewalSequence?: number | null;
+  /**
+   * Open-request key that created this lease. Null when that key was not stored.
+   * A replay finds this lease and does not open another. It is not a renewal id.
+   */
+  openedByRequestId?: string | null;
+  /**
+   * Monotonic gameplay-command order for this session. Null until a public
+   * state-changing command commits. Independent of `lastRenewalSequence`.
+   */
+  lastCommandSequence?: number | null;
+  /**
+   * Compact result of the latest committed gameplay command on this session.
+   * Older commands are not retained. Null until the first command commits.
+   */
+  lastCommandReceipt?: GameplayCommandReceipt | null;
+}
+
+/** One committed public command. Not a world snapshot and not a lease renewal. */
+export interface GameplayCommandReceipt {
+  sequence: number;
+  requestId: string;
+  commandId: string;
+  success: boolean;
+  payload: Record<string, unknown>;
+  errors: { code: string; message: string }[];
 }
 
 export type LeaseRenewalResult =
@@ -40,6 +74,10 @@ export type LeaseRenewalResult =
   | { outcome: 'idempotent_replay'; lease: GameplaySessionLease }
   | { outcome: 'expired'; lease: GameplaySessionLease }
   | { outcome: 'ended'; lease: GameplaySessionLease };
+
+export type SequencedLeaseRenewal =
+  | LeaseRenewalResult
+  | { outcome: 'stale'; lease: GameplaySessionLease };
 
 export type LeaseEndResult =
   | { outcome: 'ended'; lease: GameplaySessionLease }
@@ -73,7 +111,13 @@ export function validateGameplaySessionLease(lease: GameplaySessionLease): Gamep
     }
   }
   if (lease.lastRenewalRequestId !== null) assertRequestId(lease.lastRenewalRequestId);
-  return copyLease(lease);
+  return copyLease(
+    lease,
+    readOpenedByRequestId(lease),
+    readLastRenewalSequence(lease),
+    readLastCommandSequence(lease),
+    readLastCommandReceipt(lease),
+  );
 }
 
 export function gameplaySessionLeaseEffectiveEndMs(lease: GameplaySessionLease): number {
@@ -133,10 +177,13 @@ export function openGameplaySessionLease(input: {
   sessionId: string;
   receiptMs: number | string | Date;
   leaseDurationMs?: number;
+  openedByRequestId?: string | null;
 }): GameplaySessionLease {
   assertSessionId(input.sessionId);
   const openedAtMs = assertEpochMs(utcEpochMs(input.receiptMs), 'Lease open instant');
   const leaseDurationMs = resolveLeaseDuration(input.leaseDurationMs);
+  const openedByRequestId = input.openedByRequestId == null ? null : input.openedByRequestId;
+  if (openedByRequestId !== null) assertRequestId(openedByRequestId);
   return validateGameplaySessionLease({
     sessionId: input.sessionId,
     openedAtMs,
@@ -144,6 +191,10 @@ export function openGameplaySessionLease(input: {
     endedAtMs: null,
     lastReceiptAtMs: openedAtMs,
     lastRenewalRequestId: null,
+    lastRenewalSequence: null,
+    openedByRequestId,
+    lastCommandSequence: null,
+    lastCommandReceipt: null,
   });
 }
 
@@ -177,6 +228,43 @@ export function renewGameplaySessionLease(
       expiresAtMs: addEpochMs(receipt, duration, 'Lease expiry'),
       lastReceiptAtMs: receipt,
       lastRenewalRequestId: requestId,
+    }),
+  };
+}
+
+/**
+ * Renewal with a per-session sequence.
+ * Equal to the committed sequence is a replay and does not extend.
+ * Lower is stale and does not extend, even when this arrival's receipt is later.
+ * Higher uses server receipt time. An earlier receipt than the committed
+ * receipt does not regress the lease.
+ */
+export function renewGameplaySessionLeaseAtSequence(
+  lease: GameplaySessionLease,
+  receiptMs: number | string | Date,
+  requestId: string,
+  renewalSequence: number,
+  leaseDurationMs?: number,
+): SequencedLeaseRenewal {
+  assertRenewalSequence(renewalSequence);
+  const current = validateGameplaySessionLease(lease);
+  const last = current.lastRenewalSequence ?? null;
+  if (last !== null && renewalSequence === last) {
+    return { outcome: 'idempotent_replay', lease: current };
+  }
+  if (last !== null && renewalSequence < last) {
+    return { outcome: 'stale', lease: current };
+  }
+  if (current.lastRenewalRequestId === requestId) {
+    return { outcome: 'idempotent_replay', lease: current };
+  }
+  const result = renewGameplaySessionLease(current, receiptMs, requestId, leaseDurationMs);
+  if (result.outcome !== 'renewed') return result;
+  return {
+    outcome: 'renewed',
+    lease: validateGameplaySessionLease({
+      ...result.lease,
+      lastRenewalSequence: renewalSequence,
     }),
   };
 }
@@ -301,7 +389,83 @@ function assertRequestId(requestId: string): void {
   }
 }
 
-function copyLease(lease: GameplaySessionLease): GameplaySessionLease {
+function readOpenedByRequestId(lease: GameplaySessionLease): string | null {
+  if (lease.openedByRequestId == null) return null;
+  assertRequestId(lease.openedByRequestId);
+  return lease.openedByRequestId;
+}
+
+function readLastRenewalSequence(lease: GameplaySessionLease): number | null {
+  if (lease.lastRenewalSequence == null) return null;
+  assertRenewalSequence(lease.lastRenewalSequence);
+  return lease.lastRenewalSequence;
+}
+
+function readLastCommandSequence(lease: GameplaySessionLease): number | null {
+  if (lease.lastCommandSequence == null) return null;
+  assertRenewalSequence(lease.lastCommandSequence);
+  return lease.lastCommandSequence;
+}
+
+function readLastCommandReceipt(
+  lease: GameplaySessionLease,
+): GameplayCommandReceipt | null {
+  const sequence = lease.lastCommandSequence ?? null;
+  const receipt = lease.lastCommandReceipt ?? null;
+  if (sequence === null && receipt === null) return null;
+  if (sequence === null || receipt === null) {
+    throw new Error('Gameplay command receipt does not match its sequence');
+  }
+  if (receipt.sequence !== sequence) {
+    throw new Error('Gameplay command receipt does not match its sequence');
+  }
+  assertRenewalSequence(receipt.sequence);
+  assertRequestId(receipt.requestId);
+  if (typeof receipt.commandId !== 'string' || receipt.commandId.trim() === '' || receipt.commandId !== receipt.commandId.trim()) {
+    throw new Error('Gameplay command receipt command id is required');
+  }
+  if (typeof receipt.success !== 'boolean') {
+    throw new Error('Gameplay command receipt success flag is required');
+  }
+  if (receipt.payload == null || typeof receipt.payload !== 'object' || Array.isArray(receipt.payload)) {
+    throw new Error('Gameplay command receipt payload is invalid');
+  }
+  if (!Array.isArray(receipt.errors)) {
+    throw new Error('Gameplay command receipt errors are invalid');
+  }
+  const errors = receipt.errors.map((error) => {
+    if (error == null || typeof error !== 'object' || typeof error.code !== 'string' || typeof error.message !== 'string') {
+      throw new Error('Gameplay command receipt errors are invalid');
+    }
+    return { code: error.code, message: error.message };
+  });
+  return {
+    sequence: receipt.sequence,
+    requestId: receipt.requestId,
+    commandId: receipt.commandId,
+    success: receipt.success,
+    payload: cloneJsonRecord(receipt.payload),
+    errors,
+  };
+}
+
+function cloneJsonRecord(value: Record<string, unknown>): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+}
+
+function assertRenewalSequence(renewalSequence: number): void {
+  if (typeof renewalSequence !== 'number' || !Number.isSafeInteger(renewalSequence) || renewalSequence < 1) {
+    throw new Error('Renewal sequence must be a positive safe integer');
+  }
+}
+
+function copyLease(
+  lease: GameplaySessionLease,
+  openedByRequestId: string | null,
+  lastRenewalSequence: number | null,
+  lastCommandSequence: number | null,
+  lastCommandReceipt: GameplayCommandReceipt | null,
+): GameplaySessionLease {
   return {
     sessionId: lease.sessionId,
     openedAtMs: lease.openedAtMs,
@@ -309,6 +473,10 @@ function copyLease(lease: GameplaySessionLease): GameplaySessionLease {
     endedAtMs: lease.endedAtMs,
     lastReceiptAtMs: lease.lastReceiptAtMs,
     lastRenewalRequestId: lease.lastRenewalRequestId,
+    lastRenewalSequence,
+    openedByRequestId,
+    lastCommandSequence,
+    lastCommandReceipt,
   };
 }
 

@@ -84,8 +84,11 @@ import { GameRewardResult } from '../rewards/types';
  *     process gameplay and does not replace `lastProcessedAtMs`.
  * 15 = Durable gameplay-session leases (`gameplaySessionLeases`). Leases
  *     are presence authority. They do not accrue time or compact history.
+ * 16 = Per-session gameplay command receipt (`lastCommandSequence`,
+ *     `lastCommandReceipt`). One committed result per session. This is
+ *     command idempotency, not presence and not world time.
  */
-export const GAME_STATE_SCHEMA_VERSION = 15;
+export const GAME_STATE_SCHEMA_VERSION = 16;
 
 export type InvasionId = string;
 

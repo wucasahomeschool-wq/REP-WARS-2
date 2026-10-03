@@ -19,6 +19,9 @@ export const ErrorCode = {
   INVALID_CHOICE: 'INVALID_CHOICE',
   NOT_ADJACENT: 'NOT_ADJACENT',
   WORKOUT_SESSION_INVALID: 'WORKOUT_SESSION_INVALID',
+  GAMEPLAY_SESSION_INVALID: 'GAMEPLAY_SESSION_INVALID',
+  COMMAND_STALE: 'COMMAND_STALE',
+  COMMAND_SEQUENCE_CONFLICT: 'COMMAND_SEQUENCE_CONFLICT',
   TIME_UNAUTHORIZED: 'TIME_UNAUTHORIZED',
 } as const;
 
@@ -65,5 +68,8 @@ export const ERROR_CATALOG: Record<ErrorCode, { meaning: string; httpHint?: numb
   INVALID_CHOICE: { meaning: 'Event choice id is not available on that event' },
   NOT_ADJACENT: { meaning: 'Territories are not neighbors' },
   WORKOUT_SESSION_INVALID: { meaning: 'No matching active workout session' },
+  GAMEPLAY_SESSION_INVALID: { meaning: 'The gameplay session is missing, expired, ended, or cannot be renewed' },
+  COMMAND_STALE: { meaning: 'This gameplay command sequence is older than the committed command on that session' },
+  COMMAND_SEQUENCE_CONFLICT: { meaning: 'This gameplay command sequence was already committed for a different request' },
   TIME_UNAUTHORIZED: { meaning: 'Requested world time is beyond the authoritative clock or would rewind state' },
 };

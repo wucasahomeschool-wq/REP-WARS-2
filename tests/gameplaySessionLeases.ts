@@ -74,8 +74,8 @@ export function registerGameplaySessionLeasePersistenceTests(api: GameplaySessio
 
   test('a new world starts with no gameplay-session leases', () => {
     const state = createGameState();
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 15);
-    assert.strictEqual(state.schemaVersion, 15);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 16);
+    assert.strictEqual(state.schemaVersion, 16);
     assert.deepStrictEqual(state.gameplaySessionLeases, []);
     assert.deepStrictEqual(checkGameStateInvariants(state), []);
   });
@@ -96,7 +96,7 @@ export function registerGameplaySessionLeasePersistenceTests(api: GameplaySessio
     const loaded = putPayload('repwars_lease_schema14', decoded, 14, 40).load('repwars_lease_schema14');
     assert.strictEqual(loaded.ok, true, loaded.ok ? '' : loaded.message);
     if (!loaded.ok) return;
-    assert.strictEqual(loaded.state.schemaVersion, 15);
+    assert.strictEqual(loaded.state.schemaVersion, 16);
     assert.deepStrictEqual(loaded.state.gameplaySessionLeases, []);
     assert.deepStrictEqual(temporal(loaded.state), before);
     assert.deepStrictEqual(checkGameStateInvariants(loaded.state), []);

@@ -64,18 +64,27 @@ function checkGameplaySessionLeases(
     return;
   }
   const seen = new Set<string>();
+  const openRequests = new Set<string>();
   for (const lease of leases) {
+    let valid;
     try {
-      validateGameplaySessionLease(lease);
+      valid = validateGameplaySessionLease(lease);
     } catch {
       push('world.invalid_gameplay_session_leases', 'gameplaySessionLeases contains invalid authority');
       return;
     }
-    if (seen.has(lease.sessionId)) {
+    if (seen.has(valid.sessionId)) {
       push('world.invalid_gameplay_session_leases', 'gameplaySessionLeases contains a duplicate session id');
       return;
     }
-    seen.add(lease.sessionId);
+    seen.add(valid.sessionId);
+    if (valid.openedByRequestId != null) {
+      if (openRequests.has(valid.openedByRequestId)) {
+        push('world.invalid_gameplay_session_leases', 'gameplaySessionLeases contains a duplicate open request id');
+        return;
+      }
+      openRequests.add(valid.openedByRequestId);
+    }
   }
 }
 

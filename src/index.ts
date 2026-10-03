@@ -277,6 +277,7 @@ export {
   derivePresenceSegments,
   openGameplaySessionLease,
   renewGameplaySessionLease,
+  renewGameplaySessionLeaseAtSequence,
   endGameplaySessionLease,
 } from './world';
 export type {
@@ -304,6 +305,7 @@ export type {
   DerivedBoundaryInput,
   GameplaySessionLease,
   LeaseRenewalResult,
+  SequencedLeaseRenewal,
   LeaseEndResult,
 } from './world';
 

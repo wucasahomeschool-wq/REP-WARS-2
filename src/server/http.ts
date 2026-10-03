@@ -1,6 +1,7 @@
 import { IncomingMessage, Server, ServerResponse, createServer } from 'node:http';
 import { CommandRequest } from '../orchestration/protocol';
 import { BadRequestError, resolvePlayerId } from './identity';
+import { GameplaySessionReceiptError } from './gameplaySessionLifecycle';
 import { CommandNotExposedError, CommandSessionHost, PersistenceFailedError } from './session';
 
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -82,6 +83,15 @@ function commandFromBody(req: IncomingMessage, parsed: unknown): CommandRequest 
   if (body.requestId !== undefined && typeof body.requestId !== 'string') {
     throw new BadRequestError('requestId must be a string');
   }
+  if (body.gameplaySessionId !== undefined && typeof body.gameplaySessionId !== 'string') {
+    throw new BadRequestError('gameplaySessionId must be a string');
+  }
+  if (body.renewalSequence !== undefined && typeof body.renewalSequence !== 'number') {
+    throw new BadRequestError('renewalSequence must be a positive safe integer');
+  }
+  if (body.commandSequence !== undefined && typeof body.commandSequence !== 'number') {
+    throw new BadRequestError('commandSequence must be a positive safe integer');
+  }
   const playerId = resolvePlayerId(req, body);
   return {
     commandId: body.commandId,
@@ -90,18 +100,98 @@ function commandFromBody(req: IncomingMessage, parsed: unknown): CommandRequest 
     parameters: optionalObject(body.parameters, 'parameters'),
     clientContext: optionalObject(body.clientContext, 'clientContext'),
     requestId: body.requestId as string | undefined,
+    gameplaySessionId: body.gameplaySessionId as string | undefined,
+    renewalSequence: body.renewalSequence as number | undefined,
+    commandSequence: body.commandSequence as number | undefined,
   };
 }
 
-async function handleCommand(req: IncomingMessage, res: ServerResponse, host: CommandSessionHost): Promise<void> {
+async function readJsonObject(req: IncomingMessage): Promise<Record<string, unknown>> {
   if (!isJsonContentType(req)) {
-    sendJson(res, 400, { error: 'BAD_REQUEST', message: 'Content-Type must be application/json' });
-    return;
+    throw new BadRequestError('Content-Type must be application/json');
   }
   let parsed: unknown;
   try {
-    const text = await readBody(req);
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(await readBody(req));
+  } catch (err) {
+    if (err instanceof BadRequestError) throw err;
+    throw new BadRequestError('Malformed JSON');
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new BadRequestError('Request body must be a JSON object');
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function requireRequestId(body: Record<string, unknown>): string {
+  if (typeof body.requestId !== 'string') throw new BadRequestError('requestId must be a non-empty string');
+  return body.requestId;
+}
+
+function requireRenewalSequence(body: Record<string, unknown>): number {
+  if (typeof body.renewalSequence !== 'number' || !Number.isSafeInteger(body.renewalSequence) || body.renewalSequence < 1) {
+    throw new BadRequestError('renewalSequence must be a positive safe integer');
+  }
+  return body.renewalSequence;
+}
+
+function requireGameplaySessionId(body: Record<string, unknown>): string {
+  if (typeof body.gameplaySessionId !== 'string') {
+    throw new BadRequestError('gameplaySessionId must be a non-empty string');
+  }
+  return body.gameplaySessionId;
+}
+
+async function handleSession(
+  req: IncomingMessage,
+  res: ServerResponse,
+  host: CommandSessionHost,
+  kind: 'open' | 'heartbeat' | 'end',
+): Promise<void> {
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonObject(req);
+  } catch (err) {
+    const message = err instanceof BadRequestError ? err.message : 'Malformed request';
+    sendJson(res, 400, { error: 'BAD_REQUEST', message });
+    return;
+  }
+  try {
+    const playerId = resolvePlayerId(req, body);
+    const requestId = requireRequestId(body);
+    const view = kind === 'open'
+      ? await host.openGameplaySession(playerId, requestId)
+      : kind === 'heartbeat'
+        ? await host.heartbeatGameplaySession(
+          playerId,
+          requestId,
+          requireGameplaySessionId(body),
+          requireRenewalSequence(body),
+        )
+        : await host.endGameplaySession(playerId, requestId, requireGameplaySessionId(body));
+    sendJson(res, 200, view);
+  } catch (err) {
+    if (err instanceof BadRequestError) {
+      sendJson(res, 400, { error: 'BAD_REQUEST', message: err.message });
+      return;
+    }
+    if (err instanceof GameplaySessionReceiptError) {
+      sendJson(res, 409, { error: 'STALE_RECEIPT', message: err.message });
+      return;
+    }
+    if (err instanceof PersistenceFailedError) {
+      sendJson(res, 500, { error: 'PERSISTENCE_FAILED', message: err.message, code: err.code });
+      return;
+    }
+    const message = err instanceof Error ? err.message : 'Internal error';
+    sendJson(res, 500, { error: 'INTERNAL', message });
+  }
+}
+
+async function handleCommand(req: IncomingMessage, res: ServerResponse, host: CommandSessionHost): Promise<void> {
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = await readJsonObject(req);
   } catch (err) {
     const message = err instanceof BadRequestError ? err.message : 'Malformed JSON';
     sendJson(res, 400, { error: 'BAD_REQUEST', message });
@@ -137,6 +227,15 @@ export function createCommandHttpServer(host: CommandSessionHost): Server {
     const path = pathname(req);
     if (req.method === 'GET' && path === '/health') {
       sendJson(res, 200, { ok: true, service: 'rep-wars', persistence: host.persistenceName });
+      return;
+    }
+    if (req.method === 'POST' && (path === '/session/open' || path === '/session/heartbeat' || path === '/session/end')) {
+      const kind = path === '/session/open' ? 'open' : path === '/session/heartbeat' ? 'heartbeat' : 'end';
+      void handleSession(req, res, host, kind).catch((err: unknown) => {
+        if (res.headersSent) return;
+        const message = err instanceof Error ? err.message : 'Internal error';
+        sendJson(res, 500, { error: 'INTERNAL', message });
+      });
       return;
     }
     if (req.method === 'POST' && path === '/commands') {

@@ -77,11 +77,13 @@ export {
   derivePresenceSegments,
   openGameplaySessionLease,
   renewGameplaySessionLease,
+  renewGameplaySessionLeaseAtSequence,
   endGameplaySessionLease,
 } from './presenceLeases';
 export type {
   GameplaySessionLease,
   LeaseRenewalResult,
+  SequencedLeaseRenewal,
   LeaseEndResult,
 } from './presenceLeases';
 export {

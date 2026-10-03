@@ -464,7 +464,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     const loaded = store.load(PLAYER_ID);
     assert.ok(loaded.ok, loaded.ok ? '' : loaded.message);
     assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 15);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 16);
     assert.strictEqual(loaded.state.lastFoodConsumptionTick, 40);
     assert.ok(loaded.state.territoryInfrastructure instanceof Map);
     assert.strictEqual(loaded.state.territoryInfrastructure.size, 0);

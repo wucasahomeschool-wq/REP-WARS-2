@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -56,7 +57,7 @@ namespace RepWars
         void Awake()
         {
             map = GetComponent<RepWarsMapScreen>();
-            client = new RepWarsApiClient(map.baseUrl);
+            BindClient();
         }
 
         void Update()
@@ -198,7 +199,7 @@ namespace RepWars
         {
             busy = true;
             notice = "Choosing a workout...";
-            client = new RepWarsApiClient(map.baseUrl);
+            BindClient();
             if (exerciseNames.Count == 0) yield return LoadCatalog();
             RepWarsCommandResult selection = null;
             yield return client.PostCommand("GET_WORKOUT_SELECTION", map.playerId, NextId("select"), "{\"purpose\":\"" + purpose + "\"}", result => selection = result);
@@ -208,7 +209,7 @@ namespace RepWars
             if (purpose == "DEFENSE" && string.IsNullOrEmpty(invasionId)) invasionId = InvasionId(selection.RawJson);
             var startParams = "{\"purpose\":\"" + purpose + "\"" + (string.IsNullOrEmpty(invasionId) ? "" : ",\"invasionId\":\"" + invasionId + "\"") + "}";
             RepWarsCommandResult started = null;
-            yield return client.PostCommand("START_WORKOUT", map.playerId, NextId("start"), startParams, result => started = result);
+            yield return PostMutating("START_WORKOUT", startParams, result => started = result);
             if (!Ok(started)) { busy = false; yield break; }
             var selectedId = RepWarsJson.FindString(started.RawJson, "selectedWorkoutId");
             if (!string.IsNullOrEmpty(selectedId) && workoutNames.TryGetValue(selectedId, out var named)) workoutTitle = named;
@@ -231,7 +232,7 @@ namespace RepWars
             if (step.prescription.kind == "repetitions") parameters += "\"repetitions\":" + step.prescription.repetitions + "}";
             else parameters += "\"durationSeconds\":" + step.prescription.durationSeconds + "}";
             RepWarsCommandResult recorded = null;
-            yield return client.PostCommand("RECORD_EXERCISE", map.playerId, NextId("record"), parameters, result => recorded = result);
+            yield return PostMutating("RECORD_EXERCISE", parameters, result => recorded = result);
             if (!Ok(recorded)) { busy = false; yield break; }
             yield return RefreshState();
             notice = "Exercise recorded.";
@@ -248,7 +249,7 @@ namespace RepWars
             }
             busy = true;
             RepWarsCommandResult skipped = null;
-            yield return client.PostCommand("SKIP_REST", map.playerId, NextId("skip"), "{\"order\":" + step.order + ",\"now\":" + NextClock() + "}", result => skipped = result);
+            yield return PostMutating("SKIP_REST", "{\"order\":" + step.order + ",\"now\":" + NextClock() + "}", result => skipped = result);
             if (!Ok(skipped)) { busy = false; yield break; }
             yield return RefreshState();
             notice = "Rest skipped.";
@@ -262,7 +263,7 @@ namespace RepWars
             busy = true;
             var command = session.state == "PAUSED" ? "RESUME_WORKOUT" : "PAUSE_WORKOUT";
             RepWarsCommandResult toggled = null;
-            yield return client.PostCommand(command, map.playerId, NextId("pause"), "{\"now\":" + NextClock() + "}", result => toggled = result);
+            yield return PostMutating(command, "{\"now\":" + NextClock() + "}", result => toggled = result);
             if (!Ok(toggled)) { busy = false; yield break; }
             yield return RefreshState();
             notice = command == "PAUSE_WORKOUT" ? "Paused." : "Resumed.";
@@ -273,7 +274,7 @@ namespace RepWars
         {
             busy = true;
             RepWarsCommandResult sent = null;
-            yield return client.PostCommand("SUBMIT_WORKOUT_FEEDBACK", map.playerId, NextId("feedback"), "{\"value\":\"" + value + "\",\"now\":" + NextClock() + "}", result => sent = result);
+            yield return PostMutating("SUBMIT_WORKOUT_FEEDBACK", "{\"value\":\"" + value + "\",\"now\":" + NextClock() + "}", result => sent = result);
             if (!Ok(sent)) { busy = false; yield break; }
             yield return RefreshState();
             notice = "Feedback sent.";
@@ -323,7 +324,7 @@ namespace RepWars
         {
             busy = true;
             RepWarsCommandResult finalized = null;
-            yield return client.PostCommand("FINALIZE_WORKOUT", map.playerId, NextId("finalize"), "{\"now\":" + NextClock() + "}", result => finalized = result);
+            yield return PostMutating("FINALIZE_WORKOUT", "{\"now\":" + NextClock() + "}", result => finalized = result);
             if (!Ok(finalized)) { busy = false; yield break; }
             var payload = RepWarsJson.Object(finalized.RawJson, "payload");
             var invasionOutcome = RepWarsJson.FindString(payload, "invasionOutcome");
@@ -376,10 +377,10 @@ namespace RepWars
             }
             busy = true;
             notice = "";
-            client = new RepWarsApiClient(map.baseUrl);
+            BindClient();
             RepWarsCommandResult attacked = null;
             var parameters = "{\"territoryId\":\"" + territoryId + "\",\"commitAmount\":" + commitAmount + "}";
-            yield return client.PostCommand("ATTACK", map.playerId, NextId("attack"), parameters, result => attacked = result);
+            yield return PostMutating("ATTACK", parameters, result => attacked = result);
             if (!Ok(attacked))
             {
                 yield return RefreshMap();
@@ -419,10 +420,10 @@ namespace RepWars
             }
             busy = true;
             notice = "";
-            client = new RepWarsApiClient(map.baseUrl);
+            BindClient();
             RepWarsCommandResult started = null;
             var parameters = "{\"territoryId\":\"" + territoryId + "\",\"projectType\":\"" + projectType + "\"}";
-            yield return client.PostCommand("START_CONSTRUCTION", map.playerId, NextId("build"), parameters, result => started = result);
+            yield return PostMutating("START_CONSTRUCTION", parameters, result => started = result);
             if (!Ok(started)) { busy = false; yield break; }
             var payload = RepWarsJson.Object(started.RawJson, "payload");
             var kind = RepWarsJson.FindString(payload, "projectType");
@@ -440,7 +441,7 @@ namespace RepWars
         {
             busy = true;
             notice = "Reloading authoritative state...";
-            client = new RepWarsApiClient(map.baseUrl);
+            BindClient();
             var before = map.LiveState;
             yield return RefreshMap();
             if (map.LiveState == null)
@@ -475,7 +476,7 @@ namespace RepWars
 
         IEnumerator RefreshMap()
         {
-            if (client == null) client = new RepWarsApiClient(map.baseUrl);
+            BindClient();
             RepWarsCommandResult state = null;
             yield return client.GetGameState(map.playerId, result => state = result);
             if (!Ok(state) || state.Response.payload == null || state.Response.payload.gameState == null) yield break;
@@ -488,6 +489,114 @@ namespace RepWars
                 yield break;
             }
             map.PresentAuthoritative(state.Response.payload.gameState, visible.World);
+        }
+
+        void BindClient()
+        {
+            if (map == null) map = GetComponent<RepWarsMapScreen>();
+            if (map != null && map.Client != null) client = map.Client;
+            if (client == null) client = new RepWarsApiClient(map != null ? map.baseUrl : RepWarsApiClient.DefaultBaseUrl);
+        }
+
+        IEnumerator PostMutating(string commandId, string parametersJson, Action<RepWarsCommandResult> onComplete)
+        {
+            BindClient();
+            if (map == null)
+            {
+                onComplete?.Invoke(FailedResult("The empire session is not ready."));
+                yield break;
+            }
+            var gameplay = map.EnsureGameplaySession();
+            if (gameplay.Phase != RepWarsSessionPhase.Active)
+            {
+                var replacement = gameplay.Phase == RepWarsSessionPhase.Expired || gameplay.Phase == RepWarsSessionPhase.Ended;
+                yield return RepWarsSessionDriver.Open(client, gameplay, map.playerId, replacement);
+                map.EnsureHeartbeat();
+            }
+            var mutation = gameplay.SubmitMutation(commandId, parametersJson ?? "");
+            var reopenAttempts = 0;
+            while (!mutation.IdentityAllocated && !mutation.Settled)
+            {
+                if (gameplay.Phase == RepWarsSessionPhase.ProtocolFault) break;
+                if (gameplay.Phase == RepWarsSessionPhase.Expired || gameplay.Phase == RepWarsSessionPhase.Ended || gameplay.Phase == RepWarsSessionPhase.Closed)
+                {
+                    if (reopenAttempts >= 1) break;
+                    reopenAttempts++;
+                    yield return RepWarsSessionDriver.Open(client, gameplay, map.playerId, gameplay.Phase != RepWarsSessionPhase.Closed);
+                    map.EnsureHeartbeat();
+                }
+                yield return null;
+            }
+            if (!mutation.IdentityAllocated)
+            {
+                gameplay.CancelUnsent(mutation);
+                onComplete?.Invoke(FailedResult("The empire session is not ready."));
+                yield break;
+            }
+            var attempts = 0;
+            RepWarsCommandResult result = null;
+            while (attempts < 8 && !mutation.Settled)
+            {
+                attempts++;
+                gameplay.MarkSent(mutation);
+                result = null;
+                yield return client.PostBoundCommand(map.playerId, mutation, value => result = value);
+                if (result != null && (result.TransportOk || result.IdempotentReplay))
+                {
+                    gameplay.NoteMutationSucceeded(mutation, result.IdempotentReplay);
+                    onComplete?.Invoke(result);
+                    yield break;
+                }
+                if (RepWarsSessionSignals.IsCommandStale(result))
+                {
+                    gameplay.NoteCommandStale(mutation);
+                    Debug.LogWarning("[RepWars] command sequence is stale");
+                    yield return RefreshState();
+                    yield return RefreshMap();
+                    onComplete?.Invoke(result);
+                    yield break;
+                }
+                if (RepWarsSessionSignals.IsSequenceConflict(result))
+                {
+                    gameplay.NoteCommandSequenceConflict(mutation);
+                    Debug.LogError("[RepWars] command sequence conflict");
+                    onComplete?.Invoke(result);
+                    yield break;
+                }
+                string dead;
+                if (RepWarsSessionSignals.TrySessionUnusable(result, out dead))
+                {
+                    gameplay.NoteMutationSessionDead(mutation, dead);
+                    Debug.LogWarning("[RepWars] gameplay session stopped");
+                    yield return RepWarsSessionDriver.Open(client, gameplay, map.playerId, true);
+                    map.EnsureHeartbeat();
+                    onComplete?.Invoke(result);
+                    yield break;
+                }
+                if (mutation.ResubmitForbidden || !gameplay.NoteMutationRetry(mutation))
+                {
+                    gameplay.NoteMutationFinished(mutation);
+                    onComplete?.Invoke(result ?? FailedResult("The empire could not be reached."));
+                    yield break;
+                }
+                if (RepWarsSessionSignals.IsRetryable(result)) continue;
+                gameplay.NoteMutationFinished(mutation);
+                onComplete?.Invoke(result);
+                yield break;
+            }
+            if (result != null && (result.TransportOk || result.IdempotentReplay))
+            {
+                gameplay.NoteMutationSucceeded(mutation, result.IdempotentReplay);
+                onComplete?.Invoke(result);
+                yield break;
+            }
+            if (!mutation.Settled) gameplay.NoteMutationFinished(mutation);
+            onComplete?.Invoke(result ?? FailedResult("The empire could not be reached."));
+        }
+
+        static RepWarsCommandResult FailedResult(string failure)
+        {
+            return new RepWarsCommandResult { Failure = failure };
         }
 
         bool Ok(RepWarsCommandResult result)
@@ -505,6 +614,11 @@ namespace RepWars
         static string PlayerFacing(string failure)
         {
             if (string.IsNullOrEmpty(failure)) return "That could not be done.";
+            if (failure.IndexOf("COMMAND_STALE", StringComparison.Ordinal) >= 0) return "The empire already moved on.";
+            if (failure.IndexOf("COMMAND_SEQUENCE_CONFLICT", StringComparison.Ordinal) >= 0) return "The empire could not accept that command.";
+            if (failure.IndexOf("Gameplay session is expired", StringComparison.Ordinal) >= 0) return "The session expired.";
+            if (failure.IndexOf("Gameplay session has ended", StringComparison.Ordinal) >= 0) return "The session ended.";
+            if (failure.IndexOf("Gameplay session is unknown", StringComparison.Ordinal) >= 0) return "The session is no longer valid.";
             const string prefix = "Command failed: ";
             var text = failure.StartsWith(prefix) ? failure.Substring(prefix.Length) : failure;
             var space = text.IndexOf(' ');
