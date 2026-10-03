@@ -54,7 +54,7 @@ export async function runGameplaySessionLifecycleTests(
     assert.strictEqual(state.gameplaySessionLeases.length, 1);
     assert.strictEqual(state.gameplaySessionLeases[0]!.sessionId, opened.sessionId);
     assert.strictEqual(state.gameplaySessionLeases[0]!.openedByRequestId, 'open-1');
-    assert.deepStrictEqual(temporal(state), emptyTemporal());
+    assert.deepStrictEqual(temporal(state), anchoredTemporal(1_700_000_000_000));
     assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 16);
     assert.strictEqual(state.schemaVersion, 16);
   });
@@ -257,7 +257,7 @@ export async function runGameplaySessionLifecycleTests(
     assert.strictEqual(state.gameplaySessionLeases[0]!.expiresAtMs, 25_000 + LEASE_MS);
     assert.strictEqual(state.gameplaySessionLeases[0]!.lastReceiptAtMs, 25_000);
     assert.strictEqual(state.gameplaySessionLeases[0]!.lastRenewalRequestId, 'pause-1');
-    assert.deepStrictEqual(temporal(state), emptyTemporal());
+    assert.deepStrictEqual(temporal(state), anchoredTemporal(1_000));
     clock.set(80_000);
     const replay = await host.execute({
       commandId: 'SET_PLAYER_PAUSE',
@@ -431,7 +431,13 @@ export async function runGameplaySessionLifecycleTests(
     assert.strictEqual(state.playerEmpirePause.paused, true);
     assert.strictEqual(state.gameplaySessionLeases[0]!.expiresAtMs, 13_000 + LEASE_MS);
     assert.strictEqual(state.gameplaySessionLeases[0]!.lastReceiptAtMs, 13_000);
-    assert.deepStrictEqual(temporal(state), emptyTemporal());
+    assert.deepStrictEqual(temporal(state), {
+      worldTick: 0,
+      accruedTargetWorldTick: 0,
+      subTickMicroticks: 200_000,
+      accrualDivisionRemainder: 0,
+      lastAccrualAtMs: 13_000,
+    });
   });
 
   await report('another player cannot use a persisted session id, and public state hides leases', async () => {
@@ -562,7 +568,7 @@ export async function runGameplaySessionLifecycleTests(
       if (!state.ok) return;
       assert.strictEqual(state.state.gameplaySessionLeases.length, 1);
       assert.strictEqual(state.state.gameplaySessionLeases[0]!.endedAtMs, 12_000);
-      assert.deepStrictEqual(temporal(state.state), emptyTemporal());
+      assert.deepStrictEqual(temporal(state.state), anchoredTemporal(12_000));
     } finally {
       await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
     }
@@ -664,13 +670,13 @@ function temporal(state: GameState) {
   };
 }
 
-function emptyTemporal() {
+function anchoredTemporal(receiptMs: number) {
   return {
     worldTick: 0,
     accruedTargetWorldTick: 0,
     subTickMicroticks: 0,
     accrualDivisionRemainder: 0,
-    lastAccrualAtMs: null,
+    lastAccrualAtMs: receiptMs,
   };
 }
 

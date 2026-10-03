@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { GameState } from '../types/GameState';
 import { insertGameplaySessionLease, replaceGameplaySessionLease } from '../state/gameplaySessionLeases';
+import { accrueWorldThroughReceipt } from '../world/worldAccrual';
 import {
   endGameplaySessionLease,
   openGameplaySessionLease,
@@ -24,8 +25,11 @@ import { PlayerWorldPersistence } from './persistencePort';
  * `lastRenewalRequestId`. Renewal order is `lastRenewalSequence`: an equal
  * sequence is a replay, a lower sequence is stale, and a higher sequence
  * extends from the captured server receipt. Explicit end stays terminal.
- * Expired and ended leases stay in the payload. This module does not accrue
- * world time.
+ * Expired and ended leases stay in the payload.
+ *
+ * Each observation earns world time through the captured receipt before the
+ * lease change is stored. Historical presence is the leases already on the
+ * row. This does not process worldTick.
  */
 
 const MAX_CAS_ATTEMPTS = 8;
@@ -115,9 +119,10 @@ export function applyGameplaySessionOpen(
   state: GameState,
   input: { sessionId: string; requestId: string; receiptMs: number },
 ): GameplaySessionChange {
+  const accrued = accrueWorldThroughReceipt(state, input.receiptMs).applied;
   const existing = state.gameplaySessionLeases.find((lease) => lease.openedByRequestId === input.requestId);
   if (existing) {
-    return { state, changed: false, view: viewOf(existing, 'idempotent_replay', existing.openedAtMs) };
+    return { state, changed: accrued, view: viewOf(existing, 'idempotent_replay', existing.openedAtMs) };
   }
   const lease = openGameplaySessionLease({
     sessionId: input.sessionId,
@@ -135,8 +140,9 @@ export function applyGameplaySessionHeartbeat(
   state: GameState,
   input: { sessionId: string; requestId: string; receiptMs: number; renewalSequence: number },
 ): GameplaySessionChange {
+  const accrued = accrueWorldThroughReceipt(state, input.receiptMs).applied;
   const current = findLease(state, input.sessionId);
-  if (!current) return { state, changed: false, view: unknownView(input.sessionId) };
+  if (!current) return { state, changed: accrued, view: unknownView(input.sessionId) };
   const result = renewWithoutMovingBackward(current, input.receiptMs, input.requestId, input.renewalSequence);
   if (result.outcome === 'renewed') {
     return {
@@ -148,17 +154,18 @@ export function applyGameplaySessionHeartbeat(
   const receiptMs = result.outcome === 'idempotent_replay' || result.outcome === 'stale'
     ? result.lease.lastReceiptAtMs
     : input.receiptMs;
-  return { state, changed: false, view: viewOf(result.lease, result.outcome, receiptMs) };
+  return { state, changed: accrued, view: viewOf(result.lease, result.outcome, receiptMs) };
 }
 
 export function applyGameplaySessionEnd(
   state: GameState,
   input: { sessionId: string; receiptMs: number },
 ): GameplaySessionChange {
+  const accrued = accrueWorldThroughReceipt(state, input.receiptMs).applied;
   const current = findLease(state, input.sessionId);
-  if (!current) return { state, changed: false, view: unknownView(input.sessionId) };
+  if (!current) return { state, changed: accrued, view: unknownView(input.sessionId) };
   if (current.endedAtMs !== null) {
-    return { state, changed: false, view: viewOf(current, 'idempotent_replay', current.endedAtMs) };
+    return { state, changed: accrued, view: viewOf(current, 'idempotent_replay', current.endedAtMs) };
   }
   let result;
   try {
@@ -173,7 +180,7 @@ export function applyGameplaySessionEnd(
       view: viewOf(result.lease, 'ended', input.receiptMs),
     };
   }
-  return { state, changed: false, view: viewOf(result.lease, result.outcome, input.receiptMs) };
+  return { state, changed: accrued, view: viewOf(result.lease, result.outcome, input.receiptMs) };
 }
 
 function renewWithoutMovingBackward(

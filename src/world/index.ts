@@ -19,7 +19,7 @@ export {
   advanceAuthoritativeWorldClock,
 } from './realtimeClock';
 export type { WorldClockAdvance } from './realtimeClock';
-export { accrueAuthoritativeWorldTime } from './worldAccrual';
+export { accrueAuthoritativeWorldTime, accrueWorldThroughReceipt } from './worldAccrual';
 export type { WorldTemporalAccrualResult } from './worldAccrual';
 export {
   emptyFixedPointAccrual,

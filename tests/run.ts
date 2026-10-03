@@ -83,6 +83,7 @@ import { registerTemporalBoundaryTests } from './temporalBoundaries';
 import { registerPresenceLeaseTests } from './presenceLeases';
 import { registerGameplaySessionLeasePersistenceTests } from './gameplaySessionLeases';
 import { runGameplaySessionLifecycleTests } from './gameplaySessionLifecycle';
+import { runLeaseWorldAccrualTests } from './leaseWorldAccrual';
 import { runCommandIdempotencyTests } from './commandIdempotency';
 import { runSessionReplayTests } from './sessionReplay';
 import { registerSupabasePersistenceTests } from './supabasePersistence';
@@ -3365,6 +3366,18 @@ void (async () => {
     }
   });
   await runSessionReplayTests(async (name, fn) => {
+    try {
+      await fn();
+      passed++;
+      console.log(`  ✓ ${name}`);
+    } catch (err) {
+      failed++;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`  ✗ ${name}`);
+      console.error(`    ${msg}`);
+    }
+  });
+  await runLeaseWorldAccrualTests(async (name, fn) => {
     try {
       await fn();
       passed++;

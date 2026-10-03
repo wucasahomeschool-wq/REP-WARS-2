@@ -1,4 +1,5 @@
 import { GameState } from '../types/GameState';
+import { derivePresenceSegments } from './presenceLeases';
 import { accrueSimulationTime, isTemporalPresence, TemporalPresence } from './timeToTick';
 import { utcEpochMs } from './realtimeClock';
 
@@ -91,6 +92,52 @@ export function accrueAuthoritativeWorldTime(
   state.accrualDivisionRemainder = accrued.accrualDivisionRemainder;
   state.lastAccrualAtMs = nowMs;
   return snapshot(state, accrued.elapsedWholeTicks, false, applied);
+}
+
+/**
+ * Earn simulation time from `lastAccrualAtMs` through `receiptMs` using the
+ * persisted gameplay-session leases. Coverage is the union of those leases.
+ * A null watermark anchors at the receipt and earns nothing before it.
+ * An earlier receipt does not rewind. `worldTick` is not moved.
+ */
+export function accrueWorldThroughReceipt(
+  state: GameState,
+  receiptMs: number | string | Date,
+): WorldTemporalAccrualResult {
+  const nowMs = utcEpochMs(receiptMs);
+  assertAccrualFields(state);
+  if (state.lastAccrualAtMs === null || nowMs <= state.lastAccrualAtMs) {
+    return accrueAuthoritativeWorldTime(state, nowMs, 'OFFLINE');
+  }
+  if (state.worldTick > state.accruedTargetWorldTick) {
+    throw new Error('Accrued simulation tick is behind processed worldTick');
+  }
+  const segments = derivePresenceSegments(state.gameplaySessionLeases, state.lastAccrualAtMs, nowMs);
+  if (
+    segments.length === 0
+    || segments[0]!.startMs !== state.lastAccrualAtMs
+    || segments[segments.length - 1]!.endMs !== nowMs
+  ) {
+    throw new Error('Presence segments do not cover the accrual interval');
+  }
+  const started = state.accruedTargetWorldTick;
+  let carried = {
+    wholeTicks: state.accruedTargetWorldTick,
+    subTickMicroticks: state.subTickMicroticks,
+    accrualDivisionRemainder: state.accrualDivisionRemainder,
+  };
+  let cursor = state.lastAccrualAtMs;
+  for (const segment of segments) {
+    if (segment.startMs !== cursor) throw new Error('Presence segments are not contiguous');
+    const elapsedMs = segment.endMs - segment.startMs;
+    carried = accrueSimulationTime(carried, elapsedMs, segment.presence);
+    cursor = segment.endMs;
+  }
+  state.accruedTargetWorldTick = carried.wholeTicks;
+  state.subTickMicroticks = carried.subTickMicroticks;
+  state.accrualDivisionRemainder = carried.accrualDivisionRemainder;
+  state.lastAccrualAtMs = nowMs;
+  return snapshot(state, carried.wholeTicks - started, false, true);
 }
 
 function snapshot(

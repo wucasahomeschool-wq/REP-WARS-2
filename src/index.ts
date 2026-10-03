@@ -242,6 +242,7 @@ export {
   elapsedWholeTicks,
   advanceAuthoritativeWorldClock,
   accrueAuthoritativeWorldTime,
+  accrueWorldThroughReceipt,
   emptyFixedPointAccrual,
   isTemporalPresence,
   temporalRatePpm,
