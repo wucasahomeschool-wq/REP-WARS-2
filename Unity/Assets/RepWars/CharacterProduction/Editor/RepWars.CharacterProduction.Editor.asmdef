@@ -1,0 +1,14 @@
+{
+  "name": "RepWars.CharacterProduction.Editor",
+  "rootNamespace": "RepWars.CharacterProduction.EditorTools",
+  "references": [ "RepWars" ],
+  "includePlatforms": [ "Editor" ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
