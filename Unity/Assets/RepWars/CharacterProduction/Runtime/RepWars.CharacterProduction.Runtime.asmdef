@@ -1,0 +1,6 @@
+{
+  "name": "RepWars.CharacterProduction.Runtime",
+  "rootNamespace": "RepWars.CharacterProduction",
+  "references": [ "Unity.2D.Animation.Runtime" ],
+  "autoReferenced": false
+}

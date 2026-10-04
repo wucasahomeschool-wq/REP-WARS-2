@@ -45,6 +45,8 @@ namespace RepWars.CharacterProduction.EditorTools
             {
                 var existingRig = existing.GetComponent<MasterHumanoidRig>();
                 var existingErrors = MasterHumanoidRigValidator.Validate(existingRig);
+                ValidateDependencies(existing, existingErrors);
+                if (!IsSpriteSkinPackageDeclared()) existingErrors.Add("Unity 2D Animation is not declared in Packages/manifest.json.");
                 if (existingErrors.Count == 0)
                 {
                     message = "Proof prefab already exists and validates. It was left unchanged: " + ProofPrefabPath;
@@ -53,31 +55,16 @@ namespace RepWars.CharacterProduction.EditorTools
                 message = "Proof prefab exists but is invalid; it was not overwritten. Resolve or explicitly remove it first.\n" + Join(existingErrors);
                 return false;
             }
-            if (File.Exists(ProofPrefabPath))
+            if (File.Exists(Path.Combine(Directory.GetParent(Application.dataPath).FullName, ProofPrefabPath)))
             {
                 message = "A file exists at " + ProofPrefabPath + " but Unity could not load it as a prefab. It was not overwritten.";
                 return false;
             }
 
-            var root = new GameObject("MasterHumanoidRig_Proof");
+            var rig = CreateRigObject("MasterHumanoidRig_Proof");
+            var root = rig.gameObject;
             try
             {
-                var rig = root.AddComponent<MasterHumanoidRig>();
-                var visualRoot = NewChild("VisualRoot", root.transform);
-                var ground = NewChild(MasterHumanoidRigContract.SocketName(MasterHumanoidSocket.Ground), visualRoot);
-                var viewRoots = new Transform[3];
-                for (var i = 0; i < viewRoots.Length; i++)
-                {
-                    var view = (MasterHumanoidView)i;
-                    var viewRoot = NewChild("View_" + view, visualRoot);
-                    var skeleton = NewChild("Skeleton", viewRoot);
-                    BuildSkeleton(skeleton);
-                    BuildSockets(viewRoot);
-                    NewChild("SkinMount", viewRoot);
-                    viewRoots[i] = viewRoot;
-                    viewRoot.gameObject.SetActive(view == MasterHumanoidView.Front);
-                }
-                rig.Configure(visualRoot, ground, viewRoots[0], viewRoots[1], viewRoots[2]);
                 var errors = MasterHumanoidRigValidator.Validate(rig);
                 ValidateDependencies(root, errors);
                 if (!IsSpriteSkinPackageDeclared()) errors.Add("Unity 2D Animation is not declared in Packages/manifest.json.");
@@ -107,6 +94,35 @@ namespace RepWars.CharacterProduction.EditorTools
             finally
             {
                 if (root != null) UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        /// <summary>Creates the same contract in memory for isolated skin proofs. Never modifies a saved foundation prefab.</summary>
+        public static MasterHumanoidRig CreateRigObject(string name)
+        {
+            var root = new GameObject(name);
+            try
+            {
+                var rig = root.AddComponent<MasterHumanoidRig>();
+                var visualRoot = NewChild("VisualRoot", root.transform);
+                var ground = NewChild(MasterHumanoidRigContract.SocketName(MasterHumanoidSocket.Ground), visualRoot);
+                var views = new Transform[3];
+                for (var i = 0; i < views.Length; i++)
+                {
+                    var view = (MasterHumanoidView)i;
+                    views[i] = NewChild("View_" + view, visualRoot);
+                    BuildSkeleton(NewChild("Skeleton", views[i]));
+                    BuildSockets(views[i]);
+                    NewChild("SkinMount", views[i]);
+                    views[i].gameObject.SetActive(view == MasterHumanoidView.Front);
+                }
+                rig.Configure(visualRoot, ground, views[0], views[1], views[2]);
+                return rig;
+            }
+            catch
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                throw;
             }
         }
 
@@ -153,7 +169,7 @@ namespace RepWars.CharacterProduction.EditorTools
             catch { return false; }
         }
 
-        static void ValidateDependencies(GameObject root, List<string> errors)
+        internal static void ValidateDependencies(GameObject root, List<string> errors)
         {
             var forbidden = new[] { "RepWarsArmyVisual", "RepWarsSoldierVisual", "RepWarsMapScreen" };
             foreach (var component in root.GetComponentsInChildren<Component>(true))
@@ -167,7 +183,7 @@ namespace RepWars.CharacterProduction.EditorTools
 
         static void ShowValidation(string title, List<string> errors)
         {
-            var message = errors.Count == 0 ? title + " passed structural validation. SpriteSkin is available." : title + " has validation errors:\n" + Join(errors);
+            var message = errors.Count == 0 ? title + " passed structural validation. Unity 2D Animation is declared in the manifest." : title + " has validation errors:\n" + Join(errors);
             EditorUtility.DisplayDialog("Master Humanoid Rig", message, "OK");
             if (errors.Count == 0) Debug.Log("[CharacterProduction] " + message);
             else Debug.LogError("[CharacterProduction] " + message);
@@ -181,7 +197,7 @@ namespace RepWars.CharacterProduction.EditorTools
             EnsureFolder(Root + "/Proof");
         }
 
-        static void EnsureFolder(string folder)
+        internal static void EnsureFolder(string folder)
         {
             if (AssetDatabase.IsValidFolder(folder)) return;
             var parent = Path.GetDirectoryName(folder).Replace('\\', '/');

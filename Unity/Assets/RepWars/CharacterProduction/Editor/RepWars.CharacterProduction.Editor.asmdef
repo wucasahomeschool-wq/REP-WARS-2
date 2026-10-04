@@ -1,7 +1,7 @@
 {
   "name": "RepWars.CharacterProduction.Editor",
   "rootNamespace": "RepWars.CharacterProduction.EditorTools",
-  "references": [ "RepWars" ],
+  "references": [ "RepWars.CharacterProduction.Runtime", "Unity.2D.Animation.Runtime", "Unity.Collections" ],
   "includePlatforms": [ "Editor" ],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

@@ -2,6 +2,8 @@
 
 This folder contains the isolated production humanoid rig foundation. It does not depend on the Phase A character proof, placeholder sprites, live army renderer, or gameplay authority.
 
+Phase 3 adds the Front-only Knight A skin configuration and repeatable generation path. See [KNIGHT_A_FRONT.md](KNIGHT_A_FRONT.md). Unity execution and visual validation remain deferred; generator code is not evidence that generated assets exist.
+
 ## Master Humanoid contract
 
 `Runtime/MasterHumanoidRigContract.cs` defines contract version 1, stable bone names, direct parent relationships, the Front/Side/Back view identifiers, and socket names. The skeleton has 20 bones. Its topology is deliberately richer than the Soldier skin's approximately 11 body-section sprites: SpriteSkin art may be influenced by multiple bones.
@@ -12,7 +14,9 @@ Each view branch contains its own `Skeleton`, `SkinMount`, and socket transforms
 
 ## SpriteSkin integration boundary
 
-The project manifest includes Unity 2D Animation 16.0.1. Each view's `SkinMount` is reserved for the large painted body-section sprites and their SpriteSkin renderer setup in the next art-integration phase. The validator checks that these mounts and the package declaration exist. This phase creates canonical Transform bones but no meshes, SpriteSkin components, weights, animation clips, or character art. Sprite geometry and weights must be authored/calibrated with the Soldier art in Unity Editor.
+The project manifest includes Unity 2D Animation 16.0.1. Each view's `SkinMount` is reserved for the large painted body-section sprites and their SpriteSkin renderer setup. The foundation generator creates canonical Transform bones without meshes or artwork. The Phase 3 generator populates only Front with eleven SpriteSkin sections. Native Sprite mesh/bone/weight data and prefab references must be checked by running the tool and validator in Unity Editor.
+
+Runtime code has a dedicated `RepWars.CharacterProduction.Runtime` assembly referencing the animation package. Editor tooling and tests explicitly reference this isolated assembly. No existing gameplay assembly is changed to depend on the character work. `MasterHumanoidRig` has its own matching script filename so Unity can serialize its component references reliably.
 
 ## Editor construction and validation
 
@@ -24,4 +28,4 @@ Use `RepWars > Character Production > Validate Selected Master Humanoid Rig` to 
 
 ## Deliberate exclusions
 
-No Soldier PNG is imported, cropped, split, repainted, regenerated, recolored, or attached. No animations or team-color materials are created. No Phase A character code, production army presentation, or backend/gameplay files are required by this foundation.
+Original Soldier PNGs are read-only. The Front generator technically extracts the authored sections into padded derived textures, preserving source paint and overlap. No art is repainted, redesigned, generated, or recolored. No Side/Back integration, animations, team-color materials, or equipment are implemented. No Phase A character code, production army presentation, or backend/gameplay files are dependencies.
