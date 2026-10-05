@@ -11,7 +11,7 @@ namespace RepWars.CharacterProduction.EditorTools
 {
     public static class KnightASkinValidator
     {
-        public static List<string> Validate(KnightASkin skin, KnightASkinConfiguration config)
+        public static List<string> Validate(KnightASkin skin, KnightASkinConfiguration config, bool isolatedViewProof = true)
         {
             var errors = config != null ? config.Validate() : new List<string> { "Knight A authored view configuration is missing." };
             if (skin == null) { errors.Add("Select a KnightASkin proof root."); return errors; }
@@ -24,11 +24,14 @@ namespace RepWars.CharacterProduction.EditorTools
             MasterHumanoidRigBuilder.ValidateDependencies(skin.gameObject, errors);
             if (skin.Rig == null || skin.Rig.VisualRoot == null) return errors;
             if (skin.Rig.VisualRoot.GetComponent<SortingGroup>() == null) errors.Add("The visual root must group the authored view body-section renderer ordering.");
-            if (skin.Rig.gameObject != skin.gameObject) errors.Add("Skin proof must reference its own MasterHumanoidRig root.");
+            if (isolatedViewProof && skin.Rig.gameObject != skin.gameObject) errors.Add("Skin proof must reference its own MasterHumanoidRig root.");
+            if (!isolatedViewProof && skin.transform != skin.Rig.GetViewRoot(config.view))
+                errors.Add("Combined skin metadata must be on its own authored-view root.");
             if (skin.Rig.GroundSocket != null && skin.Rig.GroundSocket.localPosition.sqrMagnitude > 0.000001f) errors.Add("Ground socket must remain at the visual origin.");
             if (skin.View != config.view) errors.Add("Proof authored-view identity differs from its configuration.");
             foreach (MasterHumanoidView view in Enum.GetValues(typeof(MasterHumanoidView)))
             {
+                if (!isolatedViewProof) break;
                 if (view == config.view) continue;
                 var root = skin.Rig.GetViewRoot(view);
                 if (root != null && (root.GetComponentsInChildren<SpriteRenderer>(true).Length > 0 || root.GetComponentsInChildren<SpriteSkin>(true).Length > 0))
@@ -40,7 +43,7 @@ namespace RepWars.CharacterProduction.EditorTools
             var front = skin.Rig.GetViewRoot(config.view);
             if (front == null) return errors;
             var mount = front.Find("SkinMount");
-            if (!front.gameObject.activeSelf) errors.Add("The proof's authored view must be active.");
+            if (isolatedViewProof && !front.gameObject.activeSelf) errors.Add("The proof's authored view must be active.");
             if (mount == null || mount.localPosition != Vector3.zero || mount.localScale != Vector3.one || mount.localRotation != Quaternion.identity)
                 errors.Add("SkinMount must retain an identity transform under the authored view.");
             if (skin.GetComponentsInChildren<SpriteRenderer>(true).Length != 11 || skin.GetComponentsInChildren<SpriteSkin>(true).Length != 11)

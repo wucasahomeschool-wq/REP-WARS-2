@@ -1,5 +1,7 @@
 # Knight A authored skins — Phase 4
 
+Phase 5 preserves these recipes and adds a separate combined six-facing proof through [SIX_DIRECTION_PRESENTATION.md](SIX_DIRECTION_PRESENTATION.md). The single-view generation/validation behavior below remains available.
+
 ## Evidence and execution status
 
 **IMPLEMENTED IN CODE/TOOLING:** one extraction/mesh/binding/proof pipeline, three independent view definitions, structural validation, and Editor tests.
