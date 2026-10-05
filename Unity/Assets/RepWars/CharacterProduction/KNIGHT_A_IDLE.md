@@ -1,5 +1,9 @@
 # Phase 7 — Knight A Idle animation foundation
 
+Historical Phase 7 checkpoint documentation. Phase 8 incrementally extends this player with optional
+Walk/mixer playback and explicit neutral lower-body Idle coverage; see [KNIGHT_A_WALK.md](KNIGHT_A_WALK.md).
+The accepted Idle recipe and upper-body motion are unchanged.
+
 Implemented in code/tooling. Static checks are separate from Unity execution, human visual approval,
 and mobile performance validation, which remain deferred. No `.anim`, profile `.asset`, controller,
 or Idle proof `.prefab` has been generated in this cloud environment.

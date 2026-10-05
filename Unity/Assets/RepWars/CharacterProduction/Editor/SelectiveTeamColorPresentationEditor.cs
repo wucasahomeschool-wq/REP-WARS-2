@@ -30,7 +30,7 @@ namespace RepWars.CharacterProduction.EditorTools
             {
                 var idle = presentation.GetComponent<HumanoidIdlePresentation>();
                 if (idle != null && idle.IdleEnabled)
-                { Debug.LogWarning("Turn Idle OFF before bind-pose/team-color proof validation. Color controls remain usable while Idle plays.",presentation); return; }
+                { Debug.LogWarning("Turn animation OFF before bind-pose/team-color proof validation. Color controls remain usable during Idle or Walk.",presentation); return; }
                 var errors = KnightATeamColorProofBuilder.Validate(presentation,idle);
                 if (errors.Count == 0) Debug.Log("Team-color proof data validates; visual review remains required.",presentation);
                 else Debug.LogError(string.Join("\n",errors.ToArray()),presentation);

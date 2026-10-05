@@ -74,9 +74,11 @@ def verify():
     assert "DirectorUpdateMode.Manual" in runtime and "Time.deltaTime" in runtime
     assert "FacingChanged += OnFacingChanged" in runtime and "FacingChanged?.Invoke(facing)" in facing
     assert "if (IsPlaying) Sample();" in runtime
-    assert "normalizedPhase * profile.Duration" in runtime and "graph.Evaluate(0f)" in runtime
+    assert "state == HumanoidAnimationState.Idle ? normalizedPhase : otherPhase" in runtime and "graph.Evaluate(0f)" in runtime
     assert "binding.bone.localRotation = binding.neutralLocalRotation" in runtime
-    assert not re.search(r'\.(?:position|localPosition|localScale)\s*=',runtime)
+    assert not re.search(r'\.(?:position|localScale)\s*=',runtime)
+    # Phase 8 extends this player: the only local position recovery is the explicitly guarded Pelvis neutral.
+    assert 'if (binding.boneName == "Pelvis") binding.bone.localPosition = binding.neutralLocalPosition;' in runtime
     assert "MaterialPropertyBlock" not in runtime and "Random" not in runtime and "GameState" not in runtime
     assert '"localEulerAnglesRaw.z"' in builder and 'CalculateTransformPath(bone,rig.GetViewRoot(view.view))' in builder
     assert "settings.loopTime = true" in builder and "animator.applyRootMotion = false" in builder

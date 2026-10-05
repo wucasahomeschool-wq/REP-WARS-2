@@ -12,6 +12,8 @@ Phase 6 adds explicit per-section selective masks, a shared URP 2D recolor shade
 
 Phase 7 adds three authored-view Idle definitions, standard AnimationClip/Playable tooling, view-local Animator targets and shared cosmetic phase. See [KNIGHT_A_IDLE.md](KNIGHT_A_IDLE.md). Idle is upper-body-only, restores calibrated neutral rotations when disabled, and leaves facing/team color independent. Unity execution, human visual approval and mobile profiling remain deferred.
 
+Phase 8 extends the manual Playables foundation with Idle/Walk state selection, three authored Walk definitions, contact-target baking and proof controls. See [KNIGHT_A_WALK.md](KNIGHT_A_WALK.md). Native execution, visual foot quality and mobile profiling remain deferred.
+
 ## Master Humanoid contract
 
 `Runtime/MasterHumanoidRigContract.cs` defines contract version 1, stable bone names, direct parent relationships, the Front/Side/Back view identifiers, and socket names. The skeleton has 20 bones. Its topology is deliberately richer than the Soldier skin's approximately 11 body-section sprites: SpriteSkin art may be influenced by multiple bones.
@@ -36,4 +38,4 @@ Use `RepWars > Character Production > Validate Selected Master Humanoid Rig` to 
 
 ## Deliberate exclusions
 
-Original Soldier PNGs are read-only. The shared Knight A generator technically extracts the authored sections into padded derived textures, preserving source paint and overlap. Source art is never repainted, redesigned, regenerated, or recolored. Selective runtime recolor is rendering only. Idle is the only defined animation; no Walk/Run, Knight B integration, or equipment are implemented. No Phase A character code, production army presentation, or backend/gameplay files are dependencies.
+Original Soldier PNGs are read-only. The shared Knight A generator technically extracts the authored sections into padded derived textures, preserving source paint and overlap. Source art is never repainted, redesigned, regenerated, or recolored. Selective runtime recolor is rendering only. Idle and Walk are defined animations; no Run, Knight B integration, or equipment are implemented. No Phase A character code, production army presentation, or backend/gameplay files are dependencies.

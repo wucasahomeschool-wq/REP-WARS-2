@@ -1,0 +1,291 @@
+{
+  "version": 1,
+  "characterId": "KnightA",
+  "state": "Walk",
+  "duration": 1.6,
+  "transitionDuration": 0.2,
+  "bakeIntervals": 128,
+  "phases": [
+    {
+      "label": "LeftContact",
+      "normalizedTime": 0.0,
+      "stride": -1,
+      "lift": 0,
+      "roll": 0
+    },
+    {
+      "label": "LeftLoading_RightToeOff",
+      "normalizedTime": 0.125,
+      "stride": -0.5,
+      "lift": 0,
+      "roll": 0
+    },
+    {
+      "label": "LeftSupport_RightPassing",
+      "normalizedTime": 0.25,
+      "stride": 0,
+      "lift": 0,
+      "roll": 0
+    },
+    {
+      "label": "LeftTerminal_RightApproach",
+      "normalizedTime": 0.375,
+      "stride": 0.5,
+      "lift": 0,
+      "roll": 0
+    },
+    {
+      "label": "RightContact",
+      "normalizedTime": 0.5,
+      "stride": 1,
+      "lift": 0,
+      "roll": 0
+    },
+    {
+      "label": "RightLoading_LeftToeOff",
+      "normalizedTime": 0.625,
+      "stride": 0.5,
+      "lift": 0.7,
+      "roll": -0.6
+    },
+    {
+      "label": "RightSupport_LeftPassing",
+      "normalizedTime": 0.75,
+      "stride": 0,
+      "lift": 1,
+      "roll": 0.25
+    },
+    {
+      "label": "RightTerminal_LeftApproach",
+      "normalizedTime": 0.875,
+      "stride": -0.5,
+      "lift": 0.7,
+      "roll": 0.4
+    },
+    {
+      "label": "LeftContact_Loop",
+      "normalizedTime": 1.0,
+      "stride": -1,
+      "lift": 0,
+      "roll": 0
+    }
+  ],
+  "views": [
+    {
+      "view": 0,
+      "sourceSha256": "8cb218285545c667a1c5ce179de968c709a6d5398de68b54be507b042f0f52f1",
+      "skinConfigurationSha256": "1b83fa5ef56a01acff6186edef2d94e3b18b8451521ae923a657421fda150fb9",
+      "stridePixels": 10,
+      "liftPixels": 12,
+      "pelvisDropPixels": 7,
+      "footRollDegrees": 2,
+      "kneeBendSign": 1,
+      "upperMotions": [
+        {
+          "bone": "Spine",
+          "strideDegrees": 0.35,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "Chest",
+          "strideDegrees": -0.55,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "Neck",
+          "strideDegrees": 0.12,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "Head",
+          "strideDegrees": 0.08,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "LeftClavicle",
+          "strideDegrees": -0.3,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "RightClavicle",
+          "strideDegrees": -0.3,
+          "liftDegrees": 0,
+          "useRightPhase": true
+        },
+        {
+          "bone": "LeftUpperArm",
+          "strideDegrees": -3.2,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "RightUpperArm",
+          "strideDegrees": -3.2,
+          "liftDegrees": 0,
+          "useRightPhase": true
+        },
+        {
+          "bone": "LeftForearm",
+          "strideDegrees": 0,
+          "liftDegrees": -2.0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "RightForearm",
+          "strideDegrees": 0,
+          "liftDegrees": -2.0,
+          "useRightPhase": true
+        }
+      ]
+    },
+    {
+      "view": 1,
+      "sourceSha256": "ef91959c6aeb3d631b0b53d5091285e6482fe0ce23dad80e2aa68906bfda79c7",
+      "skinConfigurationSha256": "5b52d1d3b2095cb950aec3cef7c9aefac40307011422b1314c98b85202b663d6",
+      "stridePixels": 32,
+      "liftPixels": 22,
+      "pelvisDropPixels": 10,
+      "footRollDegrees": 4,
+      "kneeBendSign": 1,
+      "upperMotions": [
+        {
+          "bone": "Spine",
+          "strideDegrees": 0.35,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "Chest",
+          "strideDegrees": -0.55,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "Neck",
+          "strideDegrees": 0.12,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "Head",
+          "strideDegrees": 0.08,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "LeftClavicle",
+          "strideDegrees": -0.3,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "RightClavicle",
+          "strideDegrees": -0.3,
+          "liftDegrees": 0,
+          "useRightPhase": true
+        },
+        {
+          "bone": "LeftUpperArm",
+          "strideDegrees": -7,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "RightUpperArm",
+          "strideDegrees": -7,
+          "liftDegrees": 0,
+          "useRightPhase": true
+        },
+        {
+          "bone": "LeftForearm",
+          "strideDegrees": 0,
+          "liftDegrees": -2.0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "RightForearm",
+          "strideDegrees": 0,
+          "liftDegrees": -2.0,
+          "useRightPhase": true
+        }
+      ]
+    },
+    {
+      "view": 2,
+      "sourceSha256": "6bdcf79a6bbb3e8b25b204fbf43576ec727ffd45c9c574f1e32ffa5835bcf46a",
+      "skinConfigurationSha256": "f1ae92eae2c52d6e10dd6d9fa88e6ce84195ee570ef3a8127dab3bc53cd42734",
+      "stridePixels": 12,
+      "liftPixels": 14,
+      "pelvisDropPixels": 8,
+      "footRollDegrees": 2.5,
+      "kneeBendSign": 1,
+      "upperMotions": [
+        {
+          "bone": "Spine",
+          "strideDegrees": -0.35,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "Chest",
+          "strideDegrees": 0.55,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "Neck",
+          "strideDegrees": -0.12,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "Head",
+          "strideDegrees": -0.08,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "LeftClavicle",
+          "strideDegrees": 0.3,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "RightClavicle",
+          "strideDegrees": 0.3,
+          "liftDegrees": 0,
+          "useRightPhase": true
+        },
+        {
+          "bone": "LeftUpperArm",
+          "strideDegrees": -3.8,
+          "liftDegrees": 0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "RightUpperArm",
+          "strideDegrees": -3.8,
+          "liftDegrees": 0,
+          "useRightPhase": true
+        },
+        {
+          "bone": "LeftForearm",
+          "strideDegrees": 0,
+          "liftDegrees": 2.0,
+          "useRightPhase": false
+        },
+        {
+          "bone": "RightForearm",
+          "strideDegrees": 0,
+          "liftDegrees": 2.0,
+          "useRightPhase": true
+        }
+      ]
+    }
+  ]
+}
