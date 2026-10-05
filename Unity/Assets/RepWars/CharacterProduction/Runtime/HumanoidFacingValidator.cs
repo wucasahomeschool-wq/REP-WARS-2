@@ -14,7 +14,7 @@ namespace RepWars.CharacterProduction
             foreach (var facing in facings)
             {
                 HumanoidFacingSelection mapped;
-                if (!HumanoidFacingContract.TryResolve(facing, out mapped) || !Enum.IsDefined(typeof(MasterHumanoidView), mapped.View))
+                if (!(presentation != null ? presentation.TryResolveFacing(facing, out mapped) : HumanoidFacingContract.TryResolve(facing, out mapped)) || !Enum.IsDefined(typeof(MasterHumanoidView), mapped.View))
                     errors.Add(facing + " has no valid authored-view mapping.");
             }
             if (presentation == null) { errors.Add("HumanoidFacingPresentation is missing."); return errors; }
@@ -25,7 +25,7 @@ namespace RepWars.CharacterProduction
             if (!HumanoidFacingPresentation.HasValidScale(presentation.UnmirroredVisualScale))
                 errors.Add("Unmirrored visual scale must be finite and positive.");
             HumanoidFacingSelection selection;
-            if (!HumanoidFacingContract.TryResolve(presentation.Facing, out selection))
+            if (!presentation.TryResolveFacing(presentation.Facing, out selection))
             { errors.Add("Presentation facing is invalid."); return errors; }
             var expectedScale = presentation.UnmirroredVisualScale;
             if (selection.Mirrored) expectedScale.x = -expectedScale.x;

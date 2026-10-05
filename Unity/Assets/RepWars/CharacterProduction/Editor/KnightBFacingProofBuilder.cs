@@ -8,18 +8,18 @@ using UnityEngine.U2D.Animation;
 
 namespace RepWars.CharacterProduction.EditorTools
 {
-    public static class KnightAFacingProofBuilder
+    public static class KnightBFacingProofBuilder
     {
-        public const string ProofPrefabPath = MasterHumanoidRigBuilder.Root + "/Proof/KnightA_SixDirectionProof.prefab";
+        public const string ProofPrefabPath = MasterHumanoidRigBuilder.Root + "/Proof/KnightB_SixDirectionProof.prefab";
 
-        [MenuItem("RepWars/Character Production/Create Knight A Six Direction Proof")]
+        [MenuItem("RepWars/Character Production/Create Knight B Six Direction Proof")]
         public static void CreateMenu()
         {
             try { Debug.Log("[CharacterProduction] " + CreateProof()); }
             catch (Exception exception) { Debug.LogException(exception); }
         }
 
-        [MenuItem("RepWars/Character Production/Validate Selected Knight A Six Direction Proof")]
+        [MenuItem("RepWars/Character Production/Validate Selected Knight B Six Direction Proof")]
         public static void ValidateMenu()
         {
             var selected = Selection.activeObject as GameObject;
@@ -31,6 +31,7 @@ namespace RepWars.CharacterProduction.EditorTools
 
         public static string CreateProof()
         {
+            var mapping = KnightBFacingConfiguration.Load().ToRuntimeDefinition();
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(ProofPrefabPath);
             if (existing != null)
             {
@@ -38,24 +39,24 @@ namespace RepWars.CharacterProduction.EditorTools
                 if (errors.Count != 0) throw new InvalidOperationException("Existing direction proof was not overwritten:\n" + string.Join("\n", errors.ToArray()));
                 return "Existing six-direction proof validates and was left unchanged.";
             }
-            if (File.Exists(KnightASkinConfiguration.AssetFullPath(ProofPrefabPath)))
+            if (File.Exists(HumanoidSkinConfiguration.AssetFullPath(ProofPrefabPath)))
                 throw new InvalidOperationException("An unloadable file already exists at the direction proof path; it was not overwritten.");
 
             // Authored proofs are independently owned outputs. Their existing no-overwrite policy remains intact.
             foreach (MasterHumanoidView view in Enum.GetValues(typeof(MasterHumanoidView)))
-                KnightASkinBuilder.CreateProof(view);
+                KnightBSkinBuilder.CreateProof(view);
             MasterHumanoidRig rig = null;
             var wroteProof = false;
             try
             {
                 MasterHumanoidRigBuilder.EnsureFolder(MasterHumanoidRigBuilder.Root + "/Proof");
-                rig = MasterHumanoidRigBuilder.CreateRigObject("KnightA_SixDirectionProof");
+                rig = MasterHumanoidRigBuilder.CreateRigObject("KnightB_SixDirectionProof");
                 rig.VisualRoot.gameObject.AddComponent<SortingGroup>();
-                HumanoidFacingProofAssembly.AssembleViews(rig, KnightASkinBuilder.ProofPrefabPathFor,
-                    view => KnightASkinConfiguration.Load(view), root => root.AddComponent<KnightASkin>());
+                HumanoidFacingProofAssembly.AssembleViews(rig, KnightBSkinBuilder.ProofPrefabPathFor,
+                    view => KnightBSkinConfiguration.Load(view), root => root.AddComponent<KnightBSkin>());
                 var presentation = rig.gameObject.AddComponent<HumanoidFacingPresentation>();
                 string error;
-                if (!presentation.Configure(rig, HumanoidFacing.FrontLeft, out error)) throw new InvalidOperationException(error);
+                if (!presentation.Configure(rig, HumanoidFacing.FrontLeft, mapping, out error)) throw new InvalidOperationException(error);
                 var validation = Validate(presentation);
                 if (validation.Count != 0) throw new InvalidOperationException(string.Join("\n", validation.ToArray()));
                 // Check every state in memory before saving; does not assert anything about visual rendering.
@@ -85,24 +86,36 @@ namespace RepWars.CharacterProduction.EditorTools
             finally { if (rig != null) UnityEngine.Object.DestroyImmediate(rig.gameObject); }
         }
 
-        public static List<string> Validate(HumanoidFacingPresentation presentation, HumanoidIdlePresentation allowedIdle = null)
+        public static List<string> Validate(HumanoidFacingPresentation presentation)
         {
-            var errors = HumanoidFacingValidator.Validate(presentation, allowedIdle);
+            var errors = HumanoidFacingValidator.Validate(presentation);
             if (presentation == null || presentation.Rig == null) return errors;
+            try
+            {
+                var expected = KnightBFacingConfiguration.Load().ToRuntimeDefinition();
+                if (presentation.Definition.FrontLeftMirrored != expected.FrontLeftMirrored ||
+                    presentation.Definition.LeftMirrored != expected.LeftMirrored ||
+                    presentation.Definition.BackLeftMirrored != expected.BackLeftMirrored)
+                    errors.Add("Knight B facing definition differs from reviewed authored handedness.");
+            }
+            catch (Exception exception) { errors.Add(exception.Message); }
             if (presentation.GetComponentsInChildren<MasterHumanoidRig>(true).Length != 1)
-                errors.Add("Combined proof must contain one Master Humanoid rig component, with three authored branches.");
-            if (presentation.GetComponentsInChildren<KnightASkin>(true).Length != 3)
-                errors.Add("Knight A combined proof must contain exactly three authored skin metadata components.");
+                errors.Add("Combined proof must contain one canonical rig with three authored branches.");
+            if (presentation.GetComponentsInChildren<KnightBSkin>(true).Length != 3 ||
+                presentation.GetComponentsInChildren<KnightASkin>(true).Length != 0)
+                errors.Add("Knight B proof requires exactly three Knight B skin metadata components and no Knight A skins.");
             if (presentation.GetComponentsInChildren<SpriteRenderer>(true).Length != 33 ||
                 presentation.GetComponentsInChildren<SpriteSkin>(true).Length != 33)
-                errors.Add("Combined proof must reuse exactly thirty-three authored renderer/SpriteSkin pairs, not six duplicated skins.");
+                errors.Add("Knight B proof must reuse exactly 33 renderer/SpriteSkin pairs, not six duplicated rigs.");
+            if (presentation.GetComponentsInChildren<SelectiveTeamColorPresentation>(true).Length != 0 ||
+                presentation.GetComponentsInChildren<HumanoidIdlePresentation>(true).Length != 0 ||
+                presentation.GetComponentsInChildren<Animator>(true).Length != 0)
+                errors.Add("Knight B proof remains team-color/animation-free in this phase.");
             foreach (MasterHumanoidView view in Enum.GetValues(typeof(MasterHumanoidView)))
             {
                 var root = presentation.Rig.GetViewRoot(view);
                 if (root == null) continue;
-                var skin = root.GetComponent<KnightASkin>();
-                var allowedAnimator = allowedIdle != null && allowedIdle.ViewAnimators.Count == 3 ? allowedIdle.ViewAnimators[(int)view] : null;
-                errors.AddRange(KnightASkinValidator.Validate(skin, KnightASkinConfiguration.Load(view), false, allowedAnimator));
+                errors.AddRange(HumanoidSkinValidator.Validate(root.GetComponent<KnightBSkin>(), KnightBSkinConfiguration.Load(view), false));
             }
             return errors;
         }

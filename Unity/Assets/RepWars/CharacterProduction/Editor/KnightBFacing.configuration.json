@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "characterId": "KnightB",
+  "views": [
+    {
+      "view": 0,
+      "unmirroredFacing": 1,
+      "sourceSha256": "bb11b29fcd7d5da1238e69a3e35f7ffb8208b80cc71f1ac300a95f5838170466",
+      "skinConfigurationSha256": "c2e4de714d4284aefa532f1af9a4201d3983fb0e70420a33bf9208b8f2c85315"
+    },
+    {
+      "view": 1,
+      "unmirroredFacing": 3,
+      "sourceSha256": "7b6b48290af8c18424503659e4e7d436551be7b0cee3f08dad1934c26b83084e",
+      "skinConfigurationSha256": "02fd97cc155c52536d112506ff12112ac6dcf0c90a69691946ed7d75f0f3b3d9"
+    },
+    {
+      "view": 2,
+      "unmirroredFacing": 5,
+      "sourceSha256": "5a2ce9487d1df375ded6472c21b367664274e8a527efa989bde427c5104d7b03",
+      "skinConfigurationSha256": "d33a94de0c3e3b17d31ba6d274cf66be6f7f0f7472fae914cda0e0691a8484e3"
+    }
+  ]
+}

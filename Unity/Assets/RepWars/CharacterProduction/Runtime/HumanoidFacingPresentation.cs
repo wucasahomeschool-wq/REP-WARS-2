@@ -8,19 +8,26 @@ namespace RepWars.CharacterProduction
     public sealed class HumanoidFacingPresentation : MonoBehaviour
     {
         [SerializeField] MasterHumanoidRig rig;
+        [SerializeField] HumanoidFacingDefinition definition;
         [SerializeField] HumanoidFacing facing = HumanoidFacing.FrontLeft;
         [SerializeField] Vector3 unmirroredVisualScale = Vector3.one;
 
         public MasterHumanoidRig Rig { get { return rig; } }
+        public HumanoidFacingDefinition Definition { get { return definition; } }
+        public bool TryResolveFacing(HumanoidFacing intent, out HumanoidFacingSelection selection)
+        { return definition.TryResolve(intent, out selection); }
         public HumanoidFacing Facing { get { return facing; } }
         public Vector3 UnmirroredVisualScale { get { return unmirroredVisualScale; } }
         /// <summary>Optional presentation notification after view selection and mirroring are applied.</summary>
         public event Action<HumanoidFacing> FacingChanged;
 
         public bool Configure(MasterHumanoidRig newRig, HumanoidFacing initialFacing, out string error)
+        { return Configure(newRig, initialFacing, default(HumanoidFacingDefinition), out error); }
+
+        public bool Configure(MasterHumanoidRig newRig, HumanoidFacing initialFacing, HumanoidFacingDefinition newDefinition, out string error)
         {
             HumanoidFacingSelection selection;
-            if (!HumanoidFacingContract.TryResolve(initialFacing, out selection))
+            if (!newDefinition.TryResolve(initialFacing, out selection))
             { error = "Initial facing must be one of the six HumanoidFacing values."; return false; }
             if (!HasSafeHierarchy(newRig))
             { error = "Facing presentation requires its own rig, a child VisualRoot, and three distinct authored views with SkinMount."; return false; }
@@ -29,6 +36,7 @@ namespace RepWars.CharacterProduction
             if (!HasValidScale(scale))
             { error = "VisualRoot scale must have finite, nonzero X and positive Y/Z."; return false; }
             rig = newRig;
+            definition = newDefinition;
             unmirroredVisualScale = scale;
             Apply(selection);
             facing = initialFacing;
@@ -41,7 +49,7 @@ namespace RepWars.CharacterProduction
         public bool TrySetFacing(HumanoidFacing intent)
         {
             HumanoidFacingSelection selection;
-            if (!HumanoidFacingContract.TryResolve(intent, out selection) || !HasSafeHierarchy(rig) || !HasValidScale(unmirroredVisualScale))
+            if (!TryResolveFacing(intent, out selection) || !HasSafeHierarchy(rig) || !HasValidScale(unmirroredVisualScale))
                 return false;
             Apply(selection);
             facing = intent;
@@ -56,7 +64,7 @@ namespace RepWars.CharacterProduction
         public Transform GetActiveSocket(MasterHumanoidSocket socket)
         {
             HumanoidFacingSelection selection;
-            return rig != null && HumanoidFacingContract.TryResolve(facing, out selection)
+            return rig != null && TryResolveFacing(facing, out selection)
                 ? rig.FindSocket(selection.View, socket) : null;
         }
 
@@ -69,7 +77,7 @@ namespace RepWars.CharacterProduction
             // A corrupt serialized initial enum gets a documented safe startup default.
             // Runtime invalid requests are rejected, rather than changing the established facing.
             HumanoidFacingSelection selection;
-            var stored = HumanoidFacingContract.TryResolve(facing, out selection) ? facing : HumanoidFacing.FrontLeft;
+            var stored = TryResolveFacing(facing, out selection) ? facing : HumanoidFacing.FrontLeft;
             return TrySetFacing(stored);
         }
 
@@ -96,10 +104,12 @@ namespace RepWars.CharacterProduction
             var back = candidate.GetViewRoot(MasterHumanoidView.Back);
             if (front == null || side == null || back == null || front == side || front == back || side == back) return false;
             if (front.name != "View_Front" || side.name != "View_Side" || back.name != "View_Back") return false;
-            foreach (var view in new[] { front, side, back })
-                if (view.parent != candidate.VisualRoot || view.Find("SkinMount") == null) return false;
-            return true;
+            // No temporary array allocation on a facing change; searches occur only on explicit requests.
+            return HasSafeView(front, candidate.VisualRoot) && HasSafeView(side, candidate.VisualRoot) && HasSafeView(back, candidate.VisualRoot);
         }
+
+        static bool HasSafeView(Transform view, Transform visualRoot)
+        { return view.parent == visualRoot && view.Find("SkinMount") != null; }
 
         internal static bool HasValidScale(Vector3 scale)
         {

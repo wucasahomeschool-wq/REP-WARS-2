@@ -13,6 +13,15 @@ namespace RepWars.CharacterProduction.EditorTools
             {
                 EditorGUILayout.ObjectField("Rig", presentation.Rig, typeof(MasterHumanoidRig), true);
                 EditorGUILayout.EnumPopup("Active facing", presentation.Facing);
+                HumanoidFacingSelection selection;
+                if (presentation.TryResolveFacing(presentation.Facing, out selection))
+                {
+                    EditorGUILayout.EnumPopup("Authored view", selection.View);
+                    EditorGUILayout.Toggle("Whole-rig mirrored", selection.Mirrored);
+                }
+                EditorGUILayout.Toggle("FrontLeft mirrored", presentation.Definition.FrontLeftMirrored);
+                EditorGUILayout.Toggle("Left mirrored", presentation.Definition.LeftMirrored);
+                EditorGUILayout.Toggle("BackLeft mirrored", presentation.Definition.BackLeftMirrored);
                 EditorGUILayout.Vector3Field("Unmirrored visual scale", presentation.UnmirroredVisualScale);
             }
             EditorGUILayout.HelpBox("Presentation only. Choose a facing to activate one authored view and mirror VisualRoot. Unity visual approval remains separate.", MessageType.Info);

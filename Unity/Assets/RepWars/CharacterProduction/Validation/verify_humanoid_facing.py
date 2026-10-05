@@ -33,12 +33,25 @@ def verify():
     assert not re.search(r"(?:flipX|flipY|sortingOrder)\s*=", presentation)
     assert not re.search(r"\b(?:Update|FixedUpdate|LateUpdate)\s*\(", presentation)
     assert ".position =" not in presentation and ".localPosition =" not in presentation
+    definition = (production / "Runtime/HumanoidFacingDefinition.cs").read_text()
+    assert "canonical.Mirrored ^ reverse" in definition
+    assert "new HumanoidFacingSelection(canonical.View," in definition
+    assert "HumanoidFacingContract.TryResolve(facing, out canonical)" in definition
+    assert "default(HumanoidFacingDefinition), out error" in presentation
+    assert "return definition.TryResolve(intent, out selection);" in presentation
+    assert "!TryResolveFacing(intent, out selection)" in presentation
+    assert "[SerializeField] HumanoidFacing facing = HumanoidFacing.FrontLeft;" in presentation
+    assert "[SerializeField] Vector3 unmirroredVisualScale = Vector3.one;" in presentation
+    assert len(re.findall(r'\[SerializeField\] bool \w+;', definition)) == 3
     builder = (production / "Editor/KnightAFacingProofBuilder.cs").read_text()
-    assert "Instantiate(source.Rig.GetViewRoot(view).gameObject, rig.VisualRoot, false)" in builder
+    assembly = (production / "Editor/HumanoidFacingProofAssembly.cs").read_text()
+    assert "Instantiate(source.Rig.GetViewRoot(view).gameObject, rig.VisualRoot, false)" in assembly
+    assert "HumanoidFacingProofAssembly.AssembleViews(rig, KnightASkinBuilder.ProofPrefabPathFor," in builder
+    assert "view => KnightASkinConfiguration.Load(view), root => root.AddComponent<KnightASkin>()" in builder
     assert "KnightASkinBuilder.CreateProof(view);" in builder
     assert "foreach (HumanoidFacing facing in Enum.GetValues(typeof(HumanoidFacing)))" in builder
     assert "KnightASkinValidator.Validate(skin, KnightASkinConfiguration.Load(view), false, allowedAnimator)" in builder
-    print("PASS: six locked mappings, invalid rejection, null-intent retention, VisualRoot mirror boundary, and three-view proof path.")
+    print("PASS: six unchanged Knight A mappings, default definition compatibility, invalid/null retention, VisualRoot mirror boundary, shared three-view proof path (source checks).")
     print("C# execution, Unity compilation, prefab generation, SpriteSkin mirroring, and visual quality are NOT verified.")
 
 

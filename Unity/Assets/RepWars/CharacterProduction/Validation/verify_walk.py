@@ -113,7 +113,7 @@ def verify():
     for source in (REPO/'assets/misc/Character Skin PNG pieces').glob('*.png'):
         assert source.read_bytes()==subprocess.check_output(['git','show','HEAD:'+str(source.relative_to(REPO))],cwd=REPO)
     for relative in ('Runtime/MasterHumanoidRigContract.cs','Runtime/SelectiveTeamColorPresentation.cs','Rendering/SelectiveTeamColorUnlit.shader','Editor/KnightATeamColor.configuration.json',
-                     'Editor/KnightAIdle.configuration.json','Runtime/HumanoidFacingPresentation.cs'):
+                     'Editor/KnightAIdle.configuration.json'):
         path=PRODUCTION/relative
         assert path.read_bytes()==subprocess.check_output(['git','show','HEAD:'+str(path.relative_to(REPO))],cwd=REPO)
     from verify_knight_a_regression import verify as verify_skin_regression
