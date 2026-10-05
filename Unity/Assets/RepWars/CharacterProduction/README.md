@@ -8,6 +8,8 @@ Phase 4 extends the same pipeline with independent Side and Back configurations.
 
 Phase 5 adds the reusable six-facing presentation component and a combined Knight A proof generation path. See [SIX_DIRECTION_PRESENTATION.md](SIX_DIRECTION_PRESENTATION.md). Three authored branches produce six displayed facings through whole-VisualRoot mirroring; animation and Unity visual approval remain deferred.
 
+Phase 6 adds explicit per-section selective masks, a shared URP 2D recolor shader/material generation path, and one presentation color state across all facings. See [SELECTIVE_TEAM_COLOR.md](SELECTIVE_TEAM_COLOR.md). Source art remains unchanged; only conservative cloth-interior proof regions are designated, with wider mask decisions deferred to human review. Unity generation, shader compilation and visual approval remain deferred.
+
 ## Master Humanoid contract
 
 `Runtime/MasterHumanoidRigContract.cs` defines contract version 1, stable bone names, direct parent relationships, the Front/Side/Back view identifiers, and socket names. The skeleton has 20 bones. Its topology is deliberately richer than the Soldier skin's approximately 11 body-section sprites: SpriteSkin art may be influenced by multiple bones.
@@ -32,4 +34,4 @@ Use `RepWars > Character Production > Validate Selected Master Humanoid Rig` to 
 
 ## Deliberate exclusions
 
-Original Soldier PNGs are read-only. The shared Knight A generator technically extracts the authored sections into padded derived textures, preserving source paint and overlap. No art is repainted, redesigned, generated, or recolored. No animations, Knight B integration, team-color materials, or equipment are implemented. No Phase A character code, production army presentation, or backend/gameplay files are dependencies.
+Original Soldier PNGs are read-only. The shared Knight A generator technically extracts the authored sections into padded derived textures, preserving source paint and overlap. Source art is never repainted, redesigned, regenerated, or recolored. Selective runtime recolor is rendering only. No animations, Knight B integration, or equipment are implemented. No Phase A character code, production army presentation, or backend/gameplay files are dependencies.

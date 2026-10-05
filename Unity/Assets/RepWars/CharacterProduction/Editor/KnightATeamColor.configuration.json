@@ -1,0 +1,273 @@
+{
+  "version": 1,
+  "characterId": "KnightA",
+  "views": [
+    {
+      "view": 0,
+      "sourceSha256": "8cb218285545c667a1c5ce179de968c709a6d5398de68b54be507b042f0f52f1",
+      "skinConfigurationSha256": "1b83fa5ef56a01acff6186edef2d94e3b18b8451521ae923a657421fda150fb9",
+      "sections": [
+        {
+          "sectionId": "HeadNeck",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "UpperTorso",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LowerTorso",
+          "polygons": [
+            {
+              "id": "TabardInterior_Provisional",
+              "featherPixels": 2,
+              "points": [
+                {
+                  "x": 531,
+                  "y": 660
+                },
+                {
+                  "x": 571,
+                  "y": 660
+                },
+                {
+                  "x": 568,
+                  "y": 774
+                },
+                {
+                  "x": 550,
+                  "y": 785
+                },
+                {
+                  "x": 531,
+                  "y": 770
+                }
+              ]
+            }
+          ],
+          "reviewNote": "Provisional clear central hanging-cloth interior only. Cloth perimeter, gold trim, belt and underlying dark cloth excluded; final extent requires human visual review."
+        },
+        {
+          "sectionId": "LeftUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        }
+      ]
+    },
+    {
+      "view": 1,
+      "sourceSha256": "ef91959c6aeb3d631b0b53d5091285e6482fe0ce23dad80e2aa68906bfda79c7",
+      "skinConfigurationSha256": "5b52d1d3b2095cb950aec3cef7c9aefac40307011422b1314c98b85202b663d6",
+      "sections": [
+        {
+          "sectionId": "HeadNeck",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "UpperTorso",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LowerTorso",
+          "polygons": [
+            {
+              "id": "TabardInterior_Provisional",
+              "featherPixels": 2,
+              "points": [
+                {
+                  "x": 575,
+                  "y": 713
+                },
+                {
+                  "x": 603,
+                  "y": 718
+                },
+                {
+                  "x": 607,
+                  "y": 844
+                },
+                {
+                  "x": 593,
+                  "y": 858
+                },
+                {
+                  "x": 577,
+                  "y": 844
+                }
+              ]
+            }
+          ],
+          "reviewNote": "Provisional clear central hanging-cloth interior only. Cloth perimeter, gold trim, belt and underlying dark cloth excluded; final extent requires human visual review."
+        },
+        {
+          "sectionId": "LeftUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        }
+      ]
+    },
+    {
+      "view": 2,
+      "sourceSha256": "6bdcf79a6bbb3e8b25b204fbf43576ec727ffd45c9c574f1e32ffa5835bcf46a",
+      "skinConfigurationSha256": "f1ae92eae2c52d6e10dd6d9fa88e6ce84195ee570ef3a8127dab3bc53cd42734",
+      "sections": [
+        {
+          "sectionId": "HeadNeck",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "UpperTorso",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LowerTorso",
+          "polygons": [
+            {
+              "id": "TabardInterior_Provisional",
+              "featherPixels": 2,
+              "points": [
+                {
+                  "x": 502,
+                  "y": 686
+                },
+                {
+                  "x": 529,
+                  "y": 700
+                },
+                {
+                  "x": 540,
+                  "y": 818
+                },
+                {
+                  "x": 518,
+                  "y": 842
+                },
+                {
+                  "x": 503,
+                  "y": 828
+                }
+              ]
+            }
+          ],
+          "reviewNote": "Provisional clear central hanging-cloth interior only. Cloth perimeter, gold trim, belt and underlying dark cloth excluded; final extent requires human visual review."
+        },
+        {
+          "sectionId": "LeftUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        },
+        {
+          "sectionId": "RightLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION \u2014 REQUIRES HUMAN VISUAL REVIEW for any cloth/accent/trim designation; no automatic color selection."
+        }
+      ]
+    }
+  ]
+}
