@@ -25,7 +25,7 @@ namespace RepWars.CharacterProduction.EditorTools
             if (requested != presentation.Facing) Apply(presentation, requested);
             if (GUILayout.Button("Validate presentation structure"))
             {
-                var errors = HumanoidFacingValidator.Validate(presentation);
+                var errors = HumanoidFacingValidator.Validate(presentation, presentation.GetComponent<HumanoidIdlePresentation>());
                 if (errors.Count == 0) Debug.Log("Facing structure validates; rendered mirroring remains unapproved.", presentation);
                 else Debug.LogError(string.Join("\n", errors.ToArray()), presentation);
             }

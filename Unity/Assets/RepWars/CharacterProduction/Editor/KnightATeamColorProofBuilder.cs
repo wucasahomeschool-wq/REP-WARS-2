@@ -135,13 +135,13 @@ namespace RepWars.CharacterProduction.EditorTools
             finally { if (root != null) PrefabUtility.UnloadPrefabContents(root); }
         }
 
-        public static List<string> Validate(SelectiveTeamColorPresentation presentation)
+        public static List<string> Validate(SelectiveTeamColorPresentation presentation, HumanoidIdlePresentation allowedIdle = null)
         {
             var errors = new List<string>();
             if (presentation == null) { errors.Add("Select the team-color proof root."); return errors; }
             var recipe = KnightATeamColorConfiguration.Load();
             errors.AddRange(presentation.Validate());
-            errors.AddRange(KnightAFacingProofBuilder.Validate(presentation.GetComponent<HumanoidFacingPresentation>()));
+            errors.AddRange(KnightAFacingProofBuilder.Validate(presentation.GetComponent<HumanoidFacingPresentation>(), allowedIdle));
             if (presentation.ConfigurationSha256 != recipe.ConfigurationHash) errors.Add("Mask recipe provenance is stale; explicit regeneration is required.");
             if (presentation.Sections.Count != 33) errors.Add("Exactly 33 section bindings across three authored views are required.");
             if (AssetDatabase.GetAssetPath(presentation.SharedMaterial) != MaterialPath) errors.Add("Proof must use the one generated shared material asset.");

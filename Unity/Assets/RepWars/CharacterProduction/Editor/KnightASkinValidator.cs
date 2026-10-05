@@ -11,7 +11,7 @@ namespace RepWars.CharacterProduction.EditorTools
 {
     public static class KnightASkinValidator
     {
-        public static List<string> Validate(KnightASkin skin, KnightASkinConfiguration config, bool isolatedViewProof = true)
+        public static List<string> Validate(KnightASkin skin, KnightASkinConfiguration config, bool isolatedViewProof = true, Animator allowedIdleAnimator = null)
         {
             var errors = config != null ? config.Validate() : new List<string> { "Knight A authored view configuration is missing." };
             if (skin == null) { errors.Add("Select a KnightASkin proof root."); return errors; }
@@ -37,8 +37,12 @@ namespace RepWars.CharacterProduction.EditorTools
                 if (root != null && (root.GetComponentsInChildren<SpriteRenderer>(true).Length > 0 || root.GetComponentsInChildren<SpriteSkin>(true).Length > 0))
                     errors.Add(view + " must remain unintegrated in this phase.");
             }
-            if (skin.GetComponentsInChildren<Animator>(true).Length > 0 || skin.GetComponentsInChildren<Animation>(true).Length > 0)
-                errors.Add("Animation components are not allowed in the authored view skin proof.");
+            foreach (var animator in skin.GetComponentsInChildren<Animator>(true))
+                if (animator != allowedIdleAnimator || isolatedViewProof || animator.transform != skin.Rig.GetViewRoot(config.view) ||
+                    animator.applyRootMotion || animator.runtimeAnimatorController != null || animator.avatar != null)
+                    errors.Add("Only an explicitly supplied view-local Idle Animator is permitted in an animation proof.");
+            if (skin.GetComponentsInChildren<Animation>(true).Length > 0)
+                errors.Add("Legacy animation components are not allowed in the authored view skin proof.");
             if (skin.Sections == null || skin.Sections.Length != 11) { errors.Add("Proof must reference exactly eleven body sections."); return errors; }
             var front = skin.Rig.GetViewRoot(config.view);
             if (front == null) return errors;

@@ -37,7 +37,7 @@ def verify():
     assert "Instantiate(source.Rig.GetViewRoot(view).gameObject, rig.VisualRoot, false)" in builder
     assert "KnightASkinBuilder.CreateProof(view);" in builder
     assert "foreach (HumanoidFacing facing in Enum.GetValues(typeof(HumanoidFacing)))" in builder
-    assert "KnightASkinValidator.Validate(skin, KnightASkinConfiguration.Load(view), false)" in builder
+    assert "KnightASkinValidator.Validate(skin, KnightASkinConfiguration.Load(view), false, allowedAnimator)" in builder
     print("PASS: six locked mappings, invalid rejection, null-intent retention, VisualRoot mirror boundary, and three-view proof path.")
     print("C# execution, Unity compilation, prefab generation, SpriteSkin mirroring, and visual quality are NOT verified.")
 

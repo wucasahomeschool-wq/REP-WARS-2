@@ -113,9 +113,9 @@ namespace RepWars.CharacterProduction.EditorTools
             finally { if (rig != null) UnityEngine.Object.DestroyImmediate(rig.gameObject); }
         }
 
-        public static List<string> Validate(HumanoidFacingPresentation presentation)
+        public static List<string> Validate(HumanoidFacingPresentation presentation, HumanoidIdlePresentation allowedIdle = null)
         {
-            var errors = HumanoidFacingValidator.Validate(presentation);
+            var errors = HumanoidFacingValidator.Validate(presentation, allowedIdle);
             if (presentation == null || presentation.Rig == null) return errors;
             if (presentation.GetComponentsInChildren<MasterHumanoidRig>(true).Length != 1)
                 errors.Add("Combined proof must contain one Master Humanoid rig component, with three authored branches.");
@@ -129,7 +129,8 @@ namespace RepWars.CharacterProduction.EditorTools
                 var root = presentation.Rig.GetViewRoot(view);
                 if (root == null) continue;
                 var skin = root.GetComponent<KnightASkin>();
-                errors.AddRange(KnightASkinValidator.Validate(skin, KnightASkinConfiguration.Load(view), false));
+                var allowedAnimator = allowedIdle != null && allowedIdle.ViewAnimators.Count == 3 ? allowedIdle.ViewAnimators[(int)view] : null;
+                errors.AddRange(KnightASkinValidator.Validate(skin, KnightASkinConfiguration.Load(view), false, allowedAnimator));
             }
             return errors;
         }

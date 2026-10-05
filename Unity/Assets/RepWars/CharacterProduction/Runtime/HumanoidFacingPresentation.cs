@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace RepWars.CharacterProduction
@@ -13,6 +14,8 @@ namespace RepWars.CharacterProduction
         public MasterHumanoidRig Rig { get { return rig; } }
         public HumanoidFacing Facing { get { return facing; } }
         public Vector3 UnmirroredVisualScale { get { return unmirroredVisualScale; } }
+        /// <summary>Optional presentation notification after view selection and mirroring are applied.</summary>
+        public event Action<HumanoidFacing> FacingChanged;
 
         public bool Configure(MasterHumanoidRig newRig, HumanoidFacing initialFacing, out string error)
         {
@@ -29,6 +32,7 @@ namespace RepWars.CharacterProduction
             unmirroredVisualScale = scale;
             Apply(selection);
             facing = initialFacing;
+            FacingChanged?.Invoke(facing);
             error = null;
             return true;
         }
@@ -41,6 +45,7 @@ namespace RepWars.CharacterProduction
                 return false;
             Apply(selection);
             facing = intent;
+            FacingChanged?.Invoke(facing);
             return true;
         }
 

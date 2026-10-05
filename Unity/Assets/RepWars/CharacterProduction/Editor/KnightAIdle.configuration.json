@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "characterId": "KnightA",
+  "state": "Idle",
+  "duration": 4.8,
+  "phases": [
+    {
+      "normalizedTime": 0,
+      "breath": 0,
+      "settle": 0
+    },
+    {
+      "normalizedTime": 0.17,
+      "breath": 0.55,
+      "settle": -0.1
+    },
+    {
+      "normalizedTime": 0.37,
+      "breath": 1,
+      "settle": 0.2
+    },
+    {
+      "normalizedTime": 0.6,
+      "breath": 0.2,
+      "settle": 0.6
+    },
+    {
+      "normalizedTime": 0.81,
+      "breath": -0.3,
+      "settle": -0.25
+    },
+    {
+      "normalizedTime": 1,
+      "breath": 0,
+      "settle": 0
+    }
+  ],
+  "views": [
+    {
+      "view": 0,
+      "sourceSha256": "8cb218285545c667a1c5ce179de968c709a6d5398de68b54be507b042f0f52f1",
+      "skinConfigurationSha256": "1b83fa5ef56a01acff6186edef2d94e3b18b8451521ae923a657421fda150fb9",
+      "motions": [
+        {
+          "bone": "Spine",
+          "breathDegrees": 0.22,
+          "settleDegrees": 0.03
+        },
+        {
+          "bone": "Chest",
+          "breathDegrees": 0.33,
+          "settleDegrees": 0.025
+        },
+        {
+          "bone": "Neck",
+          "breathDegrees": -0.12,
+          "settleDegrees": 0.1
+        },
+        {
+          "bone": "Head",
+          "breathDegrees": -0.2,
+          "settleDegrees": 0.16
+        },
+        {
+          "bone": "LeftClavicle",
+          "breathDegrees": 0.2,
+          "settleDegrees": 0.035
+        },
+        {
+          "bone": "RightClavicle",
+          "breathDegrees": -0.18,
+          "settleDegrees": 0.025
+        },
+        {
+          "bone": "LeftUpperArm",
+          "breathDegrees": -0.16,
+          "settleDegrees": 0.04
+        },
+        {
+          "bone": "RightUpperArm",
+          "breathDegrees": 0.14,
+          "settleDegrees": -0.035
+        }
+      ]
+    },
+    {
+      "view": 1,
+      "sourceSha256": "ef91959c6aeb3d631b0b53d5091285e6482fe0ce23dad80e2aa68906bfda79c7",
+      "skinConfigurationSha256": "5b52d1d3b2095cb950aec3cef7c9aefac40307011422b1314c98b85202b663d6",
+      "motions": [
+        {
+          "bone": "Spine",
+          "breathDegrees": 0.14,
+          "settleDegrees": -0.02
+        },
+        {
+          "bone": "Chest",
+          "breathDegrees": 0.25,
+          "settleDegrees": 0.02
+        },
+        {
+          "bone": "Neck",
+          "breathDegrees": -0.16,
+          "settleDegrees": 0.045
+        },
+        {
+          "bone": "Head",
+          "breathDegrees": -0.18,
+          "settleDegrees": 0.1
+        },
+        {
+          "bone": "LeftClavicle",
+          "breathDegrees": -0.12,
+          "settleDegrees": 0.025
+        },
+        {
+          "bone": "RightClavicle",
+          "breathDegrees": 0.16,
+          "settleDegrees": -0.03
+        },
+        {
+          "bone": "LeftUpperArm",
+          "breathDegrees": 0.11,
+          "settleDegrees": -0.02
+        },
+        {
+          "bone": "RightUpperArm",
+          "breathDegrees": -0.1,
+          "settleDegrees": 0.02
+        }
+      ]
+    },
+    {
+      "view": 2,
+      "sourceSha256": "6bdcf79a6bbb3e8b25b204fbf43576ec727ffd45c9c574f1e32ffa5835bcf46a",
+      "skinConfigurationSha256": "f1ae92eae2c52d6e10dd6d9fa88e6ce84195ee570ef3a8127dab3bc53cd42734",
+      "motions": [
+        {
+          "bone": "Spine",
+          "breathDegrees": -0.18,
+          "settleDegrees": 0.025
+        },
+        {
+          "bone": "Chest",
+          "breathDegrees": -0.28,
+          "settleDegrees": -0.02
+        },
+        {
+          "bone": "Neck",
+          "breathDegrees": 0.11,
+          "settleDegrees": 0.08
+        },
+        {
+          "bone": "Head",
+          "breathDegrees": 0.17,
+          "settleDegrees": 0.12
+        },
+        {
+          "bone": "LeftClavicle",
+          "breathDegrees": -0.17,
+          "settleDegrees": 0.02
+        },
+        {
+          "bone": "RightClavicle",
+          "breathDegrees": 0.2,
+          "settleDegrees": -0.03
+        },
+        {
+          "bone": "LeftUpperArm",
+          "breathDegrees": 0.13,
+          "settleDegrees": 0.03
+        },
+        {
+          "bone": "RightUpperArm",
+          "breathDegrees": -0.15,
+          "settleDegrees": 0.025
+        }
+      ]
+    }
+  ]
+}

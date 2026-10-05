@@ -6,7 +6,7 @@ namespace RepWars.CharacterProduction
 {
     public static class HumanoidFacingValidator
     {
-        public static List<string> Validate(HumanoidFacingPresentation presentation)
+        public static List<string> Validate(HumanoidFacingPresentation presentation, HumanoidIdlePresentation allowedIdle = null)
         {
             var errors = new List<string>();
             var facings = (HumanoidFacing[])Enum.GetValues(typeof(HumanoidFacing));
@@ -56,7 +56,17 @@ namespace RepWars.CharacterProduction
             {
                 if (component == null) { errors.Add("Proof has a missing component reference."); continue; }
                 var name = component.GetType().Name;
-                if (component is Animator || component is Animation) errors.Add("Animation components are outside this phase.");
+                if (component is Animation) errors.Add("Legacy animation components are forbidden.");
+                var animator = component as Animator;
+                if (animator != null)
+                {
+                    var permitted = false;
+                    if (allowedIdle != null && allowedIdle.gameObject == presentation.gameObject && allowedIdle.Rig == rig)
+                        for (var i = 0; i < allowedIdle.ViewAnimators.Count; i++)
+                            if (allowedIdle.ViewAnimators[i] == animator && i < 3 && animator.transform == rig.GetViewRoot((MasterHumanoidView)i) &&
+                                !animator.applyRootMotion && animator.runtimeAnimatorController == null && animator.avatar == null) permitted = true;
+                    if (!permitted) errors.Add("Only the explicitly supplied Idle proof's view-local Animators are permitted; static proofs remain animation-free.");
+                }
                 if (name == "RepWarsArmyVisual" || name == "RepWarsSoldierVisual" || name == "RepWarsMapScreen")
                     errors.Add("Production army component is forbidden: " + name);
             }
