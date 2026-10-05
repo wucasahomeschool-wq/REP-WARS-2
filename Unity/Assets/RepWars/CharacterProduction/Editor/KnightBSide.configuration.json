@@ -1,0 +1,468 @@
+{
+  "version": 1,
+  "view": 1,
+  "sourcePath": "assets/misc/Character Skin PNG pieces/ChatGPT Image Oct 3, 2026, 08_01_25 AM.png",
+  "sourceSha256": "7b6b48290af8c18424503659e4e7d436551be7b0cee3f08dad1934c26b83084e",
+  "sourceWidth": 1024,
+  "sourceHeight": 1536,
+  "padding": 8,
+  "isolationAlpha": 32,
+  "pixelsPerUnit": 768,
+  "groundX": 512,
+  "groundY": 1402,
+  "bones": [
+    {
+      "name": "Root",
+      "x": 512,
+      "y": 1402
+    },
+    {
+      "name": "Pelvis",
+      "x": 495,
+      "y": 563
+    },
+    {
+      "name": "Spine",
+      "x": 494,
+      "y": 515
+    },
+    {
+      "name": "Chest",
+      "x": 496,
+      "y": 396
+    },
+    {
+      "name": "Neck",
+      "x": 504,
+      "y": 266
+    },
+    {
+      "name": "Head",
+      "x": 506,
+      "y": 153
+    },
+    {
+      "name": "LeftClavicle",
+      "x": 555,
+      "y": 333
+    },
+    {
+      "name": "LeftUpperArm",
+      "x": 584,
+      "y": 365
+    },
+    {
+      "name": "LeftForearm",
+      "x": 614,
+      "y": 555
+    },
+    {
+      "name": "LeftHand",
+      "x": 630,
+      "y": 805
+    },
+    {
+      "name": "RightClavicle",
+      "x": 450,
+      "y": 306
+    },
+    {
+      "name": "RightUpperArm",
+      "x": 432,
+      "y": 335
+    },
+    {
+      "name": "RightForearm",
+      "x": 448,
+      "y": 522
+    },
+    {
+      "name": "RightHand",
+      "x": 465,
+      "y": 780
+    },
+    {
+      "name": "LeftThigh",
+      "x": 601,
+      "y": 838
+    },
+    {
+      "name": "LeftShin",
+      "x": 621,
+      "y": 1020
+    },
+    {
+      "name": "LeftFoot",
+      "x": 618,
+      "y": 1262
+    },
+    {
+      "name": "RightThigh",
+      "x": 475,
+      "y": 827
+    },
+    {
+      "name": "RightShin",
+      "x": 463,
+      "y": 1010
+    },
+    {
+      "name": "RightFoot",
+      "x": 463,
+      "y": 1260
+    }
+  ],
+  "sections": [
+    {
+      "id": "HeadNeck",
+      "seedX": 500,
+      "seedY": 110,
+      "minY": 0,
+      "maxY": 1536,
+      "offsetX": 0,
+      "offsetY": 50,
+      "sortingOrder": 90,
+      "meshColumns": 3,
+      "meshRows": 7,
+      "influences": [
+        "Head",
+        "Neck"
+      ],
+      "dominantBone": "Head",
+      "transitions": [
+        {
+          "bone": "Neck",
+          "fromY": 170,
+          "toY": 224,
+          "maximum": 0.9
+        }
+      ]
+    },
+    {
+      "id": "UpperTorso",
+      "seedX": 480,
+      "seedY": 410,
+      "minY": 0,
+      "maxY": 1536,
+      "offsetX": 0,
+      "offsetY": 0,
+      "sortingOrder": 70,
+      "meshColumns": 6,
+      "meshRows": 10,
+      "influences": [
+        "Chest",
+        "Spine",
+        "RightClavicle",
+        "LeftClavicle"
+      ],
+      "dominantBone": "Chest",
+      "transitions": [
+        {
+          "bone": "Spine",
+          "fromY": 465,
+          "toY": 577,
+          "maximum": 0.13
+        },
+        {
+          "bone": "RightClavicle",
+          "fromY": 420,
+          "toY": 300,
+          "maximum": 0.06,
+          "useX": true,
+          "fromX": 510,
+          "toX": 400
+        },
+        {
+          "bone": "LeftClavicle",
+          "fromY": 420,
+          "toY": 300,
+          "maximum": 0.04,
+          "useX": true,
+          "fromX": 530,
+          "toX": 635
+        }
+      ]
+    },
+    {
+      "id": "LowerTorso",
+      "seedX": 480,
+      "seedY": 720,
+      "minY": 0,
+      "maxY": 1536,
+      "offsetX": 0,
+      "offsetY": -40,
+      "sortingOrder": 80,
+      "meshColumns": 6,
+      "meshRows": 9,
+      "influences": [
+        "Pelvis",
+        "Spine",
+        "RightThigh",
+        "LeftThigh"
+      ],
+      "dominantBone": "Pelvis",
+      "transitions": [
+        {
+          "bone": "Spine",
+          "fromY": 670,
+          "toY": 620,
+          "maximum": 0.07
+        },
+        {
+          "bone": "RightThigh",
+          "fromY": 700,
+          "toY": 895,
+          "maximum": 0.05
+        },
+        {
+          "bone": "LeftThigh",
+          "fromY": 700,
+          "toY": 895,
+          "maximum": 0.04
+        }
+      ]
+    },
+    {
+      "id": "LeftUpperArm",
+      "seedX": 805,
+      "seedY": 445,
+      "minY": 0,
+      "maxY": 1536,
+      "offsetX": -185,
+      "offsetY": -15,
+      "sortingOrder": 20,
+      "meshColumns": 4,
+      "meshRows": 9,
+      "influences": [
+        "LeftUpperArm",
+        "LeftClavicle",
+        "LeftForearm"
+      ],
+      "dominantBone": "LeftUpperArm",
+      "transitions": [
+        {
+          "bone": "LeftClavicle",
+          "fromY": 420,
+          "toY": 330,
+          "maximum": 0.06
+        },
+        {
+          "bone": "LeftForearm",
+          "fromY": 500,
+          "toY": 570,
+          "maximum": 0.8
+        }
+      ]
+    },
+    {
+      "id": "RightUpperArm",
+      "seedX": 225,
+      "seedY": 440,
+      "minY": 0,
+      "maxY": 1536,
+      "offsetX": 220,
+      "offsetY": -40,
+      "sortingOrder": 60,
+      "meshColumns": 4,
+      "meshRows": 9,
+      "influences": [
+        "RightUpperArm",
+        "RightClavicle",
+        "RightForearm"
+      ],
+      "dominantBone": "RightUpperArm",
+      "transitions": [
+        {
+          "bone": "RightClavicle",
+          "fromY": 420,
+          "toY": 330,
+          "maximum": 0.06
+        },
+        {
+          "bone": "RightForearm",
+          "fromY": 482,
+          "toY": 552,
+          "maximum": 0.8
+        }
+      ]
+    },
+    {
+      "id": "LeftForearmHand",
+      "seedX": 825,
+      "seedY": 750,
+      "minY": 0,
+      "maxY": 1536,
+      "offsetX": -190,
+      "offsetY": -58,
+      "sortingOrder": 30,
+      "meshColumns": 4,
+      "meshRows": 10,
+      "influences": [
+        "LeftForearm",
+        "LeftUpperArm",
+        "LeftHand"
+      ],
+      "dominantBone": "LeftForearm",
+      "transitions": [
+        {
+          "bone": "LeftUpperArm",
+          "fromY": 687,
+          "toY": 602,
+          "maximum": 0.06
+        },
+        {
+          "bone": "LeftHand",
+          "fromY": 820,
+          "toY": 875,
+          "maximum": 1
+        }
+      ]
+    },
+    {
+      "id": "RightForearmHand",
+      "seedX": 190,
+      "seedY": 735,
+      "minY": 0,
+      "maxY": 1536,
+      "offsetX": 265,
+      "offsetY": -65,
+      "sortingOrder": 100,
+      "meshColumns": 4,
+      "meshRows": 10,
+      "influences": [
+        "RightForearm",
+        "RightUpperArm",
+        "RightHand"
+      ],
+      "dominantBone": "RightForearm",
+      "transitions": [
+        {
+          "bone": "RightUpperArm",
+          "fromY": 665,
+          "toY": 580,
+          "maximum": 0.06
+        },
+        {
+          "bone": "RightHand",
+          "fromY": 784,
+          "toY": 839,
+          "maximum": 1
+        }
+      ]
+    },
+    {
+      "id": "LeftUpperLeg",
+      "seedX": 640,
+      "seedY": 1020,
+      "minY": 0,
+      "maxY": 1536,
+      "offsetX": -29,
+      "offsetY": -110,
+      "sortingOrder": 10,
+      "meshColumns": 4,
+      "meshRows": 10,
+      "influences": [
+        "LeftThigh",
+        "Pelvis",
+        "LeftShin"
+      ],
+      "dominantBone": "LeftThigh",
+      "transitions": [
+        {
+          "bone": "Pelvis",
+          "fromY": 1007,
+          "toY": 937,
+          "maximum": 0.06
+        },
+        {
+          "bone": "LeftShin",
+          "fromY": 1070,
+          "toY": 1135,
+          "maximum": 1
+        }
+      ]
+    },
+    {
+      "id": "RightUpperLeg",
+      "seedX": 450,
+      "seedY": 960,
+      "minY": 0,
+      "maxY": 1536,
+      "offsetX": 28,
+      "offsetY": -65,
+      "sortingOrder": 50,
+      "meshColumns": 4,
+      "meshRows": 10,
+      "influences": [
+        "RightThigh",
+        "Pelvis",
+        "RightShin"
+      ],
+      "dominantBone": "RightThigh",
+      "transitions": [
+        {
+          "bone": "Pelvis",
+          "fromY": 949,
+          "toY": 879,
+          "maximum": 0.06
+        },
+        {
+          "bone": "RightShin",
+          "fromY": 1022,
+          "toY": 1087,
+          "maximum": 1
+        }
+      ]
+    },
+    {
+      "id": "LeftLowerLegFoot",
+      "seedX": 650,
+      "seedY": 1320,
+      "minY": 0,
+      "maxY": 1536,
+      "offsetX": -20,
+      "offsetY": -103,
+      "sortingOrder": 0,
+      "meshColumns": 4,
+      "meshRows": 12,
+      "influences": [
+        "LeftShin",
+        "LeftFoot"
+      ],
+      "dominantBone": "LeftShin",
+      "transitions": [
+        {
+          "bone": "LeftFoot",
+          "fromY": 1342,
+          "toY": 1398,
+          "maximum": 1
+        }
+      ]
+    },
+    {
+      "id": "RightLowerLegFoot",
+      "seedX": 430,
+      "seedY": 1300,
+      "minY": 0,
+      "maxY": 1536,
+      "offsetX": 48,
+      "offsetY": -119,
+      "sortingOrder": 40,
+      "meshColumns": 4,
+      "meshRows": 12,
+      "influences": [
+        "RightShin",
+        "RightFoot"
+      ],
+      "dominantBone": "RightShin",
+      "transitions": [
+        {
+          "bone": "RightFoot",
+          "fromY": 1351,
+          "toY": 1407,
+          "maximum": 1
+        }
+      ]
+    }
+  ]
+}

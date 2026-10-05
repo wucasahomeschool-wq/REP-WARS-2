@@ -1,19 +1,10 @@
 using System;
 using UnityEngine;
-using UnityEngine.U2D.Animation;
 
 namespace RepWars.CharacterProduction
 {
-    [Serializable]
-    public sealed class KnightASkinSectionBinding
-    {
-        public string sectionId;
-        public SpriteRenderer renderer;
-        public SpriteSkin spriteSkin;
-    }
-
     /// <summary>Inspectable references and provenance for the authored-view skin proof. No gameplay or animation behavior.</summary>
-    public class KnightASkin : MonoBehaviour, IHumanoidSkin
+    public sealed class KnightBSkin : MonoBehaviour, IHumanoidSkin
     {
         [SerializeField] MasterHumanoidView view;
         [SerializeField] MasterHumanoidRig rig;
@@ -22,7 +13,7 @@ namespace RepWars.CharacterProduction
         [SerializeField] KnightASkinSectionBinding[] sections = Array.Empty<KnightASkinSectionBinding>();
 
         public GameObject Owner { get { return gameObject; } }
-        public string CharacterId { get { return "KnightA"; } }
+        public string CharacterId { get { return "KnightB"; } }
         public MasterHumanoidView View { get { return view; } }
         public MasterHumanoidRig Rig { get { return rig; } }
         public string SourceSha256 { get { return sourceSha256; } }

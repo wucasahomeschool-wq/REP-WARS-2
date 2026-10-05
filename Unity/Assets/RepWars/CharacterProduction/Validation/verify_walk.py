@@ -113,9 +113,11 @@ def verify():
     for source in (REPO/'assets/misc/Character Skin PNG pieces').glob('*.png'):
         assert source.read_bytes()==subprocess.check_output(['git','show','HEAD:'+str(source.relative_to(REPO))],cwd=REPO)
     for relative in ('Runtime/MasterHumanoidRigContract.cs','Runtime/SelectiveTeamColorPresentation.cs','Rendering/SelectiveTeamColorUnlit.shader','Editor/KnightATeamColor.configuration.json',
-                     'Editor/KnightAIdle.configuration.json','Editor/KnightASkinBuilder.cs','Editor/KnightASkinGeometry.cs','Runtime/HumanoidFacingPresentation.cs'):
+                     'Editor/KnightAIdle.configuration.json','Runtime/HumanoidFacingPresentation.cs'):
         path=PRODUCTION/relative
         assert path.read_bytes()==subprocess.check_output(['git','show','HEAD:'+str(path.relative_to(REPO))],cwd=REPO)
+    from verify_knight_a_regression import verify as verify_skin_regression
+    verify_skin_regression()
     runtime=(PRODUCTION/'Runtime/HumanoidIdlePresentation.cs').read_text()
     assert 'AnimationMixerPlayable.Create(graph,2)' in runtime and 'DirectorUpdateMode.Manual' in runtime
     assert 'if (IsPlaying) Sample();' in runtime and 'SetAutomaticAdvance' in runtime

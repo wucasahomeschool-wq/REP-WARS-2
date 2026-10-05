@@ -84,9 +84,11 @@ def verify():
     assert "settings.loopTime = true" in builder and "animator.applyRootMotion = false" in builder
     assert "AnimatorController" not in builder and "FrontRight_Idle" not in builder and "Right_Idle" not in builder
     for relative in ("Runtime/SelectiveTeamColorPresentation.cs","Rendering/SelectiveTeamColorUnlit.shader","Editor/KnightATeamColor.configuration.json",
-                     "Runtime/MasterHumanoidRigContract.cs","Editor/KnightASkinBuilder.cs","Editor/KnightASkinGeometry.cs"):
+                     "Runtime/MasterHumanoidRigContract.cs"):
         path = production/relative
         assert path.read_bytes() == subprocess.check_output(["git","show","HEAD:"+str(path.relative_to(repo))],cwd=repo)
+    from verify_knight_a_regression import verify as verify_skin_regression
+    verify_skin_regression()
     for source in (repo/"assets/misc/Character Skin PNG pieces").glob("*.png"):
         assert source.read_bytes() == subprocess.check_output(["git","show","HEAD:"+str(source.relative_to(repo))],cwd=repo)
     print("PASS three-view/shared-phase/whole-rig-facing source boundary; unchanged source PNGs, team-color rendering, mesh/weight generation and Master Humanoid contract")

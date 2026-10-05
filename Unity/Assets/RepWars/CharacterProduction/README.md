@@ -14,6 +14,8 @@ Phase 7 adds three authored-view Idle definitions, standard AnimationClip/Playab
 
 Phase 8 extends the manual Playables foundation with Idle/Walk state selection, three authored Walk definitions, contact-target baking and proof controls. See [KNIGHT_A_WALK.md](KNIGHT_A_WALK.md). Native execution, visual foot quality and mobile profiling remain deferred.
 
+Phase 9 adds Knight B's three skin-only definitions through shared humanoid extraction/mesh/binding tooling. See [KNIGHT_B_SKINS.md](KNIGHT_B_SKINS.md) for source coordinates, anatomy, calibration, sorting, baseline guards and deferred native/visual checks. Knight B has no facing runtime, color masks or animation yet.
+
 ## Master Humanoid contract
 
 `Runtime/MasterHumanoidRigContract.cs` defines contract version 1, stable bone names, direct parent relationships, the Front/Side/Back view identifiers, and socket names. The skeleton has 20 bones. Its topology is deliberately richer than the Soldier skin's approximately 11 body-section sprites: SpriteSkin art may be influenced by multiple bones.
@@ -38,4 +40,4 @@ Use `RepWars > Character Production > Validate Selected Master Humanoid Rig` to 
 
 ## Deliberate exclusions
 
-Original Soldier PNGs are read-only. The shared Knight A generator technically extracts the authored sections into padded derived textures, preserving source paint and overlap. Source art is never repainted, redesigned, regenerated, or recolored. Selective runtime recolor is rendering only. Idle and Walk are defined animations; no Run, Knight B integration, or equipment are implemented. No Phase A character code, production army presentation, or backend/gameplay files are dependencies.
+Original Soldier PNGs are read-only. The shared humanoid generator technically extracts the authored sections into padded derived textures, preserving source paint and overlap. Source art is never repainted, redesigned, regenerated, or recolored. Selective runtime recolor is rendering only. Idle and Walk are defined animations; no Run, Knight B facing/color/animation, or equipment are implemented. No Phase A character code, production army presentation, or backend/gameplay files are dependencies.

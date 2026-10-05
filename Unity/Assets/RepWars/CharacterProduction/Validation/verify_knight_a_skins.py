@@ -9,32 +9,7 @@ import re
 from PIL import Image
 
 
-def build_ownership(config, alpha, width, height):
-    threshold = config.get("isolationAlpha", 0)
-    if not threshold:
-        return None
-    assert 0 < threshold <= 32
-    owners = bytearray(width * height)
-
-    def flood(queue, minimum):
-        while queue:
-            index = queue.popleft()
-            x, y = index % width, index // width
-            for nx, ny in ((x-1, y), (x+1, y), (x, y-1), (x, y+1)):
-                if not (0 <= nx < width and 0 <= ny < height):
-                    continue
-                other = ny * width + nx
-                if not owners[other] and alpha[other] > minimum:
-                    owners[other] = owners[index]
-                    queue.append(other)
-
-    for identity, section in enumerate(config["sections"], 1):
-        seed = section["seedY"] * width + section["seedX"]
-        assert not owners[seed] and alpha[seed] > threshold
-        owners[seed] = identity
-        flood(deque([seed]), threshold)
-    flood(deque(i for i, owner in enumerate(owners) if owner), 0)
-    return owners
+from humanoid_skin_reference import build_ownership
 
 
 def verify(view="Front"):
