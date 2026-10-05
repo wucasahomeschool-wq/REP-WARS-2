@@ -1,5 +1,7 @@
 # Knight A Front — Phase 3 technical skin proof
 
+Phase 4 preserves this Front recipe and its weights through thin compatibility entry points, while sharing the generator with independently calibrated Side/Back skins. See [KNIGHT_A_VIEWS.md](KNIGHT_A_VIEWS.md). Each proof still contains artwork for only its own view.
+
 ## Status and execution
 
 The configuration, extraction, rig calibration, mesh/weight generation, validation, and Editor tests are implemented in code. Unity Editor has not executed this phase in Codex Cloud. No generated PNG, Sprite asset, or prefab is claimed to exist yet. No rendered SpriteSkin or visual deformation result is claimed.

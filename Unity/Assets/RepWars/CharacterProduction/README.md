@@ -4,6 +4,8 @@ This folder contains the isolated production humanoid rig foundation. It does no
 
 Phase 3 adds the Front-only Knight A skin configuration and repeatable generation path. See [KNIGHT_A_FRONT.md](KNIGHT_A_FRONT.md). Unity execution and visual validation remain deferred; generator code is not evidence that generated assets exist.
 
+Phase 4 extends the same pipeline with independent Side and Back configurations. See [KNIGHT_A_VIEWS.md](KNIGHT_A_VIEWS.md) for source provenance, calibration, ordering, execution instructions, and deferred visual checks. Each authored view has its own isolated proof; no direction switching or animation is added.
+
 ## Master Humanoid contract
 
 `Runtime/MasterHumanoidRigContract.cs` defines contract version 1, stable bone names, direct parent relationships, the Front/Side/Back view identifiers, and socket names. The skeleton has 20 bones. Its topology is deliberately richer than the Soldier skin's approximately 11 body-section sprites: SpriteSkin art may be influenced by multiple bones.
@@ -28,4 +30,4 @@ Use `RepWars > Character Production > Validate Selected Master Humanoid Rig` to 
 
 ## Deliberate exclusions
 
-Original Soldier PNGs are read-only. The Front generator technically extracts the authored sections into padded derived textures, preserving source paint and overlap. No art is repainted, redesigned, generated, or recolored. No Side/Back integration, animations, team-color materials, or equipment are implemented. No Phase A character code, production army presentation, or backend/gameplay files are dependencies.
+Original Soldier PNGs are read-only. The shared Knight A generator technically extracts the authored sections into padded derived textures, preserving source paint and overlap. No art is repainted, redesigned, generated, or recolored. No animations, direction switching, Knight B integration, team-color materials, or equipment are implemented. No Phase A character code, production army presentation, or backend/gameplay files are dependencies.

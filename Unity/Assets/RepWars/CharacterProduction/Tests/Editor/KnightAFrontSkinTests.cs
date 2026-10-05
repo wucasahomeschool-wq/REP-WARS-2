@@ -82,7 +82,7 @@ namespace RepWars.CharacterProduction.Tests
             Assert.Greater(Influence(joint, "RightFoot"), 0f);
         }
 
-        static void CheckWeight(KnightAFrontSectionDefinition section, int index, float value)
+        static void CheckWeight(KnightASkinSectionDefinition section, int index, float value)
         {
             Assert.IsFalse(float.IsNaN(value));
             Assert.GreaterOrEqual(value, 0f);
