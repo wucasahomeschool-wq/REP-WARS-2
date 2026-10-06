@@ -18,6 +18,8 @@ Phase 9 adds Knight B's three skin-only definitions through shared humanoid extr
 
 Phase 10 adds Knight B's six-direction proof through shared facing infrastructure and explicit character-specific authored handedness. See [KNIGHT_B_FACING.md](KNIGHT_B_FACING.md). Knight B's unmirrored Front/Side/Back are assigned FrontRight/Right/BackRight; Knight A keeps its accepted mapping. Native generation, tests and visual approval remain deferred. Knight B has no color masks or animation.
 
+Phase 11 adds Knight B's conservative selective cloth masks and isolated color-proof tooling through a shared Editor pipeline. See [KNIGHT_B_TEAM_COLOR.md](KNIGHT_B_TEAM_COLOR.md). Runtime rendering and Knight A masks remain unchanged. Unity generation/execution, human mask approval and mobile performance validation remain deferred; Knight B has no animation.
+
 ## Master Humanoid contract
 
 `Runtime/MasterHumanoidRigContract.cs` defines contract version 1, stable bone names, direct parent relationships, the Front/Side/Back view identifiers, and socket names. The skeleton has 20 bones. Its topology is deliberately richer than the Soldier skin's approximately 11 body-section sprites: SpriteSkin art may be influenced by multiple bones.
@@ -42,4 +44,4 @@ Use `RepWars > Character Production > Validate Selected Master Humanoid Rig` to 
 
 ## Deliberate exclusions
 
-Original Soldier PNGs are read-only. The shared humanoid generator technically extracts the authored sections into padded derived textures, preserving source paint and overlap. Source art is never repainted, redesigned, regenerated, or recolored. Selective runtime recolor is rendering only. Knight A Idle and Walk are defined animations; no Run, Knight B color/animation, or equipment are implemented. No Phase A character code, production army presentation, or backend/gameplay files are dependencies.
+Original Soldier PNGs are read-only. The shared humanoid generator technically extracts the authored sections into padded derived textures, preserving source paint and overlap. Source art is never repainted, redesigned, regenerated, or recolored. Selective runtime recolor is rendering only. Knight A Idle and Walk are defined animations; no Run, Knight B animation, or equipment are implemented. No Phase A character code, production army presentation, or backend/gameplay files are dependencies.

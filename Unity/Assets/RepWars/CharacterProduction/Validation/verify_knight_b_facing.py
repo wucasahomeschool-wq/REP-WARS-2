@@ -53,9 +53,13 @@ def verify():
     assert 'HumanoidFacingProofAssembly.AssembleViews(rig, KnightBSkinBuilder.ProofPrefabPathFor,' in builder
     assert 'view => KnightBSkinConfiguration.Load(view), root => root.AddComponent<KnightBSkin>()' in builder
     assert 'presentation.Configure(rig, HumanoidFacing.FrontLeft, mapping, out error)' in builder
-    for token in ('SelectiveTeamColorPresentation', 'HumanoidIdlePresentation', 'Animator'):
+    for token in ('HumanoidIdlePresentation', 'Animator'):
         assert f'GetComponentsInChildren<{token}>(true).Length != 0' in builder
         assert f'AddComponent<{token}>' not in builder
+    assert 'SelectiveTeamColorPresentation allowedTeamColor = null' in builder
+    assert 'colors.Length != 1 || colors[0] != allowedTeamColor' in builder
+    assert 'Static Knight B facing proofs cannot contain team color' in builder
+    assert 'AddComponent<SelectiveTeamColorPresentation>' not in builder
     assert 'GetComponentsInChildren<SpriteSkin>(true).Length != 33' in builder
     assert 'GetComponentsInChildren<KnightBSkin>(true).Length != 3' in builder
     assert 'Existing direction proof was not overwritten' in builder

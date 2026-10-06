@@ -1,0 +1,277 @@
+{
+  "version": 1,
+  "characterId": "KnightB",
+  "views": [
+    {
+      "view": 0,
+      "sourceSha256": "bb11b29fcd7d5da1238e69a3e35f7ffb8208b80cc71f1ac300a95f5838170466",
+      "skinConfigurationSha256": "c2e4de714d4284aefa532f1af9a4201d3983fb0e70420a33bf9208b8f2c85315",
+      "sections": [
+        {
+          "sectionId": "HeadNeck",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "UpperTorso",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LowerTorso",
+          "polygons": [
+            {
+              "id": "HangingClothInterior_Provisional",
+              "featherPixels": 2,
+              "points": [
+                {
+                  "x": 618,
+                  "y": 620
+                },
+                {
+                  "x": 647,
+                  "y": 631
+                },
+                {
+                  "x": 643,
+                  "y": 681
+                },
+                {
+                  "x": 630,
+                  "y": 704
+                },
+                {
+                  "x": 616,
+                  "y": 679
+                }
+              ]
+            }
+          ],
+          "reviewNote": "Provisional clear hanging-cloth interior only; preserve adjacent plate armor, rivets, belt, silhouette/outline and deepest inter-piece gaps. Extent requires human visual review."
+        },
+        {
+          "sectionId": "LeftUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        }
+      ]
+    },
+    {
+      "view": 1,
+      "sourceSha256": "7b6b48290af8c18424503659e4e7d436551be7b0cee3f08dad1934c26b83084e",
+      "skinConfigurationSha256": "02fd97cc155c52536d112506ff12112ac6dcf0c90a69691946ed7d75f0f3b3d9",
+      "sections": [
+        {
+          "sectionId": "HeadNeck",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "UpperTorso",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LowerTorso",
+          "polygons": [
+            {
+              "id": "HangingClothInterior_Provisional",
+              "featherPixels": 2,
+              "points": [
+                {
+                  "x": 593,
+                  "y": 716
+                },
+                {
+                  "x": 610,
+                  "y": 729
+                },
+                {
+                  "x": 612,
+                  "y": 792
+                },
+                {
+                  "x": 605,
+                  "y": 812
+                },
+                {
+                  "x": 594,
+                  "y": 794
+                }
+              ]
+            }
+          ],
+          "reviewNote": "Provisional clear hanging-cloth interior only; preserve adjacent plate armor, rivets, belt, silhouette/outline and deepest inter-piece gaps. Extent requires human visual review."
+        },
+        {
+          "sectionId": "LeftUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        }
+      ]
+    },
+    {
+      "view": 2,
+      "sourceSha256": "5a2ce9487d1df375ded6472c21b367664274e8a527efa989bde427c5104d7b03",
+      "skinConfigurationSha256": "d33a94de0c3e3b17d31ba6d274cf66be6f7f0f7472fae914cda0e0691a8484e3",
+      "sections": [
+        {
+          "sectionId": "HeadNeck",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "UpperTorso",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LowerTorso",
+          "polygons": [
+            {
+              "id": "HangingClothInterior_Provisional",
+              "featherPixels": 2,
+              "points": [
+                {
+                  "x": 425,
+                  "y": 687
+                },
+                {
+                  "x": 441,
+                  "y": 690
+                },
+                {
+                  "x": 438,
+                  "y": 752
+                },
+                {
+                  "x": 425,
+                  "y": 789
+                },
+                {
+                  "x": 413,
+                  "y": 759
+                },
+                {
+                  "x": 416,
+                  "y": 718
+                }
+              ]
+            }
+          ],
+          "reviewNote": "Provisional clear hanging-cloth interior only; preserve adjacent plate armor, rivets, belt, silhouette/outline and deepest inter-piece gaps. Extent requires human visual review."
+        },
+        {
+          "sectionId": "LeftUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperArm",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightForearmHand",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightUpperLeg",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "LeftLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        },
+        {
+          "sectionId": "RightLowerLegFoot",
+          "polygons": [],
+          "reviewNote": "Empty mask: preserve original artwork. TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW for neck cloth, limb undersuit, trim or any wider cloth/accent extent; no automatic color selection."
+        }
+      ]
+    }
+  ]
+}

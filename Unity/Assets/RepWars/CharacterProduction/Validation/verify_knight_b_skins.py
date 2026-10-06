@@ -97,7 +97,14 @@ def verify():
     for directory in ('Proof','Skins','Animation'):
         root=PRODUCTION/directory
         assert not any('KnightB' in p.name for p in root.rglob('*') if p.is_file()), 'Unity outputs/B animation must remain unexecuted'
-    assert not any('KnightB' in p.name for p in PRODUCTION.rglob('*TeamColor*'))
+    # Phase 11 adds isolated recolor tooling, not color behavior to the Phase 9 skin builder/metadata.
+    assert 'AddComponent<SelectiveTeamColorPresentation>' not in builder
+    assert 'SelectiveTeamColor' not in (PRODUCTION/'Runtime/KnightBSkin.cs').read_text()
+    allowed_color_files = {'KnightBTeamColorConfiguration.cs', 'KnightBTeamColorProofBuilder.cs',
+                           'KnightBTeamColor.configuration.json', 'KnightBTeamColorTests.cs'}
+    for path in PRODUCTION.rglob('*TeamColor*'):
+        if 'KnightB' in path.name:
+            assert path.name.removesuffix('.meta') in allowed_color_files, 'Unexpected Knight B recolor asset outside the approved Phase 11 tooling'
     from verify_knight_a_regression import verify as verify_regression
     verify_regression()
     print('STATIC/REFERENCE ONLY: Unity C# compilation, native Sprite assets/prefabs, SpriteSkin deformation, sorting, seams, sockets and mobile performance remain deferred.')

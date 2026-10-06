@@ -5,22 +5,22 @@ using UnityEngine;
 
 namespace RepWars.CharacterProduction.EditorTools
 {
-    public static class KnightATeamColorProofBuilder
+    public static class KnightBTeamColorProofBuilder
     {
-        public const string GeneratedDirectory = HumanoidTeamColorProofBuilder.SharedDirectory;
+        public const string GeneratedDirectory = MasterHumanoidRigBuilder.Root + "/TeamColor/KnightB/Generated";
         public const string MaterialPath = HumanoidTeamColorProofBuilder.MaterialPath;
         public const string ShaderPath = HumanoidTeamColorProofBuilder.ShaderPath;
-        public const string ProofPath = MasterHumanoidRigBuilder.Root + "/Proof/KnightA_TeamColorProof.prefab";
+        public const string ProofPath = MasterHumanoidRigBuilder.Root + "/Proof/KnightB_TeamColorProof.prefab";
         public static string MaskPath(MasterHumanoidView view, string sectionId)
-        { return HumanoidTeamColorProofBuilder.MaskPath("KnightA", view, sectionId); }
+        { return HumanoidTeamColorProofBuilder.MaskPath("KnightB", view, sectionId); }
 
-        [MenuItem("RepWars/Character Production/Create Knight A Team Color Proof")]
+        [MenuItem("RepWars/Character Production/Create Knight B Team Color Proof")]
         public static void CreateMenu()
         {
             try { Debug.Log("[CharacterProduction] " + CreateProof()); }
             catch (Exception exception) { Debug.LogException(exception); }
         }
-        [MenuItem("RepWars/Character Production/Validate Selected Knight A Team Color Proof")]
+        [MenuItem("RepWars/Character Production/Validate Selected Knight B Team Color Proof")]
         public static void ValidateMenu()
         {
             try
@@ -33,13 +33,13 @@ namespace RepWars.CharacterProduction.EditorTools
             catch (Exception exception) { Debug.LogException(exception); }
         }
         public static string CreateProof()
-        { return HumanoidTeamColorProofBuilder.CreateProof(KnightATeamColorConfiguration.Load(),
-            KnightAFacingProofBuilder.ProofPrefabPath, KnightAFacingProofBuilder.CreateProof, ValidateFacing); }
-        public static List<string> Validate(SelectiveTeamColorPresentation presentation, HumanoidIdlePresentation allowedIdle = null)
-        { return HumanoidTeamColorProofBuilder.Validate(presentation, KnightATeamColorConfiguration.Load(), ValidateFacing, allowedIdle); }
+        { return HumanoidTeamColorProofBuilder.CreateProof(KnightBTeamColorConfiguration.Load(),
+            KnightBFacingProofBuilder.ProofPrefabPath, KnightBFacingProofBuilder.CreateProof, ValidateFacing); }
+        public static List<string> Validate(SelectiveTeamColorPresentation presentation)
+        { return HumanoidTeamColorProofBuilder.Validate(presentation, KnightBTeamColorConfiguration.Load(), ValidateFacing); }
         static List<string> ValidateFacing(HumanoidFacingPresentation facing, HumanoidIdlePresentation idle, SelectiveTeamColorPresentation color)
-        { return KnightAFacingProofBuilder.Validate(facing, idle); }
-        public static string Provenance(KnightATeamColorConfiguration recipe, TeamColorMaskView view, TeamColorMaskSection section, RectInt bounds)
+        { return KnightBFacingProofBuilder.Validate(facing, color); }
+        public static string Provenance(KnightBTeamColorConfiguration recipe, TeamColorMaskView view, TeamColorMaskSection section, RectInt bounds)
         { return HumanoidTeamColorProofBuilder.Provenance(recipe, view, section, bounds); }
     }
 }

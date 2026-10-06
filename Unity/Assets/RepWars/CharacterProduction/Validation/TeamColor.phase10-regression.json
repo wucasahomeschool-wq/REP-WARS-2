@@ -1,0 +1,30 @@
+{
+  "checkpoint": "47da66805f7644abb692351d5b1a1bb728cc5422",
+  "methodHashes": {
+    "Editor/HumanoidTeamColorConfiguration.cs:Coverage": "458f50455df7fed23b4e546aa013aafbdbb4fca0fa70f8216d089e0210f7ca71",
+    "Editor/HumanoidTeamColorConfiguration.cs:Rasterize": "677f0bf0f41ce52c8dccda5bdef8cc6e848d6ff6f6f7f922d8a0f57a0b5f1312",
+    "Editor/HumanoidTeamColorConfiguration.cs:Finite": "2a4f62e6491d22d543c2d6391b02a21191843e88c42445c9da0fabd39093ff1b",
+    "Editor/HumanoidTeamColorConfiguration.cs:Cross": "7ef7113a71dc00893688a19e4c09e93aae3e81ed67509bc39048874147e01d7f",
+    "Editor/HumanoidTeamColorConfiguration.cs:Crosses": "d5af22b4eb9d4fa3a3e9e6f8516e74a6e1ab2ca8f14eaa718d3c4c119042689b",
+    "Editor/HumanoidTeamColorConfiguration.cs:GetView": "d57070546d23870b134566ab81a2b74f2aaceb71fd6469f61b82109c707dfb87",
+    "Editor/HumanoidTeamColorProofBuilder.cs:Decode": "a64641d51659fa00adac2c9434eb0d28f8d7845ed941c35d06fc13de6ac70b5a",
+    "Editor/HumanoidTeamColorProofBuilder.cs:SaveMask": "17a47e82212c4c70e63637e94c3820f0b57853652f983b8a256daa4927901a4d",
+    "Editor/HumanoidTeamColorProofBuilder.cs:Provenance": "3c1e27f141422241a4cf16409c0ee70b9d33cea6c5605005c2776b3ac3f95c6b",
+    "Editor/HumanoidTeamColorConfiguration.cs:Validate": "9948314fe2ab555cf6db0e7b0a433e57b62c119d079b7fa8882e454c595b3e01"
+  },
+  "files": {
+    "Tests/Editor/SelectiveTeamColorTests.cs": "eb1dcbe9c9a99092b1a872d735bb0ea37c41e9372599a88e2bed0b48ad25711c",
+    "Editor/KnightATeamColor.configuration.json": "a93771d6288fdddcb6902f1cccd1690dc62a4bc605df6dcfb55bc7d0b14cdca6",
+    "Editor/KnightAFacingProofBuilder.cs": "19ee893cca491a08c11de52b3a99991c2e05d16fa137d3595875f0f9efcb4d17",
+    "Runtime/HumanoidFacingPresentation.cs": "97ca318dc21ef0e5a181285ead014ffea4103ff6cf47164798c004c64f62495b",
+    "Runtime/HumanoidFacingDefinition.cs": "2ab73b634f7fb3e62408e5f855b3ce634340582c69e6380b3622c3c5a9660167",
+    "Runtime/HumanoidFacingValidator.cs": "6ff679d8f12ec68ebdcbefc3d1330061ef590d78e1d45e35b363c9a45e41d47e",
+    "Editor/HumanoidSkinBuilder.cs": "cde1860f384315e4dc077d1c6b26a51e959dff1463595bb14d081135afffa773",
+    "Editor/HumanoidSkinGeometry.cs": "4cc2193806eac1cdf8a7c51c331a489aa970d94e52be165c657c7a270ff97873",
+    "Editor/HumanoidSkinValidator.cs": "618cb8898238e81331725b0f1e7f43351278afff562a2c613548822bbae42db7",
+    "Editor/KnightBFacing.configuration.json": "5615319f6b17a444013d33211a99360e54b5ad56fa7689e380753abf736e4a80",
+    "Editor/KnightBFront.configuration.json": "c2e4de714d4284aefa532f1af9a4201d3983fb0e70420a33bf9208b8f2c85315",
+    "Editor/KnightBSide.configuration.json": "02fd97cc155c52536d112506ff12112ac6dcf0c90a69691946ed7d75f0f3b3d9",
+    "Editor/KnightBBack.configuration.json": "d33a94de0c3e3b17d31ba6d274cf66be6f7f0f7472fae914cda0e0691a8484e3"
+  }
+}

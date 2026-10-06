@@ -86,7 +86,7 @@ namespace RepWars.CharacterProduction.EditorTools
             finally { if (rig != null) UnityEngine.Object.DestroyImmediate(rig.gameObject); }
         }
 
-        public static List<string> Validate(HumanoidFacingPresentation presentation)
+        public static List<string> Validate(HumanoidFacingPresentation presentation, SelectiveTeamColorPresentation allowedTeamColor = null)
         {
             var errors = HumanoidFacingValidator.Validate(presentation);
             if (presentation == null || presentation.Rig == null) return errors;
@@ -107,10 +107,13 @@ namespace RepWars.CharacterProduction.EditorTools
             if (presentation.GetComponentsInChildren<SpriteRenderer>(true).Length != 33 ||
                 presentation.GetComponentsInChildren<SpriteSkin>(true).Length != 33)
                 errors.Add("Knight B proof must reuse exactly 33 renderer/SpriteSkin pairs, not six duplicated rigs.");
-            if (presentation.GetComponentsInChildren<SelectiveTeamColorPresentation>(true).Length != 0 ||
-                presentation.GetComponentsInChildren<HumanoidIdlePresentation>(true).Length != 0 ||
+            var colors = presentation.GetComponentsInChildren<SelectiveTeamColorPresentation>(true);
+            if (colors.Length != 0 && (allowedTeamColor == null || allowedTeamColor.gameObject != presentation.gameObject ||
+                colors.Length != 1 || colors[0] != allowedTeamColor))
+                errors.Add("Static Knight B facing proofs cannot contain team color; only the explicitly supplied root color proof is permitted.");
+            if (presentation.GetComponentsInChildren<HumanoidIdlePresentation>(true).Length != 0 ||
                 presentation.GetComponentsInChildren<Animator>(true).Length != 0)
-                errors.Add("Knight B proof remains team-color/animation-free in this phase.");
+                errors.Add("Knight B proof remains animation-free in this phase.");
             foreach (MasterHumanoidView view in Enum.GetValues(typeof(MasterHumanoidView)))
             {
                 var root = presentation.Rig.GetViewRoot(view);
