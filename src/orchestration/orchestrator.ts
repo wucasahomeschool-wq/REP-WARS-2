@@ -1,5 +1,4 @@
 import { GameState } from '../types/GameState';
-import { buildWarlordStates, rebindWarlordRuntime } from '../state/gameStateAdapters';
 import { handleSyncPlayerWorld } from '../world/catchup';
 import { getCommandDefinition } from './commandIndex';
 import { createDefaultRegistry, EngineRegistry } from './engineRegistry';
@@ -7,7 +6,6 @@ import { OrchestrationError, ErrorCode, OrchestrationErrorBody } from './errors'
 import {
   HandlerContext,
   MUTATING_HANDLERS,
-  OrchestratorRuntime,
   READ_ONLY_HANDLERS,
 } from './handlers';
 import { CommandRequest, CommandResponse, HandlerResult } from './protocol';
@@ -72,13 +70,11 @@ function successResponse(req: CommandRequest, requestId: string, result: Handler
 export class Orchestrator {
   private state: GameState;
   private readonly registry: EngineRegistry;
-  private runtime: OrchestratorRuntime;
   private readonly telemetry: TelemetryRecorder | null;
 
   constructor(initialState: GameState, registry?: EngineRegistry, telemetry?: TelemetryRecorder | null) {
     this.state = initialState;
     this.registry = registry ?? createDefaultRegistry();
-    this.runtime = { aiWarlordStates: buildWarlordStates(this.state) };
     this.telemetry = telemetry ?? null;
   }
 
@@ -88,7 +84,6 @@ export class Orchestrator {
 
   replaceState(next: GameState): void {
     this.state = next;
-    this.runtime = { aiWarlordStates: buildWarlordStates(this.state) };
   }
 
   execute(req: CommandRequest): CommandResponse {
@@ -111,7 +106,8 @@ export class Orchestrator {
         req,
         def,
         registry: this.registry,
-        runtime: this.runtime,
+        // Per-command working data only. AI handlers derive it from their current draft.
+        runtime: { aiWarlordStates: new Map() },
       };
 
       if (!def.changesState) {
@@ -135,7 +131,6 @@ export class Orchestrator {
         return applyLevel1TutorialToHandlerResult(draft, inner);
       });
       this.state = next;
-      this.runtime.aiWarlordStates = rebindWarlordRuntime(this.state, this.runtime.aiWarlordStates);
       if (result.commandSuccess === false) {
         return respond(failureResponse(
           req,
@@ -146,7 +141,6 @@ export class Orchestrator {
       }
       return respond(successResponse(req, requestId, result));
     } catch (err) {
-      this.runtime = { aiWarlordStates: buildWarlordStates(this.state) };
       if (err instanceof OrchestrationError) {
         return respond(failureResponse(req, requestId, [err.toBody()]));
       }

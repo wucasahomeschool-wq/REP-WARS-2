@@ -209,8 +209,7 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     const scorer = new ActionScorer();
     const scored = scorer.scoreAllActions(scorerInputFor(self, gameState));
     const move = scored.find((s) => s.action === 'MOVE');
-    assert.ok(move);
-    assert.notStrictEqual(move!.targetId, 'dest_busy');
+    assert.strictEqual(move, undefined, 'no fake null-target MOVE when all forces are busy');
   });
 
   console.log('Phase 16 — faction elimination');

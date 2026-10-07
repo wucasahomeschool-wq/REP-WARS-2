@@ -1,4 +1,6 @@
 export * from './types';
+export * from './types/AIConcretePlan';
+export { generateConcretePlans, validateConcretePlan } from './engine/concretePlans';
 export { BALANCE, ACTION_NAMES, PERSONALITY_NAMES, TERRAIN_NAMES } from './constants/balance';
 export { SeededRNG } from './utils/SeededRNG';
 export { PersonalitySystem } from './personality/PersonalitySystem';
@@ -6,7 +8,7 @@ export { MemorySystem, MemorySummary } from './memory/MemorySystem';
 export { GoalSystem, GoalAlignmentResult, InitialGoalContext } from './goals/GoalSystem';
 export { ScoringHelpers, ActionScorer, ScorerInput } from './scoring/ActionScorer';
 export { DecisionEngine, WarlordState, validateCommitmentTarget, isActiveCommitmentStatus, cloneCommitment } from './engine/DecisionEngine';
-export { EXECUTABLE_COMMITMENT_ACTIONS, UNSUPPORTED_COMMITMENT_ACTIONS, isExecutableCommitmentAction } from './engine/executableActions';
+export { EXECUTABLE_CONCRETE_ACTIONS, EXECUTABLE_COMMITMENT_ACTIONS, UNSUPPORTED_COMMITMENT_ACTIONS, isExecutableCommitmentAction } from './engine/executableActions';
 export { BattleEngine, BattleInput, BattleResult, BattleCalculation, BattleSideBreakdown, CasualtyBreakdown } from './battle/BattleEngine';
 export {
   ArmyLike,

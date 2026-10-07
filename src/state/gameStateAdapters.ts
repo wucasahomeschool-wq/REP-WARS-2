@@ -13,8 +13,7 @@
  *  - write an engine's output back onto `GameState`
  *    (`syncCommitmentsFromWarlordStates`).
  *
- * A future Orchestrator will call these (or something like them) as part
- * of a real turn loop; that loop itself is intentionally not built here.
+ * The Orchestrator's handlers use these against their current transaction draft.
  */
 import { AICommitment, Army, FactionId, GameStateSnapshot } from '../types';
 import { WorldStepInput } from '../events/EventModel';
@@ -24,14 +23,15 @@ import { WarlordState, cloneCommitment } from '../engine/DecisionEngine';
 /**
  * Narrow, read-only view of `GameState` shaped for `DecisionEngine`/
  * `ActionScorer`'s existing call boundary. Returns the SAME `Map`
- * references as `state` (not clones) — `DecisionEngine`/`ActionScorer`
- * are documented (and tested — see "AI decide/commitment does not mutate
- * world state" in tests/run.ts) to only read this data, never mutate it.
+ * references as `state` (not clones). Scoring reads these facts; decision
+ * bookkeeping writes faction history and the persisted identity sequence.
+ * Authoritative callers must pass their isolated transaction draft.
  * If a future caller needs an isolated view (e.g. a "what-if" preview),
  * clone `state` first with `cloneGameState()` and pass that in instead.
  */
 export function toDecisionEngineSnapshot(state: GameState): GameStateSnapshot {
   return {
+    canonicalState: state,
     turn: state.turn,
     factions: state.factions,
     territories: state.territories,
@@ -105,33 +105,15 @@ export function buildWarlordStates(state: GameState): Map<FactionId, WarlordStat
 }
 
 /**
- * Point existing `WarlordState` wrappers at a draft `GameState` after clone
- * or after EventEngine replaces faction objects. Preserves `commitmentSeq`
- * on the wrapper so IDs stay unique across ticks in one ADVANCE_WORLD.
+ * Rebuild disposable wrappers from the current draft after a clone or world
+ * mutation. Sequence/history live on canonical factions, so retaining wrapper
+ * objects is neither necessary nor safe. The argument remains for call-site compatibility.
  */
 export function rebindWarlordRuntime(
   state: GameState,
-  existing: Map<FactionId, WarlordState>,
+  _existing: Map<FactionId, WarlordState>,
 ): Map<FactionId, WarlordState> {
-  if (existing.size === 0) {
-    return buildWarlordStates(state);
-  }
-  for (const id of state.allFactionIds) {
-    const snap = state.factions.get(id);
-    if (!snap) continue;
-    const ws = existing.get(id);
-    if (!ws) {
-      const created = new WarlordState(snap);
-      const c = state.commitments.get(id);
-      created.activeCommitment = c ? cloneCommitment(c) : null;
-      existing.set(id, created);
-    } else {
-      ws.snapshot = snap;
-      const c = state.commitments.get(id);
-      ws.activeCommitment = c ? c : null;
-    }
-  }
-  return existing;
+  return buildWarlordStates(state);
 }
 
 /**
@@ -146,8 +128,11 @@ export function rebindWarlordRuntime(
 export function syncCommitmentsFromWarlordStates(
   state: GameState,
   warlordStates: Map<FactionId, WarlordState>,
+  factionIds: Iterable<FactionId> = warlordStates.keys(),
 ): void {
-  for (const [id, ws] of warlordStates.entries()) {
+  for (const id of factionIds) {
+    const ws = warlordStates.get(id);
+    if (!ws) continue;
     const commitment: AICommitment | null = ws.activeCommitment;
     state.commitments.set(id, commitment ? cloneCommitment(commitment) : null);
   }

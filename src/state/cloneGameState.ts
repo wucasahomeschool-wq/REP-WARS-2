@@ -87,7 +87,7 @@ export function cloneWarlordSnapshot(f: WarlordSnapshot): WarlordSnapshot {
     resources: { ...f.resources } as Resources,
     resourceIncome: { ...f.resourceIncome },
     diplomacy,
-    memory: f.memory.map((m) => ({ ...m, details: { ...m.details } })),
+    memory: f.memory.map((m) => ({ ...m, details: structuredClone(m.details) })),
     goals: f.goals.map((g) => ({ ...g })),
     currentThreats: [...f.currentThreats],
     knownFactions: [...f.knownFactions],

@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { GAME_STATE_SCHEMA_VERSION } from '../src/types/GameState';
 import { commitAuthoritativePlayerWorld, createGameState, PersistenceError, WORKOUT_HISTORY_FORMAT } from '../src';
 import type { WorkoutHistoryEntry } from '../src/fitness/history/types';
 import { MemoryPlayerWorldTable, SupabaseGameStateStore } from '../src/persistence/supabase/adapter';
@@ -132,7 +133,7 @@ export function registerSupabasePersistenceTests(api: SupabasePersistenceTestApi
     assert.strictEqual(replaced, true);
     const loaded = new SupabaseGameStateStore(table).load(PLAYER);
     assert.strictEqual(loaded.ok, true);
-    if (loaded.ok) assert.strictEqual(loaded.state.schemaVersion, 16);
+    if (loaded.ok) assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
   });
 
   test('compare-and-swap increments the version and a stale write leaves the row unchanged', () => {

@@ -1,3 +1,4 @@
+import type { AIConcretePlan } from './AIConcretePlan';
 /**
  * CANONICAL STATE TYPES — this file is the single authoritative home for
  * core Rep Wars game-state entities (Territory, Army, WarlordSnapshot,
@@ -48,6 +49,7 @@ export type TerritoryOutcome = 'unchanged' | 'captured' | 'contested';
  * eliminated as a fighting force), not troops escaping.
  */
 export type BattleEventType = 'phase_start' | 'first_strike' | 'charge' | 'rally' | 'rout' | 'breach' | 'flank' | 'ambush' | 'heroic_stand' | 'surrender' | 'phase_end' | 'critical_hit';
+/** Historical record vocabulary. New proactive cognition uses ProactiveAIAction / AIConcretePlan. */
 export type ActionType = 'ATTACK' | 'DEFEND' | 'REINFORCE' | 'BUILD' | 'MOVE' | 'NEGOTIATE' | 'OFFER_PEACE' | 'DECLARE_WAR' | 'TRADE' | 'RETREAT' | 'WAIT';
 /**
  * AI commitment lifecycle (AI COMMITMENT & AMBITION PASS).
@@ -221,6 +223,8 @@ export interface Personality {
  */
 export interface AICommitment {
     id: CommitmentId;
+    /** Absent only on explicitly supported legacy action/target commitments. */
+    plan?: AIConcretePlan;
     warlordId: FactionId;
     action: ActionType;
     targetId: string | null;
@@ -287,10 +291,14 @@ export interface WarlordSnapshot {
         action: ActionType;
         target: string | null;
     }[];
+    /** Persisted identity high-water mark for the existing single-commitment model. */
+    nextAiCommitmentSequence: number;
     reputation: number;
     stability: number;
 }
 export interface GameStateSnapshot {
+    /** Borrowed current transaction draft; construction rules require canonical cities/infrastructure/capacity. Never persisted or retained. */
+    canonicalState?: import('./GameState').GameState;
     turn: number;
     factions: Map<FactionId, WarlordSnapshot>;
     territories: Map<TerritoryId, Territory>;
@@ -313,6 +321,8 @@ export interface GameStateSnapshot {
     };
 }
 export interface ScoredAction {
+    /** Present on every production proactive candidate. Optional for historical/harness DTOs. */
+    plan?: AIConcretePlan;
     action: ActionType;
     targetId: string | null;
     targetName: string | null;
@@ -326,6 +336,7 @@ export interface ScoredAction {
     }[];
     reasoning: string[];
 }
+export interface ScoredConcretePlan extends ScoredAction { plan: AIConcretePlan; }
 export interface Decision {
     warlordId: FactionId;
     warlordName: string;

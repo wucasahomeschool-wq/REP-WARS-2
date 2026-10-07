@@ -185,6 +185,7 @@ export function createGameStateFromWorld(
       knownFactions: [...factionIds],
       knownTerritories: [...allTerritoryIds],
       lastActions: [],
+      nextAiCommitmentSequence: 0,
       reputation: 50,
       stability: 70,
     };

@@ -8,6 +8,7 @@ import {
 import { coerceLevel1TutorialState } from '../gameplay/tutorial/level1';
 import { coercePlayerProgressionState } from '../fitness/progression/types';
 import { PersistenceError } from './errors';
+import { recordedAiCommitmentSequenceFloor } from '../engine/commitmentIdentity';
 
 export const MIN_SUPPORTED_GAME_STATE_SCHEMA = 5;
 export const CURRENT_GAME_STATE_SCHEMA = GAME_STATE_SCHEMA_VERSION;
@@ -207,6 +208,9 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   state.lastAiDecisionTick = coerceMap(state.lastAiDecisionTick);
   state.territories = coerceMap(state.territories);
   state.armies = coerceMap(state.armies);
+  // Schema 18 adds exact plans. Missing historical plans remain missing: the old
+  // action/target records never persisted a force, route, quantity or build type.
+  // The resolver has an explicit legacy branch; migration must not invent plans.
   state.commitments = coerceMap(state.commitments);
   reviveNestedCollections(state);
 
@@ -230,10 +234,24 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   }
 
   const factions = state.factions as Map<unknown, unknown>;
+  const identityReferences = {
+    commitments: state.commitments as Map<unknown, unknown>,
+    armies: state.armies as Map<unknown, unknown>,
+    activeInvasions: coerceMap(state.activeInvasions),
+  };
   for (const faction of factions.values()) {
     if (!faction || typeof faction !== 'object') continue;
     const rec = faction as Record<string, unknown>;
     rec.knownTerritories = [...allTerritoryIds];
+    if (schema < 17) {
+      // Recover the old runtime counter without lowering any persisted high-water
+      // mark or reusing IDs referenced by a physical operation.
+      const existing = rec.nextAiCommitmentSequence;
+      rec.nextAiCommitmentSequence = Math.max(
+        typeof existing === 'number' && Number.isSafeInteger(existing) && existing >= 0 ? existing : 0,
+        recordedAiCommitmentSequenceFloor(identityReferences, rec.id),
+      );
+    }
   }
 
   if (!state.playerRewards) state.playerRewards = emptyPlayerRewardState();

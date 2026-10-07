@@ -1,3 +1,5 @@
+import { concretePlanProblem, planTargetId } from '../types/AIConcretePlan';
+import { recordedAiCommitmentSequenceFloor } from '../engine/commitmentIdentity';
 /**
  * GAMESTATE STRUCTURAL INVARIANTS (AUTHORITATIVE RUNTIME GAMESTATE PASS).
  * See docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "State invariants".
@@ -305,6 +307,11 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
 
   // ---- faction-level structural checks ----
   for (const f of state.factions.values()) {
+    if (!Number.isSafeInteger(f.nextAiCommitmentSequence) || f.nextAiCommitmentSequence < 0) {
+      push('faction.invalid_ai_commitment_sequence', `faction ${f.id} has invalid AI commitment sequence ${f.nextAiCommitmentSequence}`);
+    } else if (f.nextAiCommitmentSequence < recordedAiCommitmentSequenceFloor(state, f.id)) {
+      push('faction.invalid_ai_commitment_sequence', `faction ${f.id} AI commitment sequence would reuse a recorded ID`);
+    }
     const armySeen = new Set<string>();
     for (const aid of f.armies) {
       if (armySeen.has(aid)) {
@@ -376,6 +383,12 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     }
     if (!state.factions.has(c.warlordId)) {
       push('commitment.invalid_faction', `commitment ${c.id} references unknown faction ${c.warlordId}`);
+    }
+    if (c.plan !== undefined) {
+      const problem = concretePlanProblem(c.plan);
+      if (problem) push('commitment.invalid_plan', `commitment ${c.id}: ${problem}`);
+      else if (c.plan.action !== c.action || c.plan.factionId !== c.warlordId || planTargetId(c.plan) !== c.targetId)
+        push('commitment.plan_mismatch', `commitment ${c.id} action/faction/target differs from its concrete plan`);
     }
     // Terminal commitments (completed/failed/interrupted) are historical:
     // a successful ATTACK can capture the target, making the stored target

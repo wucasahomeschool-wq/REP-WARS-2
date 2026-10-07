@@ -57,6 +57,8 @@ import { runStateTransaction } from '../src/orchestration/transaction';
 import { registerArmyMovementTests } from './armyMovement';
 import { registerStrategicAttackTests } from './strategicAttack';
 import { registerAiRuntimeTests } from './aiRuntime';
+import { registerAiConcretePlanTests } from './aiConcretePlans';
+import { registerAiCanonicalReasoningTests } from './aiCanonicalReasoning';
 import { registerFoundationHardeningTests } from './foundationHardening';
 import { registerLongSimulationTests } from './longSimulation';
 import { registerFitnessDomainTests } from './fitnessDomain';
@@ -541,6 +543,7 @@ function makeSelf(id: string, overrides: Partial<WarlordSnapshot> = {}): Warlord
     knownFactions: [id],
     knownTerritories: [],
     lastActions: [],
+    nextAiCommitmentSequence: 0,
     reputation: 50,
     stability: 70,
     ambition: 0.5,
@@ -609,80 +612,13 @@ test('computeLocalHostilePower scales with force actually stationed at the hosti
 });
 
 console.log('AI decision correctness — reinforcement cost consistency');
-test('scoreReinforce affordability check uses BALANCE.economy.reinforcementCost, the same source cli.ts execution charges', () => {
-  const RC = BALANCE.economy.reinforcementCost;
-  const territories = new Map<string, Territory>([
-    ['home', makeTerritory({ id: 'home', owner: 'me', garrison: 50 })],
-  ]);
-  const armies = new Map<string, Army>();
-  const scorer = new ActionScorer();
-  const scoreReinforceHome = (gold: number, food: number) => {
-    const self = makeSelf('me', {
-      territories: ['home'],
-      totalMilitaryPower: 50,
-      resources: { gold, food, iron: 1000, wood: 1000, stone: 1000 },
-    });
-    const gameState: GameStateSnapshot = { turn: 1, factions: new Map([['me', self]]), territories, armies, allFactionIds: ['me'] };
-    const ctx = WarlordState.buildContext(self, gameState);
-    const input: ScorerInput = { ctx, turn: 1, rng: new SeededRNG(1), memory: new MemorySystem(), goals: new GoalSystem([]) };
-    return scorer.scoreAllActions(input).find((s) => s.action === 'REINFORCE' && s.targetId === 'home')!;
-  };
-
-  const affordableResult = scoreReinforceHome(RC.gold, RC.food);
-  assert.ok(affordableResult.factorBreakdown.some((f) => f.factor === 'Resources available'),
-    'exactly enough gold/food for the real REINFORCE cost must be treated as affordable');
-  assert.ok(!affordableResult.factorBreakdown.some((f) => f.factor === 'Resource constraints'));
-
-  const shortResult = scoreReinforceHome(RC.gold - 1, RC.food);
-  assert.ok(shortResult.factorBreakdown.some((f) => f.factor === 'Resource constraints'),
-    'one gold short of the real REINFORCE cost must be treated as unaffordable, matching what execution would refuse to charge');
-
-  // Guard against silently rebalancing the shared, authoritative cost values.
-  assert.strictEqual(RC.gold, 250);
-  assert.strictEqual(RC.food, 150);
-  assert.strictEqual(RC.garrisonGain, 100);
-});
-
-console.log('AI decision correctness — trade respects surplus depth, not just low current need');
-function scoreTradeIronBonus(myIronResources: number, myIronIncome: number): number {
-  const me = makeSelf('me', {
-    knownFactions: ['me', 'other'],
-    resources: { gold: 1000, food: 1000, iron: myIronResources, wood: 1000, stone: 1000 },
-    resourceIncome: { gold: 100, food: 100, iron: myIronIncome, wood: 100, stone: 100 },
-  });
-  const other = makeSelf('other', {
-    resources: { gold: 5000, food: 5000, iron: 10, wood: 5000, stone: 5000 },
-    resourceIncome: { gold: 100, food: 100, iron: 50, wood: 100, stone: 100 },
-  });
-  const gameState: GameStateSnapshot = {
-    turn: 1,
-    factions: new Map([['me', me], ['other', other]]),
-    territories: new Map(),
-    armies: new Map(),
-    allFactionIds: ['me', 'other'],
-  };
-  const ctx = WarlordState.buildContext(me, gameState);
-  const scorer = new ActionScorer();
-  const input: ScorerInput = { ctx, turn: 1, rng: new SeededRNG(1), memory: new MemorySystem(), goals: new GoalSystem([]) };
-  const trade = scorer.scoreAllActions(input).find((s) => s.action === 'TRADE' && s.targetId === 'other');
-  assert.ok(trade, 'expected a TRADE score for the known trade partner');
-  const complementarity = trade!.factorBreakdown.find((f) => f.factor === 'Resource complementarity');
-  return complementarity ? complementarity.contribution : 0;
-}
-test('a razor-thin resource surplus contributes only a small trade bonus', () => {
-  // iron = 2401, income = 100 puts `mySurplus.iron` just barely above 0 (~0.00028).
-  const contribution = scoreTradeIronBonus(2401, 100);
-  assert.ok(contribution < 1, `expected a razor-thin surplus to contribute a small bonus, got ${contribution}`);
-});
-test('a deep resource surplus contributes a much larger trade bonus for the same partner need', () => {
-  // iron = 100000, income = 100 puts `mySurplus.iron` at its cap (1.0).
-  const contribution = scoreTradeIronBonus(100000, 100);
-  assert.ok(contribution > 40, `expected a deep surplus to contribute a large bonus, got ${contribution}`);
-});
-test('no resource surplus at all contributes no trade bonus for that resource, even if the partner badly needs it', () => {
-  // iron = 0, income = 0 -> `mySurplus.iron` is undefined (the inc<=0 branch never registers a surplus).
-  const contribution = scoreTradeIronBonus(0, 0);
-  assert.strictEqual(contribution, 0);
+test('resource wealth cannot fabricate a pool-based REINFORCE or absent Trade/Peace proposal', () => {
+  const me = makeSelf('me', { territories: ['home'], resources: { gold: 100000, food: 100000, iron: 100000, wood: 100000, stone: 100000 } });
+  const other = makeSelf('other');
+  const gs: GameStateSnapshot = { turn: 1, factions: new Map([['me', me], ['other', other]]), territories: new Map([['home', makeTerritory({ id: 'home', owner: 'me' })]]), armies: new Map(), allFactionIds: ['me', 'other'] };
+  const scored = new ActionScorer().scoreAllActions({ ctx: WarlordState.buildContext(me, gs), turn: 1, rng: new SeededRNG(1), memory: new MemorySystem(), goals: new GoalSystem([]) });
+  assert.ok(!scored.some(s => ['REINFORCE', 'TRADE', 'OFFER_PEACE'].includes(s.action)));
+  assert.ok(scored.some(s => s.action === 'WAIT' && s.plan.action === 'WAIT'));
 });
 
 console.log('AI decision correctness — control_region goal target bug');
@@ -789,19 +725,19 @@ test('DecisionEngine.decide is deterministic for a fixed seed given identical st
 
 console.log('Engine execution consistency — balance/cost centralization');
 test('BUILD affordability (scorer) and cli read BALANCE mirror of construction definition', () => {
-  const scorerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'scoring', 'ActionScorer.ts'), 'utf8');
+  const scorerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'engine', 'concretePlans.ts'), 'utf8');
   const cliSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'simulation', 'cli.ts'), 'utf8');
-  assert.ok(/fortificationCostPerLevel/.test(scorerSrc), 'ActionScorer.scoreBuild must read BALANCE.territory.fortificationCostPerLevel');
+  assert.ok(/constructionCostEntries/.test(scorerSrc) && /getConstructionProjectDefinition/.test(scorerSrc), 'BUILD generators must use authoritative definitions, not a second cost table');
   assert.ok(/fortificationCostPerLevel/.test(cliSrc), "cli.ts's BUILD execution must read BALANCE.territory.fortificationCostPerLevel");
   const def = getConstructionProjectDefinition('FORTIFICATION');
   assert.strictEqual(BALANCE.territory.fortificationCostPerLevel.gold, def.cost.gold);
   assert.strictEqual(BALANCE.territory.fortificationCostPerLevel.stone, def.cost.stone);
 });
-test('REINFORCE affordability (scorer) and REINFORCE cost (cli.ts execution) both read BALANCE.economy.reinforcementCost', () => {
+test('new REINFORCE has no resource-purchase scorer; legacy execution remains isolated', () => {
   const scorerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'scoring', 'ActionScorer.ts'), 'utf8');
-  const cliSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'simulation', 'cli.ts'), 'utf8');
-  assert.ok(/reinforcementCost\b/.test(scorerSrc) && /reinforcementCost\b/.test(cliSrc),
-    'both ActionScorer and cli.ts must read the same BALANCE.economy.reinforcementCost value');
+  const handlerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'orchestration', 'handlers.ts'), 'utf8');
+  assert.ok(!/scoreReinforce|reinforcementCost/.test(scorerSrc));
+  assert.ok(/handleReinforce/.test(handlerSrc), 'retain old saved commitment command compatibility');
 });
 
 console.log('AI decision correctness — AI does not resolve battles itself');
@@ -1604,9 +1540,7 @@ test('high ambition does not apply offensive bonuses under an immediate survival
   assert.ok(!highAtk.factorBreakdown.some((f) => f.factor === 'Ambition (strategic push)'),
     'threatened ATTACK must not carry an offensive Ambition push');
   void midAtk;
-  const midDef = scoreWorld(mid.self, mid.gameState, mid.goals).find((s) => s.action === 'DEFEND')!;
-  const highDef = scoreWorld(high.self, high.gameState, high.goals).find((s) => s.action === 'DEFEND')!;
-  assert.strictEqual(midDef.score, highDef.score, 'DEFEND must be independent of ambition');
+  assert.ok(!scoreWorld(high.self, high.gameState, high.goals).some(s => s.action === 'DEFEND'), 'DEFEND is not a proactive candidate');
 });
 test('goal data influences action selection where a valid target exists', () => {
   const withContext = GoalSystem.generateInitialGoals('aggressive', 'me', 0, new SeededRNG(1), {
@@ -1653,8 +1587,8 @@ console.log('AI commitment & ambition — strategic RETREAT vs no-battle-retreat
 test('strategic RETREAT is repositioning off non-owned ground, not a battle-retreat mechanic', () => {
   const scorerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'scoring', 'ActionScorer.ts'), 'utf8');
   const retreatFn = scorerSrc.split('private scoreRetreat')[1]!.split('private scoreWait')[0];
-  assert.ok(/loc\.owner === ctx\.self\.id/.test(retreatFn),
-    'scoreRetreat must skip armies already on owned territory');
+  const generatorSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'engine', 'concretePlans.ts'), 'utf8');
+  assert.ok(/origin.owner !== factionId/.test(generatorSrc), 'RETREAT generation requires non-owned ground');
   assert.ok(!/BattleEngine/.test(retreatFn), 'scoreRetreat must not call BattleEngine');
   assert.ok(/strategic, not battle retreat/.test(retreatFn));
 
@@ -1685,9 +1619,7 @@ test('strategic RETREAT is repositioning off non-owned ground, not a battle-retr
     territories, armies, allFactionIds: ['me', 'enemy'],
   };
   const ownedOnly = scoreWorld(me, gs, new GoalSystem([]));
-  const retreatOwned = ownedOnly.find((s) => s.action === 'RETREAT')!;
-  assert.notStrictEqual(retreatOwned.targetId, 'home',
-    'an army on owned land must not be scored as a battlefield retreat off the home territory');
+  assert.ok(!ownedOnly.some(s => s.action === 'RETREAT'), 'no legal strategic retreat from owned ground');
 
   armies.set('exposed', {
     id: 'exposed', owner: 'me', location: 'field',
@@ -3220,6 +3152,9 @@ registerAiRuntimeTests({
   makeTerritory,
   makeSelf,
 });
+
+registerAiCanonicalReasoningTests({ test });
+registerAiConcretePlanTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
 
 registerFoundationHardeningTests({
   test,

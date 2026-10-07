@@ -87,8 +87,10 @@ import { GameRewardResult } from '../rewards/types';
  * 16 = Per-session gameplay command receipt (`lastCommandSequence`,
  *     `lastCommandReceipt`). One committed result per session. This is
  *     command idempotency, not presence and not world time.
+ * 17 = Canonical AI commitment identity high-water mark (Phase A).
+ * 18 = Exact AI concrete plans (Phase B); old action/target saves remain explicit legacy records.
  */
-export const GAME_STATE_SCHEMA_VERSION = 16;
+export const GAME_STATE_SCHEMA_VERSION = 18;
 
 export type InvasionId = string;
 
@@ -493,25 +495,11 @@ export interface GameState {
    * first `decide()` call for that faction, or right after a terminal
    * commitment completes/fails/is interrupted and before reassessment).
    *
-   * OWNERSHIP: the AI Engine (`DecisionEngine`/`WarlordState`, in
-   * `src/engine/DecisionEngine.ts`) is responsible for *calculating* and
-   * *transitioning* commitment state (create/hold/complete/fail/
-   * interrupt) — see `docs/AI_COMMITMENT_AMBITION.md`. `GameState` only
-   * *stores* the result.
-   *
-   * TRANSITIONAL NOTE: `WarlordState.activeCommitment` (an AI-engine-owned,
-   * non-canonical runtime field predating this pass) remains the AI
-   * Engine's own working copy while it reasons — that has not been
-   * rewritten in this pass. `src/state/gameStateAdapters.ts` provides
-   * `buildWarlordStates()` (GameState -> WarlordState, seeding
-   * `activeCommitment` from here) and `syncCommitmentsFromWarlordStates()`
-   * (WarlordState -> GameState, writing the result back here) as the
-   * explicit, call-it-yourself sync boundary between the two until the
-   * Orchestrator exists and becomes the only thing that calls the AI
-   * Engine and writes the result back. This is a deliberate, documented
-   * two-copies-in-transition, not a hidden second authority — see
-   * docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "AI commitment
-   * integration".
+   * Phase A keeps this legacy single-slot contract. AI handlers derive
+   * disposable WarlordState working/output copies from the current transaction
+   * draft and write back only the factions they processed. Canonical faction
+   * memory, goals, history, and nextAiCommitmentSequence are the authority;
+   * no retained wrapper survives as a separate reasoning authority.
    */
   commitments: Map<FactionId, AICommitment | null>;
 

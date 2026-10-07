@@ -103,19 +103,16 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
     assert.strictEqual(result.ticksAdvanced, 120);
   });
 
-  test('personality differentiation: aggressive faction shows more war-like actions than defensive across seeds', () => {
-    const warlike: ActionType[] = ['ATTACK', 'DECLARE_WAR'];
-    let aggressiveTotal = 0;
-    let defensiveTotal = 0;
+  test('long simulations select concrete plans and never revive removed proactive actions', () => {
     for (const seed of [1, 2, 3, 4, 5]) {
       const result = runLongSimulation({ seed, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
-      aggressiveTotal += actionTotal(result.actionCounts.get('ashen_horde'), warlike);
-      defensiveTotal += actionTotal(result.actionCounts.get('iron_kingdom'), warlike);
+      for (const counts of result.actionCounts.values()) {
+        for (const removed of ['DEFEND', 'NEGOTIATE', 'DECLARE_WAR'] as const) assert.strictEqual(counts[removed] ?? 0, 0);
+      }
+      for (const c of result.finalState.commitments.values()) {
+        if (c) { assert.ok(c.plan, 'new commitment must retain its exact selected plan'); assert.strictEqual(c.action, c.plan!.action); }
+      }
     }
-    assert.ok(
-      aggressiveTotal >= defensiveTotal,
-      `aggressive ashen_horde (${aggressiveTotal} war-like actions) should not trail defensive iron_kingdom (${defensiveTotal}) across 5 seeds`,
-    );
   });
 
   test('personality differentiation: economic faction shows more BUILD/REINFORCE than aggressive across seeds', () => {

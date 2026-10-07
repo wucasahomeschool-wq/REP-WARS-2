@@ -1,3 +1,4 @@
+import { AIConcretePlan, cloneConcretePlan, makeConcretePlan, comparePlanIds } from '../types/AIConcretePlan';
 import { BALANCE } from '../constants/balance';
 import { SeededRNG } from '../utils/SeededRNG';
 import { MemorySystem } from '../memory/MemorySystem';
@@ -43,20 +44,32 @@ export class WarlordState {
   snapshot: WarlordSnapshot;
   memory: MemorySystem;
   goals: GoalSystem;
-  /** AI-owned; not world state. The future Orchestrator reads this, it does not live on territories/armies. */
+  /** Disposable working/output copy of the existing canonical commitment. */
   activeCommitment: AICommitment | null = null;
   lastTerminalCommitment: AICommitment | null = null;
-  private commitmentSeq = 0;
 
   constructor(snapshot: WarlordSnapshot, memory?: MemorySystem, goals?: GoalSystem) {
     this.snapshot = snapshot;
     this.memory = memory ?? new MemorySystem();
-    this.goals = goals ?? new GoalSystem(this.snapshot.goals);
-    this.memory.mergeFrom(this.snapshot.memory);
+    this.goals = goals ?? new GoalSystem(snapshot.goals.map((goal) => ({ ...goal })));
+    this.memory.mergeFrom(snapshot.memory.map((entry) => ({ ...entry, details: structuredClone(entry.details) })));
   }
 
   nextCommitmentSeq(): number {
-    return this.commitmentSeq++;
+    const sequence = this.snapshot.nextAiCommitmentSequence;
+    if (!Number.isSafeInteger(sequence) || sequence < 0 || sequence >= Number.MAX_SAFE_INTEGER) {
+      throw new Error(`Invalid AI commitment sequence for ${this.snapshot.id}`);
+    }
+    this.snapshot.nextAiCommitmentSequence = sequence + 1;
+    return sequence;
+  }
+
+  /** Rebuild disposable reasoning helpers; never merge retained cognition into canonical data. */
+  refreshReasoning(snapshot: WarlordSnapshot): void {
+    this.snapshot = snapshot;
+    this.memory = new MemorySystem();
+    this.memory.mergeFrom(snapshot.memory.map((entry) => ({ ...entry, details: structuredClone(entry.details) })));
+    this.goals = new GoalSystem(snapshot.goals.map((goal) => ({ ...goal })));
   }
 
   static buildContext(self: WarlordSnapshot, gameState: GameStateSnapshot): ActionContext {
@@ -165,6 +178,7 @@ export function isFactionEliminated(snapshot: WarlordSnapshot): boolean {
 export function cloneCommitment(c: AICommitment): AICommitment {
   return {
     ...c,
+    ...(c.plan !== undefined ? { plan: cloneConcretePlan(c.plan) } : {}),
     reason: [...c.reason],
     factorBreakdown: c.factorBreakdown.map((f) => ({ ...f })),
   };
@@ -243,6 +257,15 @@ export class DecisionEngine {
   }
 
   decide(warlord: WarlordState, gameState: GameStateSnapshot, turn: number): Decision {
+    const canonicalFaction = gameState.factions.get(warlord.snapshot.id);
+    if (!canonicalFaction) throw new Error(`Unknown AI faction ${warlord.snapshot.id}`);
+    warlord.refreshReasoning(canonicalFaction);
+    if (gameState.canonicalState) {
+      // A retained compatibility wrapper cannot gate cognition with an obsolete
+      // commitment. The canonical single slot remains the only authority.
+      const current = gameState.canonicalState.commitments.get(canonicalFaction.id);
+      warlord.activeCommitment = current ? cloneCommitment(current) : null;
+    }
     const existing = warlord.activeCommitment;
     if (existing && isActiveCommitmentStatus(existing.status)) {
       const validity = validateCommitmentTarget(existing, gameState);
@@ -268,6 +291,7 @@ export class DecisionEngine {
     if (allScored.length === 0) {
       const commitment = this.createCommitment(warlord, {
         action: 'WAIT',
+        plan: makeConcretePlan({ action: 'WAIT', factionId: self.id, opportunityTurn: turn }),
         targetId: null,
         targetName: null,
         turn,
@@ -295,6 +319,7 @@ export class DecisionEngine {
     const originatingGoalId = this.originatingGoalId(warlord, selected, gameState, turn);
     const commitment = this.createCommitment(warlord, {
       action: selected.action,
+      plan: selected.plan!,
       targetId: selected.targetId,
       targetName: selected.targetName,
       turn,
@@ -354,6 +379,7 @@ export class DecisionEngine {
 
   private createCommitment(warlord: WarlordState, params: {
     action: ActionType;
+    plan: AIConcretePlan;
     targetId: string | null;
     targetName: string | null;
     turn: number;
@@ -378,6 +404,7 @@ export class DecisionEngine {
       id,
       warlordId: warlord.snapshot.id,
       action: params.action,
+      plan: cloneConcretePlan(params.plan),
       targetId: params.targetId,
       targetName: params.targetName,
       status: 'committed',
@@ -472,7 +499,7 @@ export class DecisionEngine {
     // very action that had just been selected, listed as if it were a
     // distinct alternative. Fixed by tracking the chosen INDEX into
     // `sorted` instead of relying on copied-object identity.
-    const sorted = [...scored].sort((a, b) => b.score - a.score);
+    const sorted = [...scored].sort((a, b) => b.score - a.score || comparePlanIds(a.plan?.id ?? '', b.plan?.id ?? ''));
     const maxScore = sorted[0]!.score;
     const minScore = sorted[sorted.length - 1]!.score;
     const spread = Math.max(1, maxScore - minScore);

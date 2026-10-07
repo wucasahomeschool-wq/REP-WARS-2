@@ -47,6 +47,8 @@ export interface StrategicAttackParams {
   commitmentId?: string | null;
   /** Restrict the operation to this army (banked troop commitment). */
   onlyArmyId?: string | null;
+  /** Exact preselected staging for concrete AI plans; omitted by legacy/player callers. */
+  stagingTerritoryId?: string;
 }
 
 export interface DelayedAttackPlan {
@@ -441,6 +443,10 @@ export function startStrategicAttack(
   if (commitmentId && isStrategicAttackInFlight(state, commitmentId)) {
     const marching = findArmyForAttackCommitment(state, commitmentId)!;
     const intent = marching.attackIntent!;
+    if (params.onlyArmyId && (marching.id !== params.onlyArmyId || intent.targetTerritoryId !== target.id
+      || (params.stagingTerritoryId && intent.stagingTerritoryId !== params.stagingTerritoryId))) {
+      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'In-flight attack differs from selected force or route');
+    }
     return {
       ...emptyResult(),
       payload: {
@@ -468,12 +474,23 @@ export function startStrategicAttack(
   }
 
   const immediate = listImmediateAttackingArmies(state, attackerId, target.id)
-    .filter((a) => !params.onlyArmyId || a.id === params.onlyArmyId);
+    .filter((a) => (!params.onlyArmyId || a.id === params.onlyArmyId)
+      && (!params.stagingTerritoryId || a.location === params.stagingTerritoryId));
   if (immediate.length > 0) {
     return resolveStrategicBattle(state, host, target.id, attackerId, immediate);
   }
 
-  const delayed = selectDelayedAttackPlan(state, attackerId, target.id);
+  const selectedArmy = params.onlyArmyId ? state.armies.get(params.onlyArmyId) : undefined;
+  if (params.stagingTerritoryId && (!selectedArmy || selectedArmy.owner !== attackerId
+    || armyHasActiveStrategicOperation(selectedArmy) || !isEligibleAttackForce(selectedArmy)
+    || !isLegalStagingTerritory(state, attackerId, params.stagingTerritoryId, target.id)
+    || !isAdjacent(state, selectedArmy.location, params.stagingTerritoryId))) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Selected attack staging plan is no longer legal');
+  }
+  const delayed = params.stagingTerritoryId && selectedArmy
+    ? { armyId: selectedArmy.id, originTerritoryId: selectedArmy.location, stagingTerritoryId: params.stagingTerritoryId,
+        durationTicks: calculateMovementDuration({ origin: requireTerritory(state, selectedArmy.location), destination: requireTerritory(state, params.stagingTerritoryId) }) }
+    : selectDelayedAttackPlan(state, attackerId, target.id);
   const delayedArmyOk = delayed && (!params.onlyArmyId || delayed.armyId === params.onlyArmyId);
   if (!delayedArmyOk) {
     const busyOnStaging = sortedFactionArmies(state, attackerId).some((a) => (
