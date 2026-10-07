@@ -1,3 +1,6 @@
+import { migrateLegacyOperations } from './operationMigration';
+import { GameState } from '../types/GameState';
+import { AICommitment } from '../types';
 import {
   GAME_STATE_SCHEMA_VERSION,
   emptyLevelDefeatState,
@@ -8,7 +11,7 @@ import {
 import { coerceLevel1TutorialState } from '../gameplay/tutorial/level1';
 import { coercePlayerProgressionState } from '../fitness/progression/types';
 import { PersistenceError } from './errors';
-import { recordedAiCommitmentSequenceFloor } from '../engine/commitmentIdentity';
+import { recordedAiCommitmentSequenceFloors } from '../engine/commitmentIdentity';
 
 export const MIN_SUPPORTED_GAME_STATE_SCHEMA = 5;
 export const CURRENT_GAME_STATE_SCHEMA = GAME_STATE_SCHEMA_VERSION;
@@ -236,9 +239,11 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   const factions = state.factions as Map<unknown, unknown>;
   const identityReferences = {
     commitments: state.commitments as Map<unknown, unknown>,
+    operations: coerceMap(state.operations),
     armies: state.armies as Map<unknown, unknown>,
     activeInvasions: coerceMap(state.activeInvasions),
   };
+  const identityFloors = recordedAiCommitmentSequenceFloors(identityReferences);
   for (const faction of factions.values()) {
     if (!faction || typeof faction !== 'object') continue;
     const rec = faction as Record<string, unknown>;
@@ -249,7 +254,7 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
       const existing = rec.nextAiCommitmentSequence;
       rec.nextAiCommitmentSequence = Math.max(
         typeof existing === 'number' && Number.isSafeInteger(existing) && existing >= 0 ? existing : 0,
-        recordedAiCommitmentSequenceFloor(identityReferences, rec.id),
+        (identityFloors.get(rec.id) ?? 0),
       );
     }
   }
@@ -324,6 +329,16 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   if (!Array.isArray(state.activeEvents)) state.activeEvents = [];
   if (!Array.isArray(state.eventHistory)) state.eventHistory = [];
 
+  if (schema >= 19 && (!(state.operations instanceof Map) || !(state.operationClaims instanceof Map))) {
+    throw new PersistenceError('persistence.corrupt', 'Schema 19 requires canonical operation and claim maps');
+  }
+  if (schema < 19 && !(state.operations instanceof Map)) {
+    migrateLegacyOperations(state as unknown as GameState, state.commitments as Map<string, AICommitment | null>);
+  } else {
+    state.operations = coerceMap(state.operations);
+    state.operationClaims = coerceMap(state.operationClaims);
+  }
+  delete state.commitments;
   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
   return state;
 }

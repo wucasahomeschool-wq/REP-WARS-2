@@ -1,3 +1,4 @@
+import { createOperationMap } from '../engine/operations';
 /**
  * LEGACY simulation CLI. Default `runSimulation` boots SAMPLE_MAP.
  * `--world` and `--move` use `createGameState()` with the selected authored
@@ -835,7 +836,7 @@ async function runAttackChainDemo(opts: CliOpts): Promise<void> {
     regions: new Map([['r_demo', { id: 'r_demo', name: 'Demo', territoryIds: ['rear', 'staging', 'front'] }]]),
     territories: new Map([['rear', rear], ['staging', staging], ['front', front]]),
     armies: new Map([[army.id, army]]),
-    commitments: new Map([[atk, null], [def, null]]),
+    operations: createOperationMap(), operationClaims: new Map(),
     activeEvents: [],
     eventHistory: [],
   };

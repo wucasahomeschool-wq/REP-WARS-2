@@ -1,3 +1,4 @@
+import { createOperationMap } from '../engine/operations';
 import { Army, DiplomaticRelationship, FactionId, Personality, Territory, WarlordSnapshot } from '../types';
 import {
   GAME_STATE_SCHEMA_VERSION,
@@ -192,8 +193,6 @@ export function createGameStateFromWorld(
     factions.set(spec.id, snapshot);
   }
 
-  const commitments = new Map<FactionId, null>();
-  for (const fid of factionIds) commitments.set(fid, null);
 
   const playerFactionId = options.playerFactionId === undefined
     ? definition.playerFactionId
@@ -214,7 +213,8 @@ export function createGameStateFromWorld(
     regions,
     territories,
     armies,
-    commitments,
+    operations: createOperationMap(),
+    operationClaims: new Map(),
     activeEvents: [],
     eventHistory: [],
     ...emptyRewardApplicationState(),

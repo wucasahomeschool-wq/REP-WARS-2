@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -50,7 +51,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       territories: new Map([['home', home], ['near', near], ['far', far]]),
       ...authoredWorldFields(new Map([['home', home], ['near', near], ['far', far]])),
       armies: new Map([[army.id, army]]),
-      commitments: new Map([[MARCH_FID, null]]),
+      operations: new Map(), operationClaims: new Map(),
       activeEvents: [],
       eventHistory: [],
     };
@@ -108,7 +109,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
     const other = makeSelf('other_faction', { territories: [], armies: [] });
     state.factions.set('other_faction', other);
     state.allFactionIds.push('other_faction');
-    state.commitments.set('other_faction', null);
+    fixtureCommitments(state).set('other_faction', null);
     const orch = new Orchestrator(state);
     const res = orch.execute(cmdReq('MOVE', 'p', {
       armyId: 'march_army', destinationTerritoryId: 'near', factionId: 'other_faction',
@@ -217,7 +218,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
     assert.ok(!isArmyMoving(orch.getState().armies.get('march_army')!));
   });
 
-  test('destination becoming invalid interrupts movement and does not complete twice', () => {
+  test('destination becoming invalid halts physical travel without freeing the force or completing twice', () => {
     const orch = new Orchestrator(buildPlayerMarchState());
     orch.execute(cmdReq('MOVE', 'p', {
       armyId: 'march_army', destinationTerritoryId: 'near', factionId: MARCH_FID,
@@ -230,26 +231,30 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
     const wa = res.payload.worldAdvance as WorldAdvanceResult;
     assert.ok(wa.movementResults.some((r) => r.armyId === 'march_army' && r.status === 'interrupted'));
     assert.strictEqual(orch.getState().armies.get('march_army')!.location, 'home');
-    assert.ok(!isArmyMoving(orch.getState().armies.get('march_army')!));
+    const blocked = orch.getState().armies.get('march_army')!;
+    assert.strictEqual(blocked.movement!.status, 'blocked');
+    assert.ok(isArmyMoving(blocked), 'halted force remains physically unavailable');
+    const original = { ...blocked.movement! };
     const again = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
     const wa2 = again.payload.worldAdvance as WorldAdvanceResult;
     assert.ok(!wa2.movementResults.some((r) => r.armyId === 'march_army'));
+    assert.deepStrictEqual(orch.getState().armies.get('march_army')!.movement, original);
   });
 
   test('destroyed army cannot continue moving; linked commitment does not stay active', () => {
     const state = buildPlayerMarchState();
-    state.commitments.set(MARCH_FID, makeCmt({ warlordId: MARCH_FID, action: 'MOVE', targetId: 'near' }));
+    fixtureCommitments(state).set(MARCH_FID, makeCmt({ warlordId: MARCH_FID, action: 'MOVE', targetId: 'near' }));
     const orch = new Orchestrator(state);
     const resolved = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: MARCH_FID }));
     assert.strictEqual(resolved.success, true, resolved.errors[0]?.message);
-    assert.strictEqual(orch.getState().commitments.get(MARCH_FID)!.status, 'executing');
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(MARCH_FID)!.status, 'executing');
     const live = orch.getState();
     live.armies.delete('march_army');
     live.factions.get(MARCH_FID)!.armies = [];
     const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
     assert.strictEqual(res.success, true, res.errors[0]?.message);
-    assert.strictEqual(orch.getState().commitments.get(MARCH_FID)!.status, 'failed');
-    assert.ok(!isActiveCommitmentStatus(orch.getState().commitments.get(MARCH_FID)!.status));
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(MARCH_FID)!.status, 'failed');
+    assert.ok(!isActiveCommitmentStatus(fixtureCommitments(orch.getState()).get(MARCH_FID)!.status));
   });
 
   test('multiple armies progress independently', () => {
@@ -277,7 +282,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       territories: new Map([['home', home], ['dest_a', destA], ['dest_b', destB]]),
       ...authoredWorldFields(new Map([['home', home], ['dest_a', destA], ['dest_b', destB]])),
       armies: new Map([[armyA.id, armyA], [armyZ.id, armyZ]]),
-      commitments: new Map([[MARCH_FID, null]]),
+      operations: new Map(), operationClaims: new Map(),
       activeEvents: [],
       eventHistory: [],
     };
@@ -330,7 +335,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       territories: new Map([['home', home], ['east', east], ['west', west]]),
       ...authoredWorldFields(new Map([['home', home], ['east', east], ['west', west]])),
       armies: new Map([[late.id, late], [early.id, early]]),
-      commitments: new Map([[MARCH_FID, null]]),
+      operations: new Map(), operationClaims: new Map(),
       activeEvents: [],
       eventHistory: [],
     };
@@ -349,20 +354,20 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
     const armyId = state.factions.get(fid)!.armies[0]!;
     const loc = state.armies.get(armyId)!.location;
     const dest = state.territories.get(loc)!.neighboring[0]!;
-    state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'MOVE', targetId: dest }));
+    fixtureCommitments(state).set(fid, makeCmt({ warlordId: fid, action: 'MOVE', targetId: dest }));
     const orch = new Orchestrator(state);
     orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
-    assert.strictEqual(orch.getState().commitments.get(fid)!.status, 'executing');
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(fid)!.status, 'executing');
     const duration = orch.getState().armies.get(armyId)!.movement!.durationTicks;
     const mid = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: duration - 1 }));
     assert.strictEqual(mid.success, true, mid.errors[0]?.message);
-    assert.strictEqual(orch.getState().commitments.get(fid)!.status, 'executing');
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(fid)!.status, 'executing');
     assert.strictEqual(orch.getState().armies.get(armyId)!.location, loc);
     const wa = mid.payload.worldAdvance as WorldAdvanceResult;
     assert.ok(!wa.aiDecisions.some((d) => d.factionId === fid));
     orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
     assert.strictEqual(orch.getState().armies.get(armyId)!.location, dest);
-    assert.strictEqual(orch.getState().commitments.get(fid)!.status, 'completed');
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(fid)!.status, 'completed');
   });
 
   test('an army cannot ATTACK until it has arrived', () => {
@@ -389,7 +394,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       territories: new Map([['home', home], ['front', front], ['side', side]]),
       ...authoredWorldFields(new Map([['home', home], ['front', front], ['side', side]])),
       armies: new Map([[army.id, army]]),
-      commitments: new Map([[atk, null], [def, null]]),
+      operations: new Map(), operationClaims: new Map(),
       activeEvents: [],
       eventHistory: [],
     };
@@ -499,7 +504,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
 
   test('second RESOLVE_COMMITMENT while moving is idempotent', () => {
     const state = buildPlayerMarchState();
-    state.commitments.set(MARCH_FID, makeCmt({ warlordId: MARCH_FID, action: 'MOVE', targetId: 'near' }));
+    fixtureCommitments(state).set(MARCH_FID, makeCmt({ warlordId: MARCH_FID, action: 'MOVE', targetId: 'near' }));
     const orch = new Orchestrator(state);
     const first = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: MARCH_FID }));
     assert.strictEqual(first.success, true, first.errors[0]?.message);
@@ -507,7 +512,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
     const second = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: MARCH_FID }));
     assert.strictEqual(second.success, true, second.errors[0]?.message);
     assert.strictEqual(second.payload.arrivalPending, true);
-    assert.strictEqual(orch.getState().commitments.get(MARCH_FID)!.status, 'executing');
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(MARCH_FID)!.status, 'executing');
     assert.strictEqual(orch.getState().armies.get('march_army')!.location, 'home');
     assert.strictEqual(orch.getState().armies.get('march_army')!.movement?.destinationTerritoryId, dest);
   });

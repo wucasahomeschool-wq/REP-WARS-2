@@ -1,3 +1,5 @@
+import { isArmyMoving } from '../../army/movement';
+import { assertClaimAvailable } from '../../engine/operations';
 import { Army } from '../../types';
 import { ActiveInvasion, createActiveInvasion, GameState } from '../../types/GameState';
 import { listImmediateAttackingArmies } from '../../army/strategicAttack';
@@ -55,6 +57,17 @@ export function beginInvasionAgainstPlayer(
       throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'An active invasion already targets this territory');
     }
   }
+  assertClaimAvailable(state, 'engagement_target', params.territoryId, params.commitmentId, params.attackerId);
+  assertClaimAvailable(state, 'invasion_target', params.territoryId, params.commitmentId);
+  for (const army of params.armies) assertClaimAvailable(state, 'force', army.id, params.commitmentId);
+  for (const army of params.armies) {
+    const live = state.armies.get(army.id);
+    if (!live || live.owner !== params.attackerId || isArmyMoving(live)
+      || (live.attackIntent && (live.attackIntent.targetTerritoryId !== params.territoryId
+        || live.attackIntent.commitmentId !== (params.commitmentId ?? null) || !!live.attackIntent.holdForInvasionId))) {
+      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Invasion force is unavailable or belongs to another physical lifecycle');
+    }
+  }
   const notifiedAtTick = state.worldTick;
   const invasion = createActiveInvasion({
     id: `inv_${params.attackerId}_${params.territoryId}_${state.worldTick}`,
@@ -69,6 +82,10 @@ export function beginInvasionAgainstPlayer(
     commitmentId: params.commitmentId ?? null,
   });
   state.activeInvasions.set(invasion.id, invasion);
+  if (invasion.commitmentId) {
+    const op = state.operations.get(invasion.commitmentId);
+    if (op) op.links.invasionId = invasion.id;
+  }
   for (const army of params.armies) {
     const live = state.armies.get(army.id);
     if (!live) continue;

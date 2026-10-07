@@ -1,3 +1,4 @@
+import { operationForDecisionGate } from './operations';
 import { AIConcretePlan, cloneConcretePlan, makeConcretePlan, comparePlanIds } from '../types/AIConcretePlan';
 import { BALANCE } from '../constants/balance';
 import { SeededRNG } from '../utils/SeededRNG';
@@ -262,9 +263,10 @@ export class DecisionEngine {
     warlord.refreshReasoning(canonicalFaction);
     if (gameState.canonicalState) {
       // A retained compatibility wrapper cannot gate cognition with an obsolete
-      // commitment. The canonical single slot remains the only authority.
-      const current = gameState.canonicalState.commitments.get(canonicalFaction.id);
+      // operation. Canonical operations alone own the transitional initiation gate.
+      const current = operationForDecisionGate(gameState.canonicalState, canonicalFaction.id);
       warlord.activeCommitment = current ? cloneCommitment(current) : null;
+      if (current) return this.decisionFromCommitment(warlord, current, turn, gameState, false);
     }
     const existing = warlord.activeCommitment;
     if (existing && isActiveCommitmentStatus(existing.status)) {
@@ -640,7 +642,7 @@ function inferTargets(
   return { targetFaction: null, targetTerritory: null };
 }
 
-function makeCommitmentId(
+export function makeCommitmentId(
   seed: number,
   warlordId: string,
   turn: number,
@@ -652,7 +654,9 @@ function makeCommitmentId(
   const facPart = hashFactionId(warlordId).toString(36);
   const seqPart = seq.toString(36);
   const tgt = (targetId ?? 'none').replace(/[^a-zA-Z0-9_-]/g, '_');
-  return `cmt_${seedPart}_${facPart}_${turn}_${seqPart}_${action}_${tgt}`;
+  // Keep the historical prefix/sequence parseable, but distinguish faction
+  // IDs even when their compact hashes collide (for example "Aa" and "BB").
+  return `cmt_${seedPart}_${facPart}_${turn}_${seqPart}_${action}_${tgt}|${JSON.stringify(warlordId)}`;
 }
 
 function hashFactionId(id: string): number {

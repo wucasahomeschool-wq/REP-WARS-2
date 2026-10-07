@@ -1,0 +1,25 @@
+import type { AICommitment } from './index';
+
+/** Domain timing/state lives on the linked army/project/invasion, never here. */
+export interface AIOperation extends AICommitment {
+  phase: 'selected' | 'physical' | 'recovery' | 'terminal';
+  objective: 'valid' | 'invalid';
+  createdAtTick: number;
+  claimIds: string[];
+  links: { armyId?: string; constructionId?: string; invasionId?: string };
+  terminal: { outcome: 'completed' | 'failed' | 'interrupted'; reason: string; atTick: number } | null;
+  /** Archived legacy reasoning may lack an exact plan. It cannot start a physical operation. */
+  legacy?: boolean;
+  /** Schema-18 BUILD could already have applied terminal feedback at start. */
+  legacyFeedbackApplied?: boolean;
+  /** Preserve the original audit identity when faction-local legacy IDs collided. */
+  legacyCommitmentId?: string;
+}
+export interface AIOperationClaim {
+  id: string;
+  operationId: string;
+  kind: 'force' | 'construction_site' | 'engagement_target' | 'invasion_target';
+  subjectId: string;
+  /** Existing pending-attack limit is faction-local, not ownership of enemy land. */
+  scopeFactionId?: string;
+}

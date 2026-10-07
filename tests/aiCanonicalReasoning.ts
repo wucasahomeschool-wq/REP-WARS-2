@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import { DecisionEngine } from '../src/engine/DecisionEngine';
 import { applyCommitmentOutcomeFeedback } from '../src/engine/outcomeFeedback';
@@ -57,7 +58,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     ));
     assert.deepStrictEqual(seen.memory.getEntries(), next.factions.get(FACTION)!.memory);
     next.factions.get(FACTION)!.memory = [];
-    next.commitments.set(FACTION, null);
+    fixtureCommitments(next).set(FACTION, null);
     const fresh = rebindWarlordRuntime(next, rebound);
     const empty = observeCognition(() => new DecisionEngine(SEED).decide(
       fresh.get(FACTION)!, toDecisionEngineSnapshot(next), next.turn,
@@ -126,7 +127,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     const continued = buildWarlordStates(canonical);
     const engine = new DecisionEngine(SEED);
     engine.decide(continued.get(FACTION)!, toDecisionEngineSnapshot(canonical), canonical.turn);
-    canonical.commitments.set(FACTION, { ...continued.get(FACTION)!.activeCommitment!, status: 'completed' });
+    fixtureCommitments(canonical).set(FACTION, { ...continued.get(FACTION)!.activeCommitment!, status: 'completed' });
     const states = [cloneGameState(canonical), cloneGameState(canonical), hydratePersistedPayload(encodePersistable(canonical))];
     const runtimes = [rebindWarlordRuntime(states[0]!, continued), buildWarlordStates(states[1]!), buildWarlordStates(states[2]!)];
     const decisions = states.map((state, i) => new DecisionEngine(SEED).decide(
@@ -134,7 +135,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     ));
     assert.deepStrictEqual(decisions[0], decisions[1]);
     assert.deepStrictEqual(decisions[1], decisions[2]);
-    assert.notStrictEqual(decisions[0]!.commitment!.id, canonical.commitments.get(FACTION)!.id);
+    assert.notStrictEqual(decisions[0]!.commitment!.id, fixtureCommitments(canonical).get(FACTION)!.id);
     assert.deepStrictEqual(states[0]!.factions.get(FACTION), states[1]!.factions.get(FACTION));
   });
 
@@ -147,14 +148,14 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     let failedId = '';
     assert.throws(() => runStateTransaction(state, (draft) => {
       handleAiDecide(draft, { req: request(), def: getCommandDefinition('AI_DECIDE')!, registry, runtime });
-      failedId = draft.commitments.get(FACTION)!.id;
+      failedId = fixtureCommitments(draft).get(FACTION)!.id;
       throw new Error('abort after cognition');
     }), /abort after cognition/);
     assert.deepStrictEqual(state, before);
     const retry = runStateTransaction(state, (draft) => handleAiDecide(draft, {
       req: request(), def: getCommandDefinition('AI_DECIDE')!, registry, runtime,
     })).state;
-    assert.strictEqual(retry.commitments.get(FACTION)!.id, failedId);
+    assert.strictEqual(fixtureCommitments(retry).get(FACTION)!.id, failedId);
     assert.strictEqual(retry.factions.get(FACTION)!.lastActions.length, 1);
   });
 
@@ -200,12 +201,12 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     const old = { ...decision.commitment!, status: 'completed' as const };
     old.id = old.id.replace(/^(cmt_[0-9a-z]+_[0-9a-z]+_-?\d+_)[0-9a-z]+_/, '$1z_');
     assert.ok(old.id.includes('_z_'), 'fixture must encode a base-36 sequence');
-    state.commitments.set(FACTION, old);
+    fixtureCommitments(state).set(FACTION, old);
     const legacy = state as unknown as { schemaVersion: number; factions: Map<string, Record<string, unknown>> };
     legacy.schemaVersion = 16;
     for (const faction of legacy.factions.values()) delete faction.nextAiCommitmentSequence;
     const loaded = hydratePersistedPayload(encodePersistable(state));
-    assert.strictEqual(loaded.commitments.get(FACTION)!.id, old.id);
+    assert.strictEqual(fixtureCommitments(loaded).get(FACTION)!.id, old.id);
     assert.strictEqual(loaded.factions.get(FACTION)!.nextAiCommitmentSequence, 36);
     const rebuilt = buildWarlordStates(loaded).get(FACTION)!;
     const resumed = engine.decide(rebuilt, toDecisionEngineSnapshot(loaded), loaded.turn);
@@ -231,11 +232,11 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     const other = 'iron_kingdom';
     const ws = runtime.get(other)!;
     new DecisionEngine(SEED).decide(ws, toDecisionEngineSnapshot(state), state.turn);
-    state.commitments.set(other, { ...ws.activeCommitment!, status: 'completed' });
+    fixtureCommitments(state).set(other, { ...ws.activeCommitment!, status: 'completed' });
     runtime.get(other)!.activeCommitment = null;
-    const expected = { ...state.commitments.get(other)! };
+    const expected = { ...fixtureCommitments(state).get(other)! };
     syncCommitmentsFromWarlordStates(state, runtime, [FACTION]);
-    assert.deepStrictEqual(state.commitments.get(other), expected);
+    assert.deepStrictEqual(fixtureCommitments(state).get(other), expected);
   });
 
   test('Phase A: disposable helper mutations cannot leak into canonical goals or memory', () => {
@@ -276,7 +277,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     const chosen = new DecisionEngine(SEED).decide(ws, toDecisionEngineSnapshot(state), state.turn).commitment!;
     for (const current of [null, { ...chosen, status: 'completed' as const }]) {
       const draft = cloneGameState(state);
-      draft.commitments.set(FACTION, current);
+      fixtureCommitments(draft).set(FACTION, current);
       const reconstructed = cloneGameState(draft);
       ws.activeCommitment = chosen;
       const continued = new DecisionEngine(SEED).decide(ws, toDecisionEngineSnapshot(draft), draft.turn);
@@ -284,7 +285,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
       assert.strictEqual(continued.isNewCommitment, true);
       assert.deepStrictEqual(continued, rebuilt);
     }
-    state.commitments.set(FACTION, chosen);
+    fixtureCommitments(state).set(FACTION, chosen);
     ws.activeCommitment = null;
     const held = new DecisionEngine(SEED).decide(ws, toDecisionEngineSnapshot(state), state.turn);
     assert.strictEqual(held.isNewCommitment, false);
@@ -294,7 +295,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
   test('Phase A: older-save migration never lowers an existing valid commitment high-water mark', () => {
     const state = world();
     const chosen = new DecisionEngine(SEED).decide(buildWarlordStates(state).get(FACTION)!, toDecisionEngineSnapshot(state), state.turn).commitment!;
-    state.commitments.set(FACTION, { ...chosen, status: 'completed' });
+    fixtureCommitments(state).set(FACTION, { ...chosen, status: 'completed' });
     state.factions.get(FACTION)!.nextAiCommitmentSequence = 90;
     state.schemaVersion = 16;
     const loaded = hydratePersistedPayload(encodePersistable(state));
@@ -305,7 +306,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     for (const schemaVersion of [17, 18]) {
       const state = world();
       const chosen = new DecisionEngine(SEED).decide(buildWarlordStates(state).get(FACTION)!, toDecisionEngineSnapshot(state), state.turn).commitment!;
-      state.commitments.set(FACTION, { ...chosen, status: 'completed' });
+      fixtureCommitments(state).set(FACTION, { ...chosen, status: 'completed' });
       state.factions.get(FACTION)!.nextAiCommitmentSequence = 0;
       state.schemaVersion = schemaVersion;
       assert.throws(() => hydratePersistedPayload(encodePersistable(state)), /reuse a recorded ID/);

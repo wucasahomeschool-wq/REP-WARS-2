@@ -1,3 +1,4 @@
+import { createOperationMap } from '../engine/operations';
 /**
  * DETERMINISTIC GAMESTATE INITIALIZATION.
  *
@@ -10,7 +11,7 @@
  * SAMPLE_MAP remains an explicit LEGACY TEST FIXTURE via
  * `createLegacySampleMapGameState`.
  */
-import { AICommitment, FactionId } from '../types';
+import { FactionId } from '../types';
 import { GameState, GAME_STATE_SCHEMA_VERSION, RuntimeRegion, emptyWorldClock, emptyRewardApplicationState } from '../types/GameState';
 import { BALANCE } from '../constants/balance';
 import { MapTerritorySpec, SAMPLE_MAP, SimulationBuilder, WARLORD_SPECS, WarlordSpec } from '../simulation/SampleMap';
@@ -74,10 +75,6 @@ export function createLegacySampleMapGameState(options: CreateLegacySampleMapOpt
   const mapSpecs = options.mapSpecs ?? SAMPLE_MAP;
   const warlordSpecs = options.warlordSpecs ?? WARLORD_SPECS;
   const { gameState: snapshot } = SimulationBuilder.buildFromSpecs(mapSpecs, warlordSpecs, seed);
-  const commitments = new Map<FactionId, AICommitment | null>();
-  for (const fid of snapshot.allFactionIds) {
-    commitments.set(fid, null);
-  }
   const state: GameState = {
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
     turn: snapshot.turn,
@@ -93,7 +90,8 @@ export function createLegacySampleMapGameState(options: CreateLegacySampleMapOpt
     regions: new Map(),
     territories: snapshot.territories,
     armies: snapshot.armies,
-    commitments,
+    operations: createOperationMap(),
+    operationClaims: new Map(),
     activeEvents: [],
     eventHistory: [],
     ...emptyRewardApplicationState(),

@@ -23,7 +23,7 @@ export const DEFAULT_WORLD_ID = 'local';
  *   factions (resources, diplomacy, memory, goals, armies refs),
  *   playerFactionId, definitionWorldId/definitionFormatVersion/worldLevel/worldName,
  *   territories (ownership, garrison, fortification — not polygons),
- *   armies, commitments, activeEvents, eventHistory,
+ *   armies, operations, operationClaims, activeEvents, eventHistory,
  *   playerRewards (banked Troops, pending effects, appliedRewards ledger),
  *   activeInvasions, constructions (remainingTicks + lastProgressTick),
  *   cities, territoryEconomy (lastAccrualTick + uncollected),

@@ -1,3 +1,4 @@
+import { settleOperation } from '../../engine/operations';
 import { FactionId, TerritoryId } from '../../types';
 import { GameState } from '../../types/GameState';
 import { cityIdFor, removeCity } from '../cities/city';
@@ -81,6 +82,7 @@ export function settleTerritoryOwnershipChange(
   for (const [id, project] of [...state.constructions.entries()]) {
     if (project.territoryId === territoryId && project.status === 'in_progress') {
       state.constructions.delete(id);
+      if (project.aiOperationId) settleOperation(state, project.aiOperationId, 'failed', 'construction destroyed by ownership change');
     }
   }
   removeCity(state, territoryId);

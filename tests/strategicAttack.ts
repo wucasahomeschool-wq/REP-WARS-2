@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -76,7 +77,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
       territories,
       ...authoredWorldFields(territories),
       armies: new Map([[a.id, a]]),
-      commitments: new Map([[ATK, null], [DEF, null]]),
+      operations: new Map(), operationClaims: new Map(),
       activeEvents: [],
       eventHistory: [],
     };
@@ -103,7 +104,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
       territories: new Map([['home', home], ['front', front]]),
       ...authoredWorldFields(new Map([['home', home], ['front', front]])),
       armies: new Map([[a.id, a]]),
-      commitments: new Map([[ATK, null], [DEF, null]]),
+      operations: new Map(), operationClaims: new Map(),
       activeEvents: [],
       eventHistory: [],
     };
@@ -132,12 +133,12 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
 
   test('AI immediate ATTACK commitment completes through BattleEngine', () => {
     const state = buildImmediateState();
-    state.commitments.set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
+    fixtureCommitments(state).set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
     const orch = new Orchestrator(state);
     const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: ATK, seed: 42 }));
     assert.strictEqual(res.success, true, res.errors[0]?.message);
     assert.strictEqual(res.payload.attackOutcome, 'battle_resolved');
-    assert.strictEqual(orch.getState().commitments.get(ATK)!.status, 'completed');
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(ATK)!.status, 'completed');
   });
 
   test('handlers do not reimplement battle math; they call startStrategicAttack / BattleEngine', () => {
@@ -255,13 +256,13 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
   test('AI ATTACK stays executing during staging movement and does not re-decide', () => {
     const state = buildChainState();
     state.playerFactionId = DEF;
-    state.commitments.set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
+    fixtureCommitments(state).set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
     const orch = new Orchestrator(state);
     orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: ATK, seed: 42 }));
-    assert.strictEqual(orch.getState().commitments.get(ATK)!.status, 'executing');
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(ATK)!.status, 'executing');
     const duration = orch.getState().armies.get('atk_army')!.movement!.durationTicks;
     const mid = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: duration - 1 }));
-    assert.strictEqual(orch.getState().commitments.get(ATK)!.status, 'executing');
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(ATK)!.status, 'executing');
     const wa = mid.payload.worldAdvance as WorldAdvanceResult;
     assert.ok(!wa.aiDecisions.some((d) => d.factionId === ATK));
   });
@@ -269,13 +270,13 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
   test('AI delayed ATTACK completes after arrival battle', () => {
     const state = buildChainState();
     state.playerFactionId = null;
-    state.commitments.set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
+    fixtureCommitments(state).set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
     const orch = new Orchestrator(state);
     orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: ATK, seed: 42 }));
     const duration = orch.getState().armies.get('atk_army')!.movement!.durationTicks;
     orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: duration }));
-    assert.ok(!isActiveCommitmentStatus(orch.getState().commitments.get(ATK)!.status));
-    assert.strictEqual(orch.getState().commitments.get(ATK)!.status, 'completed');
+    assert.ok(!isActiveCommitmentStatus(fixtureCommitments(orch.getState()).get(ATK)!.status));
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(ATK)!.status, 'completed');
     assert.strictEqual(orch.getState().territories.get('front')!.owner, ATK);
   });
 
@@ -300,14 +301,14 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
   test('destroyed marching army fails the linked ATTACK commitment', () => {
     const state = buildChainState();
     state.playerFactionId = DEF;
-    state.commitments.set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
+    fixtureCommitments(state).set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
     const orch = new Orchestrator(state);
     orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: ATK, seed: 42 }));
     const live = orch.getState();
     live.armies.delete('atk_army');
     live.factions.get(ATK)!.armies = [];
     orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
-    assert.strictEqual(orch.getState().commitments.get(ATK)!.status, 'failed');
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(ATK)!.status, 'failed');
   });
 
   test('target becoming the attacker faction fails the pending plan after arrival', () => {
@@ -323,7 +324,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
     assert.ok(!orch.getState().armies.get('atk_army')!.attackIntent);
   });
 
-  test('interrupted adjacency cancels pending attack intent', () => {
+  test('interrupted adjacency cancels the objective while retaining unavailable physical travel', () => {
     const orch = new Orchestrator(buildChainState());
     orch.execute(cmdReq('ATTACK', 'p', { territoryId: 'front', factionId: ATK, seed: 42 }));
     const live = orch.getState();
@@ -331,7 +332,9 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
     live.territories.get('staging')!.neighboring = ['front'];
     orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
     assert.ok(!orch.getState().armies.get('atk_army')!.attackIntent);
-    assert.ok(!isArmyMoving(orch.getState().armies.get('atk_army')!));
+    const halted = orch.getState().armies.get('atk_army')!;
+    assert.ok(isArmyMoving(halted), 'broken topology cannot return/free an in-flight force');
+    assert.strictEqual(halted.movement!.status, 'blocked');
     assert.strictEqual(orch.getState().armies.get('atk_army')!.location, 'rear');
   });
 
@@ -477,14 +480,14 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
   test('second RESOLVE_COMMITMENT while staging is idempotent', () => {
     const state = buildChainState();
     state.playerFactionId = DEF;
-    state.commitments.set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
+    fixtureCommitments(state).set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
     const orch = new Orchestrator(state);
     orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: ATK, seed: 42 }));
     const dest = orch.getState().armies.get('atk_army')!.movement!.destinationTerritoryId;
     const second = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: ATK, seed: 42 }));
     assert.strictEqual(second.success, true, second.errors[0]?.message);
     assert.strictEqual(second.payload.arrivalPending, true);
-    assert.strictEqual(orch.getState().commitments.get(ATK)!.status, 'executing');
+    assert.strictEqual(fixtureCommitments(orch.getState()).get(ATK)!.status, 'executing');
     assert.strictEqual(orch.getState().armies.get('atk_army')!.movement!.destinationTerritoryId, dest);
   });
 
@@ -502,7 +505,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
     const stale = invalidateStaleAttackIntents(state);
     assert.strictEqual(stale.length, 1);
     assert.ok(!state.armies.get('atk_army')!.attackIntent);
-    assert.ok(!isArmyMoving(state.armies.get('atk_army')!));
+    assert.ok(isArmyMoving(state.armies.get('atk_army')!), 'objective loss must preserve unfinished travel');
     const ready = executeReadyStrategicAttack(state, host, 'atk_army');
     assert.ok(ready.payload.attackOutcome === 'skipped' || ready.payload.attackOutcome === 'failed');
     assert.deepStrictEqual(checkGameStateInvariants(state), []);

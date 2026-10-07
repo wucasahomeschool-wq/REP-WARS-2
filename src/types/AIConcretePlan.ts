@@ -57,6 +57,10 @@ function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 export function concretePlanId(draft: PlanDraft): string { return `plan:v1:${canonical(draft)}`; }
+// Only objects frozen recursively by this module are eligible for shape caching.
+// No current-state legality or scoring result is cached.
+const frozenPlans = new WeakSet<object>();
+const planProblems = new WeakMap<object, string | null>();
 function freezeDeep<T>(value: T): T {
   if (value !== null && typeof value === 'object') {
     Object.values(value).forEach(freezeDeep); Object.freeze(value);
@@ -65,10 +69,16 @@ function freezeDeep<T>(value: T): T {
 }
 export function makeConcretePlan(draft: PlanDraft): AIConcretePlan {
   const copy = JSON.parse(JSON.stringify(draft)) as PlanDraft;
-  return freezeDeep({ ...copy, id: concretePlanId(copy) } as AIConcretePlan);
+  const plan = freezeDeep({ ...copy, id: concretePlanId(copy) } as AIConcretePlan);
+  frozenPlans.add(plan); return plan;
 }
 export function cloneConcretePlan(plan: AIConcretePlan): AIConcretePlan {
-  return freezeDeep(JSON.parse(JSON.stringify(plan)) as AIConcretePlan);
+  const copy = freezeDeep(JSON.parse(JSON.stringify(plan)) as AIConcretePlan);
+  if (copy && typeof copy === 'object') {
+    frozenPlans.add(copy);
+    if (planProblems.has(plan)) planProblems.set(copy, planProblems.get(plan)!);
+  }
+  return copy;
 }
 export function planTargetId(plan: AIConcretePlan): string | null {
   switch (plan.action) {
@@ -83,6 +93,13 @@ export function planTargetId(plan: AIConcretePlan): string | null {
 
 /** Serialization integrity only; current-state feasibility is checked separately. */
 export function concretePlanProblem(value: unknown): string | null {
+  if (value && typeof value === 'object' && frozenPlans.has(value)) {
+    if (!planProblems.has(value)) planProblems.set(value, inspectConcretePlan(value));
+    return planProblems.get(value)!;
+  }
+  return inspectConcretePlan(value);
+}
+function inspectConcretePlan(value: unknown): string | null {
   if (!value || typeof value !== 'object') return 'plan must be an object';
   const p = value as Record<string, unknown>;
   const text = (x: unknown): x is string => typeof x === 'string' && x.length > 0;

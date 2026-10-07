@@ -1,3 +1,4 @@
+import { operationForDecisionGate, operationFromSelection } from '../engine/operations';
 /**
  * ENGINE INPUT / OUTPUT BOUNDARY ADAPTERS (AUTHORITATIVE RUNTIME GAMESTATE
  * PASS). See docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "Engine input
@@ -79,25 +80,13 @@ export function toWorldStepInput(state: GameState, armies?: Map<string, Army>): 
   };
 }
 
-/**
- * Builds fresh `WarlordState` runtime wrappers (memory/goals engines +
- * AI-owned `activeCommitment`) from `GameState.factions`, seeding each
- * wrapper's `activeCommitment` from `GameState.commitments` so a rebuilt
- * `WarlordState` (e.g. after a process restart, or in a fresh test) picks
- * up mid-flight where the canonical state left off, instead of starting
- * every faction back at "no commitment".
- *
- * `WarlordState` itself is an AI-engine runtime object (holds live
- * `MemorySystem`/`GoalSystem` instances), not canonical state — see
- * `GameState.commitments`'s doc comment for why this is a documented,
- * explicit sync boundary rather than `GameState` holding `WarlordState`
- * instances directly.
- */
+/** Rebuild disposable cognition adapters from canonical factions and the
+ * transitional initiation gate. No wrapper owns operation progression. */
 export function buildWarlordStates(state: GameState): Map<FactionId, WarlordState> {
   const out = new Map<FactionId, WarlordState>();
   for (const [id, snapshot] of state.factions.entries()) {
     const ws = new WarlordState(snapshot);
-    const commitment = state.commitments.get(id);
+    const commitment = operationForDecisionGate(state, id);
     ws.activeCommitment = commitment ? cloneCommitment(commitment) : null;
     out.set(id, ws);
   }
@@ -116,15 +105,8 @@ export function rebindWarlordRuntime(
   return buildWarlordStates(state);
 }
 
-/**
- * Writes each `WarlordState.activeCommitment` back onto
- * `state.commitments`, cloning so `GameState` never shares a mutable
- * `AICommitment` reference with a `WarlordState` that keeps reasoning
- * about it turn over turn. Call this after `DecisionEngine.decide()`/
- * `decideAll()` to keep the canonical `GameState.commitments` current.
- * Mutates `state.commitments` in place; does not touch anything else on
- * `state`.
- */
+/** Register newly selected exact proposals by ID; never overwrite existing
+ * operations or delete other faction work from a wrapper's output. */
 export function syncCommitmentsFromWarlordStates(
   state: GameState,
   warlordStates: Map<FactionId, WarlordState>,
@@ -134,6 +116,8 @@ export function syncCommitmentsFromWarlordStates(
     const ws = warlordStates.get(id);
     if (!ws) continue;
     const commitment: AICommitment | null = ws.activeCommitment;
-    state.commitments.set(id, commitment ? cloneCommitment(commitment) : null);
+    if (commitment && !state.operations.has(commitment.id)) {
+      state.operations.set(commitment.id, operationFromSelection(commitment, state.worldTick));
+    }
   }
 }

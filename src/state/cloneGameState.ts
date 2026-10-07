@@ -1,3 +1,4 @@
+import { cloneOperations } from '../engine/operations';
 /**
  * GAMESTATE CLONING (AUTHORITATIVE RUNTIME GAMESTATE PASS). See
  * docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "Cloning / snapshots".
@@ -34,7 +35,6 @@ import {
   TerritoryEconomy,
   TerritoryInfrastructure,
 } from '../types/GameState';
-import { cloneCommitment } from '../engine/DecisionEngine';
 import { cloneArmyMovement } from '../army/movement';
 import { cloneAttackIntent } from '../army/strategicAttack';
 import { cloneFitnessEstimate } from '../fitness/estimate/clone';
@@ -246,7 +246,8 @@ export function overwriteGameState(target: GameState, source: GameState): void {
   target.regions = next.regions;
   target.territories = next.territories;
   target.armies = next.armies;
-  target.commitments = next.commitments;
+  target.operations = next.operations;
+  target.operationClaims = next.operationClaims;
   target.activeEvents = next.activeEvents;
   target.eventHistory = next.eventHistory;
   target.playerRewards = next.playerRewards;
@@ -265,8 +266,9 @@ export function overwriteGameState(target: GameState, source: GameState): void {
 
 /**
  * Deep-clones a `GameState` with no shared mutable nested references.
- * Every `Map`/`Set`/array/object nested field is rebuilt, including
- * `factions[].diplomacy`, `regions`, `commitments`, `activeEvents`,
+ * Mutable nested fields are rebuilt; deeply frozen terminal records may be
+ * shared safely. This includes
+ * `factions[].diplomacy`, `regions`, `operations`, `operationClaims`, `activeEvents`,
  * `playerRewards`, and `activeInvasions`.
  * See tests/run.ts, "GameState clone isolation".
  */
@@ -320,7 +322,8 @@ export function cloneGameState(state: GameState): GameState {
     regions: cloneMap(state.regions, cloneRuntimeRegion),
     territories: cloneMap(state.territories, cloneTerritory),
     armies: cloneMap(state.armies, cloneArmy),
-    commitments: cloneMap(state.commitments, (c) => (c ? cloneCommitment(c) : null)),
+    operations: cloneOperations(state.operations),
+    operationClaims: cloneMap(state.operationClaims, c => ({ ...c })),
     activeEvents: state.activeEvents.map(cloneActiveEvent),
     eventHistory: state.eventHistory.map(cloneHistoryEntry),
     playerRewards: clonePlayerRewardState(state.playerRewards),

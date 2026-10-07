@@ -1,4 +1,4 @@
-/** Identity continuity for the existing single-commitment format, not a new operation store. */
+/** Persisted operation ID continuity, including legacy commitment references during migration. */
 function nextSequenceForId(id: unknown): number {
   const match = typeof id === 'string'
     ? /^cmt_[0-9a-z]+_[0-9a-z]+_-?\d+_([0-9a-z]+)_/.exec(id) : null;
@@ -10,7 +10,8 @@ function nextSequenceForId(id: unknown): number {
 }
 
 interface RecordedCommitmentReferences {
-  commitments: ReadonlyMap<unknown, unknown>;
+  operations?: ReadonlyMap<unknown, unknown>;
+  commitments?: ReadonlyMap<unknown, unknown>;
   armies: ReadonlyMap<unknown, unknown>;
   activeInvasions: ReadonlyMap<unknown, unknown>;
 }
@@ -18,18 +19,26 @@ function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};
 }
 
-/** Minimum next sequence implied by persisted IDs, including physical-operation references. */
-export function recordedAiCommitmentSequenceFloor(state: RecordedCommitmentReferences, factionId: unknown): number {
-  let floor = nextSequenceForId(record(state.commitments.get(factionId)).id);
+/** One pass over persisted identities, independent of faction/map ordering. */
+export function recordedAiCommitmentSequenceFloors(state: RecordedCommitmentReferences): Map<unknown, number> {
+  const floors = new Map<unknown, number>();
+  const observe = (factionId: unknown, ...ids: unknown[]) => {
+    for (const id of ids) floors.set(factionId, Math.max(floors.get(factionId) ?? 0, nextSequenceForId(id)));
+  };
+  for (const [factionId, value] of state.commitments ?? []) observe(factionId, record(value).id);
+  for (const value of state.operations?.values() ?? []) {
+    const op = record(value); observe(op.warlordId, op.id);
+  }
   for (const value of state.armies.values()) {
     const army = record(value);
-    if (army.owner !== factionId) continue;
-    floor = Math.max(floor, nextSequenceForId(record(army.movement).commitmentId),
-      nextSequenceForId(record(army.attackIntent).commitmentId));
+    observe(army.owner, record(army.movement).commitmentId, record(army.attackIntent).commitmentId);
   }
   for (const value of state.activeInvasions.values()) {
-    const invasion = record(value);
-    if (invasion.attackerFactionId === factionId) floor = Math.max(floor, nextSequenceForId(invasion.commitmentId));
+    const invasion = record(value); observe(invasion.attackerFactionId, invasion.commitmentId);
   }
-  return floor;
+  return floors;
+}
+/** Minimum next sequence implied by persisted IDs, including physical references. */
+export function recordedAiCommitmentSequenceFloor(state: RecordedCommitmentReferences, factionId: unknown): number {
+  return recordedAiCommitmentSequenceFloors(state).get(factionId) ?? 0;
 }

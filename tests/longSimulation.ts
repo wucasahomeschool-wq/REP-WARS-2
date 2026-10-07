@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import { runLongSimulation } from '../src/simulation/longRunHarness';
 import { checkGameStateInvariants } from '../src/state';
@@ -51,7 +52,8 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
     const b = runLongSimulation({ seed: 2, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
     const differs = a.battlesResolved !== b.battlesResolved
       || a.territoriesChangedOwner !== b.territoriesChangedOwner
-      || JSON.stringify([...a.actionCounts.entries()]) !== JSON.stringify([...b.actionCounts.entries()]);
+      || JSON.stringify([...a.actionCounts.entries()]) !== JSON.stringify([...b.actionCounts.entries()])
+      || JSON.stringify([...a.finalState.operations.values()].map(o=>o.plan)) !== JSON.stringify([...b.finalState.operations.values()].map(o=>o.plan));
     assert.ok(differs, 'two different seeds produced byte-identical simulation statistics');
   });
 
@@ -88,8 +90,9 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
 
   test('no permanently-active ATTACK commitment with a target that is no longer a foreign territory', () => {
     const result = runLongSimulation({ seed: 21, ticks: 90 });
-    for (const [factionId, commitment] of result.finalState.commitments) {
+    for (const [factionId, commitment] of fixtureCommitments(result.finalState)) {
       if (!commitment || commitment.action !== 'ATTACK' || !isActiveCommitmentStatus(commitment.status)) continue;
+      if (commitment.phase === 'recovery') { assert.ok(commitment.objective === 'invalid'); continue; }
       if (!commitment.targetId) continue;
       const target = result.finalState.territories.get(commitment.targetId);
       assert.ok(target, `ATTACK commitment target ${commitment.targetId} missing entirely`);
@@ -109,7 +112,7 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
       for (const counts of result.actionCounts.values()) {
         for (const removed of ['DEFEND', 'NEGOTIATE', 'DECLARE_WAR'] as const) assert.strictEqual(counts[removed] ?? 0, 0);
       }
-      for (const c of result.finalState.commitments.values()) {
+      for (const c of fixtureCommitments(result.finalState).values()) {
         if (c) { assert.ok(c.plan, 'new commitment must retain its exact selected plan'); assert.strictEqual(c.action, c.plan!.action); }
       }
     }

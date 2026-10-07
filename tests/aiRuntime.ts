@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import { getAttackFeasibility, isMoveDestinationFeasible } from '../src/engine/feasibility';
 import { DecisionEngine, isFactionEliminated, WarlordState } from '../src/engine/DecisionEngine';
@@ -234,14 +235,14 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     const ghost = makeSelf('ghost_empire', { territories: [], armies: [] });
     state.factions.set('ghost_empire', ghost);
     state.allFactionIds.push('ghost_empire');
-    state.commitments.set('ghost_empire', null);
+    fixtureCommitments(state).set('ghost_empire', null);
     const orch = new Orchestrator(state);
     assert.strictEqual(isFactionEliminated(orch.getState().factions.get('ghost_empire')!), true);
     const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 20 }));
     assert.strictEqual(res.success, true);
     const advance = res.payload.worldAdvance as WorldAdvanceResult;
     assert.ok(!advance.aiDecisions.some((d) => d.factionId === 'ghost_empire'));
-    assert.strictEqual(orch.getState().commitments.get('ghost_empire'), null);
+    assert.strictEqual(fixtureCommitments(orch.getState()).get('ghost_empire'), null);
   });
 
   console.log('Phase 16 — AI decision lastActions bookkeeping (WAIT anti-repetition wiring)');
@@ -364,9 +365,9 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     state.cities = new Map();
     state.territoryEconomy = new Map();
     state.territoryInfrastructure = new Map();
-    state.commitments = new Map([[ME, makeCmt({
+    fixtureCommitments(state).replaceWith(new Map([[ME, makeCmt({
       warlordId: ME, action: 'ATTACK', targetId: 'target', status: 'committed', originatingGoalId: 'goal_x',
-    })], [ENEMY, null]]);
+    })], [ENEMY, null]]));
     const orch = new Orchestrator(state);
     const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'p', { factionId: ME }));
     assert.strictEqual(res.success, true);

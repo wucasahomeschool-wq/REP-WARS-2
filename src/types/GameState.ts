@@ -1,3 +1,4 @@
+import type { AIOperation, AIOperationClaim } from './AIOperation';
 /**
  * CANONICAL RUNTIME GAME STATE (AUTHORITATIVE RUNTIME GAMESTATE PASS)
  * =====================================================================
@@ -89,8 +90,9 @@ import { GameRewardResult } from '../rewards/types';
  *     command idempotency, not presence and not world time.
  * 17 = Canonical AI commitment identity high-water mark (Phase A).
  * 18 = Exact AI concrete plans (Phase B); old action/target saves remain explicit legacy records.
+ * 19 = Canonical multi-operation ownership and exclusive physical claims (Phase C).
  */
-export const GAME_STATE_SCHEMA_VERSION = 18;
+export const GAME_STATE_SCHEMA_VERSION = 19;
 
 export type InvasionId = string;
 
@@ -247,6 +249,7 @@ export function emptyTerritoryInfrastructure(territoryId: TerritoryId): Territor
 }
 
 export interface ConstructionProject {
+  aiOperationId?: string;
   id: ConstructionId;
   factionId: FactionId;
   territoryId: TerritoryId;
@@ -487,21 +490,13 @@ export interface GameState {
   // ---- armies ----
   armies: Map<ArmyId, Army>;
 
-  // ---- AI commitments ----
-  /**
-   * Canonical home for each faction's current strategic commitment
-   * (Phase 8 — AI COMMITMENT & AMBITION PASS). One entry per faction id in
-   * `allFactionIds`; `null` means "no active commitment" (e.g. before the
-   * first `decide()` call for that faction, or right after a terminal
-   * commitment completes/fails/is interrupted and before reassessment).
-   *
-   * Phase A keeps this legacy single-slot contract. AI handlers derive
-   * disposable WarlordState working/output copies from the current transaction
-   * draft and write back only the factions they processed. Canonical faction
-   * memory, goals, history, and nextAiCommitmentSequence are the authority;
-   * no retained wrapper survives as a separate reasoning authority.
+  // ---- canonical independently identified AI operations ----
+  /** Physical domain truth remains in armies, constructions and invasions.
+   * Operations own exact plans and exclusive claims, indexed by persisted ID.
+   * Runtime WarlordState is a disposable cognition adapter only.
    */
-  commitments: Map<FactionId, AICommitment | null>;
+  operations: Map<string, AIOperation>;
+  operationClaims: Map<string, AIOperationClaim>;
 
   // ---- active events / world history ----
   activeEvents: ActiveEvent[];

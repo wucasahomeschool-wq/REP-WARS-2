@@ -1,5 +1,7 @@
+import { isArmyMoving } from '../../army/movement';
+import { settleOperation } from '../../engine/operations';
 import { Army } from '../../types';
-import { GameState } from '../../types/GameState';
+import { ActiveInvasion, GameState } from '../../types/GameState';
 import { BattleEngine, BattleInput } from '../../battle/BattleEngine';
 import { applyBattleResultToGameState } from '../../orchestration/applyBattle';
 import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
@@ -43,28 +45,26 @@ function setCooldown(
   state.attackerCooldowns.set(attackerId, current);
 }
 
-function attackingArmies(state: GameState, invasion: { attackingArmyIds: string[] }): Army[] {
+function attackingArmies(state: GameState, invasion: ActiveInvasion): Army[] {
   return invasion.attackingArmyIds
     .map((id) => state.armies.get(id))
-    .filter((a): a is Army => !!a);
+    .filter((a): a is Army => !!a && a.owner === invasion.attackerFactionId && !isArmyMoving(a)
+      && (!a.attackIntent?.holdForInvasionId || a.attackIntent.holdForInvasionId === invasion.id));
 }
 
-function releaseInvasionArmies(state: GameState, invasion: { attackingArmyIds: string[] }): void {
-  for (const army of attackingArmies(state, invasion)) {
-    const live = state.armies.get(army.id);
-    if (!live) continue;
-    live.movement = null;
-    clearAttackIntent(live);
+function releaseInvasionArmies(state: GameState, invasion: ActiveInvasion): void {
+  for (const id of invasion.attackingArmyIds) {
+    const live = state.armies.get(id), intent = live?.attackIntent;
+    if (!live || live.owner !== invasion.attackerFactionId || !intent) continue;
+    if (intent.holdForInvasionId === invasion.id || (!intent.holdForInvasionId
+      && intent.commitmentId === invasion.commitmentId && intent.targetTerritoryId === invasion.territoryId)) clearAttackIntent(live);
+    // A legacy invasion reference must never erase a different real march.
   }
 }
 
 function closeCommitment(state: GameState, invasion: { attackerFactionId: string; commitmentId: string | null }, success: boolean): void {
   if (!invasion.commitmentId) return;
-  const commitment = state.commitments.get(invasion.attackerFactionId);
-  if (commitment && commitment.id === invasion.commitmentId) {
-    commitment.status = success ? 'completed' : 'failed';
-    commitment.statusReason = success ? 'player defense succeeded' : 'player defense failed';
-  }
+  settleOperation(state, invasion.commitmentId, success ? 'completed' : 'failed', success ? 'attacker victory' : 'attacker did not win');
 }
 
 function invasionResolveEvent(params: {
@@ -127,9 +127,9 @@ export function resolveInvasionBattle(
   const attackers = attackingArmies(state, invasion);
   if (attackers.length === 0) {
     setCooldown(state, invasion.attackerFactionId, 'continuationUntilTick', state.worldTick + failedDefenseContinuationTicks());
-    closeCommitment(state, invasion, false);
     releaseInvasionArmies(state, invasion);
     state.activeInvasions.delete(invasionId);
+    closeCommitment(state, invasion, false);
     const invasionOutcome = outcomeForReason(reason, false);
     return {
       ...emptyResult(),
@@ -160,9 +160,9 @@ export function resolveInvasionBattle(
   const target = requireTerritory(state, invasion.territoryId);
   if (isPlayerAnchorProtected(state, invasion.territoryId)) {
     setCooldown(state, invasion.attackerFactionId, 'continuationUntilTick', state.worldTick + failedDefenseContinuationTicks());
-    closeCommitment(state, invasion, false);
     releaseInvasionArmies(state, invasion);
     state.activeInvasions.delete(invasionId);
+    closeCommitment(state, invasion, false);
     return {
       ...emptyResult(),
       events: [invasionResolveEvent({
@@ -188,6 +188,14 @@ export function resolveInvasionBattle(
         reason: 'anchor_protected',
       },
     };
+  }
+  // Ownership invalidation does not authorize a battle against the previous
+  // defender, nor a new strategic target. This stationary invasion is finished.
+  if (target.owner !== invasion.defenderFactionId) {
+    releaseInvasionArmies(state, invasion);
+    state.activeInvasions.delete(invasionId);
+    closeCommitment(state, invasion, false);
+    return { ...emptyResult(), payload: { invasionId, attackOutcome: 'failed', invasionOutcome: 'objective_invalid', resolveReason: reason } };
   }
   const attackerSnap = requireFactionSnapshot(state, invasion.attackerFactionId);
   const defenderSnap = requireFactionSnapshot(state, invasion.defenderFactionId);
@@ -223,9 +231,9 @@ export function resolveInvasionBattle(
   } else {
     setCooldown(state, invasion.attackerFactionId, 'continuationUntilTick', state.worldTick + failedDefenseContinuationTicks());
   }
-  closeCommitment(state, invasion, success && reason === 'defense_battle');
   releaseInvasionArmies(state, invasion);
   state.activeInvasions.delete(invasionId);
+  closeCommitment(state, invasion, result.winner === 'attacker');
   const invasionOutcome = outcomeForReason(reason, success);
   return {
     ...emptyResult(),

@@ -9,6 +9,7 @@ import { pushMemory } from './helpers';
 import { TerritoryChange, StateChange, ArmyChange, GameEvent } from './protocol';
 import { applyPlayerTerritoryLoss, assertAnchorAttackAllowed } from '../gameplay/anchors';
 import { applyWorldCompletionCheck } from '../gameplay/completion';
+import { settleOperation } from '../engine/operations';
 
 function clampMorale(n: number): number {
   return Math.max(0, Math.min(100, n));
@@ -62,6 +63,8 @@ function eliminateArmies(state: GameState, armies: Army[], armyChanges: ArmyChan
       if (idx >= 0) owner.armies.splice(idx, 1);
     }
     state.armies.delete(a.id);
+    const operationId = state.operationClaims.get(`force:${a.id}`)?.operationId;
+    if (operationId) settleOperation(state, operationId, 'failed', 'claimed force destroyed in battle');
     armyChanges.push({ armyId: a.id, eliminated: true });
   }
 }

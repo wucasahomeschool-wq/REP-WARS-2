@@ -1,3 +1,4 @@
+import { assertClaimAvailable, settleOperation } from '../engine/operations';
 import { BALANCE } from '../constants/balance';
 import { BattleEngine, BattleInput } from '../battle/BattleEngine';
 import { Army, FactionId, GameStateSnapshot, RelationshipState, StrategicAttackIntent, TerritoryId } from '../types';
@@ -232,6 +233,8 @@ export function invalidateStaleAttackIntents(state: GameState): StaleAttackInval
   for (const army of armies) {
     if (!isActiveAttackIntent(army)) continue;
     const intent = army.attackIntent!;
+    // An open invasion owns its force until the invasion domain resolves.
+    if (intent.holdForInvasionId && state.activeInvasions.has(intent.holdForInvasionId)) continue;
     const target = state.territories.get(intent.targetTerritoryId);
     let reason: string | null = null;
     if (!target) {
@@ -251,9 +254,9 @@ export function invalidateStaleAttackIntents(state: GameState): StaleAttackInval
       reason,
     });
     clearAttackIntent(army);
-    if (isArmyMoving(army)) {
-      army.movement = null;
-    }
+    // Preserve consumed travel. The operation reducer retains its force claim
+    // until the existing movement system reaches arrival/interruption.
+    if (intent.commitmentId) settleOperation(state, intent.commitmentId, 'failed', reason);
   }
   return out;
 }
@@ -473,9 +476,13 @@ export function startStrategicAttack(
     );
   }
 
+  assertClaimAvailable(state, 'engagement_target', target.id, commitmentId, attackerId);
+  assertClaimAvailable(state, 'invasion_target', target.id, commitmentId);
+  if (params.onlyArmyId) assertClaimAvailable(state, 'force', params.onlyArmyId, commitmentId);
   const immediate = listImmediateAttackingArmies(state, attackerId, target.id)
     .filter((a) => (!params.onlyArmyId || a.id === params.onlyArmyId)
       && (!params.stagingTerritoryId || a.location === params.stagingTerritoryId));
+  for (const army of immediate) assertClaimAvailable(state, 'force', army.id, commitmentId);
   if (immediate.length > 0) {
     return resolveStrategicBattle(state, host, target.id, attackerId, immediate);
   }
@@ -592,6 +599,7 @@ export function executeReadyStrategicAttack(
     return { ...emptyResult(), payload: { attackOutcome: 'skipped', skipped: true } };
   }
   const intent = army.attackIntent!;
+  if (isArmyMoving(army)) return { ...emptyResult(), payload: { attackOutcome: 'skipped', skipped: true, arrivalPending: true } };
   intent.status = 'ready';
   const fail = (code: ErrorCode, message: string, details?: Record<string, unknown>): HandlerResult => {
     clearAttackIntent(army);
@@ -603,9 +611,6 @@ export function executeReadyStrategicAttack(
     if (invasion && isOpenInvasion(invasion)) {
       return { ...emptyResult(), payload: { attackOutcome: 'awaiting_defense', skipped: true, invasionId: invasion.id, arrivalPending: true } };
     }
-  }
-  if (isArmyMoving(army)) {
-    return fail(ErrorCode.ACTION_NOT_ALLOWED, 'Pending attack cannot resolve while the army is still moving');
   }
   if (army.location !== intent.stagingTerritoryId) {
     return fail(ErrorCode.ACTION_NOT_ALLOWED, 'Army did not arrive at its attack staging territory');

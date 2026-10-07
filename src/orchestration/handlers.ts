@@ -1,3 +1,7 @@
+import { AIOperation } from '../types/AIOperation';
+import { activeOperations, operationForDecisionGate, operationFromSelection, acquireOperationClaims, settleOperation } from '../engine/operations';
+import { runStateTransaction } from './transaction';
+import { overwriteGameState } from '../state/cloneGameState';
 import { AIConcretePlan, concretePlanProblem, planTargetId } from '../types/AIConcretePlan';
 import { validateConcretePlan } from '../engine/concretePlans';
 import { BALANCE } from '../constants/balance';
@@ -14,7 +18,7 @@ import { startConstruction } from '../gameplay/construction/consume';
 import { handlerResultForConstructionStart } from '../gameplay/construction/handlerResult';
 import { cloneResources } from '../gameplay/economy/config';
 import { progressWorldEconomy } from '../gameplay/economy/worldProgress';
-import { WarlordState, isActiveCommitmentStatus, validateCommitmentTarget } from '../engine/DecisionEngine';
+import { makeCommitmentId, WarlordState, isActiveCommitmentStatus, validateCommitmentTarget } from '../engine/DecisionEngine';
 import { isUnsupportedCommitmentAction } from '../engine/executableActions';
 import { ANCHOR_PROTECTED_REASON } from '../gameplay/anchors';
 import {
@@ -30,7 +34,6 @@ import { COMMAND_INDEX, commandIndexSummary } from './commandIndex';
 import { EngineRegistry } from './engineRegistry';
 import { OrchestrationError, ErrorCode } from './errors';
 import type { OrchestrationErrorBody } from './errors';
-import { applyCommitmentOutcomeFeedback } from '../engine/outcomeFeedback';
 import {
   armiesInTerritory,
   factionArmies,
@@ -77,7 +80,7 @@ import {
 } from '../army/strategicAttack';
 import { commitBankedTroopsAndAttack } from '../gameplay/attacks/commitBankedTroops';
 import { maybeHoldAttackAsInvasion } from '../gameplay/invasion/create';
-import { progressExpiredInvasions } from '../gameplay/invasion/progress';
+import { progressExpiredInvasions, processInvalidatedInvasions } from '../gameplay/invasion/progress';
 import {
   handleAbandonWorkout,
   handleApplyConstructionAcceleration,
@@ -228,9 +231,15 @@ export function handleGetFitnessCatalog(_state: GameState, _ctx: HandlerContext)
 /** Shared domain operation: player ATTACK and AI RESOLVE_COMMITMENT(ATTACK) both call this. */
 export function executeAttack(state: GameState, ctx: HandlerContext, territoryId: string, factionId?: string): HandlerResult {
   const attackerId = factionId ?? resolveActingFactionId(state, ctx.req);
-  const commitment = state.commitments.get(attackerId);
-  const commitmentId = paramString(ctx.req, 'commitmentId')
-    ?? (commitment && commitment.action === 'ATTACK' ? commitment.id : null);
+  const commitmentId = paramString(ctx.req, 'commitmentId') ?? null;
+  if (commitmentId) {
+    const op = state.operations.get(commitmentId);
+    if (!op || op.phase !== 'physical' || op.plan?.action !== 'ATTACK' || op.warlordId !== attackerId
+      || op.plan.targetTerritoryId !== territoryId || op.plan.armyId !== paramString(ctx.req, 'onlyArmyId')
+      || op.plan.stagingTerritoryId !== paramString(ctx.req, 'stagingTerritoryId')) {
+      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Attack operation linkage differs from its exact plan');
+    }
+  }
   requireTerritory(state, territoryId);
   const commitAmount = paramNumber(ctx.req, 'commitAmount');
   assertLevel1TutorialPlayerAttackAllowed(state, attackerId, territoryId, commitAmount);
@@ -312,10 +321,11 @@ function wrapPendingAttackCommitment(
   inner: HandlerResult,
 ): HandlerResult {
   if (!factionId || !commitmentId) return inner;
-  const current = state.commitments.get(factionId);
+  const current = state.operations.get(commitmentId);
   if (!current || current.id !== commitmentId || !isActiveCommitmentStatus(current.status)) return inner;
   if (inner.payload.attackOutcome === 'battle_resolved') {
-    const term = applyCommitmentTerminal(state, ctx, factionId, 'completed', 'delayed attack resolved by BattleEngine');
+    const result = inner.payload.battleResult as { winner?: string } | undefined;
+    const term = applyCommitmentTerminal(state, ctx, commitmentId, result?.winner === 'attacker' ? 'completed' : 'failed', `attacker result: ${result?.winner ?? 'unknown'}`);
     inner.stateChanges.push(...term.stateChanges);
     inner.payload = { ...inner.payload, ...term.payload };
     return inner;
@@ -325,7 +335,7 @@ function wrapPendingAttackCommitment(
     return inner;
   }
   if (inner.commandSuccess === false || inner.payload.attackOutcome === 'failed') {
-    const term = applyCommitmentTerminal(state, ctx, factionId, 'failed', String(inner.payload.attackOutcome ?? 'pending attack failed'));
+    const term = applyCommitmentTerminal(state, ctx, commitmentId, 'failed', String(inner.payload.attackOutcome ?? 'pending attack failed'));
     inner.stateChanges.push(...term.stateChanges);
     inner.payload = { ...inner.payload, ...term.payload, commitmentOutcome: 'failed' };
     return inner;
@@ -422,60 +432,6 @@ function inFlightMovementResult(army: Army): HandlerResult {
   };
 }
 
-function executeMoveCommitment(state: GameState, ctx: HandlerContext, destId: string, factionId: string): HandlerResult {
-  const commitment = state.commitments.get(factionId);
-  if (commitment && isMovementCommitmentInFlight(state, commitment.id)) {
-    return inFlightMovementResult(findMovingArmyForCommitment(state, commitment.id)!);
-  }
-  requireTerritory(state, destId);
-  const candidates = factionArmies(state, factionId)
-    .filter((a) => !isArmyMoving(a) && isAdjacent(state, a.location, destId))
-    .sort((a, b) => a.id.localeCompare(b.id));
-  if (candidates.length === 0) {
-    throw new OrchestrationError(ErrorCode.NOT_ADJACENT, 'No stationary army owned by this faction is adjacent to the destination');
-  }
-  ctx.req.parameters = {
-    ...ctx.req.parameters,
-    armyId: candidates[0]!.id,
-    destinationTerritoryId: destId,
-    factionId,
-    commitmentId: commitment?.id ?? null,
-  };
-  return handleMove(state, ctx);
-}
-
-/** Strategic repositioning off non-owned ground. Uses handleMove. Not BattleEngine retreat. */
-function executeStrategicRetreat(state: GameState, ctx: HandlerContext, fromTerritoryId: string, factionId: string): HandlerResult {
-  const commitment = state.commitments.get(factionId);
-  if (commitment && isMovementCommitmentInFlight(state, commitment.id)) {
-    return inFlightMovementResult(findMovingArmyForCommitment(state, commitment.id)!);
-  }
-  const from = requireTerritory(state, fromTerritoryId);
-  if (from.owner === factionId) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'RETREAT only repositions armies standing on non-owned ground');
-  }
-  const armies = armiesInTerritory(state, fromTerritoryId, factionId)
-    .filter((a) => !isArmyMoving(a))
-    .sort((a, b) => a.id.localeCompare(b.id));
-  if (armies.length === 0) {
-    throw new OrchestrationError(ErrorCode.INVALID_ARMY, 'No army of this faction occupies the retreat origin');
-  }
-  const ownedAdj = from.neighboring
-    .filter((id) => state.territories.get(id)?.owner === factionId)
-    .sort();
-  if (ownedAdj.length === 0) {
-    throw new OrchestrationError(ErrorCode.NOT_ADJACENT, 'No adjacent owned territory to reposition onto');
-  }
-  ctx.req.parameters = {
-    ...ctx.req.parameters,
-    armyId: armies[0]!.id,
-    destinationTerritoryId: ownedAdj[0]!,
-    factionId,
-    commitmentId: state.commitments.get(factionId)?.id ?? null,
-  };
-  return handleMove(state, ctx);
-}
-
 export function handleDeclareWar(state: GameState, ctx: HandlerContext): HandlerResult {
   const factionId = resolveActingFactionId(state, ctx.req);
   const targetId = requireString(ctx.req, 'targetFactionId');
@@ -522,35 +478,14 @@ export function handleNegotiate(state: GameState, ctx: HandlerContext): HandlerR
   };
 }
 
-function applyCommitmentTerminal(
-  state: GameState,
-  ctx: HandlerContext,
-  factionId: string,
-  kind: 'completed' | 'failed' | 'interrupted',
-  reason: string,
-): HandlerResult {
-  const ai = ctx.registry.requireAi();
-  ctx.runtime.aiWarlordStates = buildWarlordStates(state);
-  const ws = ctx.runtime.aiWarlordStates.get(factionId);
-  const current = state.commitments.get(factionId) ?? null;
-  if (!ws || !current || !isActiveCommitmentStatus(current.status)) {
-    return { ...emptyResult(), payload: { skipped: true } };
-  }
-  ws.activeCommitment = current;
-  if (kind === 'completed') ai.completeCommitment(ws, reason);
-  else if (kind === 'failed') ai.failCommitment(ws, reason);
-  else ai.interruptCommitment(ws, reason);
-  applyCommitmentOutcomeFeedback(state, factionId, current, kind);
-  syncCommitmentsFromWarlordStates(state, ctx.runtime.aiWarlordStates, [factionId]);
-  return {
-    ...emptyResult(),
-    stateChanges: [{
-      entity: 'commitment',
-      id: factionId,
-      summary: `Commitment ${kind}: ${reason}`,
-    }],
-    payload: { commitmentOutcome: kind, reassessmentRequired: true, factionId },
-  };
+function applyCommitmentTerminal(state: GameState, _ctx: HandlerContext, operationId: string,
+  kind: 'completed' | 'failed' | 'interrupted', reason: string): HandlerResult {
+  const op = state.operations.get(operationId);
+  if (!op) return { ...emptyResult(), payload: { skipped: true } };
+  const changed = settleOperation(state, operationId, kind, reason);
+  return { ...emptyResult(), payload: { operationId, commitmentId: operationId,
+    commitmentOutcome: op.phase === 'recovery' ? 'recovering' : op.status,
+    reassessmentRequired: changed, factionId: op.warlordId, skipped: !changed } };
 }
 
 export function handleAdvanceWorld(state: GameState, ctx: HandlerContext): HandlerResult {
@@ -588,15 +523,16 @@ export function handleAdvanceWorld(state: GameState, ctx: HandlerContext): Handl
 
   const host: WorldSimulationHost = {
     decide: (factionId) => withRequestParameters(ctx.req, { warlordId: factionId }, () => handleAiDecide(state, ctx)),
-    resolve: (factionId) => withRequestParameters(ctx.req, { factionId }, () => handleResolveCommitment(state, ctx)),
+    resolve: (factionId, operationId) => withRequestParameters(ctx.req, { factionId, operationId }, () => handleResolveCommitment(state, ctx)),
     runEventTurn: () => runEventEngineTurn(state, ctx.registry.requireEvents()),
     rebindRuntime: (draft) => {
       ctx.runtime.aiWarlordStates = rebindWarlordRuntime(draft, ctx.runtime.aiWarlordStates);
     },
-    completeCommitment: (factionId, reason) => applyCommitmentTerminal(state, ctx, factionId, 'completed', reason),
-    failCommitment: (factionId, reason) => applyCommitmentTerminal(state, ctx, factionId, 'failed', reason),
-    interruptCommitment: (factionId, reason) => applyCommitmentTerminal(state, ctx, factionId, 'interrupted', reason),
+    completeCommitment: (operationId, reason) => applyCommitmentTerminal(state, ctx, operationId, 'completed', reason),
+    failCommitment: (operationId, reason) => applyCommitmentTerminal(state, ctx, operationId, 'failed', reason),
+    interruptCommitment: (operationId, reason) => applyCommitmentTerminal(state, ctx, operationId, 'interrupted', reason),
     executePendingAttack: (armyId) => executePendingStrategicAttack(state, ctx, armyId),
+    resolveInvalidatedInvasions: () => processInvalidatedInvasions(state, ctx.registry.requireBattle()),
   };
 
   const compactInspectable = ctx.req.parameters?.catchUpCompact === true;
@@ -671,23 +607,23 @@ export function handleAiDecide(state: GameState, ctx: HandlerContext): HandlerRe
   const order = (single ? [single] : state.allFactionIds.filter((id) => id !== state.playerFactionId))
     .filter((id) => !isLevel1TutorialAiSuppressed(state, id));
   ctx.runtime.aiWarlordStates = buildWarlordStates(state);
+  const selectedOperationIds: string[] = [];
   for (const id of order) {
     const ws = ctx.runtime.aiWarlordStates.get(id);
     if (!ws) continue;
-    ai.decide(ws, snapshot, state.turn);
+    const decision = ai.decide(ws, snapshot, state.turn);
+    if (decision.isNewCommitment && decision.commitment) selectedOperationIds.push(decision.commitment.id);
   }
   syncCommitmentsFromWarlordStates(state, ctx.runtime.aiWarlordStates, order);
-  const commitments = [...state.commitments.entries()]
-    .filter(([, c]) => c !== null)
-    .map(([fid, c]) => ({ factionId: fid, commitment: c }));
+  const commitments = activeOperations(state).map(c => ({ factionId: c.warlordId, commitment: c }));
   return {
     ...emptyResult(),
     stateChanges: commitments.map(({ factionId, commitment }) => ({
       entity: 'commitment',
-      id: factionId,
+      id: commitment.id,
       summary: `Commitment ${commitment!.action} (${commitment!.status})`,
     })),
-    payload: { commitments },
+    payload: { commitments, selectedOperationIds },
   };
 }
 
@@ -708,7 +644,7 @@ function executeConcreteCommitment(state: GameState, ctx: HandlerContext, plan: 
     case 'BUILD': {
       const faction = requireFactionSnapshot(state, plan.factionId);
       const before = cloneResources(faction.resources);
-      const project = startConstruction(state, { factionId: plan.factionId, territoryId: plan.territoryId, projectType: plan.projectType });
+      const project = startConstruction(state, { factionId: plan.factionId, territoryId: plan.territoryId, projectType: plan.projectType, operationId: commitmentId });
       return handlerResultForConstructionStart(project, plan.territoryId, before, cloneResources(faction.resources), plan.factionId);
     }
     case 'WAIT': return { ...emptyResult(), payload: { waited: true } };
@@ -716,177 +652,86 @@ function executeConcreteCommitment(state: GameState, ctx: HandlerContext, plan: 
   }
 }
 
+/** Nested transaction prevents failed starts from leaking partial claims into ADVANCE_WORLD. */
+function startOperation(state: GameState, ctx: HandlerContext, selected: AIOperation, allocateSequence = false): HandlerResult {
+  const transaction = runStateTransaction(state, draft => {
+    if (allocateSequence) draft.factions.get(selected.warlordId)!.nextAiCommitmentSequence++;
+    const op = draft.operations.get(selected.id) ?? operationFromSelection(selected, draft.worldTick);
+    if (!op.plan) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Incomplete legacy reasoning cannot execute');
+    const validity = validateConcretePlan(op.plan, toDecisionEngineSnapshot(draft));
+    if (!validity.valid) throw new OrchestrationError(ErrorCode.INVALID_TARGET, validity.reason,
+      validity.reason.includes('anchor') ? { reason: ANCHOR_PROTECTED_REASON, territoryId: planTargetId(op.plan) } : undefined);
+    acquireOperationClaims(draft, op);
+    draft.operations.set(op.id, op);
+    op.status = 'executing'; op.phase = 'physical'; op.startedAtTick = draft.worldTick;
+    // The provisional selection delay is not a duplicate physical timer.
+    delete op.durationTicks; delete op.completionCondition;
+    if ('armyId' in op.plan) op.links.armyId = op.plan.armyId;
+    const inner = executeConcreteCommitment(draft, ctx, op.plan, op.id);
+    if (op.action === 'BUILD') {
+      const project = [...draft.constructions.values()].find(p => p.aiOperationId === op.id);
+      if (!project) throw new OrchestrationError(ErrorCode.ENGINE_ERROR, 'BUILD lacks its project link');
+      op.links.constructionId = project.id;
+    }
+    if (typeof inner.payload.invasionId === 'string') op.links.invasionId = inner.payload.invasionId;
+    if (op.action === 'WAIT') settleOperation(draft, op.id, 'completed', 'no new physical operation');
+    else if (op.action === 'ATTACK' && inner.payload.attackOutcome === 'battle_resolved') {
+      const battle = inner.payload.battleResult as { winner?: string } | undefined;
+      settleOperation(draft, op.id, battle?.winner === 'attacker' ? 'completed' : 'failed', `attacker result: ${battle?.winner ?? 'unknown'}`);
+    }
+    inner.payload = { ...inner.payload, operationId: op.id, commitmentId: op.id,
+      commitmentOutcome: op.status, reassessmentRequired: op.terminal !== null };
+    return inner;
+  });
+  overwriteGameState(state, transaction.state);
+  return transaction.result;
+}
+
+/** Explicit exact-plan domain boundary. Ordinary cognition retains a transitional initiation gate. */
+export function handleStartAiOperation(state: GameState, ctx: HandlerContext): HandlerResult {
+  const plan = ctx.req.parameters?.plan as AIConcretePlan;
+  const problem = concretePlanProblem(plan);
+  if (problem) throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, problem);
+  if (state.playerFactionId === plan.factionId) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'AI cannot control player forces');
+  const faction = requireFactionSnapshot(state, plan.factionId);
+  const sequence = faction.nextAiCommitmentSequence;
+  if (!Number.isSafeInteger(sequence) || sequence < 0 || sequence >= Number.MAX_SAFE_INTEGER) throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE, 'Operation sequence exhausted');
+  const id = makeCommitmentId(state.worldSeed, plan.factionId, state.turn, sequence, plan.action, planTargetId(plan));
+  if (state.operations.has(id)) throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE, 'Operation sequence would reuse an existing ID');
+  const selected = operationFromSelection({ id, plan, warlordId: plan.factionId, action: plan.action,
+    targetId: planTargetId(plan), targetName: planTargetId(plan), status: 'committed', createdTurn: state.turn,
+    originatingGoalId: null, reason: ['exact integration plan'], priority: 0, score: 0,
+    confidence: 1, personalityBias: 0, ambitionInfluence: 0, factorBreakdown: [], statusReason: null }, state.worldTick);
+  // The increment is rolled back with the outer command on failure. It must
+  // precede nested invariant validation of the newly recorded ID.
+  return startOperation(state, ctx, selected, true);
+}
+
 export function handleResolveCommitment(state: GameState, ctx: HandlerContext): HandlerResult {
   const factionId = resolveActingFactionId(state, ctx.req);
-  const commitment = state.commitments.get(factionId);
-  if (!commitment || !isActiveCommitmentStatus(commitment.status)) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'No active commitment to resolve');
+  const id = paramString(ctx.req, 'operationId');
+  const candidates = activeOperations(state, factionId);
+  const op = id ? state.operations.get(id) : candidates.length === 1 ? candidates[0] : undefined;
+  if (!op || op.warlordId !== factionId) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Specify an operation ID; faction selection is ambiguous or empty');
+  if (op.phase === 'terminal') return { ...emptyResult(), payload: { operationId: op.id, commitmentOutcome: op.status, skipped: true } };
+  if (op.phase !== 'selected') return { ...emptyResult(), payload: { operationId: op.id, commitmentOutcome: op.phase === 'recovery' ? 'recovering' : op.status, arrivalPending: true, armyId: op.links.armyId } };
+  if (op.plan !== undefined) {
+    const problem = concretePlanProblem(op.plan);
+    if (problem || op.plan.action !== op.action || op.plan.factionId !== factionId || planTargetId(op.plan) !== op.targetId)
+      throw new OrchestrationError(ErrorCode.INVALID_TARGET, problem ?? 'operation/plan binding mismatch');
   }
-  const ai = ctx.registry.requireAi();
-  ctx.runtime.aiWarlordStates = buildWarlordStates(state);
-  const ws = ctx.runtime.aiWarlordStates.get(factionId);
-  if (!ws) {
-    throw new OrchestrationError(ErrorCode.INVALID_FACTION, 'Warlord runtime missing for faction');
+  if (!op.plan || !['ATTACK','MOVE','RETREAT','BUILD','WAIT'].includes(op.action)) {
+    settleOperation(state, op.id, 'failed', 'Final lifecycle unavailable or incomplete legacy reasoning');
+    return { ...emptyResult(), commandSuccess: false, errors: [{ code: ErrorCode.FEATURE_NOT_IMPLEMENTED, message: 'Operation lifecycle unavailable' }],
+      payload: { operationId: op.id, commitmentOutcome: 'failed', reassessmentRequired: true } };
   }
-  ws.activeCommitment = commitment;
-
-  const fail = (code: ErrorCode, message: string, details?: Record<string, unknown>): HandlerResult => {
-    ai.failCommitment(ws, message);
-    applyCommitmentOutcomeFeedback(state, factionId, commitment, 'failed');
-    syncCommitmentsFromWarlordStates(state, ctx.runtime.aiWarlordStates, [factionId]);
-    const errors: OrchestrationErrorBody[] = [{ code, message, details }];
-    return {
-      ...emptyResult(),
-      commandSuccess: false,
-      errors,
-      stateChanges: [{
-        entity: 'commitment',
-        id: factionId,
-        summary: `Commitment ${commitment.action} failed: ${message}`,
-      }],
-      payload: {
-        commitmentOutcome: 'failed',
-        reassessmentRequired: true,
-        action: commitment.action,
-        targetId: commitment.targetId,
-      },
-    };
-  };
-
-  const hasPlan = commitment.plan !== undefined;
-  if (hasPlan) {
-    const problem = concretePlanProblem(commitment.plan);
-    if (problem) return fail(ErrorCode.INVALID_TARGET, problem);
+  try { return startOperation(state, ctx, op); }
+  catch (err) {
+    if (!(err instanceof OrchestrationError)) throw err;
+    settleOperation(state, op.id, 'failed', err.message);
+    return { ...emptyResult(), commandSuccess: false, errors: [err.toBody()],
+      payload: { operationId: op.id, commitmentOutcome: 'failed', reassessmentRequired: true } };
   }
-  if (isUnsupportedCommitmentAction(commitment.action) || (commitment.plan?.action === 'REINFORCE')) {
-    return fail(
-      ErrorCode.FEATURE_NOT_IMPLEMENTED,
-      `Commitment action ${commitment.action} is not executable`,
-    );
-  }
-
-  const validity = hasPlan
-    ? commitment.plan!.action !== commitment.action || commitment.plan!.factionId !== factionId
-      || planTargetId(commitment.plan!) !== commitment.targetId
-      ? { valid: false, reason: 'commitment/concrete plan binding mismatch' }
-      : validateConcretePlan(commitment.plan!, toDecisionEngineSnapshot(state), commitment.id)
-    : validateCommitmentTarget(commitment, toDecisionEngineSnapshot(state));
-  if (!validity.valid) {
-    const details = validity.reason.includes('anchor')
-      ? { reason: ANCHOR_PROTECTED_REASON, territoryId: commitment.targetId }
-      : undefined;
-    return fail(ErrorCode.INVALID_TARGET, validity.reason, details);
-  }
-
-  ai.beginExecution(ws, 'orchestrator resolve');
-
-  let inner: HandlerResult;
-  try {
-    if (hasPlan) {
-      inner = executeConcreteCommitment(state, ctx, commitment.plan!, commitment.id);
-    } else {
-      // Explicit legacy save compatibility: historical action+target records cannot
-      // truthfully reconstruct parameters that were never persisted. New cognition
-      // always carries a plan and cannot enter this branch.
-      switch (commitment.action) {
-        case 'ATTACK':
-          if (!commitment.targetId) return fail(ErrorCode.INVALID_TARGET, 'Commitment attack missing target');
-          inner = executeAttack(state, ctx, commitment.targetId, factionId);
-          break;
-        case 'BUILD':
-          ctx.req.parameters = { ...ctx.req.parameters, territoryId: commitment.targetId, factionId };
-          inner = handleBuild(state, ctx);
-          break;
-        case 'REINFORCE':
-          ctx.req.parameters = { ...ctx.req.parameters, territoryId: commitment.targetId, factionId };
-          inner = handleReinforce(state, ctx);
-          break;
-        case 'DECLARE_WAR':
-          ctx.req.parameters = { ...ctx.req.parameters, targetFactionId: commitment.targetId, factionId };
-          inner = handleDeclareWar(state, ctx);
-          break;
-        case 'NEGOTIATE':
-          ctx.req.parameters = { ...ctx.req.parameters, targetFactionId: commitment.targetId, factionId };
-          inner = handleNegotiate(state, ctx);
-          break;
-        case 'MOVE':
-          if (!commitment.targetId) return fail(ErrorCode.INVALID_TARGET, 'MOVE commitment missing destination');
-          inner = executeMoveCommitment(state, ctx, commitment.targetId, factionId);
-          break;
-        case 'RETREAT':
-          if (!commitment.targetId) return fail(ErrorCode.INVALID_TARGET, 'RETREAT commitment missing origin territory');
-          inner = executeStrategicRetreat(state, ctx, commitment.targetId, factionId);
-          break;
-        case 'WAIT':
-          inner = {
-            ...emptyResult(),
-            payload: { waited: true },
-          };
-          break;
-        case 'DEFEND':
-          if (commitment.targetId) {
-            const hold = state.territories.get(commitment.targetId);
-            if (!hold || hold.owner !== factionId) {
-              return fail(ErrorCode.INVALID_TARGET, 'DEFEND target is no longer owned');
-            }
-          }
-          inner = {
-            ...emptyResult(),
-            payload: {
-              defendPosture: true,
-              note: 'DEFEND has no separate world mutation; holding owned territory is the posture',
-            },
-          };
-          break;
-        default:
-          return fail(
-            ErrorCode.FEATURE_NOT_IMPLEMENTED,
-            `Commitment action ${commitment.action} is not executable`,
-          );
-      }
-    }
-  } catch (err) {
-    if (err instanceof OrchestrationError) {
-      return fail(err.code, err.message, err.details);
-    }
-    throw err;
-  }
-
-  if (inner.payload.arrivalPending === true
-    || inner.payload.attackOutcome === 'invasion_created'
-    || inner.payload.attackOutcome === 'awaiting_defense') {
-    syncCommitmentsFromWarlordStates(state, ctx.runtime.aiWarlordStates, [factionId]);
-    inner.stateChanges.push({
-      entity: 'commitment',
-      id: factionId,
-      summary: `Commitment ${commitment.id} executing (army in transit)`,
-    });
-    inner.payload = {
-      ...inner.payload,
-      commitmentOutcome: 'executing',
-      reassessmentRequired: false,
-      action: commitment.action,
-      targetId: commitment.targetId,
-    };
-    return inner;
-  }
-
-  ai.completeCommitment(ws, 'orchestrator executed commitment');
-  applyCommitmentOutcomeFeedback(state, factionId, commitment, 'completed');
-  syncCommitmentsFromWarlordStates(state, ctx.runtime.aiWarlordStates, [factionId]);
-  inner.stateChanges.push({
-    entity: 'commitment',
-    id: factionId,
-    summary: `Commitment ${commitment.id} completed`,
-  });
-  inner.payload = {
-    ...inner.payload,
-    commitmentOutcome: 'completed',
-    reassessmentRequired: true,
-    action: commitment.action,
-    targetId: commitment.targetId,
-  };
-  return inner;
 }
 
 export type MutatingHandler = (state: GameState, ctx: HandlerContext) => HandlerResult;
@@ -901,6 +746,7 @@ export const MUTATING_HANDLERS: Record<string, MutatingHandler> = {
   ADVANCE_WORLD: handleAdvanceWorld,
   TRANSITION_TO_NEXT_WORLD: handleTransitionToNextWorld,
   AI_DECIDE: handleAiDecide,
+  START_AI_OPERATION: handleStartAiOperation,
   RESOLVE_COMMITMENT: handleResolveCommitment,
   START_CONSTRUCTION: handleStartConstruction,
   APPLY_CONSTRUCTION_ACCELERATION: handleApplyConstructionAcceleration,

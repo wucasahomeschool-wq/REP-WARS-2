@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -447,7 +448,7 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
     assert.ok(orch.getState().factions.get('f_player')!.resources.gold >= goldBefore);
     const decide = orch.execute(cmdReq('AI_DECIDE', {}));
     assert.strictEqual(decide.success, true, decide.errors[0]?.message);
-    const aiCommitments = [...orch.getState().commitments.entries()].filter(([id, c]) => id !== 'f_player' && c);
+    const aiCommitments = [...fixtureCommitments(orch.getState()).entries()].filter(([id, c]) => id !== 'f_player' && c);
     assert.ok(aiCommitments.length >= 1);
   });
 
@@ -475,7 +476,7 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
       factorBreakdown: [],
       statusReason: null,
     };
-    state.commitments.set('f_cinder_court', commitment);
+    fixtureCommitments(state).set('f_cinder_court', commitment);
     const orch = new Orchestrator(state);
     const resolve = orch.execute(cmdReq('RESOLVE_COMMITMENT', { factionId: 'f_cinder_court', seed: 9 }));
     assert.strictEqual(resolve.success, true, resolve.errors[0]?.message);

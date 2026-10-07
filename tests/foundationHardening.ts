@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import { BALANCE } from '../src/constants/balance';
 import { ActionScorer } from '../src/scoring/ActionScorer';
@@ -69,7 +70,7 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
     const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
     plantOwnedCities(state);
     const owned = 'iron_kingdom_east';
-    state.commitments.set('iron_kingdom', makeCmt({
+    fixtureCommitments(state).set('iron_kingdom', makeCmt({
       warlordId: 'iron_kingdom',
       action: 'BUILD',
       targetId: owned,
@@ -383,7 +384,7 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
     const ghost = makeSelf('ghost_empire', { territories: [], armies: [] });
     state.factions.set('ghost_empire', ghost);
     state.allFactionIds.push('ghost_empire');
-    state.commitments.set('ghost_empire', null);
+    fixtureCommitments(state).set('ghost_empire', null);
     const orch = new Orchestrator(state);
     assert.strictEqual(isFactionEliminated(ghost), true);
     const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 8 }));

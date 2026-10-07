@@ -85,7 +85,7 @@ export interface Resources {
     wood: number;
     stone: number;
 }
-export type ArmyMovementStatus = 'moving' | 'arrived' | 'interrupted' | 'cancelled';
+export type ArmyMovementStatus = 'moving' | 'blocked' | 'arrived' | 'interrupted' | 'cancelled';
 
 /**
  * In-transit logistics for one army. Territory-to-territory only (adjacency
@@ -98,6 +98,9 @@ export interface ArmyMovement {
     startedAtTick: number;
     durationTicks: number;
     status: ArmyMovementStatus;
+    /** Physical march halted without a safe domain recovery policy. Still unavailable. */
+    haltedAtTick?: number;
+    interruptionReason?: string;
     /** AI MOVE/RETREAT commitment this march fulfills; null for player MOVE. */
     commitmentId: string | null;
 }
@@ -291,7 +294,7 @@ export interface WarlordSnapshot {
         action: ActionType;
         target: string | null;
     }[];
-    /** Persisted identity high-water mark for the existing single-commitment model. */
+    /** Persisted identity high-water mark for independently identified AI operations. */
     nextAiCommitmentSequence: number;
     reputation: number;
     stability: number;

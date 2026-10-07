@@ -34,7 +34,7 @@ export async function runLeaseWorldAccrualTests(
     assert.strictEqual(state.accrualDivisionRemainder, 0);
     assert.strictEqual(state.lastAccrualAtMs, 30 * MINUTE);
     assert.strictEqual(state.lastProcessedAtMs, 1);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 18);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 19);
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
   });
 

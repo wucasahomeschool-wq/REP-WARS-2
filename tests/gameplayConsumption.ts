@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import {
   AdjustableClock,
@@ -327,7 +328,7 @@ export function registerGameplayConsumptionTests(api: GameplayConsumptionTestApi
     state.worldTick = 2000;
     state.playerFitness.lastWorkoutCompletedAtTick = 0;
     placeArmyOn(state, OTHER_FACTION, TARGET, 900);
-    state.commitments.set(OTHER_FACTION, {
+    fixtureCommitments(state).set(OTHER_FACTION, {
       id: 'cmt_inv',
       warlordId: OTHER_FACTION,
       action: 'ATTACK',
@@ -581,7 +582,7 @@ export function registerGameplayConsumptionTests(api: GameplayConsumptionTestApi
     state.playerEmpirePause.paused = true;
     state.playerEmpirePause.pausedAtTick = 3000;
     placeArmyOn(state, OTHER_FACTION, TARGET, 900);
-    state.commitments.set(OTHER_FACTION, {
+    fixtureCommitments(state).set(OTHER_FACTION, {
       id: 'cmt_pause',
       warlordId: OTHER_FACTION,
       action: 'ATTACK',

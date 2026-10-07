@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import { AICommitment, Army, Territory, WarlordSnapshot, GameStateSnapshot, ScoredAction } from '../src/types';
 import { AIConcretePlan, AttackPlan, BuildPlan, MovePlan, RetreatPlan, PROACTIVE_AI_ACTIONS, makeConcretePlan, planTargetId, concretePlanProblem } from '../src/types/AIConcretePlan';
@@ -50,7 +51,7 @@ export function registerAiConcretePlanTests(api: Api): void {
     })]));
     state.allFactionIds = ['me', 'enemy', 'spectator'];
     state.playerFactionId = 'spectator'; state.levelAnchorTerritoryIds = ['safe'];
-    state.commitments = new Map(state.allFactionIds.map(id => [id, null]));
+    fixtureCommitments(state).replaceWith(new Map(state.allFactionIds.map(id => [id, null])));
     state.cities.clear(); state.constructions.clear(); state.territoryInfrastructure.clear();
     state.territoryEconomy.clear(); state.activeInvasions.clear(); state.attackerCooldowns.clear();
     state.activeEvents = []; state.eventHistory = [];
@@ -59,7 +60,7 @@ export function registerAiConcretePlanTests(api: Api): void {
   }
   const plans = (state: GameState) => generateConcretePlans(toDecisionEngineSnapshot(state), 'me');
   function commit(state: GameState, plan: AIConcretePlan): void {
-    state.commitments.set('me', { ...makeCmt({ warlordId: 'me', action: plan.action, targetId: planTargetId(plan) }), plan });
+    fixtureCommitments(state).set('me', { ...makeCmt({ warlordId: 'me', action: plan.action, targetId: planTargetId(plan) }), plan });
   }
   function input(state: GameStateSnapshot, seed = 4) {
     return { ctx: WarlordState.buildContext(state.factions.get('me')!, state), turn: state.turn,
@@ -119,7 +120,7 @@ export function registerAiConcretePlanTests(api: Api): void {
     assert.strictEqual(result.success, true, result.errors[0]?.message);
     assert.strictEqual(orch.getState().armies.get('z')!.movement!.destinationTerritoryId, 'fallback');
     assert.strictEqual(orch.getState().armies.get('a')!.movement, undefined);
-    assert.strictEqual(orch.getState().commitments.get('me')!.plan!.id, plan.id);
+    assert.strictEqual(fixtureCommitments(orch.getState()).get('me')!.plan!.id, plan.id);
   });
   for (const projectType of ['CITY', 'FARM', 'MINE', 'LUMBER', 'FORTIFICATION'] as const) test(`Phase B: BUILD executes exact ${projectType} on exact site`, () => {
     const state = world(); if (projectType === 'FORTIFICATION') ensureCity(state, 'home', 'me');
@@ -192,7 +193,7 @@ export function registerAiConcretePlanTests(api: Api): void {
   });
   test('Phase B: plans and nested parameters are immutable and isolated when commitment/state is cloned', () => {
     const state = world(); const plan = plans(state).find((p): p is AttackPlan => p.action === 'ATTACK')!;
-    commit(state, plan); const c = cloneCommitment(state.commitments.get('me')!);
+    commit(state, plan); const c = cloneCommitment(fixtureCommitments(state).get('me')!);
     assert.notStrictEqual(c.plan, plan); assert.ok(Object.isFrozen(c.plan));
     assert.ok(Object.isFrozen((c.plan as AttackPlan).route));
     assert.throws(() => ((c.plan as AttackPlan).route as string[]).push('illegal'));
@@ -202,12 +203,16 @@ export function registerAiConcretePlanTests(api: Api): void {
   test('Phase B: persistence retains exact plans; schema 17 legacy commitments remain un-reconstructed', () => {
     const state = createLegacySampleMapGameState({ seed: 37 }); const faction = 'merchant_republic';
     const plan = generateConcretePlans(toDecisionEngineSnapshot(state), faction).find(p => p.action === 'BUILD')!;
-    state.commitments.set(faction, { ...makeCmt({ warlordId: faction, action: plan.action, targetId: planTargetId(plan) }), plan });
+    fixtureCommitments(state).set(faction, { ...makeCmt({ warlordId: faction, action: plan.action, targetId: planTargetId(plan) }), plan });
     const loaded = hydratePersistedPayload(encodePersistable(state));
-    assert.deepStrictEqual(loaded.commitments.get(faction)!.plan, plan);
-    assert.ok(Object.isFrozen(loaded.commitments.get(faction)!.plan));
-    delete state.commitments.get(faction)!.plan; state.schemaVersion = 17;
-    assert.strictEqual(hydratePersistedPayload(encodePersistable(state)).commitments.get(faction)!.plan, undefined);
+    assert.deepStrictEqual(fixtureCommitments(loaded).get(faction)!.plan, plan);
+    assert.ok(Object.isFrozen(fixtureCommitments(loaded).get(faction)!.plan));
+    const legacy = { ...fixtureCommitments(state).get(faction)! }; delete legacy.plan;
+    const old = { ...state, schemaVersion: 17, commitments: new Map([[faction, legacy]]) } as Record<string, unknown>;
+    delete old.operations; delete old.operationClaims;
+    const migrated = hydratePersistedPayload(encodePersistable(old));
+    assert.strictEqual(migrated.operations.get(legacy.id)!.plan, undefined);
+    assert.strictEqual(migrated.operations.get(legacy.id)!.phase, 'terminal');
   });
   test('Phase B: future-shaped pool and proposal contracts do not enable legacy execution', () => {
     const state = world();
@@ -282,9 +287,9 @@ export function registerAiConcretePlanTests(api: Api): void {
   });
   test('Phase B: malformed persisted plan identity and binding are rejected', () => {
     const state = world(); const plan = plans(state)[0]!; commit(state, plan);
-    state.commitments.get('me')!.plan = { ...plan, id: 'tampered' };
+    fixtureCommitments(state).get('me')!.plan = { ...plan, id: 'tampered' };
     assert.ok(checkGameStateInvariants(state).some(v => v.code === 'commitment.invalid_plan'));
-    state.commitments.get('me')!.plan = plan; state.commitments.get('me')!.targetId = 'wrong';
+    fixtureCommitments(state).get('me')!.plan = plan; fixtureCommitments(state).get('me')!.targetId = 'wrong';
     assert.ok(checkGameStateInvariants(state).some(v => v.code === 'commitment.plan_mismatch'));
   });
 
@@ -293,7 +298,7 @@ export function registerAiConcretePlanTests(api: Api): void {
       const state = world();
       const plan = plans(state).find((p): p is MovePlan => p.action === 'MOVE')!;
       commit(state, plan);
-      state.commitments.get('me')!.plan = invalid as never;
+      fixtureCommitments(state).get('me')!.plan = invalid as never;
       assert.ok(checkGameStateInvariants(state).some(v => v.code === 'commitment.invalid_plan'));
       assert.throws(() => hydratePersistedPayload(encodePersistable(state)), /invariants/);
       const before = encodePersistable(state);
@@ -306,7 +311,7 @@ export function registerAiConcretePlanTests(api: Api): void {
 
   test('Phase B: contradictory legacy display targets fail before any concrete operation starts', () => {
     const state = world(); const plan = plans(state).find((p): p is MovePlan => p.action === 'MOVE')!;
-    commit(state, plan); state.commitments.get('me')!.targetId = 'target';
+    commit(state, plan); fixtureCommitments(state).get('me')!.targetId = 'target';
     const orch = new Orchestrator(state);
     assert.strictEqual(orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'me' })).success, false);
     assert.ok([...orch.getState().armies.values()].every(a => !a.movement));

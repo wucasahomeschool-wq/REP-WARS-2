@@ -1,3 +1,4 @@
+import { requiredClaims } from './operations';
 import { GameStateSnapshot } from '../types';
 import { AIConcretePlan, BuildPlan, concretePlanProblem, comparePlanIds, makeConcretePlan, PlanDraft } from '../types/AIConcretePlan';
 import { armyHasActiveStrategicOperation, isLegalStagingTerritory, MIN_ATTACKING_TROOPS } from '../army/strategicAttack';
@@ -27,6 +28,10 @@ export function validateConcretePlan(plan: AIConcretePlan, state: GameStateSnaps
   const problem = concretePlanProblem(plan);
   if (problem) return fail(problem);
   if (!state.factions.has(plan.factionId)) return fail('unknown plan faction');
+  if (state.canonicalState && requiredClaims(plan, commitmentId ?? '', state.canonicalState).some(c => {
+    const held = state.canonicalState!.operationClaims.get(c.id);
+    return held && held.operationId !== commitmentId;
+  })) return fail('required physical claim unavailable');
   if (plan.action === 'WAIT') return { valid: true, reason: '' };
   if (plan.action === 'REINFORCE' || plan.action === 'OFFER_PEACE' || plan.action === 'TRADE') return fail('final action lifecycle unavailable');
   if (plan.action === 'BUILD') return buildAvailable(state, plan) ? { valid: true, reason: '' } : fail('build site, capacity or exact funding is unavailable');
@@ -38,7 +43,8 @@ export function validateConcretePlan(plan: AIConcretePlan, state: GameStateSnaps
   if (plan.action === 'ATTACK') {
     const target = state.territories.get(plan.targetTerritoryId);
     if (!target?.owner || target.owner === plan.factionId || !state.factions.has(target.owner)) return fail('invalid attack target');
-    if (isAttackForbiddenOnSnapshot(state, plan.factionId, target.owner) || isPlayerAnchorProtectedOnSnapshot(state, target.id)) return fail('attack target protected, paused or cooldown');
+    if (isPlayerAnchorProtectedOnSnapshot(state, target.id)) return fail('attack target is a protected level anchor');
+    if (isAttackForbiddenOnSnapshot(state, plan.factionId, target.owner)) return fail('attack target protected, paused or cooldown');
     const route = plan.originTerritoryId === plan.stagingTerritoryId
       ? [plan.originTerritoryId, plan.targetTerritoryId] : [plan.originTerritoryId, plan.stagingTerritoryId, plan.targetTerritoryId];
     if (JSON.stringify(route) !== JSON.stringify(plan.route)) return fail('invalid attack route');

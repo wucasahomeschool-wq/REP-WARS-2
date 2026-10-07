@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import {
   ANCHOR_PROTECTED_MESSAGE,
@@ -123,7 +124,7 @@ function cloneTiny(): WorldDefinition {
 }
 
 function plantAttackCommitment(state: GameState, targetId: string): void {
-  state.commitments.set(CINDER, {
+  fixtureCommitments(state).set(CINDER, {
     id: `cmt_${targetId}`,
     warlordId: CINDER,
     action: 'ATTACK',
