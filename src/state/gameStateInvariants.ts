@@ -1,3 +1,4 @@
+import { pressureStateProblems, sourcePlanBindingProblem } from './pressureInvariants';
 import { requiredClaims, claimIdentity, isImmutableTerminalOperation } from '../engine/operations';
 import { concretePlanProblem, planTargetId } from '../types/AIConcretePlan';
 import { recordedAiCommitmentSequenceFloors } from '../engine/commitmentIdentity';
@@ -79,6 +80,7 @@ function checkGameplaySessionLeases(
 export function checkGameStateInvariants(state: GameState): GameStateInvariantViolation[] {
   const violations: GameStateInvariantViolation[] = [];
   const push = (code: string, message: string) => violations.push({ code, message });
+  for(const message of pressureStateProblems(state)) push('pressure.invalid_state',message);
   if (!(state.operations instanceof Map) || !(state.operationClaims instanceof Map)) {
     push('operation.missing_storage', 'canonical operation and claim maps are required');
     return violations;
@@ -421,6 +423,8 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     if (!['selected','physical','recovery','terminal'].includes(op.phase)) push('operation.invalid_phase', `operation ${id} has invalid phase`);
     if (!Number.isSafeInteger(op.createdAtTick) || op.createdAtTick < 0 || op.createdAtTick > state.worldTick) push('operation.invalid_boundary', `operation ${id} has invalid created boundary`);
     const planProblem = op.plan === undefined ? 'missing' : concretePlanProblem(op.plan);
+    if(op.sourceContextId!==undefined && (!op.plan || planProblem || sourcePlanBindingProblem(op.sourceContextId,op.plan)))
+      push('operation.invalid_source_binding', `operation ${id} disagrees with its semantic source`);
     if (op.plan !== undefined) {
       const problem = planProblem;
       if (problem) push('commitment.invalid_plan', `operation ${id}: ${problem}`);

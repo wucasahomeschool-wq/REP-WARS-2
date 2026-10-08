@@ -1,3 +1,4 @@
+import { primeSourceDecision } from './aiPressureFixtures';
 import assert from 'assert';
 import {
   COMMAND_INDEX,
@@ -314,7 +315,8 @@ export function registerAnalyticsTests(api: AnalyticsTestApi): void {
   });
 
   test('AI decision → action → outcome chain can be reconstructed', () => {
-    const { orch, recorder } = instrumented();
+    const state=playerState();state.factions.get(OTHER_FACTION)!.resources.food=0;primeSourceDecision(state,OTHER_FACTION);
+    const { orch, recorder } = instrumented(state);
     const decide = orch.execute(cmd('AI_DECIDE', { warlordId: OTHER_FACTION }, 'ai_decide'));
     assert.strictEqual(decide.success, true, decide.errors[0]?.message);
     const decision = recorder.getEvents({ eventType: 'ai.decision_selected' });

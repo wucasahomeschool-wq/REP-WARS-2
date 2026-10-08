@@ -41,6 +41,9 @@ export interface ActivityTemporalProgress extends FixedPointAccrual {
   achievedRate: TemporalPresence;
   /** UTC epoch milliseconds through which this progress has been accrued. */
   accruedThroughMs: number;
+  /** Action-specific rational rates share this clock algebra; default world rate unchanged. */
+  offlineDivisor?: number;
+  rationalRemainder?: number;
 }
 
 export interface TimeToTickAccrual extends FixedPointAccrual {
@@ -154,6 +157,7 @@ export function accrueActivityTemporalProgress(
   }
   const elapsedMs = nowMs - progress.accruedThroughMs;
   assertNonNegativeElapsedMs(elapsedMs);
+  if(progress.offlineDivisor) return accrueDurationProgress(progress,nowMs,progress.achievedRate);
   const accrued = accrueSimulationTime(progress, elapsedMs, progress.achievedRate);
   return {
     achievedRate: progress.achievedRate,
@@ -296,4 +300,36 @@ function safeNumber(value: bigint, label: string): number {
     throw new Error(`${label} exceeds a safe integer`);
   }
   return Number(value);
+}
+
+/** Duration clocks normalized to online milliseconds. Rates are exact rational
+ * work, with promotion only. Uses the existing fixed-point kernel and watermark. */
+export function beginDurationProgress(atMs: number, presence: TemporalPresence, offlineDivisor: number): ActivityTemporalProgress {
+  if (!Number.isSafeInteger(offlineDivisor) || offlineDivisor < 1) throw new Error('Invalid duration rate');
+  return { ...beginActivityTemporalProgress(atMs, presence), offlineDivisor, rationalRemainder: 0 };
+}
+export function accrueDurationProgress(progress: ActivityTemporalProgress, atMs: number, presence: TemporalPresence): ActivityTemporalProgress {
+  if (!progress.offlineDivisor) throw new Error('Missing duration rate');
+  const at = utcEpochMs(atMs);
+  if (at < progress.accruedThroughMs) return { ...progress };
+  const achievedRate = promoteTemporalPresence(progress.achievedRate, presence);
+  const divisor = BigInt(progress.offlineDivisor);
+  const numerator = BigInt(at - progress.accruedThroughMs) * (achievedRate === 'ONLINE' ? divisor : 1n)
+    + BigInt(progress.rationalRemainder ?? 0);
+  const workMs = numerator / divisor;
+  const earned = accrueSimulationTime(progress, safeNumber(workMs, 'Duration work'), 'ONLINE');
+  return { wholeTicks:earned.wholeTicks,subTickMicroticks:earned.subTickMicroticks,
+    accrualDivisionRemainder:earned.accrualDivisionRemainder, achievedRate, accruedThroughMs: at, offlineDivisor: progress.offlineDivisor,
+    rationalRemainder: Number(numerator % divisor) };
+}
+export function durationRemainingMs(progress: ActivityTemporalProgress, requiredOnlineMs: number, observed: TemporalPresence): number {
+  if (!Number.isSafeInteger(requiredOnlineMs) || requiredOnlineMs < 0 || !progress.offlineDivisor) throw new Error('Invalid duration');
+  const divisor = BigInt(progress.offlineDivisor);
+  const workNumerator = (BigInt(progress.wholeTicks) * BigInt(BALANCE.temporal.microticksPerSimulationTick) + BigInt(progress.subTickMicroticks)) * BigInt(WORLD_TICK_DURATION_MS)
+    + BigInt(progress.accrualDivisionRemainder);
+  const deficit = BigInt(requiredOnlineMs) * BigInt(BALANCE.temporal.onlineRatePpm) * divisor
+    - workNumerator * divisor - BigInt(progress.rationalRemainder ?? 0) * BigInt(BALANCE.temporal.onlineRatePpm);
+  if (deficit <= 0n) return 0;
+  const rate = BigInt(BALANCE.temporal.onlineRatePpm) * (promoteTemporalPresence(progress.achievedRate, observed) === 'ONLINE' ? divisor : 1n);
+  return safeNumber((deficit + rate - 1n) / rate, 'Duration deficit');
 }

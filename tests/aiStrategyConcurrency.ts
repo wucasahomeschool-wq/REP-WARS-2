@@ -1,3 +1,7 @@
+import { primeSourceDecision } from './aiPressureFixtures';
+import { observeSources } from '../src/engine/strategicPressure';
+import { opportunity, selectWaitInitiation } from '../src/engine/proactiveCognition';
+import { makeCommitmentId } from '../src/engine/DecisionEngine';
 import assert from 'assert';
 import { AICommitment, Territory, WarlordSnapshot } from '../src/types';
 import { GameState, GAME_STATE_SCHEMA_VERSION } from '../src/types/GameState';
@@ -5,7 +9,7 @@ import { AIConcretePlan, AttackPlan, BuildPlan } from '../src/types/AIConcretePl
 import { makeOperationTestWorld } from './aiOperationFixtures';
 import { generateConcretePlans, assessConcretePlanFeasibility } from '../src/engine/concretePlans';
 import { toDecisionEngineSnapshot } from '../src/state/gameStateAdapters';
-import { activeOperations, settleOperation, createOperationMap } from '../src/engine/operations';
+import { activeOperations, settleOperation, createOperationMap, operationFromSelection } from '../src/engine/operations';
 import { attentionCost, occupiedAttention, assessAttention } from '../src/engine/strategicAttention';
 import { assessStrategicCompatibility, StrategicCompatibilityRule } from '../src/engine/strategicCompatibility';
 import { decisionOpportunityRejection } from '../src/engine/decisionOpportunities';
@@ -30,8 +34,19 @@ interface Api {
   makeCmt(partial: Partial<AICommitment> & Pick<AICommitment, 'warlordId' | 'action'>): AICommitment;
   cmdReq(commandId: string, playerId: string, parameters?: Record<string, unknown>): CommandRequest;
 }
-export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,cmdReq}:Api):void {
-  const world=(ids=['a','b'])=>makeOperationTestWorld(makeSelf,makeTerritory,ids);
+export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,makeCmt,cmdReq}:Api):void {
+  const world=(ids=['a','b'])=>{
+    const s=makeOperationTestWorld(makeSelf,makeTerritory,ids);
+    s.territories.get('home')!.resourceOutput={food:5};s.factions.get('me')!.resources.food=0;
+    return s;
+  };
+  function historicalTerminal(s:GameState):string {
+    const f=s.factions.get('me')!,seq=f.nextAiCommitmentSequence++;
+    const id=makeCommitmentId(s.worldSeed,'me',s.turn,seq,'WAIT',null);
+    const op=operationFromSelection({...makeCmt({warlordId:'me',action:'WAIT'}),id,
+      plan:generateConcretePlans(toDecisionEngineSnapshot(s),'me').find(p=>p.action==='WAIT')!},s.worldTick);
+    s.operations.set(id,op);settleOperation(s,id,'completed','historical fixture');return id;
+  }
   const plans=(s:GameState)=>generateConcretePlans(toDecisionEngineSnapshot(s),'me');
   const move=(s:GameState,id='a')=>plans(s).find(p=>p.action==='MOVE'&&p.armyId===id&&p.destinationTerritoryId==='other')!;
   const attack=(s:GameState,id='b')=>plans(s).find((p):p is AttackPlan=>p.action==='ATTACK'&&p.armyId===id&&p.stagingTerritoryId==='stage')!;
@@ -56,7 +71,7 @@ export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,
     assert.ok(tuning.capacity>=tuning.costs.ATTACK+tuning.costs.MOVE);
   });
   test('Phase D review: immutable terminal validation is reused without hiding contextual corruption',()=>{
-    const s=world(),o=new Orchestrator(s),id=start(o,wait(s)),valid=o.getState();
+    const s=world(),id=historicalTerminal(s),o=new Orchestrator(s),valid=o.getState();
     assert.deepStrictEqual(checkGameStateInvariants(valid),[]);
     const planModule=require('../src/types/AIConcretePlan') as typeof import('../src/types/AIConcretePlan');
     const inspect=planModule.concretePlanProblem;let inspected=0;
@@ -74,14 +89,14 @@ export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,
     assert.ok(checkGameStateInvariants(replacement).some(v=>v.code==='attention.invalid_owner_cost'));
   });
   test('Phase D review: cached terminal validation cannot hide a backwards world boundary',()=>{
-    const s=world();s.worldTick=4;const o=new Orchestrator(s),id=start(o,wait(s));
+    const s=world();s.worldTick=4;const id=historicalTerminal(s),o=new Orchestrator(s);
     assert.deepStrictEqual(checkGameStateInvariants(o.getState()),[]);
     const backwards=cloneGameState(o.getState());backwards.worldTick=0;
     assert.ok(checkGameStateInvariants(backwards).some(v=>v.code==='operation.invalid_terminal_boundary'));
     assert.strictEqual(backwards.operations.get(id)!.terminal!.atTick,4);
   });
   test('Phase D review: settlement isolates a manually supplied mutable plan before caching history',()=>{
-    const s=world(),o=new Orchestrator(s),id=selected(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})))[0]!,d=cloneGameState(o.getState());
+    const s=world();primeSourceDecision(s,'me');const o=new Orchestrator(s),id=selected(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})))[0]!,d=cloneGameState(o.getState());
     const op=d.operations.get(id)!,external=JSON.parse(JSON.stringify(op.plan)) as AIConcretePlan;
     op.plan=external;assert.strictEqual(settleOperation(d,id,'failed','unstarted selection'),true);
     assert.deepStrictEqual(checkGameStateInvariants(d),[]);
@@ -126,12 +141,16 @@ export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,
     assert.deepStrictEqual(encodePersistable(o.getState()),before);assert.ok(!o.getState().operationClaims.has(`force:${ids[n]}`));
     assert.ok(!plans(o.getState()).some(p=>p.id===candidate.id));
   });
-  test('Phase D: saturated Attention still permits reward-free zero-cost WAIT',()=>{
+  test('Phase D/E: saturated Attention preserves zero WAIT cost but cannot fabricate an actionable source',()=>{
     const s=world(),w=wait(s);s.strategicAttention.capacity=attentionCost(move(s));const o=new Orchestrator(s);start(o,move(s));
     const before={...o.getState().factions.get('me')!.resources},occupied=occupiedAttention(o.getState(),'me');
-    assert.strictEqual(assessAttention(o.getState(),w).available,true);const id=start(o,w);
-    assert.strictEqual(o.getState().operations.get(id)!.phase,'terminal');assert.deepStrictEqual(o.getState().operations.get(id)!.claimIds,[]);
-    assert.strictEqual(occupiedAttention(o.getState(),'me'),occupied);assert.deepStrictEqual(o.getState().factions.get('me')!.resources,before);
+    assert.strictEqual(assessAttention(o.getState(),w).available,true);
+    o.getState().factions.get('me')!.resources.gold=0;
+    o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));
+    assert.strictEqual(o.getState().operations.size,1);
+    assert.strictEqual(opportunity(o.getState(),'me').primary,null);
+    assert.strictEqual(occupiedAttention(o.getState(),'me'),occupied);
+    assert.strictEqual(o.getState().factions.get('me')!.resources.food,before.food);
   });
   test('Phase D: claim, compatibility and Attention rejection diagnostics stay distinct',()=>{
     const s=world(),m=move(s),a=attack(s),o=new Orchestrator(s);start(o,m);
@@ -203,23 +222,22 @@ export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,
     assert.deepStrictEqual(checkGameStateInvariants(loaded),[]);
   });
   test('Phase D: save/reload preserves charges, capacity, opportunity and independent cloned state',()=>{
-    const s=world(),o=new Orchestrator(s);start(o,move(s));const r=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));assert.strictEqual(selected(r).length,1);
+    const s=world(),o=new Orchestrator(s);start(o,move(s));primeSourceDecision(o.getState(),'me');const r=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));assert.strictEqual(selected(r).length,1);
     const original=o.getState(),loaded=hydratePersistedPayload(encodePersistable(original));assert.deepStrictEqual(encodePersistable(loaded),encodePersistable(original));
     const copied=cloneGameState(loaded);copied.strategicAttention.capacity++;copied.operations.get(activeOperations(copied)[0]!.id)!.attention.cost++;
     copied.aiDecisionOpportunities.get('me')!.lastBoundaryTick=null;
     assert.deepStrictEqual(encodePersistable(loaded),encodePersistable(original));
   });
-  test('Phase D: WAIT cannot recursively reconsider at one boundary, including after reload',()=>{
+  test('Phase D/E: empty source cannot recursively fabricate WAIT, including after reload',()=>{
     const s=world([]);s.factions.get('me')!.resources={gold:0,food:0,iron:0,wood:0,stone:0};const o=new Orchestrator(s),resources={...s.factions.get('me')!.resources};
-    const id=selected(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})))[0]!;
-    assert.strictEqual(o.getState().operations.get(id)!.action,'WAIT');assert.strictEqual(o.execute(cmdReq('RESOLVE_COMMITMENT','ai',{factionId:'me',operationId:id})).success,true);
+    assert.deepStrictEqual(selected(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}))),[]);
     const runner=new Orchestrator(hydratePersistedPayload(encodePersistable(o.getState())));
     for(let i=0;i<10;i++)assert.deepStrictEqual(selected(runner.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}))),[]);
-    assert.strictEqual(runner.getState().worldTick,0);assert.strictEqual(runner.getState().operations.size,1);assert.strictEqual(occupiedAttention(runner.getState(),'me'),0);
+    assert.strictEqual(runner.getState().worldTick,0);assert.strictEqual(runner.getState().operations.size,0);assert.strictEqual(occupiedAttention(runner.getState(),'me'),0);
     assert.deepStrictEqual(runner.getState().factions.get('me')!.resources,resources);
   });
   test('Phase D: pending selection occupies the sole primary thread, not faction physical work',()=>{
-    const s=world(),o=new Orchestrator(s),held=start(o,move(s)),first=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})),id=selected(first)[0]!;
+    const s=world(),o=new Orchestrator(s),held=start(o,move(s));primeSourceDecision(o.getState(),'me');const first=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})),id=selected(first)[0]!;
     assert.strictEqual(decisionOpportunityRejection(o.getState(),'me'),'PRIMARY_BUSY');
     const before=o.getState().operations.size;assert.deepStrictEqual(selected(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}))),[]);assert.strictEqual(o.getState().operations.size,before);
     assert.strictEqual(o.execute(cmdReq('RESOLVE_COMMITMENT','ai',{factionId:'me',operationId:id})).success,true);
@@ -227,7 +245,7 @@ export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,
   });
   test('Phase D: another decision can initiate before an existing long march completes',()=>{
     const s=world(),o=new Orchestrator(s),held=start(o,move(s));const d=cloneGameState(o.getState());d.armies.get('a')!.movement!.durationTicks=20;
-    const runner=new Orchestrator(d);advance(runner,3);
+    const runner=new Orchestrator(d);advance(runner,12);
     assert.strictEqual(runner.getState().operations.get(held)!.phase,'physical');assert.ok(runner.getState().operations.size>1);
     assert.ok(runner.getState().aiDecisionOpportunities.has('me'));assert.deepStrictEqual(checkGameStateInvariants(runner.getState()),[]);
   });
@@ -236,7 +254,7 @@ export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,
     advance(runner,d.armies.get('a')!.movement!.durationTicks);assert.strictEqual(runner.getState().operations.get(id)!.phase,'terminal');assert.strictEqual(runner.getState().lastAiDecisionTick.get('me'),stamp);
   });
   test('Phase D: identical seed/opportunity and reversed map order yield identical selection and start',()=>{
-    const s=world(),reversed=cloneGameState(s);reversed.armies=new Map([...reversed.armies].reverse());reversed.territories=new Map([...reversed.territories].reverse());
+    const s=world();primeSourceDecision(s,'me');const reversed=cloneGameState(s);reversed.armies=new Map([...reversed.armies].reverse());reversed.territories=new Map([...reversed.territories].reverse());
     assert.deepStrictEqual(plans(s),plans(reversed));const a=new Orchestrator(s),b=new Orchestrator(hydratePersistedPayload(encodePersistable(reversed)));
     const ar=a.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})),br=b.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));assert.deepStrictEqual(selected(ar),selected(br));
     for(const runner of[a,b])assert.strictEqual(runner.execute(cmdReq('RESOLVE_COMMITMENT','ai',{factionId:'me',operationId:selected(ar)[0]})).success,true);
@@ -250,7 +268,7 @@ export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,
     assert.strictEqual(occupiedAttention(d,'me'),attentionCost(live.plan!));assert.strictEqual(assessAttention(d,wait(s)).available,true);assert.strictEqual(assessStrategicCompatibility(attack(s),d).compatible,true);
   });
   test('Phase D: competing CAS decisions cannot both acquire the same primary opportunity',()=>{
-    const store=new InMemoryGameStateStore(),s=world();assert.strictEqual(store.save('race',s,0).ok,true);
+    const store=new InMemoryGameStateStore(),s=world();primeSourceDecision(s,'me');assert.strictEqual(store.save('race',s,0).ok,true);
     const first=store.load('race'),second=store.load('race');assert.ok(first.ok&&second.ok);
     const a=new Orchestrator(first.state),b=new Orchestrator(second.state);
     const ar=a.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})),br=b.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));
@@ -289,7 +307,7 @@ export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,
     assert.deepStrictEqual(a.getState().aiDecisionOpportunities,b.getState().aiDecisionOpportunities);
   });
   test('Phase D: invalid selected initiation closes only its primary thread without charging Attention',()=>{
-    const s=world(),o=new Orchestrator(s),id=selected(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})))[0]!,d=cloneGameState(o.getState());
+    const s=world();primeSourceDecision(s,'me');const o=new Orchestrator(s),id=selected(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})))[0]!,d=cloneGameState(o.getState());
     const op=d.operations.get(id)!;assert.strictEqual(op.phase,'selected');assert.strictEqual(occupiedAttention(d,'me'),0);
     if(op.plan!.action==='BUILD')d.factions.get('me')!.resources={gold:0,food:0,iron:0,wood:0,stone:0};
     else if('armyId' in op.plan!){const armyId=op.plan!.armyId;d.armies.delete(armyId);d.factions.get('me')!.armies=d.factions.get('me')!.armies.filter(a=>a!==armyId);}
@@ -298,16 +316,17 @@ export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,
     assert.strictEqual(r.success,false);assert.strictEqual(runner.getState().aiDecisionOpportunities.get('me')!.primaryOperationId,null);
     assert.strictEqual(occupiedAttention(runner.getState(),'me'),0);assert.strictEqual(runner.getState().operationClaims.size,0);
   });
-  test('Phase D: full ordinary Attention does not prevent no-operation cognition',()=>{
+  test('Phase D/E: full ordinary Attention preserves cheap observation without selecting WAIT-only sources',()=>{
     const s=world(),p=move(s);s.strategicAttention.capacity=attentionCost(p);const o=new Orchestrator(s);start(o,p);
-    const id=selected(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})))[0]!;
-    assert.strictEqual(o.getState().operations.get(id)!.action,'WAIT');assert.strictEqual(occupiedAttention(o.getState(),'me'),attentionCost(p));
+    assert.deepStrictEqual(selected(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}))),[]);
+    assert.ok(o.getState().aiPressure.size>0);assert.ok([...o.getState().aiPressure.values()].every(s=>s.blocked));
+    assert.strictEqual(o.getState().operations.size,1);assert.strictEqual(occupiedAttention(o.getState(),'me'),attentionCost(p));
   });
-  test('Phase D: migration of a pending selection preserves primary initiation ownership',()=>{
-    const s=world(),o=new Orchestrator(s),id=selected(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})))[0]!;
+  test('Phase D/E: migration archives contextless pending selection without inventing source/timing',()=>{
+    const s=world();primeSourceDecision(s,'me');const o=new Orchestrator(s),id=selected(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})))[0]!;
     const old:Record<string,unknown>={...cloneGameState(o.getState()),schemaVersion:19};delete old.strategicAttention;delete old.aiDecisionOpportunities;
     for(const op of (old.operations as GameState['operations']).values())delete (op as unknown as Record<string,unknown>).attention;
-    const loaded=hydratePersistedPayload(encodePersistable(old));assert.strictEqual(loaded.aiDecisionOpportunities.get('me')!.primaryOperationId,id);assert.strictEqual(occupiedAttention(loaded,'me'),0);
+    const loaded=hydratePersistedPayload(encodePersistable(old));assert.strictEqual(loaded.aiDecisionOpportunities.get('me')!.primaryOperationId,null);assert.strictEqual(loaded.operations.get(id)!.phase,'terminal');assert.strictEqual(occupiedAttention(loaded,'me'),0);assert.strictEqual(loaded.factions.get('me')!.lastActions.length,o.getState().factions.get('me')!.lastActions.length);
   });
   test('Phase D: schema 20 rejects missing accounting instead of remigrating active costs',()=>{
     const s=world(),o=new Orchestrator(s);start(o,move(s));const broken=cloneGameState(o.getState());

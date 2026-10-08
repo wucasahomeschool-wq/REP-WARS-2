@@ -12,4 +12,10 @@ export interface OperationAttention {
 export interface AIDecisionOpportunity {
   lastBoundaryTick: number | null;
   primaryOperationId: string | null;
+  /** Optional only for legacy fixture construction; schema-21 hydration supplies these. */
+  lastBoundaryMs?: number | null;
+  primary?: import('./AIPressure').PrimaryProactiveThread | null;
+  spacing?: import('./AIPressure').ProactiveTimer | null;
+  nextTimerSequence?: number;
+  lastOutcome?: import('./AIPressure').CognitionOutcome | null;
 }

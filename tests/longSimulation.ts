@@ -48,8 +48,8 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
   });
 
   test('different seeds are not forced into identical outcomes (sanity: harness is not a no-op)', () => {
-    const a = runLongSimulation({ seed: 1, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
-    const b = runLongSimulation({ seed: 2, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
+    const a = runLongSimulation({ seed: 1, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS.map(s=>({...s,startingResources:{...s.startingResources,food:0}})) });
+    const b = runLongSimulation({ seed: 2, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS.map(s=>({...s,startingResources:{...s.startingResources,food:0}})) });
     const differs = a.battlesResolved !== b.battlesResolved
       || a.territoriesChangedOwner !== b.territoriesChangedOwner
       || JSON.stringify([...a.actionCounts.entries()]) !== JSON.stringify([...b.actionCounts.entries()])
@@ -108,7 +108,7 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
 
   test('long simulations select concrete plans and never revive removed proactive actions', () => {
     for (const seed of [1, 2, 3, 4, 5]) {
-      const result = runLongSimulation({ seed, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
+      const result = runLongSimulation({ seed, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS.map(s=>({...s,startingResources:{...s.startingResources,food:0}})) });
       for (const counts of result.actionCounts.values()) {
         for (const removed of ['DEFEND', 'NEGOTIATE', 'DECLARE_WAR'] as const) assert.strictEqual(counts[removed] ?? 0, 0);
       }
@@ -123,7 +123,7 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
     let economicTotal = 0;
     let aggressiveTotal = 0;
     for (const seed of [1, 2, 3, 4, 5]) {
-      const result = runLongSimulation({ seed, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
+      const result = runLongSimulation({ seed, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS.map(s=>({...s,startingResources:{...s.startingResources,food:0}})) });
       economicTotal += actionTotal(result.actionCounts.get('merchant_republic'), economic);
       aggressiveTotal += actionTotal(result.actionCounts.get('ashen_horde'), economic);
     }

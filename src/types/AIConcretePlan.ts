@@ -42,7 +42,7 @@ export interface TradePlan extends PlanBase {
   readonly offered: ResourceBundle; readonly requested: ResourceBundle;
   readonly proposerSource?: PlanResourceSource;
 }
-export interface WaitPlan extends PlanBase { readonly action: 'WAIT'; readonly opportunityTurn: number }
+export interface WaitPlan extends PlanBase { readonly action: 'WAIT'; readonly opportunityTurn: number; readonly sourceContextId?: string; readonly opportunityId?: string }
 export type AIConcretePlan = AttackPlan | ReinforcePlan | BuildPlan | MovePlan | OfferPeacePlan | TradePlan | RetreatPlan | WaitPlan;
 export type PlanDraft = AIConcretePlan extends infer P ? P extends AIConcretePlan ? Omit<P, 'id'> : never : never;
 
@@ -122,7 +122,7 @@ function inspectConcretePlan(value: unknown): string | null {
     BUILD: ['territoryId', 'projectType', 'resourceSource', 'targetFortificationLevel'],
     REINFORCE: ['territoryId', 'sourcePoolId', 'quantity', 'destination'],
     OFFER_PEACE: ['counterpartyId'], TRADE: ['counterpartyId', 'offered', 'requested', 'proposerSource'],
-    WAIT: ['opportunityTurn'],
+    WAIT: ['opportunityTurn','sourceContextId','opportunityId'],
   };
   if (Object.keys(p).some(k => !['id', 'action', 'factionId', ...fields[p.action as ProactiveAIAction]].includes(k))) return 'unexpected concrete plan parameter';
   switch (p.action) {
@@ -150,7 +150,7 @@ function inspectConcretePlan(value: unknown): string | null {
       if (p.action === 'TRADE' && (!bundle(p.offered) || !bundle(p.requested) || !Object.keys(p.offered as object).length
         || !Object.keys(p.requested as object).length || (p.proposerSource !== undefined && !source(p.proposerSource)))) return 'invalid exact trade terms/source';
       break;
-    case 'WAIT': if (!Number.isSafeInteger(p.opportunityTurn) || (p.opportunityTurn as number) < 0) return 'invalid WAIT opportunity'; break;
+    case 'WAIT': if ((p.sourceContextId!==undefined&&!text(p.sourceContextId))||(p.opportunityId!==undefined&&!text(p.opportunityId))) return 'invalid WAIT source/opportunity'; if (!Number.isSafeInteger(p.opportunityTurn) || (p.opportunityTurn as number) < 0) return 'invalid WAIT opportunity'; break;
   }
   const { id, ...draft } = p;
   try { if (concretePlanId(draft as PlanDraft) !== id) return 'concrete plan identity mismatch'; }

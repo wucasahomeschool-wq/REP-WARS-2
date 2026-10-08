@@ -1,3 +1,4 @@
+import { migratePressureState } from './pressureMigration';
 import { migrateLegacyOperations } from './operationMigration';
 import { migrateStrategicState } from './strategyMigration';
 import { GameState } from '../types/GameState';
@@ -344,6 +345,9 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   else if (!(state.aiDecisionOpportunities instanceof Map) || !state.strategicAttention || typeof state.strategicAttention !== 'object') {
     throw new PersistenceError('persistence.corrupt', 'Schema 20 requires canonical Attention and decision opportunities');
   }
+  if (schema < 21) migratePressureState(state as unknown as GameState);
+  else if (!(state.aiPressure instanceof Map) || !state.aiClock || typeof state.aiClock !== 'object')
+    throw new PersistenceError('persistence.corrupt','Schema 21 requires canonical source pressure and temporal cursor');
   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
   return state;
 }

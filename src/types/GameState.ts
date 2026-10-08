@@ -94,8 +94,9 @@ import { GameRewardResult } from '../rewards/types';
  * 18 = Exact AI concrete plans (Phase B); old action/target saves remain explicit legacy records.
  * 19 = Canonical multi-operation ownership and exclusive physical claims (Phase C).
  * 20 = Operation-owned Strategic Attention and canonical proactive opportunities (Phase D).
+ * 21 = Source-bound Strategic Pressure and canonical proactive duration clocks (Phase E).
  */
-export const GAME_STATE_SCHEMA_VERSION = 20;
+export const GAME_STATE_SCHEMA_VERSION = 21;
 
 export type InvasionId = string;
 
@@ -430,6 +431,8 @@ export interface GameState {
   lastAiDecisionTick: Map<FactionId, number>;
   /** Persisted common limit, applied independently to each faction's owned work. */
   strategicAttention: StrategicAttentionState;
+  aiPressure: Map<string, import('./AIPressure').AISourceContext>;
+  aiClock: import('./AIPressure').AIClock;
   aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
   /** Seed the world was generated with; also the root seed engines fork per-battle/per-event RNGs from. */
   worldSeed: number;
@@ -580,6 +583,8 @@ export function emptyWorldClock(): {
   lastFoodConsumptionTick: number;
   lastAiDecisionTick: Map<FactionId, number>;
   strategicAttention: StrategicAttentionState;
+  aiPressure: Map<string, import('./AIPressure').AISourceContext>;
+  aiClock: import('./AIPressure').AIClock;
   aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
 } {
   return {
@@ -593,6 +598,8 @@ export function emptyWorldClock(): {
     lastFoodConsumptionTick: 0,
     lastAiDecisionTick: new Map(),
     strategicAttention: { capacity: STRATEGIC_ATTENTION_TUNING.capacity },
+    aiPressure: new Map(),
+    aiClock: { nowMs: 0, worldAnchor: null },
     aiDecisionOpportunities: new Map(),
   };
 }

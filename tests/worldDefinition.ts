@@ -1,3 +1,4 @@
+import { primeSourceDecision } from './aiPressureFixtures';
 import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import * as fs from 'fs';
@@ -446,6 +447,10 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
     const collect = orch.execute(cmdReq('COLLECT_RESOURCES', { territoryId: 't_01', factionId: 'f_player' }));
     assert.strictEqual(collect.success, true, collect.errors[0]?.message);
     assert.ok(orch.getState().factions.get('f_player')!.resources.gold >= goldBefore);
+    for(const fid of orch.getState().allFactionIds.filter(id=>id!=='f_player')) {
+      orch.getState().factions.get(fid)!.resources.food=0;orch.getState().factions.get(fid)!.resources.iron=0;
+      if(orch.getState().factions.get(fid)!.territories.length)primeSourceDecision(orch.getState(),fid);
+    }
     const decide = orch.execute(cmdReq('AI_DECIDE', {}));
     assert.strictEqual(decide.success, true, decide.errors[0]?.message);
     const aiCommitments = [...fixtureCommitments(orch.getState()).entries()].filter(([id, c]) => id !== 'f_player' && c);

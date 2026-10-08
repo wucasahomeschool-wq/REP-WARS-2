@@ -1,3 +1,4 @@
+import { primeSourceDecision } from './aiPressureFixtures';
 import { makeOperationTestWorld } from './aiOperationFixtures';
 import assert from 'assert';
 import { Army, AICommitment, Territory, WarlordSnapshot } from '../src/types';
@@ -115,7 +116,7 @@ export function registerAiOperationTests({ test, makeSelf, makeTerritory, makeCm
   });
   test('Phase C/ D: ordinary cognition preserves concurrent work and coalesces its primary initiation',()=>{
     const s=world(),o=new Orchestrator(s);const held=[start(o,move(s,'a')),start(o,attack(s))];const n=o.getState().operations.size;
-    const decision=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));assert.strictEqual(decision.success,true);
+    o.getState().territories.get('home')!.resourceOutput={food:5};o.getState().factions.get('me')!.resources.food=0;primeSourceDecision(o.getState(),'me');const decision=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));assert.strictEqual(decision.success,true);
     assert.strictEqual((decision.payload.selectedOperationIds as string[]).length,1);assert.strictEqual(o.getState().operations.size,n+1);
     assert.strictEqual(buildWarlordStates(o.getState()).get('me')!.activeCommitment,null);
     assert.strictEqual((o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})).payload.selectedOperationIds as string[]).length,0);
@@ -407,7 +408,7 @@ export function registerAiOperationTests({ test, makeSelf, makeTerritory, makeCm
     const record={...makeCmt({warlordId:'me',action:'WAIT'}),id,plan:p,status:'completed' as const};
     const d=legacy(s,record),reloaded=hydratePersistedPayload(encodePersistable(d));
     assert.strictEqual(reloaded.factions.get('me')!.nextAiCommitmentSequence,10000);
-    const o=new Orchestrator(reloaded),newId=start(o,p);assert.notStrictEqual(newId,id);
+    const o=new Orchestrator(reloaded),newId=start(o,move(reloaded,'a'));assert.notStrictEqual(newId,id);
     assert.strictEqual(o.getState().factions.get('me')!.nextAiCommitmentSequence,10001);
     const corrupt=cloneGameState(d);corrupt.factions.get('me')!.nextAiCommitmentSequence=9999;
     assert.throws(()=>hydratePersistedPayload(encodePersistable(corrupt)),/reuse/);
@@ -440,7 +441,7 @@ export function registerAiOperationTests({ test, makeSelf, makeTerritory, makeCm
     const s=world(),recorder=createTelemetryRecorder(),o=new Orchestrator(s,undefined,recorder);
     const ids=[start(o,move(s,'a')),start(o,attack(s))].sort();
     assert.ok(recorder.getEvents({eventType:'ai.commitment_resolved'}).every(e=>e.payload.success===undefined), 'physical starts are not terminal failures');
-    const selected=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));
+    o.getState().territories.get('home')!.resourceOutput={food:5};o.getState().factions.get('me')!.resources.food=0;primeSourceDecision(o.getState(),'me');const selected=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));
     ids.push((selected.payload.selectedOperationIds as string[])[0]!);ids.sort();
     const response=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));
     assert.strictEqual(response.success,true);assert.deepStrictEqual(response.payload.selectedOperationIds,[]);

@@ -236,7 +236,7 @@ export function registerAiConcretePlanTests(api: Api): void {
     const decision = new DecisionEngine(42).decide(ws, toDecisionEngineSnapshot(state), state.turn);
     assert.strictEqual(decision.isNewCommitment, true); assert.notStrictEqual(decision.commitment!.id, fixtureCommitments(state).get('me')!.id);
     const orch = new Orchestrator(state); const before = { ...state.factions.get('me')!.resources };
-    assert.strictEqual(orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'me' })).success, true);
+    assert.strictEqual(orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'me' })).success, false,'legacy physical WAIT must not bypass the primary timer');
     assert.deepStrictEqual(orch.getState().factions.get('me')!.resources, before);
   });
   test('Phase B: changed attack army fails without substituting an available attacker', () => {

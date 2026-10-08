@@ -1,6 +1,7 @@
 import { BALANCE } from '../constants/balance';
 import {
   accrueSimulationTime,
+  accrueDurationProgress, durationRemainingMs,
   isTemporalPresence,
   promoteTemporalPresence,
   realMillisecondsForSimulationWork,
@@ -385,7 +386,7 @@ function walkAction(
       && stableId !== undefined
       && !wholeTicksEarned(current, requiredWholeTicks)
     ) {
-      const elapsed = millisecondsUntilWholeTicks(current, requiredWholeTicks, achievedRate);
+      const elapsed = current.offlineDivisor ? durationRemainingMs(current, requiredWholeTicks * 60_000, achievedRate) : millisecondsUntilWholeTicks(current, requiredWholeTicks, achievedRate);
       if (elapsed <= 0) throw new Error('Unsatisfied action work did not advance');
       if (elapsed <= span) {
         const instant = current.accruedThroughMs + elapsed;
@@ -393,7 +394,9 @@ function walkAction(
         completion = actionCompletionBoundary(stableId, instant, achievedRate);
       }
     }
-    if (span > 0) {
+    if(span>0 && current.offlineDivisor) {
+      current=accrueDurationProgress(current,segment.endMs,achievedRate);
+    } else if (span > 0) {
       const earned = accrueFixed(current, span, achievedRate);
       current = {
         ...earned,
@@ -504,6 +507,7 @@ function cloneWorld(state: WorldAccrualState): WorldAccrualState {
 
 function cloneProgress(progress: ActivityTemporalProgress): ActivityTemporalProgress {
   return {
+    ...progress,
     wholeTicks: progress.wholeTicks,
     subTickMicroticks: progress.subTickMicroticks,
     accrualDivisionRemainder: progress.accrualDivisionRemainder,

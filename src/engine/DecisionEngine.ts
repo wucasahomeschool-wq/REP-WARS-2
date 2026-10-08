@@ -256,7 +256,7 @@ export class DecisionEngine {
     return this.rng;
   }
 
-  decide(warlord: WarlordState, gameState: GameStateSnapshot, turn: number): Decision {
+  decide(warlord: WarlordState, gameState: GameStateSnapshot, turn: number, plans?: readonly AIConcretePlan[], opportunityId?: string): Decision {
     const canonicalFaction = gameState.factions.get(warlord.snapshot.id);
     if (!canonicalFaction) throw new Error(`Unknown AI faction ${warlord.snapshot.id}`);
     warlord.refreshReasoning(canonicalFaction);
@@ -278,7 +278,7 @@ export class DecisionEngine {
 
     const self = warlord.snapshot;
     const ctx = WarlordState.buildContext(self, gameState);
-    const factionRNG = this.rng.fork(hashFactionId(self.id) ^ turn);
+    const factionRNG = this.rng.fork(hashFactionId(self.id) ^ turn ^ (opportunityId ? hashFactionId(opportunityId) : 0));
     const scorerInput: ScorerInput = {
       ctx,
       turn,
@@ -286,7 +286,7 @@ export class DecisionEngine {
       memory: warlord.memory,
       goals: warlord.goals,
     };
-    const allScored = this.scorer.scoreAllActions(scorerInput);
+    const allScored = plans ? this.scorer.scorePlans([...plans], scorerInput) : this.scorer.scoreAllActions(scorerInput);
     if (allScored.length === 0) {
       const commitment = this.createCommitment(warlord, {
         action: 'WAIT',

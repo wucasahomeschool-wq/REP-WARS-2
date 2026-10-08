@@ -1,3 +1,6 @@
+import { derivePresenceSegments } from '../world/presenceLeases';
+import { prepareProactiveDecision, selectWaitInitiation, nextProactiveBoundary, accrueProactiveClocks, authoritativePresence } from '../engine/proactiveCognition';
+import { sourceConcretePlans } from '../engine/strategicPressure';
 import { AIOperation } from '../types/AIOperation';
 import { activeOperations, operationFromSelection, acquireOperationClaims, settleOperation } from '../engine/operations';
 import { runStateTransaction } from './transaction';
@@ -5,7 +8,7 @@ import { adoptOwnedTransactionState } from '../state/cloneGameState';
 import { AIConcretePlan, concretePlanProblem, planTargetId } from '../types/AIConcretePlan';
 import { assessConcretePlanFeasibility } from '../engine/concretePlans';
 import { acquireAttention } from '../engine/strategicAttention';
-import { beginDecisionOpportunity, attachDecisionInitiation, finishDecisionInitiation, decisionOpportunityRejection } from '../engine/decisionOpportunities';
+import { attachDecisionInitiation, finishDecisionInitiation } from '../engine/decisionOpportunities';
 import { BALANCE } from '../constants/balance';
 import { Army } from '../types';
 import {
@@ -18,8 +21,9 @@ import { cloneGameState } from '../state/cloneGameState';
 import { GameState } from '../types/GameState';
 import { startConstruction } from '../gameplay/construction/consume';
 import { handlerResultForConstructionStart } from '../gameplay/construction/handlerResult';
-import { cloneResources } from '../gameplay/economy/config';
+import { cloneResources, ECONOMY_CONFIG } from '../gameplay/economy/config';
 import { progressWorldEconomy } from '../gameplay/economy/worldProgress';
+import type { FoodConsumptionResult } from '../gameplay/economy/foodConsumption';
 import { makeCommitmentId, WarlordState, isActiveCommitmentStatus, validateCommitmentTarget } from '../engine/DecisionEngine';
 import { isUnsupportedCommitmentAction } from '../engine/executableActions';
 import { ANCHOR_PROTECTED_REASON } from '../gameplay/anchors';
@@ -523,7 +527,10 @@ export function handleAdvanceWorld(state: GameState, ctx: HandlerContext): Handl
   ctx.registry.requireAi();
   ctx.runtime.aiWarlordStates = rebindWarlordRuntime(state, ctx.runtime.aiWarlordStates);
 
+  const foodFromTick=state.lastFoodConsumptionTick;
+  const foodBoundaries:FoodConsumptionResult[]=[];
   const host: WorldSimulationHost = {
+    progressProactive: (atMs, allowDecision) => progressProactiveThrough(state,ctx,atMs,allowDecision),
     decide: (factionId) => withRequestParameters(ctx.req, { warlordId: factionId }, () => handleAiDecide(state, ctx)),
     resolve: (factionId, operationId) => withRequestParameters(ctx.req, { factionId, operationId }, () => handleResolveCommitment(state, ctx)),
     runEventTurn: () => runEventEngineTurn(state, ctx.registry.requireEvents()),
@@ -535,6 +542,11 @@ export function handleAdvanceWorld(state: GameState, ctx: HandlerContext): Handl
     interruptCommitment: (operationId, reason) => applyCommitmentTerminal(state, ctx, operationId, 'interrupted', reason),
     executePendingAttack: (armyId) => executePendingStrategicAttack(state, ctx, armyId),
     resolveInvalidatedInvasions: () => processInvalidatedInvasions(state, ctx.registry.requireBattle()),
+    resolveDeadlineGates: () => progressExpiredInvasions(state, ctx.registry.requireBattle()),
+    // Reuse the economy reducer at its authored cycle boundary, before cognition.
+    // No new production/upkeep rule or per-tick economy simulation is introduced.
+    refreshWorldFacts: () => {if(state.worldTick % ECONOMY_CONFIG.ticksPerProductionCycle===0)
+      foodBoundaries.push(progressWorldEconomy(state));},
   };
 
   const compactInspectable = ctx.req.parameters?.catchUpCompact === true;
@@ -553,8 +565,19 @@ export function handleAdvanceWorld(state: GameState, ctx: HandlerContext): Handl
     worldAdvance.errors.push({ code: err.code, message: err.message });
   }
   const food = progressWorldEconomy(state);
+  foodBoundaries.push(food);
+  const totalFood:FoodConsumptionResult={fromTick:foodFromTick,toTick:food.toTick,cycles:0,gated:true,factions:[]};
+  for(const boundary of foodBoundaries) {
+    totalFood.cycles+=boundary.cycles;totalFood.gated=totalFood.gated&&boundary.gated;
+    for(const row of boundary.factions) {
+      const previous=totalFood.factions.find(p=>p.factionId===row.factionId);
+      if(!previous)totalFood.factions.push({...row});
+      else {previous.demandPerCycle=row.demandPerCycle;previous.cycles+=row.cycles;previous.demand+=row.demand;
+        previous.paid+=row.paid;previous.failedCycles+=row.failedCycles;previous.foodAfter=row.foodAfter;previous.stabilityAfter=row.stabilityAfter;}
+    }
+  }
   const resourcesChanged: HandlerResult['resourcesChanged'] = [];
-  for (const row of food.factions) {
+  for (const row of totalFood.factions) {
     recordResourceChange(resourcesChanged, row.factionId, 'food', row.foodBefore, row.foodAfter);
   }
   const tutorial = syncLevel1Tutorial(state);
@@ -573,11 +596,11 @@ export function handleAdvanceWorld(state: GameState, ctx: HandlerContext): Handl
       ticksAdvanced: worldAdvance.ticksAdvanced,
       worldAdvance,
       foodConsumption: {
-        cycles: food.cycles,
-        gated: food.gated,
-        fromTick: food.fromTick,
-        toTick: food.toTick,
-        factions: food.factions,
+        cycles: totalFood.cycles,
+        gated: totalFood.gated,
+        fromTick: totalFood.fromTick,
+        toTick: totalFood.toTick,
+        factions: totalFood.factions,
       },
       ...(tutorial.payload.tutorial ? { tutorial: tutorial.payload.tutorial } : {}),
       ...(typeof tutorial.payload.scriptedInvasionId === 'string'
@@ -590,9 +613,56 @@ export function handleAdvanceWorld(state: GameState, ctx: HandlerContext): Handl
   };
 }
 
+/** Event/boundary-driven Temporal V2 progression, including sub-world-tick work.
+ * Exact timers finish before the next physical boundary; full selection uses the
+ * authoritative state at its decision boundary. No per-second polling. */
+export function progressProactiveThrough(state: GameState, ctx: HandlerContext, horizon: number, allowEndpointDecision = true): HandlerResult {
+  const result=emptyResult();
+  const decisions: WorldAdvanceResult['aiDecisions']=[];
+  const resolutions: WorldAdvanceResult['commitmentResolutions']=[];
+  result.payload={proactiveDecisions:decisions,proactiveResolutions:resolutions};
+  const process = (allowDecisions:boolean) => {
+    // At a physical boundary, first earn timer work, then let domain arrivals/
+    // completions apply. WAIT's feasibility revalidation must see those effects
+    // just like ordinary cognition; it is not an exception to boundary ordering.
+    if(!allowDecisions)return;
+    for(const id of [...state.allFactionIds].sort()) {
+      if(id===state.playerFactionId || isLevel1TutorialAiSuppressed(state,id))continue;
+      const inner=withRequestParameters(ctx.req,{warlordId:id},()=>handleAiDecide(state,ctx));
+      result.stateChanges.push(...inner.stateChanges);result.events.push(...inner.events);
+      const ids=inner.payload.selectedOperationIds;
+      if(Array.isArray(ids))for(const operationId of ids) {
+        const selected=state.operations.get(operationId)!;
+        decisions.push({factionId:id,commitmentId:operationId,action:selected.action,targetId:selected.targetId,worldTick:state.worldTick});
+        const resolved=withRequestParameters(ctx.req,{factionId:id,operationId},()=>handleResolveCommitment(state,ctx));
+        result.stateChanges.push(...resolved.stateChanges);result.events.push(...resolved.events);
+        const current=state.operations.get(operationId)!;
+        resolutions.push({factionId:id,commitmentId:operationId,action:current.action,
+          outcome:current.terminal?.outcome??current.status,success:resolved.errors?.length?false:current.terminal?.outcome!=='failed',worldTick:state.worldTick});
+        result.notifications.push(...resolved.notifications);
+        result.resourcesChanged.push(...resolved.resourcesChanged);
+        if(resolved.errors)result.errors=[...(result.errors??[]),...resolved.errors];
+      }
+    }
+  };
+  if(horizon<state.aiClock.nowMs)return result;
+  accrueProactiveClocks(state,state.aiClock.nowMs,authoritativePresence(state));
+  // Observe current state before accruing newly born sources.
+  process(horizon>state.aiClock.nowMs||allowEndpointDecision);
+  const segments=derivePresenceSegments(state.gameplaySessionLeases,state.aiClock.nowMs,horizon);
+  for(const segment of segments) {
+    accrueProactiveClocks(state,state.aiClock.nowMs,segment.presence); // promotion at lease boundary
+    while(state.aiClock.nowMs<segment.endMs) {
+      const next=nextProactiveBoundary(state,segment.endMs,segment.presence);
+      accrueProactiveClocks(state,next,segment.presence);
+      process(next<horizon||allowEndpointDecision);
+    }
+  }
+  return result;
+}
+
 export function handleAiDecide(state: GameState, ctx: HandlerContext): HandlerResult {
   const ai = ctx.registry.requireAi();
-  const snapshot = toDecisionEngineSnapshot(state);
   const single = paramString(ctx.req, 'warlordId');
   if (single && state.playerFactionId && single === state.playerFactionId) {
     throw new OrchestrationError(
@@ -608,21 +678,26 @@ export function handleAiDecide(state: GameState, ctx: HandlerContext): HandlerRe
   }
   const order = (single ? [single] : state.allFactionIds.filter((id) => id !== state.playerFactionId))
     .filter((id) => !isLevel1TutorialAiSuppressed(state, id)).sort((a,b) => a < b ? -1 : a > b ? 1 : 0);
-  ctx.runtime.aiWarlordStates = buildWarlordStates(state);
   const selectedOperationIds: string[] = [];
   const skippedOpportunities: { factionId: string; reason: string }[] = [];
   for (const id of order) {
-    const ws = ctx.runtime.aiWarlordStates.get(id);
-    if (!ws) continue;
-    const rejection = decisionOpportunityRejection(state, id);
-    if (!beginDecisionOpportunity(state, id)) {
-      skippedOpportunities.push({ factionId: id, reason: rejection! }); continue;
-    }
-    const decision = ai.decide(ws, snapshot, state.turn);
+    const source = prepareProactiveDecision(state, id);
+    if (!source) { skippedOpportunities.push({factionId:id,reason:'NO_READY_CONTEXT'});continue; }
+    ctx.runtime.aiWarlordStates=buildWarlordStates(state);
+    const ws=ctx.runtime.aiWarlordStates.get(id)!;
+    const plans = sourceConcretePlans(state, source);
+    const decision = ai.decide(ws, toDecisionEngineSnapshot(state), state.turn, plans,state.aiDecisionOpportunities.get(id)!.primary!.opportunityId);
     if (decision.isNewCommitment && decision.commitment) {
-      selectedOperationIds.push(decision.commitment.id);
-      syncCommitmentsFromWarlordStates(state, ctx.runtime.aiWarlordStates, [id]);
-      attachDecisionInitiation(state, id, decision.commitment.id);
+      if (decision.commitment.action === 'WAIT') {
+        // A WAIT owns only the primary initiation timer, never a physical operation.
+        selectWaitInitiation(state,id);
+        ws.activeCommitment=null;
+      } else {
+        selectedOperationIds.push(decision.commitment.id);
+        syncCommitmentsFromWarlordStates(state, ctx.runtime.aiWarlordStates, [id]);
+        state.operations.get(decision.commitment.id)!.sourceContextId=source.id;
+        attachDecisionInitiation(state,id,decision.commitment.id);
+      }
     }
   }
   const commitments = activeOperations(state).map(c => ({ factionId: c.warlordId, commitment: c }));
@@ -667,6 +742,7 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
   const transaction = runStateTransaction(state, draft => {
     if (allocateSequence) draft.factions.get(selected.warlordId)!.nextAiCommitmentSequence++;
     const op = draft.operations.get(selected.id) ?? operationFromSelection(selected, draft.worldTick);
+    if (op.plan?.action==='WAIT') throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Legacy WAIT operations cannot execute; WAIT requires a source-bound primary timer');
     if (!op.plan) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Incomplete legacy reasoning cannot execute');
     const feasibility = assessConcretePlanFeasibility(op.plan, toDecisionEngineSnapshot(draft), op.id);
     if (!feasibility.feasible) {
@@ -711,6 +787,7 @@ export function handleStartAiOperation(state: GameState, ctx: HandlerContext): H
   const problem = concretePlanProblem(plan);
   if (problem) throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, problem);
   if (state.playerFactionId === plan.factionId) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'AI cannot control player forces');
+  if (plan.action === 'WAIT') throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'WAIT is a source-bound initiation timer, not a physical operation');
   const faction = requireFactionSnapshot(state, plan.factionId);
   const sequence = faction.nextAiCommitmentSequence;
   if (!Number.isSafeInteger(sequence) || sequence < 0 || sequence >= Number.MAX_SAFE_INTEGER) throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE, 'Operation sequence exhausted');

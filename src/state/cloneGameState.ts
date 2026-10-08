@@ -1,3 +1,4 @@
+import { cloneConcretePlan } from '../types/AIConcretePlan';
 import { cloneOperations } from '../engine/operations';
 /**
  * GAMESTATE CLONING (AUTHORITATIVE RUNTIME GAMESTATE PASS). See
@@ -244,6 +245,8 @@ export function adoptOwnedTransactionState(target: GameState, next: GameState): 
   target.lastAiDecisionTick = next.lastAiDecisionTick;
   target.strategicAttention = next.strategicAttention;
   target.aiDecisionOpportunities = next.aiDecisionOpportunities;
+  target.aiPressure = next.aiPressure;
+  target.aiClock = next.aiClock;
   target.worldSeed = next.worldSeed;
   target.factions = next.factions;
   target.allFactionIds = next.allFactionIds;
@@ -321,7 +324,9 @@ export function cloneGameState(state: GameState): GameState {
     lastFoodConsumptionTick: state.lastFoodConsumptionTick,
     lastAiDecisionTick: new Map(state.lastAiDecisionTick),
     strategicAttention: { ...state.strategicAttention },
-    aiDecisionOpportunities: cloneMap(state.aiDecisionOpportunities, opportunity => ({ ...opportunity })),
+    aiDecisionOpportunities: cloneMap(state.aiDecisionOpportunities, opportunity => JSON.parse(JSON.stringify(opportunity))),
+    aiPressure: cloneMap(state.aiPressure, source => ({ ...source, blockers: source.blockers.map(b => ({ plan: cloneConcretePlan(b.plan), reasons: b.reasons.map(r => ({ ...r })) })) })),
+    aiClock: { ...state.aiClock, worldAnchor: state.aiClock.worldAnchor ? { ...state.aiClock.worldAnchor } : null },
     worldSeed: state.worldSeed,
     factions: cloneMap(state.factions, cloneWarlordSnapshot),
     allFactionIds: [...state.allFactionIds],
