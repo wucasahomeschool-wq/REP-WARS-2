@@ -59,6 +59,7 @@ import { registerArmyMovementTests } from './armyMovement';
 import { registerStrategicAttackTests } from './strategicAttack';
 import { registerAiRuntimeTests } from './aiRuntime';
 import { registerAiOperationTests } from './aiOperations';
+import { registerAiStrategyConcurrencyTests } from './aiStrategyConcurrency';
 import { registerAiConcretePlanTests } from './aiConcretePlans';
 import { registerAiCanonicalReasoningTests } from './aiCanonicalReasoning';
 import { registerFoundationHardeningTests } from './foundationHardening';
@@ -1650,7 +1651,7 @@ test('createGameState() contains the expected major state domains', () => {
   const state = createGameState({ seed: 42 });
   const keys = Object.keys(state).sort();
   const expected = [
-    'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'operationClaims', 'operations', 'constructions',
+    'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'operationClaims', 'operations', 'constructions',
     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
     'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
@@ -2021,11 +2022,11 @@ test('buildWarlordStates + DecisionEngine.decideAll + syncCommitmentsFromWarlord
   }
   assert.deepStrictEqual(checkGameStateInvariants(state), [], 'GameState must remain structurally valid after a real decide() round-trip');
 
-  // Rebuilding WarlordStates from the now-populated GameState must pick up
-  // the same commitments rather than resetting them to null.
+  // Rebuilding cognition DTOs never reinstalls physical operation authority.
   const rebuilt = buildWarlordStates(state);
   for (const fid of state.allFactionIds) {
-    assert.strictEqual(rebuilt.get(fid)!.activeCommitment?.id, fixtureCommitments(state).get(fid)!.id);
+    assert.strictEqual(rebuilt.get(fid)!.activeCommitment, null);
+    assert.ok(fixtureCommitments(state).get(fid));
   }
 });
 
@@ -2924,17 +2925,16 @@ test('failed commitment can reassess after cadence', () => {
     durationTicks: 0,
     startedAtTick: 0,
   }));
+  const original_ashen_horde = fixtureCommitments(state).get('ashen_horde')!.id;
   const orch = new Orchestrator(state);
   const failStep = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
   assert.strictEqual(failStep.success, true, failStep.errors[0]?.message);
-  assert.strictEqual(fixtureCommitments(orch.getState()).get('ashen_horde')!.status, 'failed');
+  assert.strictEqual(orch.getState().operations.get(original_ashen_horde)!.status, 'failed');
+  const fresh = worldAdvance(failStep).aiDecisions.filter(d => d.factionId === 'ashen_horde');
+  assert.strictEqual(fresh.length, 1, 'failed initiation may reassess once at this boundary');
+  assert.notStrictEqual(fresh[0]!.commitmentId, original_ashen_horde);
   const cooldown = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
-  assert.strictEqual(worldAdvance(cooldown).aiDecisions.filter((d) => d.factionId === 'ashen_horde').length, 0);
-  const reassess = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
-  assert.strictEqual(reassess.success, true, reassess.errors[0]?.message);
-  const decided = worldAdvance(reassess).aiDecisions.filter((d) => d.factionId === 'ashen_horde');
-  assert.ok(decided.length === 1, 'failed TRADE must become eligible for AI_DECIDE after reassessment interval');
-  assert.notStrictEqual(decided[0]!.commitmentId, 'cmt_ashen_horde_TRADE');
+  assert.strictEqual(worldAdvance(cooldown).aiDecisions.filter(d => d.factionId === 'ashen_horde').length, 0);
 });
 
 test('unsupported commitment cannot remain active', () => {
@@ -2946,10 +2946,11 @@ test('unsupported commitment cannot remain active', () => {
     durationTicks: 5,
     startedAtTick: 0,
   }));
+  const original_ashen_horde = fixtureCommitments(state).get('ashen_horde')!.id;
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
-  const c = fixtureCommitments(orch.getState()).get('ashen_horde')!;
+  const c = orch.getState().operations.get(original_ashen_horde)!;
   assert.strictEqual(c.status, 'failed');
   assert.ok(!isActiveCommitmentStatus(c.status));
   const resn = worldAdvance(res).commitmentResolutions.find((r) => r.factionId === 'ashen_horde');
@@ -2984,11 +2985,13 @@ test('one AI faction failing does not corrupt unrelated factions', () => {
     startedAtTick: 0,
   }));
   const ironTerritories = [...state.factions.get('iron_kingdom')!.territories];
+  const original_ashen_horde = fixtureCommitments(state).get('ashen_horde')!.id;
+  const original_iron_kingdom = fixtureCommitments(state).get('iron_kingdom')!.id;
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.strictEqual(fixtureCommitments(orch.getState()).get('ashen_horde')!.status, 'failed');
-  assert.strictEqual(fixtureCommitments(orch.getState()).get('iron_kingdom')!.status, 'completed');
+  assert.strictEqual(orch.getState().operations.get(original_ashen_horde)!.status, 'failed');
+  assert.strictEqual(orch.getState().operations.get(original_iron_kingdom)!.status, 'completed');
   assert.deepStrictEqual(orch.getState().factions.get('iron_kingdom')!.territories, ironTerritories);
   assert.ok(orch.getState().factions.has('celestial_theocracy'));
   assert.deepStrictEqual(checkGameStateInvariants(orch.getState()), []);
@@ -3132,6 +3135,7 @@ registerAiRuntimeTests({
 registerAiCanonicalReasoningTests({ test });
 registerAiConcretePlanTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
 registerAiOperationTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
+registerAiStrategyConcurrencyTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
 
 registerFoundationHardeningTests({
   test,

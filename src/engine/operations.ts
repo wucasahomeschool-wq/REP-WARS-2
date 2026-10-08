@@ -4,14 +4,21 @@ import { GameState } from '../types/GameState';
 import { AIConcretePlan, cloneConcretePlan, comparePlanIds } from '../types/AIConcretePlan';
 import { applyCommitmentOutcomeFeedback } from './outcomeFeedback';
 import { OrchestrationError, ErrorCode } from '../orchestration/errors';
+import { emptyOperationAttention } from './strategicAttention';
+import { finishDecisionInitiation } from './decisionOpportunities';
 
 // Optimization only: membership proves a deeply frozen record. It stores no
 // world facts, sequences or outcomes; hydration/restart always has identical data.
 const immutableTerminals = new WeakSet<AIOperation>();
+/** Immutability proof only; never proves current-world validity. */
+export function isImmutableTerminalOperation(op: AIOperation): boolean { return immutableTerminals.has(op); }
 function freezeTerminal(op: AIOperation): AIOperation {
+  // Settlement can also receive manually constructed compatibility records.
+  // Freeze an isolated plan rather than assuming every caller used our factory.
+  if (op.plan !== undefined) op.plan = cloneConcretePlan(op.plan);
   Object.freeze(op.reason);
   op.factorBreakdown.forEach(Object.freeze); Object.freeze(op.factorBreakdown);
-  Object.freeze(op.claimIds); Object.freeze(op.links); Object.freeze(op.terminal);
+  Object.freeze(op.claimIds); Object.freeze(op.links); Object.freeze(op.terminal); Object.freeze(op.attention);
   Object.freeze(op); immutableTerminals.add(op);
   return op;
 }
@@ -22,12 +29,12 @@ export function cloneOperation(op: AIOperation): AIOperation {
   if (immutableTerminals.has(op)) return op;
   const copy = { ...op, ...(op.plan !== undefined ? { plan: cloneConcretePlan(op.plan) } : {}),
     reason: [...op.reason], factorBreakdown: op.factorBreakdown.map(f => ({ ...f })),
-    claimIds: [...op.claimIds], links: { ...op.links }, terminal: op.terminal ? { ...op.terminal } : null };
+    claimIds: [...op.claimIds], links: { ...op.links }, attention: { ...op.attention }, terminal: op.terminal ? { ...op.terminal } : null };
   return copy.terminal ? freezeTerminal(copy) : copy;
 }
 export function operationFromSelection(c: AICommitment, tick: number): AIOperation {
   return cloneOperation({ ...c, phase: 'selected', objective: 'valid', createdAtTick: tick,
-    claimIds: [], links: {}, terminal: null });
+    claimIds: [], links: {}, terminal: null, attention: emptyOperationAttention(c.warlordId) });
 }
 /** Derived live-key index on the canonical Map. Only entries are serialized.
  * Map mutation methods keep keys synchronized; records remain authoritative.
@@ -82,10 +89,6 @@ export function activeOperations(state: GameState, factionId?: string): AIOperat
   const values = keys ? [...keys].map(id => state.operations.get(id)!) : state.operations.values();
   return [...values].filter(o => o.phase !== 'terminal' && (factionId === undefined || o.warlordId === factionId))
     .sort((a, b) => comparePlanIds(a.id, b.id));
-}
-/** Transitional cognition gate only: canonical storage/progress never uses a faction slot. */
-export function operationForDecisionGate(state: GameState, factionId: string): AIOperation | undefined {
-  return activeOperations(state, factionId)[0];
 }
 export function claimIdentity(kind: AIOperationClaim['kind'], subjectId: string, scopeFactionId?: string): string {
   return kind === 'engagement_target' ? `${kind}:${JSON.stringify([scopeFactionId, subjectId])}` : `${kind}:${subjectId}`;
@@ -152,6 +155,8 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
   }
   op.status = outcome; op.phase = 'terminal'; op.statusReason = reason;
   op.terminal = { outcome, reason, atTick: state.worldTick };
+  if (op.attention.acquiredAtTick !== null) op.attention.releasedAtTick = state.worldTick;
+  finishDecisionInitiation(state, id, false);
   for (const claimId of op.claimIds) {
     if (state.operationClaims.get(claimId)?.operationId === id) state.operationClaims.delete(claimId);
   }

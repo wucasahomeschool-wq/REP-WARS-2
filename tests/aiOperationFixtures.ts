@@ -1,7 +1,12 @@
+import assert from 'assert';
+import { createLegacySampleMapGameState } from '../src/state/createGameState';
+import { authoredWorldFields } from './worldTestHelpers';
+import { checkGameStateInvariants } from '../src/state/gameStateInvariants';
+import { attentionCost } from '../src/engine/strategicAttention';
 /** Test-only adapter for old singular fixtures. Production has no faction-slot store.
  * Explicit fixture authoring may choose parameters; production migration never does.
  */
-import { AICommitment } from '../src/types';
+import { AICommitment, Army, Territory, WarlordSnapshot } from '../src/types';
 import { GameState } from '../src/types/GameState';
 import { makeConcretePlan, planTargetId } from '../src/types/AIConcretePlan';
 import { generateConcretePlans } from '../src/engine/concretePlans';
@@ -16,7 +21,7 @@ export function fixtureCommitments(state: GameState) {
     return live[live.length - 1] ?? all[all.length - 1] ?? null;
   };
   const set = (fid: string, c: AICommitment | null) => {
-    if (!c) { for (const op of sortedOperations(state, fid)) { for (const id of op.claimIds) state.operationClaims.delete(id); state.operations.delete(op.id); } return; }
+    if (!c) { for (const op of sortedOperations(state, fid)) { for (const id of op.claimIds) state.operationClaims.delete(id); state.operations.delete(op.id); } state.aiDecisionOpportunities.delete(fid); return; }
     const value = { ...c };
     if (!Object.prototype.hasOwnProperty.call(c, 'plan') && ['ATTACK','BUILD','MOVE','RETREAT','WAIT'].includes(c.action)) {
       value.plan = generateConcretePlans(toDecisionEngineSnapshot(state), fid).find(p => p.action === c.action
@@ -44,12 +49,41 @@ export function fixtureCommitments(state: GameState) {
       op.phase='terminal'; op.terminal={outcome:c.status as 'completed'|'failed'|'interrupted',reason:c.statusReason ?? 'fixture',atTick:state.worldTick};
     } else if(c.status==='executing' && op.plan && 'armyId' in op.plan) {
       op.phase='physical'; op.links.armyId=op.plan.armyId;
+      op.attention={factionId:fid,cost:attentionCost(op.plan),acquiredAtTick:op.createdAtTick,releasedAtTick:null,grandfathered:true};
       for(const cl of requiredClaims(op.plan,op.id,state)){state.operationClaims.set(cl.id,cl);op.claimIds.push(cl.id);}
     }
     state.operations.set(op.id,op);
+    if(op.phase==='selected')state.aiDecisionOpportunities.set(fid,{lastBoundaryTick:state.worldTick,primaryOperationId:op.id});
+    else if(state.aiDecisionOpportunities.get(fid)?.primaryOperationId===op.id)state.aiDecisionOpportunities.get(fid)!.primaryOperationId=null;
   };
   return { [Symbol.iterator]: () => state.allFactionIds.map(fid=>[fid,get(fid)] as const).values(), get, set, has: (fid:string)=>!!get(fid), get size(){return state.operations.size;},
     entries:()=>state.allFactionIds.map(fid=>[fid,get(fid)] as const).values(),
     values:()=>state.allFactionIds.map(get).values(),
     replaceWith:(map:Map<string,AICommitment|null>)=>{state.operations.clear();state.operationClaims.clear();for(const[f,c]of map)set(f,c);} };
+}
+
+export function makeOperationTestWorld(
+  makeSelf: (id: string, overrides?: Partial<WarlordSnapshot>) => WarlordSnapshot,
+  makeTerritory: (overrides: Partial<Territory> & { id: string }) => Territory,
+  armyIds: string[] = ['a','b'],
+): GameState {
+    const s = createLegacySampleMapGameState({ seed: 37 });
+    const specs: [string, string, string[]][] = [
+      ['home','me',['stage','other']], ['stage','me',['home','other','target']],
+      ['other','me',['home','stage']], ['target','enemy',['stage']], ['safe','spectator',[]],
+    ];
+    s.territories = new Map(specs.map(([id,owner,neighboring])=>[id,makeTerritory({ id,owner,neighboring,garrison:20 })]));
+    Object.assign(s,authoredWorldFields(s.territories));
+    const army = (id:string): Army => ({id,location:'home',owner:'me',soldiers:600,knights:10,siegeEngines:0,morale:80,supply:80});
+    s.armies = new Map(armyIds.map(id=>[id,army(id)]));
+    s.factions = new Map(['me','enemy','spectator'].map(id=>[id,makeSelf(id,{
+      territories:specs.filter(t=>t[1]===id).map(t=>t[0]),armies:id==='me'?[...armyIds]:[],
+      knownFactions:['me','enemy','spectator'],knownTerritories:specs.map(t=>t[0]),
+      resources:{gold:10000,food:10000,iron:10000,wood:10000,stone:10000}, resourceIncome:{gold:0,food:0},
+      memory:[],goals:[],diplomacy:new Map(),
+    })]));
+    s.allFactionIds = ['me','enemy','spectator']; s.playerFactionId = 'spectator'; s.levelAnchorTerritoryIds=['safe'];
+    s.operations.clear(); s.operationClaims.clear(); s.cities.clear(); s.constructions.clear(); s.activeInvasions.clear();
+    s.territoryInfrastructure.clear(); s.territoryEconomy.clear(); s.attackerCooldowns.clear(); s.activeEvents=[]; s.eventHistory=[];
+    assert.deepStrictEqual(checkGameStateInvariants(s),[]); return s;
 }

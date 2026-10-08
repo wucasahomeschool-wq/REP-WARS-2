@@ -348,26 +348,28 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
     assert.deepStrictEqual(arrived.map((r) => r.armyId), ['aa_army', 'zz_army']);
   });
 
-  test('AI MOVE commitment stays executing while moving and AI does not re-decide', () => {
+  test('AI MOVE retains exact ownership while compatible cognition continues', () => {
     const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
     const fid = 'ashen_horde';
     const armyId = state.factions.get(fid)!.armies[0]!;
     const loc = state.armies.get(armyId)!.location;
     const dest = state.territories.get(loc)!.neighboring[0]!;
     fixtureCommitments(state).set(fid, makeCmt({ warlordId: fid, action: 'MOVE', targetId: dest }));
+    const operationId=fixtureCommitments(state).get(fid)!.id;
     const orch = new Orchestrator(state);
     orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
-    assert.strictEqual(fixtureCommitments(orch.getState()).get(fid)!.status, 'executing');
+    assert.strictEqual(orch.getState().operations.get(operationId)!.status, 'executing');
     const duration = orch.getState().armies.get(armyId)!.movement!.durationTicks;
     const mid = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: duration - 1 }));
     assert.strictEqual(mid.success, true, mid.errors[0]?.message);
-    assert.strictEqual(fixtureCommitments(orch.getState()).get(fid)!.status, 'executing');
+    assert.strictEqual(orch.getState().operations.get(operationId)!.status, 'executing');
     assert.strictEqual(orch.getState().armies.get(armyId)!.location, loc);
     const wa = mid.payload.worldAdvance as WorldAdvanceResult;
-    assert.ok(!wa.aiDecisions.some((d) => d.factionId === fid));
+    assert.ok(wa.aiDecisions.some(d => d.factionId===fid), 'unrelated cognition need not wait for travel');
+    assert.strictEqual(orch.getState().operationClaims.get(`force:${armyId}`)!.operationId,operationId);
     orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
     assert.strictEqual(orch.getState().armies.get(armyId)!.location, dest);
-    assert.strictEqual(fixtureCommitments(orch.getState()).get(fid)!.status, 'completed');
+    assert.strictEqual(orch.getState().operations.get(operationId)!.status, 'completed');
   });
 
   test('an army cannot ATTACK until it has arrived', () => {

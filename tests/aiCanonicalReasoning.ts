@@ -271,7 +271,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     assert.deepStrictEqual(values(hydratePersistedPayload(before).factions.get(FACTION)!.memory[0]!.details), ['original']);
   });
 
-  test('Phase A: retained commitment wrappers cannot override the current canonical single slot', () => {
+  test('Phase A/D: retained wrappers cannot gate canonical cognition or overwrite ongoing work', () => {
     const state = world();
     const ws = buildWarlordStates(state).get(FACTION)!;
     const chosen = new DecisionEngine(SEED).decide(ws, toDecisionEngineSnapshot(state), state.turn).commitment!;
@@ -288,8 +288,9 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     fixtureCommitments(state).set(FACTION, chosen);
     ws.activeCommitment = null;
     const held = new DecisionEngine(SEED).decide(ws, toDecisionEngineSnapshot(state), state.turn);
-    assert.strictEqual(held.isNewCommitment, false);
-    assert.strictEqual(held.commitment!.id, chosen.id);
+    assert.strictEqual(held.isNewCommitment, true);
+    assert.notStrictEqual(held.commitment!.id, chosen.id);
+    assert.strictEqual(state.operations.get(chosen.id)!.plan!.id, chosen.plan!.id);
   });
 
   test('Phase A: older-save migration never lowers an existing valid commitment high-water mark', () => {

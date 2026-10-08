@@ -1,4 +1,6 @@
 import type { AIOperation, AIOperationClaim } from './AIOperation';
+import type { StrategicAttentionState, AIDecisionOpportunity } from './AIStrategy';
+import { STRATEGIC_ATTENTION_TUNING } from '../constants/strategicAttention';
 /**
  * CANONICAL RUNTIME GAME STATE (AUTHORITATIVE RUNTIME GAMESTATE PASS)
  * =====================================================================
@@ -91,8 +93,9 @@ import { GameRewardResult } from '../rewards/types';
  * 17 = Canonical AI commitment identity high-water mark (Phase A).
  * 18 = Exact AI concrete plans (Phase B); old action/target saves remain explicit legacy records.
  * 19 = Canonical multi-operation ownership and exclusive physical claims (Phase C).
+ * 20 = Operation-owned Strategic Attention and canonical proactive opportunities (Phase D).
  */
-export const GAME_STATE_SCHEMA_VERSION = 19;
+export const GAME_STATE_SCHEMA_VERSION = 20;
 
 export type InvasionId = string;
 
@@ -421,10 +424,13 @@ export interface GameState {
    */
   lastFoodConsumptionTick: number;
   /**
-   * Last world tick on which each faction ran `AI_DECIDE` or resolved a
-   * commitment. Used for reassessment cadence. Missing key = never.
+   * Last successful primary proactive initiation boundary. Physical operation
+   * completion does not restart this transitional cadence. Missing key = never.
    */
   lastAiDecisionTick: Map<FactionId, number>;
+  /** Persisted common limit, applied independently to each faction's owned work. */
+  strategicAttention: StrategicAttentionState;
+  aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
   /** Seed the world was generated with; also the root seed engines fork per-battle/per-event RNGs from. */
   worldSeed: number;
 
@@ -573,6 +579,8 @@ export function emptyWorldClock(): {
   gameplaySessionLeases: GameplaySessionLease[];
   lastFoodConsumptionTick: number;
   lastAiDecisionTick: Map<FactionId, number>;
+  strategicAttention: StrategicAttentionState;
+  aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
 } {
   return {
     worldTick: 0,
@@ -584,6 +592,8 @@ export function emptyWorldClock(): {
     gameplaySessionLeases: [],
     lastFoodConsumptionTick: 0,
     lastAiDecisionTick: new Map(),
+    strategicAttention: { capacity: STRATEGIC_ATTENTION_TUNING.capacity },
+    aiDecisionOpportunities: new Map(),
   };
 }
 

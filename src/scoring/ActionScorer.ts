@@ -1,5 +1,5 @@
 import { AIConcretePlan, AttackPlan, BuildPlan, MovePlan, RetreatPlan, planTargetId, comparePlanIds, cloneConcretePlan } from '../types/AIConcretePlan';
-import { generateConcretePlans, validateConcretePlan } from '../engine/concretePlans';
+import { generateConcretePlans, assessConcretePlanFeasibility } from '../engine/concretePlans';
 import { BALANCE } from '../constants/balance';
 import { PersonalitySystem } from '../personality/PersonalitySystem';
 import {
@@ -331,7 +331,7 @@ export class ActionScorer {
   }
 
   scorePlan(plan: AIConcretePlan, input: ScorerInput): ScoredConcretePlan {
-    if (plan.factionId !== input.ctx.self.id || !validateConcretePlan(plan, input.ctx.gameState).valid)
+    if (plan.factionId !== input.ctx.self.id || !assessConcretePlanFeasibility(plan, input.ctx.gameState).feasible)
       throw new Error(`Invalid concrete scoring input ${plan.id}`);
     let scored: ScoredAction;
     switch (plan.action) {

@@ -1,6 +1,7 @@
+import { makeOperationTestWorld } from './aiOperationFixtures';
 import assert from 'assert';
 import { Army, AICommitment, Territory, WarlordSnapshot } from '../src/types';
-import { GameState } from '../src/types/GameState';
+import { GameState, GAME_STATE_SCHEMA_VERSION } from '../src/types/GameState';
 import { AIConcretePlan, AttackPlan, BuildPlan, cloneConcretePlan, concretePlanProblem, makeConcretePlan, planTargetId } from '../src/types/AIConcretePlan';
 import { createLegacySampleMapGameState } from '../src/state/createGameState';
 import { authoredWorldFields } from './worldTestHelpers';
@@ -33,25 +34,7 @@ interface Api {
 }
 export function registerAiOperationTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq }: Api): void {
   function world(): GameState {
-    const s = createLegacySampleMapGameState({ seed: 37 });
-    const specs: [string, string, string[]][] = [
-      ['home','me',['stage','other']], ['stage','me',['home','other','target']],
-      ['other','me',['home','stage']], ['target','enemy',['stage']], ['safe','spectator',[]],
-    ];
-    s.territories = new Map(specs.map(([id,owner,neighboring])=>[id,makeTerritory({ id,owner,neighboring,garrison:20 })]));
-    Object.assign(s,authoredWorldFields(s.territories));
-    const army = (id:string): Army => ({id,location:'home',owner:'me',soldiers:600,knights:10,siegeEngines:0,morale:80,supply:80});
-    s.armies = new Map(['a','b'].map(id=>[id,army(id)]));
-    s.factions = new Map(['me','enemy','spectator'].map(id=>[id,makeSelf(id,{
-      territories:specs.filter(t=>t[1]===id).map(t=>t[0]),armies:id==='me'?['a','b']:[],
-      knownFactions:['me','enemy','spectator'],knownTerritories:specs.map(t=>t[0]),
-      resources:{gold:10000,food:10000,iron:10000,wood:10000,stone:10000}, resourceIncome:{gold:0,food:0},
-      memory:[],goals:[],diplomacy:new Map(),
-    })]));
-    s.allFactionIds = ['me','enemy','spectator']; s.playerFactionId = 'spectator'; s.levelAnchorTerritoryIds=['safe'];
-    s.operations.clear(); s.operationClaims.clear(); s.cities.clear(); s.constructions.clear(); s.activeInvasions.clear();
-    s.territoryInfrastructure.clear(); s.territoryEconomy.clear(); s.attackerCooldowns.clear(); s.activeEvents=[]; s.eventHistory=[];
-    assert.deepStrictEqual(checkGameStateInvariants(s),[]); return s;
+    return makeOperationTestWorld(makeSelf, makeTerritory);
   }
   const plans = (s:GameState)=>generateConcretePlans(toDecisionEngineSnapshot(s),'me');
   const move = (s:GameState,id:string,dest='other')=>plans(s).find(p=>p.action==='MOVE'&&p.armyId===id&&p.destinationTerritoryId===dest)!;
@@ -130,11 +113,13 @@ export function registerAiOperationTests({ test, makeSelf, makeTerritory, makeCm
     const claims=encodePersistable(d.operationClaims);assert.throws(()=>acquireOperationClaims(d,candidate));
     assert.deepStrictEqual(encodePersistable(d.operationClaims),claims);assert.deepStrictEqual(candidate.claimIds,[]);
   });
-  test('Phase C: ordinary AI initiation stays transitionally gated while domain operations coexist',()=>{
-    const s=world(),o=new Orchestrator(s);start(o,move(s,'a'));start(o,attack(s));const n=o.getState().operations.size;
-    assert.strictEqual(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})).success,true);
-    assert.strictEqual(o.getState().operations.size,n);
-    assert.strictEqual(buildWarlordStates(o.getState()).get('me')!.activeCommitment!.id,activeOperations(o.getState(),'me')[0]!.id);
+  test('Phase C/ D: ordinary cognition preserves concurrent work and coalesces its primary initiation',()=>{
+    const s=world(),o=new Orchestrator(s);const held=[start(o,move(s,'a')),start(o,attack(s))];const n=o.getState().operations.size;
+    const decision=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));assert.strictEqual(decision.success,true);
+    assert.strictEqual((decision.payload.selectedOperationIds as string[]).length,1);assert.strictEqual(o.getState().operations.size,n+1);
+    assert.strictEqual(buildWarlordStates(o.getState()).get('me')!.activeCommitment,null);
+    assert.strictEqual((o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})).payload.selectedOperationIds as string[]).length,0);
+    for(const id of held)assert.strictEqual(o.getState().operations.get(id)!.phase,'physical');
     assert.strictEqual(o.execute(cmdReq('RESOLVE_COMMITMENT','ai',{factionId:'me'})).success,false,'ambiguous faction-wide resolution must not choose an operation');
   });
   test('Phase C: invalid ATTACK preserves eight ticks of remaining travel and its force claim',()=>{
@@ -148,6 +133,7 @@ export function registerAiOperationTests({ test, makeSelf, makeTerritory, makeCm
     assert.deepStrictEqual(d.armies.get('b')!.movement,march);assert.strictEqual(movementTicksRemaining(march,d.worldTick),8);
     assert.strictEqual(d.operations.get(id)!.phase,'recovery');assert.strictEqual(d.operations.get(id)!.objective,'invalid');
     assert.strictEqual(d.armies.get('b')!.location,'home');assert.ok(d.operationClaims.has('force:b'));assert.ok(!d.operationClaims.has('engagement_target:["me","target"]'));
+    for(const fid of d.allFactionIds) d.lastAiDecisionTick.set(fid,d.worldTick+10000);
     const restarted=new Orchestrator(hydratePersistedPayload(encodePersistable(d)));advance(restarted,7);
     assert.strictEqual(restarted.getState().armies.get('b')!.location,'home');assert.ok(restarted.getState().operationClaims.has('force:b'));
     advance(restarted,1);assert.strictEqual(restarted.getState().armies.get('b')!.location,'stage');
@@ -174,7 +160,7 @@ export function registerAiOperationTests({ test, makeSelf, makeTerritory, makeCm
     assert.deepStrictEqual(loaded.operations,current.operations);assert.deepStrictEqual(loaded.operationClaims,current.operationClaims);
     const first=[...cloned.operations.values()][0]!;first.links.armyId='changed';first.claimIds.push('changed');
     assert.notDeepStrictEqual(cloned.operations,current.operations);assert.deepStrictEqual(encodePersistable(current),encodePersistable(loaded));
-    assert.strictEqual(loaded.schemaVersion,19);assert.ok(Object.isFrozen([...loaded.operations.values()][0]!.plan));
+    assert.strictEqual(loaded.schemaVersion,GAME_STATE_SCHEMA_VERSION);assert.ok(Object.isFrozen([...loaded.operations.values()][0]!.plan));
   });
   test('Phase C: same-boundary progression is identical after reload and reversed Map insertion',()=>{
     const s=world(),o=new Orchestrator(s);start(o,move(s,'a'));start(o,move(s,'b'));start(o,build(o.getState()));
@@ -450,13 +436,15 @@ export function registerAiOperationTests({ test, makeSelf, makeTerritory, makeCm
     shallow.route[1]='different';assert.strictEqual(concretePlanProblem(shallow),'concrete plan identity mismatch');
   });
 
-  test('Phase C review: gated cognition analytics retain all operation IDs without reporting a new selection',()=>{
+  test('Phase C/D: coalesced cognition analytics retain all operation IDs without reporting duplicate selection',()=>{
     const s=world(),recorder=createTelemetryRecorder(),o=new Orchestrator(s,undefined,recorder);
     const ids=[start(o,move(s,'a')),start(o,attack(s))].sort();
     assert.ok(recorder.getEvents({eventType:'ai.commitment_resolved'}).every(e=>e.payload.success===undefined), 'physical starts are not terminal failures');
+    const selected=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));
+    ids.push((selected.payload.selectedOperationIds as string[])[0]!);ids.sort();
     const response=o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'}));
     assert.strictEqual(response.success,true);assert.deepStrictEqual(response.payload.selectedOperationIds,[]);
-    assert.strictEqual(recorder.getEvents({eventType:'ai.decision_selected'}).length,0);
+    assert.strictEqual(recorder.getEvents({eventType:'ai.decision_selected'}).length,1);
     const cycle=recorder.getEvents({eventType:'ai.decision_cycle'}).slice(-1)[0]!;
     assert.deepStrictEqual(cycle.payload.operationIds,ids);
   });

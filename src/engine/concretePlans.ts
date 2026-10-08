@@ -1,4 +1,6 @@
 import { requiredClaims } from './operations';
+import { assessAttention } from './strategicAttention';
+import { assessStrategicCompatibility, StrategicCompatibilityRule } from './strategicCompatibility';
 import { GameStateSnapshot } from '../types';
 import { AIConcretePlan, BuildPlan, concretePlanProblem, comparePlanIds, makeConcretePlan, PlanDraft } from '../types/AIConcretePlan';
 import { armyHasActiveStrategicOperation, isLegalStagingTerritory, MIN_ATTACKING_TROOPS } from '../army/strategicAttack';
@@ -23,12 +25,12 @@ function buildAvailable(state: GameStateSnapshot, plan: BuildPlan): boolean {
 }
 
 /** Execution revalidation never searches for a substitute plan. */
-export function validateConcretePlan(plan: AIConcretePlan, state: GameStateSnapshot, commitmentId?: string): { valid: boolean; reason: string } {
+export function validateConcretePlan(plan: AIConcretePlan, state: GameStateSnapshot, commitmentId?: string, ignoreClaims = false): { valid: boolean; reason: string } {
   const fail = (reason: string) => ({ valid: false, reason });
   const problem = concretePlanProblem(plan);
   if (problem) return fail(problem);
   if (!state.factions.has(plan.factionId)) return fail('unknown plan faction');
-  if (state.canonicalState && requiredClaims(plan, commitmentId ?? '', state.canonicalState).some(c => {
+  if (!ignoreClaims && state.canonicalState && requiredClaims(plan, commitmentId ?? '', state.canonicalState).some(c => {
     const held = state.canonicalState!.operationClaims.get(c.id);
     return held && held.operationId !== commitmentId;
   })) return fail('required physical claim unavailable');
@@ -72,6 +74,29 @@ export function validateConcretePlan(plan: AIConcretePlan, state: GameStateSnaps
   return { valid: true, reason: '' };
 }
 
+export type PlanRejectionKind = 'LEGALITY' | 'CLAIM' | 'COMPATIBILITY' | 'ATTENTION';
+/** Independent diagnostic dimensions; no strategic decision is made here. */
+export function assessConcretePlanFeasibility(plan: AIConcretePlan, snapshot: GameStateSnapshot,
+  operationId?: string, compatibilityRules?: readonly StrategicCompatibilityRule[]) {
+  const rejections: { kind: PlanRejectionKind; reason: string }[] = [];
+  const shapeProblem = concretePlanProblem(plan);
+  if (shapeProblem) return { feasible: false, rejections: [{ kind: 'LEGALITY' as const, reason: shapeProblem }] };
+  const legality = validateConcretePlan(plan, snapshot, operationId, true);
+  if (!legality.valid) rejections.push({ kind: 'LEGALITY', reason: legality.reason });
+  const state = snapshot.canonicalState;
+  if (state) {
+    for (const claim of requiredClaims(plan, operationId ?? '', state)) {
+      const held = state.operationClaims.get(claim.id);
+      if (held && held.operationId !== operationId) rejections.push({ kind: 'CLAIM', reason: `Required claim ${claim.id} belongs to ${held.operationId}` });
+    }
+    const compatibility = assessStrategicCompatibility(plan, state, compatibilityRules);
+    for (const reason of compatibility.reasons) rejections.push({ kind: 'COMPATIBILITY', reason });
+    const attention = assessAttention(state, plan, operationId);
+    if (!attention.available) rejections.push({ kind: 'ATTENTION', reason: `Ordinary Attention ${attention.occupied} + ${attention.cost} exceeds capacity ${attention.capacity}` });
+  }
+  return { feasible: rejections.length === 0, rejections };
+}
+
 /**
  * Declared finite scope: every owned idle force, each adjacent MOVE destination;
  * every immediate/one-hop owned staging ATTACK reachable by those forces;
@@ -85,7 +110,7 @@ export function generateConcretePlans(state: GameStateSnapshot, factionId: strin
   const plans = new Map<string, AIConcretePlan>();
   const add = (draft: PlanDraft) => {
     const plan = makeConcretePlan(draft);
-    if (validateConcretePlan(plan, state).valid) plans.set(plan.id, plan);
+    if (assessConcretePlanFeasibility(plan, state).feasible) plans.set(plan.id, plan);
   };
   for (const army of state.armies.values()) {
     if (army.owner !== factionId || armyHasActiveStrategicOperation(army)) continue;

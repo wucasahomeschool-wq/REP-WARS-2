@@ -1,4 +1,5 @@
 import { migrateLegacyOperations } from './operationMigration';
+import { migrateStrategicState } from './strategyMigration';
 import { GameState } from '../types/GameState';
 import { AICommitment } from '../types';
 import {
@@ -339,6 +340,10 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
     state.operationClaims = coerceMap(state.operationClaims);
   }
   delete state.commitments;
+  if (schema < 20) migrateStrategicState(state as unknown as GameState);
+  else if (!(state.aiDecisionOpportunities instanceof Map) || !state.strategicAttention || typeof state.strategicAttention !== 'object') {
+    throw new PersistenceError('persistence.corrupt', 'Schema 20 requires canonical Attention and decision opportunities');
+  }
   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
   return state;
 }

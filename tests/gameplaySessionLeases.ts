@@ -74,7 +74,7 @@ export function registerGameplaySessionLeasePersistenceTests(api: GameplaySessio
 
   test('a new world starts with no gameplay-session leases', () => {
     const state = createGameState();
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 19);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 20);
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
     assert.deepStrictEqual(state.gameplaySessionLeases, []);
     assert.deepStrictEqual(checkGameStateInvariants(state), []);

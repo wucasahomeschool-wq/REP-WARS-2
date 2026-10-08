@@ -253,30 +253,33 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
     assert.strictEqual(a!.stagingTerritoryId, 'alt_stage');
   });
 
-  test('AI ATTACK stays executing during staging movement and does not re-decide', () => {
+  test('AI ATTACK retains exact force during staging while compatible cognition continues', () => {
     const state = buildChainState();
     state.playerFactionId = DEF;
     fixtureCommitments(state).set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
+    const operationId=fixtureCommitments(state).get(ATK)!.id;
     const orch = new Orchestrator(state);
     orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: ATK, seed: 42 }));
-    assert.strictEqual(fixtureCommitments(orch.getState()).get(ATK)!.status, 'executing');
+    assert.strictEqual(orch.getState().operations.get(operationId)!.status, 'executing');
     const duration = orch.getState().armies.get('atk_army')!.movement!.durationTicks;
     const mid = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: duration - 1 }));
-    assert.strictEqual(fixtureCommitments(orch.getState()).get(ATK)!.status, 'executing');
+    assert.strictEqual(orch.getState().operations.get(operationId)!.status, 'executing');
     const wa = mid.payload.worldAdvance as WorldAdvanceResult;
-    assert.ok(!wa.aiDecisions.some((d) => d.factionId === ATK));
+    for(const decision of wa.aiDecisions.filter(d=>d.factionId===ATK))assert.notStrictEqual(decision.commitmentId,operationId);
+    assert.strictEqual(orch.getState().operationClaims.get('force:atk_army')!.operationId,operationId);
   });
 
   test('AI delayed ATTACK completes after arrival battle', () => {
     const state = buildChainState();
     state.playerFactionId = null;
     fixtureCommitments(state).set(ATK, makeCmt({ warlordId: ATK, action: 'ATTACK', targetId: 'front' }));
+    const operationId=fixtureCommitments(state).get(ATK)!.id;
     const orch = new Orchestrator(state);
     orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: ATK, seed: 42 }));
     const duration = orch.getState().armies.get('atk_army')!.movement!.durationTicks;
     orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: duration }));
-    assert.ok(!isActiveCommitmentStatus(fixtureCommitments(orch.getState()).get(ATK)!.status));
-    assert.strictEqual(fixtureCommitments(orch.getState()).get(ATK)!.status, 'completed');
+    assert.ok(!isActiveCommitmentStatus(orch.getState().operations.get(operationId)!.status));
+    assert.strictEqual(orch.getState().operations.get(operationId)!.status, 'completed');
     assert.strictEqual(orch.getState().territories.get('front')!.owner, ATK);
   });
 

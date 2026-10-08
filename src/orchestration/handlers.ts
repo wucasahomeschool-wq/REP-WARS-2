@@ -1,9 +1,11 @@
 import { AIOperation } from '../types/AIOperation';
-import { activeOperations, operationForDecisionGate, operationFromSelection, acquireOperationClaims, settleOperation } from '../engine/operations';
+import { activeOperations, operationFromSelection, acquireOperationClaims, settleOperation } from '../engine/operations';
 import { runStateTransaction } from './transaction';
-import { overwriteGameState } from '../state/cloneGameState';
+import { adoptOwnedTransactionState } from '../state/cloneGameState';
 import { AIConcretePlan, concretePlanProblem, planTargetId } from '../types/AIConcretePlan';
-import { validateConcretePlan } from '../engine/concretePlans';
+import { assessConcretePlanFeasibility } from '../engine/concretePlans';
+import { acquireAttention } from '../engine/strategicAttention';
+import { beginDecisionOpportunity, attachDecisionInitiation, finishDecisionInitiation, decisionOpportunityRejection } from '../engine/decisionOpportunities';
 import { BALANCE } from '../constants/balance';
 import { Army } from '../types';
 import {
@@ -605,16 +607,24 @@ export function handleAiDecide(state: GameState, ctx: HandlerContext): HandlerRe
     };
   }
   const order = (single ? [single] : state.allFactionIds.filter((id) => id !== state.playerFactionId))
-    .filter((id) => !isLevel1TutorialAiSuppressed(state, id));
+    .filter((id) => !isLevel1TutorialAiSuppressed(state, id)).sort((a,b) => a < b ? -1 : a > b ? 1 : 0);
   ctx.runtime.aiWarlordStates = buildWarlordStates(state);
   const selectedOperationIds: string[] = [];
+  const skippedOpportunities: { factionId: string; reason: string }[] = [];
   for (const id of order) {
     const ws = ctx.runtime.aiWarlordStates.get(id);
     if (!ws) continue;
+    const rejection = decisionOpportunityRejection(state, id);
+    if (!beginDecisionOpportunity(state, id)) {
+      skippedOpportunities.push({ factionId: id, reason: rejection! }); continue;
+    }
     const decision = ai.decide(ws, snapshot, state.turn);
-    if (decision.isNewCommitment && decision.commitment) selectedOperationIds.push(decision.commitment.id);
+    if (decision.isNewCommitment && decision.commitment) {
+      selectedOperationIds.push(decision.commitment.id);
+      syncCommitmentsFromWarlordStates(state, ctx.runtime.aiWarlordStates, [id]);
+      attachDecisionInitiation(state, id, decision.commitment.id);
+    }
   }
-  syncCommitmentsFromWarlordStates(state, ctx.runtime.aiWarlordStates, order);
   const commitments = activeOperations(state).map(c => ({ factionId: c.warlordId, commitment: c }));
   return {
     ...emptyResult(),
@@ -623,7 +633,7 @@ export function handleAiDecide(state: GameState, ctx: HandlerContext): HandlerRe
       id: commitment.id,
       summary: `Commitment ${commitment!.action} (${commitment!.status})`,
     })),
-    payload: { commitments, selectedOperationIds },
+    payload: { commitments, selectedOperationIds, skippedOpportunities },
   };
 }
 
@@ -658,10 +668,15 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
     if (allocateSequence) draft.factions.get(selected.warlordId)!.nextAiCommitmentSequence++;
     const op = draft.operations.get(selected.id) ?? operationFromSelection(selected, draft.worldTick);
     if (!op.plan) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Incomplete legacy reasoning cannot execute');
-    const validity = validateConcretePlan(op.plan, toDecisionEngineSnapshot(draft));
-    if (!validity.valid) throw new OrchestrationError(ErrorCode.INVALID_TARGET, validity.reason,
-      validity.reason.includes('anchor') ? { reason: ANCHOR_PROTECTED_REASON, territoryId: planTargetId(op.plan) } : undefined);
+    const feasibility = assessConcretePlanFeasibility(op.plan, toDecisionEngineSnapshot(draft), op.id);
+    if (!feasibility.feasible) {
+      const rejection = feasibility.rejections[0]!;
+      throw new OrchestrationError(rejection.kind === 'LEGALITY' ? ErrorCode.INVALID_TARGET : ErrorCode.ACTION_NOT_ALLOWED,
+        rejection.reason, { feasibility: feasibility.rejections,
+          ...(rejection.reason.includes('anchor') ? { reason: ANCHOR_PROTECTED_REASON, territoryId: planTargetId(op.plan) } : {}) });
+    }
     acquireOperationClaims(draft, op);
+    acquireAttention(draft, op);
     draft.operations.set(op.id, op);
     op.status = 'executing'; op.phase = 'physical'; op.startedAtTick = draft.worldTick;
     // The provisional selection delay is not a duplicate physical timer.
@@ -674,6 +689,7 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
       op.links.constructionId = project.id;
     }
     if (typeof inner.payload.invasionId === 'string') op.links.invasionId = inner.payload.invasionId;
+    finishDecisionInitiation(draft, op.id, true);
     if (op.action === 'WAIT') settleOperation(draft, op.id, 'completed', 'no new physical operation');
     else if (op.action === 'ATTACK' && inner.payload.attackOutcome === 'battle_resolved') {
       const battle = inner.payload.battleResult as { winner?: string } | undefined;
@@ -683,11 +699,13 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
       commitmentOutcome: op.status, reassessmentRequired: op.terminal !== null };
     return inner;
   });
-  overwriteGameState(state, transaction.state);
+  adoptOwnedTransactionState(state, transaction.state);
   return transaction.result;
 }
 
-/** Explicit exact-plan domain boundary. Ordinary cognition retains a transitional initiation gate. */
+/** Explicit exact-plan domain boundary; claims, compatibility and Attention apply.
+ * This is not an additional autonomous deliberation thread.
+ */
 export function handleStartAiOperation(state: GameState, ctx: HandlerContext): HandlerResult {
   const plan = ctx.req.parameters?.plan as AIConcretePlan;
   const problem = concretePlanProblem(plan);

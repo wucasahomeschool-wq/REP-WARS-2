@@ -223,7 +223,14 @@ function clonePlayerRewardState(rewards: PlayerRewardState): PlayerRewardState {
  * without sharing nested references with the initializer result.
  */
 export function overwriteGameState(target: GameState, source: GameState): void {
-  const next = cloneGameState(source);
+  adoptOwnedTransactionState(target, cloneGameState(source));
+}
+
+/** Transfer an already isolated, validated nested transaction draft. The caller
+ * relinquishes its ownership; unlike overwriteGameState this must not receive
+ * a retained external state. No second full-world clone is needed at this boundary.
+ */
+export function adoptOwnedTransactionState(target: GameState, next: GameState): void {
   target.schemaVersion = next.schemaVersion;
   target.turn = next.turn;
   target.worldTick = next.worldTick;
@@ -235,6 +242,8 @@ export function overwriteGameState(target: GameState, source: GameState): void {
   target.gameplaySessionLeases = next.gameplaySessionLeases;
   target.lastFoodConsumptionTick = next.lastFoodConsumptionTick;
   target.lastAiDecisionTick = next.lastAiDecisionTick;
+  target.strategicAttention = next.strategicAttention;
+  target.aiDecisionOpportunities = next.aiDecisionOpportunities;
   target.worldSeed = next.worldSeed;
   target.factions = next.factions;
   target.allFactionIds = next.allFactionIds;
@@ -311,6 +320,8 @@ export function cloneGameState(state: GameState): GameState {
     gameplaySessionLeases: state.gameplaySessionLeases.map(cloneGameplaySessionLease),
     lastFoodConsumptionTick: state.lastFoodConsumptionTick,
     lastAiDecisionTick: new Map(state.lastAiDecisionTick),
+    strategicAttention: { ...state.strategicAttention },
+    aiDecisionOpportunities: cloneMap(state.aiDecisionOpportunities, opportunity => ({ ...opportunity })),
     worldSeed: state.worldSeed,
     factions: cloneMap(state.factions, cloneWarlordSnapshot),
     allFactionIds: [...state.allFactionIds],

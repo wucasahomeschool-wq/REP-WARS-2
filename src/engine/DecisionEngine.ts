@@ -1,4 +1,3 @@
-import { operationForDecisionGate } from './operations';
 import { AIConcretePlan, cloneConcretePlan, makeConcretePlan, comparePlanIds } from '../types/AIConcretePlan';
 import { BALANCE } from '../constants/balance';
 import { SeededRNG } from '../utils/SeededRNG';
@@ -262,11 +261,9 @@ export class DecisionEngine {
     if (!canonicalFaction) throw new Error(`Unknown AI faction ${warlord.snapshot.id}`);
     warlord.refreshReasoning(canonicalFaction);
     if (gameState.canonicalState) {
-      // A retained compatibility wrapper cannot gate cognition with an obsolete
-      // operation. Canonical operations alone own the transitional initiation gate.
-      const current = operationForDecisionGate(gameState.canonicalState, canonicalFaction.id);
-      warlord.activeCommitment = current ? cloneCommitment(current) : null;
-      if (current) return this.decisionFromCommitment(warlord, current, turn, gameState, false);
+      // Authoritative opportunity/thread control belongs to the transaction
+      // boundary. Existing physical work never occupies this cognition DTO.
+      warlord.activeCommitment = null;
     }
     const existing = warlord.activeCommitment;
     if (existing && isActiveCommitmentStatus(existing.status)) {

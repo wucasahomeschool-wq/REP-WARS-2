@@ -1,7 +1,9 @@
 import type { AICommitment } from './index';
+import type { OperationAttention } from './AIStrategy';
 
 /** Domain timing/state lives on the linked army/project/invasion, never here. */
 export interface AIOperation extends AICommitment {
+  attention: OperationAttention;
   phase: 'selected' | 'physical' | 'recovery' | 'terminal';
   objective: 'valid' | 'invalid';
   createdAtTick: number;

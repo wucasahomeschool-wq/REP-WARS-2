@@ -1,4 +1,4 @@
-import { operationForDecisionGate, operationFromSelection } from '../engine/operations';
+import { operationFromSelection } from '../engine/operations';
 /**
  * ENGINE INPUT / OUTPUT BOUNDARY ADAPTERS (AUTHORITATIVE RUNTIME GAMESTATE
  * PASS). See docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "Engine input
@@ -80,14 +80,11 @@ export function toWorldStepInput(state: GameState, armies?: Map<string, Army>): 
   };
 }
 
-/** Rebuild disposable cognition adapters from canonical factions and the
- * transitional initiation gate. No wrapper owns operation progression. */
+/** Rebuild disposable cognition adapters. No wrapper owns operations or gating. */
 export function buildWarlordStates(state: GameState): Map<FactionId, WarlordState> {
   const out = new Map<FactionId, WarlordState>();
   for (const [id, snapshot] of state.factions.entries()) {
     const ws = new WarlordState(snapshot);
-    const commitment = operationForDecisionGate(state, id);
-    ws.activeCommitment = commitment ? cloneCommitment(commitment) : null;
     out.set(id, ws);
   }
   return out;

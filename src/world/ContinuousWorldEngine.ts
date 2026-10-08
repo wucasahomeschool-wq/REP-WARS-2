@@ -1,4 +1,5 @@
-import { activeOperations, operationForDecisionGate, settleOperation } from '../engine/operations';
+import { decisionOpportunityRejection } from '../engine/decisionOpportunities';
+import { activeOperations, settleOperation } from '../engine/operations';
 import { progressAllConstructions, displayedRemainingTicks } from '../gameplay/construction/progress';
 import { playerFacingTick } from '../gameplay/invasion/eligibility';
 import { BALANCE } from '../constants/balance';
@@ -178,10 +179,6 @@ function sortedAiFactionIds(state: GameState): FactionId[] {
     .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
-function markLastDecision(state: GameState, factionId: FactionId, worldTick: number): void {
-  state.lastAiDecisionTick.set(factionId, worldTick);
-}
-
 function progressRecord(
   state: GameState,
   operationId: string,
@@ -223,8 +220,8 @@ function progressRecord(
 
 /** Advance existing deterministic domain boundaries, then progress every
  * canonical operation by stable ID. Physical movement keeps army-ID order;
- * construction keeps project-ID order. New cognition is temporarily gated
- * while any same-faction operation lives; this is not Strategic Attention.
+ * construction keeps project-ID order. Canonical opportunities coalesce cognition;
+ * existing physical operation count never gates a new decision.
  */
 export class ContinuousWorldEngine {
   private compactInspectable = false;
@@ -363,9 +360,7 @@ export class ContinuousWorldEngine {
         this.resolveFaction(state, factionId, host, result, existing.id);
       }
     }
-    // Transitional pacing: do not initiate another cognition decision while
-    // any operation remains live. This is not the future Attention policy.
-    if (activeOperations(state, factionId).length) return;
+    if (decisionOpportunityRejection(state, factionId)) return;
 
     // AI RUNTIME INTEGRATION PASS — eliminated factions do not reassess.
     // A faction with no territories and no armies (see
@@ -389,9 +384,11 @@ export class ContinuousWorldEngine {
 
     const inner = host.decide(factionId);
     appendHandler(result, inner, this.compactInspectable);
-    markLastDecision(state, factionId, state.worldTick);
 
-    const created = operationForDecisionGate(state, factionId);
+
+    const selectedIds = inner.payload.selectedOperationIds;
+    const createdId = Array.isArray(selectedIds) ? selectedIds[0] : undefined;
+    const created = typeof createdId === 'string' ? state.operations.get(createdId) : undefined;
     if (created && isActiveCommitmentStatus(created.status)) {
       stampCommitmentTiming(created, state.worldTick);
       if (!this.compactInspectable) {
@@ -432,7 +429,7 @@ export class ContinuousWorldEngine {
     const action = before.action;
     const inner = host.resolve(factionId, operationId);
     appendHandler(result, inner, this.compactInspectable);
-    markLastDecision(state, factionId, state.worldTick);
+
     const after = state.operations.get(operationId);
     const outcome = typeof inner.payload.commitmentOutcome === 'string'
       ? inner.payload.commitmentOutcome
@@ -483,7 +480,7 @@ export class ContinuousWorldEngine {
             ? host.interruptCommitment(commitment.id, ev.reason ?? 'movement interrupted')
             : host.failCommitment(commitment.id, ev.reason ?? 'movement failed');
         appendHandler(result, inner, this.compactInspectable);
-        markLastDecision(state, factionId, state.worldTick);
+
         result.commitmentResolutions.push({
           factionId,
           commitmentId: ev.commitmentId,
@@ -509,7 +506,7 @@ export class ContinuousWorldEngine {
       const inner = host.executePendingAttack(army.id);
       appendHandler(result, inner, this.compactInspectable);
       if (inner.payload.skipped === true || inner.payload.attackOutcome === 'skipped') continue;
-      markLastDecision(state, army.owner, state.worldTick);
+
       const outcome = typeof inner.payload.commitmentOutcome === 'string'
         ? inner.payload.commitmentOutcome
         : typeof inner.payload.attackOutcome === 'string'
@@ -561,7 +558,7 @@ export class ContinuousWorldEngine {
       }
       const inner = host.failCommitment(commitment.id, item.reason);
       appendHandler(result, inner, this.compactInspectable);
-      markLastDecision(state, item.owner, state.worldTick);
+
       result.commitmentResolutions.push({
         factionId: item.owner,
         commitmentId: item.commitmentId,
@@ -590,7 +587,7 @@ export class ContinuousWorldEngine {
       if (isStrategicAttackInFlight(state, c.id) || isMovementCommitmentInFlight(state, c.id)) continue;
       const inner = host.failCommitment(c.id, 'physical force lifecycle is gone');
       appendHandler(result, inner, this.compactInspectable);
-      markLastDecision(state, c.warlordId, state.worldTick);
+
       result.commitmentResolutions.push({ factionId: c.warlordId, commitmentId: c.id,
         action: c.action, outcome: 'failed', success: false, worldTick: state.worldTick });
     }
