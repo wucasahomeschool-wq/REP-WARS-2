@@ -4,6 +4,8 @@ import assert from 'assert';
 import { DecisionEngine } from '../src/engine/DecisionEngine';
 import { applyCommitmentOutcomeFeedback } from '../src/engine/outcomeFeedback';
 import { ActionScorer, ScorerInput } from '../src/scoring/ActionScorer';
+import { ContextPlanComparator } from '../src/scoring/contextPlanComparison';
+import type { GameState } from '../src/types/GameState';
 import { buildWarlordStates, rebindWarlordRuntime, syncCommitmentsFromWarlordStates, toDecisionEngineSnapshot } from '../src/state/gameStateAdapters';
 import { cloneGameState } from '../src/state/cloneGameState';
 import { createLegacySampleMapGameState } from '../src/state/createGameState';
@@ -95,7 +97,10 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     const registry = createDefaultRegistry();
     registry.registerAi(new DecisionEngine(SEED));
     let next = state;
-    const seen = observeCognition(() => {
+    let seen:GameState|undefined;
+    const compare=ContextPlanComparator.prototype.compare;
+    ContextPlanComparator.prototype.compare=function(...args){seen=args[0];return compare.apply(this,args);};
+    try {
       next = runStateTransaction(state, (draft) => {
         draft.factions.get(FACTION)!.resources.gold = 7654;
         draft.factions.get(FACTION)!.memory = [{
@@ -106,9 +111,10 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
           req: request(), def: getCommandDefinition('AI_DECIDE')!, registry, runtime,
         });
       }).state;
-    });
-    assert.strictEqual(seen.ctx.self.resources.gold, 7654);
-    assert.strictEqual(seen.memory.getEntries()[0]!.id, 'mem_same_transaction');
+    } finally {ContextPlanComparator.prototype.compare=compare;}
+    assert.ok(seen,'the canonical source must reach factual comparison');
+    assert.strictEqual(seen.factions.get(FACTION)!.resources.gold, 7654);
+    assert.strictEqual(seen.factions.get(FACTION)!.memory[0]!.id, 'mem_same_transaction');
     assert.strictEqual(next.factions.get(FACTION)!.lastActions.length, 1);
     assert.deepStrictEqual(state, before, 'cognition must not mutate the preceding committed state');
   });

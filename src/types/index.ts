@@ -341,6 +341,10 @@ export interface ScoredAction {
 }
 export interface ScoredConcretePlan extends ScoredAction { plan: AIConcretePlan; }
 export interface Decision {
+    /** Ephemeral server-side diagnostics only; never persisted or publicly projected. */
+    planComparisonDiagnostics?: ReturnType<import('../scoring/contextPlanComparison').ContextPlanComparator['compare']> & {
+        resolution: ReturnType<typeof import('../scoring/contextPlanComparison').selectContextComparison>['resolution'];
+    };
     warlordId: FactionId;
     warlordName: string;
     turn: number;

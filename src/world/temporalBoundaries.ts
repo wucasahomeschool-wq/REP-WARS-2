@@ -413,7 +413,7 @@ function walkAction(
  * from `progress` at `presence`. Zero when that many whole ticks are already earned.
  * Uses Phase 1 ceiling division, so the previous millisecond is still short.
  */
-function millisecondsUntilWholeTicks(progress: FixedPointAccrual, targetWholeTicks: number, presence: TemporalPresence): number {
+export function millisecondsUntilWholeTicks(progress: FixedPointAccrual, targetWholeTicks: number, presence: TemporalPresence): number {
   assertWholeTicks(targetWholeTicks);
   if (progress.wholeTicks > targetWholeTicks) return 0;
   if (progress.wholeTicks === targetWholeTicks) return 0;

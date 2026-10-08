@@ -4,6 +4,8 @@ import { SeededRNG } from '../utils/SeededRNG';
 import { MemorySystem } from '../memory/MemorySystem';
 import { GoalSystem } from '../goals/GoalSystem';
 import { ActionScorer, ScorerInput, ScoringHelpers } from '../scoring/ActionScorer';
+import { ContextPlanComparator, selectContextComparison, comparisonScoredPlan } from '../scoring/contextPlanComparison';
+import type { AISourceContext } from '../types/AIPressure';
 import {
   WarlordSnapshot,
   GameStateSnapshot,
@@ -240,11 +242,10 @@ export function validateCommitmentTarget(
 }
 
 export class DecisionEngine {
-  private scorer: ActionScorer;
+  private scorer?: ActionScorer;
   private rng: SeededRNG;
 
   constructor(seed?: number) {
-    this.scorer = new ActionScorer();
     this.rng = new SeededRNG(seed ?? BALANCE.simulate.defaultSeed);
   }
 
@@ -256,7 +257,17 @@ export class DecisionEngine {
     return this.rng;
   }
 
-  decide(warlord: WarlordState, gameState: GameStateSnapshot, turn: number, plans?: readonly AIConcretePlan[], opportunityId?: string): Decision {
+  /** Canonical production entry: one current source, exact feasible plans.
+   * No ActionScorer fallback exists on this path. */
+  decideForSource(warlord:WarlordState,gameState:GameStateSnapshot,source:AISourceContext,plans:readonly AIConcretePlan[],opportunityId:string):Decision {
+    if(!gameState.canonicalState||source.factionId!==warlord.snapshot.id)throw new Error('Canonical source decision requires current transaction state');
+    return this.decide(warlord,gameState,gameState.turn,plans,opportunityId,source);
+  }
+
+  /** Legacy standalone tools/tests compatibility when source is omitted.
+   * Canonical handlers exclusively call decideForSource. */
+  decide(warlord: WarlordState, gameState: GameStateSnapshot, turn: number, plans?: readonly AIConcretePlan[], opportunityId?: string, source?:AISourceContext): Decision {
+    if(!source&&gameState.canonicalState?.aiDecisionOpportunities.get(warlord.snapshot.id)?.primary)throw new Error('Canonical proactive thread requires source-local evaluation');
     const canonicalFaction = gameState.factions.get(warlord.snapshot.id);
     if (!canonicalFaction) throw new Error(`Unknown AI faction ${warlord.snapshot.id}`);
     warlord.refreshReasoning(canonicalFaction);
@@ -277,16 +288,21 @@ export class DecisionEngine {
     warlord.goals.invalidateMissingTargets(gameState.factions.keys(), gameState.territories.keys());
 
     const self = warlord.snapshot;
-    const ctx = WarlordState.buildContext(self, gameState);
     const factionRNG = this.rng.fork(hashFactionId(self.id) ^ turn ^ (opportunityId ? hashFactionId(opportunityId) : 0));
-    const scorerInput: ScorerInput = {
-      ctx,
+    // Legacy snapshot-derived scoring context is not built on production path.
+    const scorerInput: ScorerInput | null = source ? null : {
+      ctx:WarlordState.buildContext(self, gameState),
       turn,
       rng: factionRNG,
       memory: warlord.memory,
       goals: warlord.goals,
     };
-    const allScored = plans ? this.scorer.scorePlans([...plans], scorerInput) : this.scorer.scoreAllActions(scorerInput);
+    const comparison=source?new ContextPlanComparator().compare(gameState.canonicalState!,source,plans!):null;
+    const comparisonSelection=comparison?selectContextComparison(comparison.comparisons,factionRNG):null;
+    // Even constructing the deprecated scorer is confined to standalone tools.
+    const legacyScorer=comparison?null:(this.scorer??=new ActionScorer());
+    const allScored = comparison ? comparison.comparisons.map(comparisonScoredPlan)
+      : plans ? legacyScorer!.scorePlans([...plans], scorerInput!) : legacyScorer!.scoreAllActions(scorerInput!);
     if (allScored.length === 0) {
       const commitment = this.createCommitment(warlord, {
         action: 'WAIT',
@@ -306,7 +322,9 @@ export class DecisionEngine {
       recordLastAction(warlord.snapshot, turn, commitment.action, commitment.targetId);
       return this.decisionFromCommitment(warlord, commitment, turn, gameState, true);
     }
-    const { selected, alternatives, confidence } = this.selectWithRandomness(allScored, factionRNG);
+    const { selected, alternatives, confidence } = comparisonSelection ? {
+      selected:comparisonScoredPlan(comparisonSelection.selected),alternatives:comparisonSelection.alternatives.map(comparisonScoredPlan),confidence:comparisonSelection.confidence,
+    } : this.selectWithRandomness(allScored, factionRNG);
     const finalReasoning = [...selected.reasoning];
     if (finalReasoning.length === 0) {
       finalReasoning.push('default strategy');
@@ -315,7 +333,7 @@ export class DecisionEngine {
     const ambitionInfluence =
       factorSum(selected.factorBreakdown, 'Ambition (goal persistence)')
       + factorSum(selected.factorBreakdown, 'Ambition (strategic push)');
-    const originatingGoalId = this.originatingGoalId(warlord, selected, gameState, turn);
+    const originatingGoalId = comparisonSelection ? comparisonSelection.selected.goalIds[0]??null : this.originatingGoalId(warlord, selected, gameState, turn);
     const commitment = this.createCommitment(warlord, {
       action: selected.action,
       plan: selected.plan!,
@@ -334,6 +352,7 @@ export class DecisionEngine {
     recordLastAction(warlord.snapshot, turn, commitment.action, commitment.targetId);
     const decision = this.decisionFromCommitment(warlord, commitment, turn, gameState, true);
     decision.topAlternatives = alternatives.slice(0, 5);
+    if(comparison&&comparisonSelection)decision.planComparisonDiagnostics={...comparison,resolution:comparisonSelection.resolution};
     return decision;
   }
 

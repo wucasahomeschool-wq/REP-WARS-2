@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { ContextPlanComparator } from '../src/scoring/contextPlanComparison';
 import { GameState } from '../src/types/GameState';
 import { AIConcretePlan, comparePlanIds, makeConcretePlan } from '../src/types/AIConcretePlan';
 import { PRESSURE_DOMAINS, emptyPressureMetrics } from '../src/types/AIPressure';
@@ -144,9 +145,9 @@ export function registerAiStrategicPressureTests({test,makeSelf,makeTerritory,cm
   test('Phase E review: pressure magnitude never changes scores inside a chosen context',()=>{
     const a=world();primeSourceDecision(a,'me');const b=cloneGameState(a);
     for(const c of b.aiPressure.values())c.pressure=T.maximum;
-    const captured:unknown[]=[];const score=ActionScorer.prototype.scorePlans;
-    ActionScorer.prototype.scorePlans=function(...args){const r=score.apply(this,args);captured.push(r);return r;};
-    try{handleAiDecide(a,context(a));handleAiDecide(b,context(b));}finally{ActionScorer.prototype.scorePlans=score;}
+    const captured:unknown[]=[];const score=ContextPlanComparator.prototype.compare;
+    ContextPlanComparator.prototype.compare=function(...args){const r=score.apply(this,args);captured.push(r);return r;};
+    try{handleAiDecide(a,context(a));handleAiDecide(b,context(b));}finally{ContextPlanComparator.prototype.compare=score;}
     assert.strictEqual(captured.length,2);assert.deepStrictEqual(captured[0],captured[1]);
   });
   test('Phase E review: a changed defending force invalidates a stale WAIT without relief',()=>{
@@ -193,9 +194,9 @@ export function registerAiStrategicPressureTests({test,makeSelf,makeTerritory,cm
     accrueWorldThroughReceipt(s,0);observeSources(s,'me');
     const build=[...s.aiPressure.values()].find(c=>c.domain==='DEVELOPMENT')!;assert.ok(build.blocked);
     assert.ok(![...s.aiPressure.values()].some(c=>c.domain==='DIPLOMACY_PEACE'));
-    const scored:string[][]=[];const score=ActionScorer.prototype.scorePlans;
-    ActionScorer.prototype.scorePlans=function(...args){scored.push(args[0].map(p=>p.action));return score.apply(this,args);};
-    try{accrueWorldThroughReceipt(s,100*600000);catchUpWorld(s,context(s),100);}finally{ActionScorer.prototype.scorePlans=score;}
+    const scored:string[][]=[];const score=ContextPlanComparator.prototype.compare;
+    ContextPlanComparator.prototype.compare=function(...args){scored.push(args[2].map(p=>p.action));return score.apply(this,args);};
+    try{accrueWorldThroughReceipt(s,100*600000);catchUpWorld(s,context(s),100);}finally{ContextPlanComparator.prototype.compare=score;}
     assert.ok(scored.length>0);assert.ok(scored.every(actions=>actions.every(a=>['ATTACK','MOVE','WAIT'].includes(a))));
     assert.ok([...s.operations.values()].some(op=>['ATTACK','MOVE'].includes(op.action)));
     assert.ok(![...s.operations.values()].some(op=>op.action==='BUILD'));

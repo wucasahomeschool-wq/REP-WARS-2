@@ -1,6 +1,7 @@
 import { primeSourceDecision } from './aiPressureFixtures';
 import { opportunity, selectWaitInitiation, prepareProactiveDecision, accrueProactiveClocks } from '../src/engine/proactiveCognition';
 import { registerAiStrategicPressureTests } from './aiStrategicPressure';
+import { registerAiStrategicEvaluationTests } from './aiStrategicEvaluation';
 import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import * as fs from 'fs';
@@ -3115,6 +3116,7 @@ registerAiConcretePlanTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
 registerAiOperationTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
 registerAiStrategyConcurrencyTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
 registerAiStrategicPressureTests({ test, makeSelf, makeTerritory, cmdReq });
+registerAiStrategicEvaluationTests({ test, makeSelf, makeTerritory, cmdReq });
 
 registerFoundationHardeningTests({
   test,

@@ -319,6 +319,8 @@ export interface ScorerInput {
 
 interface FactorEntry { factor: string; weight: number; contribution: number; }
 
+/** @deprecated Legacy standalone CLI/test scorer. Canonical proactive handlers
+ * use DecisionEngine.decideForSource / ContextPlanComparator exclusively. */
 export class ActionScorer {
   scoreAllActions(input: ScorerInput): ScoredConcretePlan[] {
     return this.scorePlans(generateConcretePlans(input.ctx.gameState, input.ctx.self.id), input);

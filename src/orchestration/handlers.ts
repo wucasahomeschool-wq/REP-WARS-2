@@ -686,7 +686,7 @@ export function handleAiDecide(state: GameState, ctx: HandlerContext): HandlerRe
     ctx.runtime.aiWarlordStates=buildWarlordStates(state);
     const ws=ctx.runtime.aiWarlordStates.get(id)!;
     const plans = sourceConcretePlans(state, source);
-    const decision = ai.decide(ws, toDecisionEngineSnapshot(state), state.turn, plans,state.aiDecisionOpportunities.get(id)!.primary!.opportunityId);
+    const decision = ai.decideForSource(ws, toDecisionEngineSnapshot(state), source, plans,state.aiDecisionOpportunities.get(id)!.primary!.opportunityId);
     if (decision.isNewCommitment && decision.commitment) {
       if (decision.commitment.action === 'WAIT') {
         // A WAIT owns only the primary initiation timer, never a physical operation.
