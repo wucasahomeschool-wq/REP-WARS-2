@@ -1,3 +1,4 @@
+import {processTradeBoundary} from '../gameplay/trade/trade';
 import { cancelInvalidReinforcements } from '../engine/operations';
 import { processPeaceBoundary } from '../gameplay/diplomacy/peace';
 import { GameState } from '../types/GameState';
@@ -14,9 +15,11 @@ export function runStateTransaction<T>(
   apply: (draft: GameState) => T,
 ): { state: GameState; result: T } {
   const draft = cloneGameState(state);
+  processTradeBoundary(draft);
   processPeaceBoundary(draft); // Earned diplomacy gates precede newly issued commands.
   const result = apply(draft);
   cancelInvalidReinforcements(draft);
+  processTradeBoundary(draft);
   processPeaceBoundary(draft);
   const violations = checkGameStateInvariants(draft);
   if (violations.length > 0) {

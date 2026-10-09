@@ -1,3 +1,5 @@
+import {liveTradeShipments} from '../gameplay/trade/trade';
+import {availableStocks} from '../gameplay/trade/resources';
 import { availableLocalTroops } from '../gameplay/recruitment/reinforcement';
 import { factionsAreHostile, relationshipBetween } from '../gameplay/diplomacy/relationships';
 import type { Army, Resources, Territory, ResourceType, RelationshipState } from '../types';
@@ -36,6 +38,7 @@ export interface CommittedEffect {
   classification: 'deterministic_execution'|'contingent_execution';
   armyId?: string; territoryId: string; projectType?: ConstructionProjectType;
   timing: TimingSupport; objectiveValid: boolean;
+  resourceDelivery?: {cargo:import('../types/AIConcretePlan').ResourceBundle;recipient:string;phase:import('../types/Trade').TradeShipment['phase'];work:ReturnType<typeof sampledActivityTiming>|null};
   localAllocation?: {quantity:number; destination:import('../types/AIConcretePlan').ReinforcePlan['destination']; initiation:ReturnType<typeof sampledActivityTiming>};
 }
 export interface FactualTerritory extends Omit<Territory,'baseValue'|'population'> {
@@ -69,7 +72,7 @@ export class FactualSupport {
     this.worldFraction=anchor&&anchor.lastAccrualAtMs===state.aiClock.nowMs?{wholeTicks:0,subTickMicroticks:anchor.subTickMicroticks,accrualDivisionRemainder:anchor.accrualDivisionRemainder}:emptyFixedPointAccrual();
     this.builds = [...state.constructions.values()].filter(p=>p.status==='in_progress').sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>({...p}));
     for(const [id,f] of [...state.factions].sort(([a],[b])=>comparePlanIds(a,b))) {
-      this.stocks.set(id,{...f.resources});
+      this.stocks.set(id,availableStocks(state,id));
       this.foodDemand.set(id,(state.worldLevel??0)>=2?f.territories.length*ECONOMY_CONFIG.foodPerTerritoryPerCycle:0);
       this.wars.set(id,[...state.factions.keys()].filter(fid=>factionsAreHostile(state,id,fid)).sort(comparePlanIds));
       this.relationshipStates.set(id,new Map([...state.factions.keys()].filter(fid=>fid!==id).sort(comparePlanIds).map(fid=>[fid,relationshipBetween(state,id,fid)])));
@@ -127,6 +130,7 @@ export class FactualSupport {
     for(const op of operations)if(op.plan?.action==='REINFORCE'&&op.initiationTimer) {
       effects.push({id:op.id,factionId:op.warlordId,territoryId:op.plan.territoryId,classification:'deterministic_execution',objectiveValid:op.objective==='valid',timing:this.timing(0,0,'external'),localAllocation:{quantity:op.plan.quantity,destination:{...op.plan.destination},initiation:sampledActivityTiming(op.initiationTimer,this.presence)}});
     }
+    for(const sh of liveTradeShipments(state))effects.push({id:sh.id,factionId:sh.sender,territoryId:sh.destinationTerritoryId,classification:'deterministic_execution',objectiveValid:true,timing:this.timing(sh.legStartedAtTick!==null?Math.max(0,sh.legStartedAtTick+sh.legDurationTicks!-(sh.blockedAtTick??state.worldTick)):0,sh.legDurationTicks??0,sh.phase==='blocked'?'blocked':'external'),resourceDelivery:{cargo:{...sh.cargo},recipient:sh.recipient,phase:sh.phase,work:sh.timer?sampledActivityTiming(sh.timer,this.presence):null}});
     this.committed=effects.sort((a,b)=>comparePlanIds(a.id,b.id));
   }
   timing(remainingTicks:number,totalTicks=remainingTicks,certainty:TimingSupport['certainty']='authored'):TimingSupport {
@@ -163,6 +167,7 @@ export class FactualSupport {
     const buildDemand=Math.max(0,...(['CITY','FORTIFICATION','FARM','MINE','LUMBER'] as const).map(k=>getConstructionProjectDefinition(k).cost[resource]??0));
     const unavoidable=resource==='food'?(this.foodDemand.get(factionId)??0):0;
     const committedCosts=this.builds.filter(p=>p.factionId===factionId).reduce((n,p)=>n+(getConstructionProjectDefinition(p.projectType).cost[resource]??0),0);
-    return {holdings,income,demand:Math.max(buildDemand,unavoidable),unavoidable,committedCostsAlreadyPaid:committedCosts,locality:'faction_bank_only' as const};
+    const committedIncoming=this.committed.reduce((n,e)=>e.resourceDelivery?.recipient===factionId&&e.resourceDelivery.phase!=='blocked'?Math.min(Number.MAX_SAFE_INTEGER,n+(e.resourceDelivery.cargo[resource]??0)):n,0);
+    return {holdings,income,demand:Math.max(buildDemand,unavoidable),unavoidable,committedIncoming,committedCostsAlreadyPaid:committedCosts,locality:'faction_bank_only' as const};
   }
 }

@@ -1,3 +1,5 @@
+import {settleTradeProposal} from '../gameplay/trade/trade';
+import {tradeResourceClaims,availableResource} from '../gameplay/trade/resources';
 import { timerRemaining } from './proactiveCognition';
 import { settlePeaceProposal } from '../gameplay/diplomacy/peace';
 import { availableLocalTroops, reinforcementProblem, allocateReinforcement } from '../gameplay/recruitment/reinforcement';
@@ -108,6 +110,7 @@ export function requiredClaims(plan: AIConcretePlan, operationId: string, state?
       ...(linkedInvasion || (state?.playerFactionId && state.territories.get(plan.targetTerritoryId)?.owner === state.playerFactionId)
         ? [claim('invasion_target', plan.targetTerritoryId)] : [])];
     case 'MOVE': case 'RETREAT': return [claim('force', plan.armyId)];
+    case 'TRADE': return tradeResourceClaims(plan,operationId);
     case 'BUILD': return [claim('construction_site', plan.territoryId)];
     case 'REINFORCE': return [{...claim('local_troops', plan.territoryId),quantity:plan.quantity},
       plan.destination.kind==='army'?claim('force',plan.destination.armyId):claim('garrison',plan.territoryId)];
@@ -123,7 +126,8 @@ export function acquireOperationClaims(state: GameState, op: AIOperation): void 
   const claims = requiredClaims(op.plan, op.id, state);
   if(op.plan.action==='REINFORCE' && availableLocalTroops(state,op.plan.territoryId,op.id)<op.plan.quantity)
     throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Local troop quantity already claimed');
-  for (const c of claims.filter(c=>c.kind!=='local_troops')) assertClaimAvailable(state, c.kind, c.subjectId, op.id, c.scopeFactionId);
+  if(op.plan.action==='TRADE' && claims.some(c=>availableResource(state,op.plan!.factionId,c.resourceType!,op.id)<c.quantity!))throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Offered resource quantity already claimed');
+  for (const c of claims.filter(c=>c.kind!=='local_troops'&&c.kind!=='resource')) assertClaimAvailable(state, c.kind, c.subjectId, op.id, c.scopeFactionId);
   // All conflicts checked before any writes. Domain start itself runs on an isolated draft.
   for (const c of claims) state.operationClaims.set(c.id, c);
   op.claimIds = claims.map(c => c.id).sort(comparePlanIds);
@@ -132,6 +136,11 @@ export function acquireOperationClaims(state: GameState, op: AIOperation): void 
 export function settleOperation(state: GameState, id: string, outcome: 'completed' | 'failed' | 'interrupted', reason: string): boolean {
   const op = state.operations.get(id);
   if (!op || op.terminal) return false;
+  if(op.plan?.action==='TRADE') {
+    const p=op.links.tradeProposalId?state.tradeProposals.get(op.links.tradeProposalId):undefined;
+    if(p&&['initiating','pending'].includes(p.status))return outcome==='completed'?false:settleTradeProposal(state,p.id,'invalidated');
+    if(outcome==='completed'&&p?.status!=='accepted')return false;
+  }
   if(op.plan?.action==='OFFER_PEACE') {
     const proposal=op.links.peaceProposalId?state.peaceProposals.get(op.links.peaceProposalId):undefined;
     if(proposal&&['initiating','pending'].includes(proposal.status))

@@ -41,6 +41,8 @@ export interface TradePlan extends PlanBase {
   readonly action: 'TRADE'; readonly counterpartyId: string;
   readonly offered: ResourceBundle; readonly requested: ResourceBundle;
   readonly proposerSource?: PlanResourceSource;
+  readonly delivery?: {readonly proposerTerritoryId:string;readonly recipientTerritoryId:string};
+  readonly sourceContextId?:string;
 }
 export interface WaitPlan extends PlanBase { readonly action: 'WAIT'; readonly opportunityTurn: number; readonly sourceContextId?: string; readonly opportunityId?: string }
 export type AIConcretePlan = AttackPlan | ReinforcePlan | BuildPlan | MovePlan | OfferPeacePlan | TradePlan | RetreatPlan | WaitPlan;
@@ -121,7 +123,7 @@ function inspectConcretePlan(value: unknown): string | null {
     RETREAT: ['armyId', 'originTerritoryId', 'fallbackTerritoryId', 'route'],
     BUILD: ['territoryId', 'projectType', 'resourceSource', 'targetFortificationLevel'],
     REINFORCE: ['territoryId', 'sourcePoolId', 'quantity', 'destination'],
-    OFFER_PEACE: ['counterpartyId'], TRADE: ['counterpartyId', 'offered', 'requested', 'proposerSource'],
+    OFFER_PEACE: ['counterpartyId'], TRADE: ['counterpartyId', 'offered', 'requested', 'proposerSource', 'delivery', 'sourceContextId'],
     WAIT: ['opportunityTurn','sourceContextId','opportunityId'],
   };
   if (Object.keys(p).some(k => !['id', 'action', 'factionId', ...fields[p.action as ProactiveAIAction]].includes(k))) return 'unexpected concrete plan parameter';
@@ -149,6 +151,7 @@ function inspectConcretePlan(value: unknown): string | null {
       if (!text(p.counterpartyId) || p.counterpartyId === p.factionId) return 'invalid counterparty';
       if (p.action === 'TRADE' && (!bundle(p.offered) || !bundle(p.requested) || !Object.keys(p.offered as object).length
         || !Object.keys(p.requested as object).length || (p.proposerSource !== undefined && !source(p.proposerSource)))) return 'invalid exact trade terms/source';
+      if(p.action==='TRADE' && (p.delivery!==undefined && (!text((p.delivery as Record<string,unknown>)?.proposerTerritoryId)||!text((p.delivery as Record<string,unknown>)?.recipientTerritoryId)) || p.sourceContextId!==undefined&&!text(p.sourceContextId)))return 'invalid trade endpoint/source context';
       break;
     case 'WAIT': if ((p.sourceContextId!==undefined&&!text(p.sourceContextId))||(p.opportunityId!==undefined&&!text(p.opportunityId))) return 'invalid WAIT source/opportunity'; if (!Number.isSafeInteger(p.opportunityTurn) || (p.opportunityTurn as number) < 0) return 'invalid WAIT opportunity'; break;
   }

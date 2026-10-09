@@ -1,3 +1,4 @@
+import {registerAiTradeTests} from './aiTrade';
 import { registerAiPeaceTests } from './aiPeace';
 import { registerAiRecruitmentTests } from './aiRecruitment';
 import { primeSourceDecision } from './aiPressureFixtures';
@@ -1659,7 +1660,7 @@ test('createGameState() contains the expected major state domains', () => {
   const expected = [
     'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'operationClaims', 'operations', 'constructions',
     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
-    'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
+    'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'tradeProposals', 'tradeShipments', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
@@ -2108,9 +2109,9 @@ test('invalid command returns INVALID_COMMAND', () => {
   assert.strictEqual(res.errors[0]!.code, ErrorCode.INVALID_COMMAND);
 });
 
-test('unsupported command returns FEATURE_NOT_IMPLEMENTED', () => {
+test('legacy declaration command returns FEATURE_NOT_IMPLEMENTED', () => {
   const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' }));
-  const res = orch.execute(cmdReq('TRADE', 'player_1', { targetFactionId: 'iron_kingdom' }));
+  const res = orch.execute(cmdReq('DECLARE_WAR', 'player_1', { targetFactionId: 'iron_kingdom' }));
   assert.strictEqual(res.success, false);
   assert.strictEqual(res.errors[0]!.code, ErrorCode.FEATURE_NOT_IMPLEMENTED);
 });
@@ -2473,7 +2474,7 @@ test('AI_DECIDE does not run DecisionEngine for the player faction', () => {
   assert.strictEqual(res.errors[0]!.code, ErrorCode.ACTION_NOT_ALLOWED);
 });
 
-test('Trade remains deferred while Peace rejects missing exact plans and player impersonation', () => {
+test('Trade and Peace reject missing exact plans and player impersonation', () => {
   const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' }));
   const peaceP = orch.execute(cmdReq('OFFER_PEACE', 'player_1', { targetFactionId: 'iron_kingdom' }));
   const peaceAi = orch.execute(cmdReq('OFFER_PEACE', 'player_1', {
@@ -2487,7 +2488,7 @@ test('Trade remains deferred while Peace rejects missing exact plans and player 
   assert.strictEqual(peaceAi.success,false);
   for (const r of [tradeP, tradeAi]) {
     assert.strictEqual(r.success, false);
-    assert.strictEqual(r.errors[0]!.code, ErrorCode.FEATURE_NOT_IMPLEMENTED);
+    assert.strictEqual(r.errors[0]!.code, ErrorCode.MISSING_PARAMETER);
   }
 });
 
@@ -3117,6 +3118,7 @@ registerAiStrategyConcurrencyTests({ test, makeSelf, makeTerritory, makeCmt, cmd
 registerAiStrategicPressureTests({ test, makeSelf, makeTerritory, cmdReq });
 registerAiRecruitmentTests({test,makeSelf,makeTerritory,cmdReq});
 registerAiPeaceTests({test,makeSelf,makeTerritory,cmdReq});
+registerAiTradeTests({test,makeSelf,makeTerritory,cmdReq});
 registerAiStrategicEvaluationTests({ test, makeSelf, makeTerritory, cmdReq });
 
 registerFoundationHardeningTests({

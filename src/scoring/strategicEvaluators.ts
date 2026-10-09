@@ -181,7 +181,10 @@ export class StrategicEvaluators {
       // Piecewise integral: sub-threshold holdings are twice as consequential;
       // excess holdings saturate. No universal resource exchange rates.
       const utility=(stock:number)=>T.scarcityThresholdUtility*Math.min(Math.max(0,stock),threshold)/threshold+Math.log1p(Math.max(0,stock-threshold)/threshold);
-      const marginal=direction==='gain'?utility(facts.holdings+q)-utility(facts.holdings):utility(facts.holdings)-utility(Math.max(0,facts.holdings-q));
+      // Accepted inbound goods belong in the no-additional-commitment baseline,
+      // but cannot fund a loss/spend until actual physical delivery.
+      const gainBaseline=facts.holdings+facts.committedIncoming;
+      const marginal=direction==='gain'?utility(gainBaseline+q)-utility(gainBaseline):utility(facts.holdings)-utility(Math.max(0,facts.holdings-q));
       return assessment('RESOURCE_VALUE',{...facts,resource,quantity:q,direction,territoryId:territoryId??null,accessibility,isSpendable,
         marginalUtility:accessibility==='uncollected'?0:Math.max(0,marginal),unfundedQuantity:direction==='gain'?0:Math.max(0,q-facts.holdings)},
         ['canonical faction.resources','existing construction cost bundles and paid projects','Food upkeep (level gated)','faction bank only; no invented local stockpile/manifest','Production benefit is output potential; collection is not assumed committed'],accessibility==='production'?{

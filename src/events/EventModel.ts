@@ -165,6 +165,8 @@ export interface HistoryEntry {
 }
 
 export interface WorldStepInput {
+  /** Disposable canonical claim projection; never a second stock authority. */
+  reservedResources?: Map<FactionId, Partial<Resources>>;
   turn: number;
   territories: Map<TerritoryId, Territory>;
   factions: Map<FactionId, WarlordSnapshot>;

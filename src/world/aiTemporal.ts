@@ -40,6 +40,13 @@ export function anchorAiReceiptClock(state:GameState):void {
     p.createdAtMs+=offset;if(p.pendingAtMs!==null)p.pendingAtMs+=offset;if(p.resolvedAtMs!==null)p.resolvedAtMs+=offset;
     if(p.responseTimer)p.responseTimer.progress.accruedThroughMs+=offset;
   }
+  for(const p of state.tradeProposals.values()) {
+    p.createdAtMs+=offset;if(p.pendingAtMs!==null)p.pendingAtMs+=offset;if(p.resolvedAtMs!==null)p.resolvedAtMs+=offset;
+    if(p.responseTimer)p.responseTimer.progress.accruedThroughMs+=offset;
+  }
+  for(const sh of state.tradeShipments.values()) {
+    sh.createdAtMs+=offset;if(sh.deliveredAtMs!==null)sh.deliveredAtMs+=offset;if(sh.timer)sh.timer.progress.accruedThroughMs+=offset;
+  }
   for(const r of state.peaceRelationships.values()) {
     r.acceptedAtMs+=offset;if(r.activatedAtMs!==null)r.activatedAtMs+=offset;if(r.expiresAtMs!==null)r.expiresAtMs+=offset;
     if(r.finalizationTimer)r.finalizationTimer.progress.accruedThroughMs+=offset;

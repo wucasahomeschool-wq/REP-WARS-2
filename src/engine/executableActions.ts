@@ -1,9 +1,9 @@
 import { ActionType } from '../types';
 
 /** New concrete-plan execution: reusable existing physical domains plus reward-free WAIT.
- * Local pool allocation and Peace proposals are timed; Trade remains deferred.
+ * Local pool allocation and Peace proposals are timed; Trade proposals transform into physical logistics.
  */
-export const EXECUTABLE_CONCRETE_ACTIONS: ReadonlySet<ActionType> = new Set(['ATTACK', 'BUILD', 'REINFORCE', 'OFFER_PEACE', 'MOVE', 'RETREAT', 'WAIT']);
+export const EXECUTABLE_CONCRETE_ACTIONS: ReadonlySet<ActionType> = new Set(['ATTACK', 'BUILD', 'REINFORCE', 'OFFER_PEACE', 'TRADE', 'MOVE', 'RETREAT', 'WAIT']);
 
 /** Historical classification only. Incomplete legacy commitments cannot start
  * canonical operations; no declaration may become executable through this bridge. */

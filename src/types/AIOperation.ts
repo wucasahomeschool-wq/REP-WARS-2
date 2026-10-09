@@ -12,7 +12,7 @@ export interface AIOperation extends AICommitment {
   objective: 'valid' | 'invalid';
   createdAtTick: number;
   claimIds: string[];
-  links: { armyId?: string; constructionId?: string; invasionId?: string; peaceProposalId?: string };
+  links: { armyId?: string; constructionId?: string; invasionId?: string; peaceProposalId?: string; tradeProposalId?:string };
   terminal: { outcome: 'completed' | 'failed' | 'interrupted'; reason: string; atTick: number } | null;
   /** Archived legacy reasoning may lack an exact plan. It cannot start a physical operation. */
   legacy?: boolean;
@@ -24,8 +24,9 @@ export interface AIOperation extends AICommitment {
 export interface AIOperationClaim {
   id: string;
   operationId: string;
-  kind: 'force' | 'construction_site' | 'engagement_target' | 'invasion_target' | 'local_troops' | 'garrison';
+  kind: 'force' | 'construction_site' | 'engagement_target' | 'invasion_target' | 'local_troops' | 'garrison' | 'resource';
   quantity?: number;
+  resourceType?: import('./index').ResourceType;
   subjectId: string;
   /** Existing pending-attack limit is faction-local, not ownership of enemy land. */
   scopeFactionId?: string;

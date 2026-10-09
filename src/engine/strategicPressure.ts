@@ -1,3 +1,4 @@
+import {tradeCandidates,observableTradeCounterparties} from '../gameplay/trade/candidates';
 import { reinforcementQuantities } from '../gameplay/recruitment/reinforcement';
 import { factionsAreHostile } from '../gameplay/diplomacy/relationships';
 import { recruitmentPoolId } from '../gameplay/recruitment/recruitment';
@@ -39,8 +40,8 @@ export function sourcePlanPredicates(state: GameState, source: AISourceContext):
     plans.set(id,p);
   };
   const fid=source.factionId;
-  if(activeOperations(state,fid).some(op=>op.sourceContextId===source.id && op.objective==='valid' && op.phase!=='selected'))return [];
-  if(source.domain==='TRADE_ECONOMIC')return [];
+  if(source.domain!=='TRADE_ECONOMIC'&&activeOperations(state,fid).some(op=>op.sourceContextId===source.id && op.objective==='valid' && op.phase!=='selected'))return [];
+  if(source.domain==='TRADE_ECONOMIC')return source.counterpartyId?tradeCandidates(state,fid,source.counterpartyId,source.id):[];
   if(source.domain==='DIPLOMACY_PEACE') {
     if(source.counterpartyId)add({action:'OFFER_PEACE',factionId:fid,counterpartyId:source.counterpartyId});
     return [...plans.values()];
@@ -184,16 +185,13 @@ export function deriveSources(state:GameState,fid:string,atMs:number):AISourceCo
   }
   for(const a of state.armies.values()) if(a.owner===fid && hostile(state,fid,state.territories.get(a.location)?.owner??null))
     add({domain:'FORCE_POSITIONING',kind:'EXPOSED_FORCE',subjectId:a.id});
+  const tradeCounterparties=new Set(observableTradeCounterparties(state,fid));
   const f=state.factions.get(fid)!;
   for(const other of state.factions.values()) if(other.id!==fid && f.knownFactions.includes(other.id)) {
     if(factionsAreHostile(state,fid,other.id)&&f.stability<50 && f.territories.some(id=>state.territories.get(id)?.neighboring.some(n=>state.territories.get(n)?.owner===other.id
       &&militaryAt(state,n,other.id)>(state.territories.get(id)?.garrison??0)+militaryAt(state,id,fid))))
       add({domain:'DIPLOMACY_PEACE',kind:'WAR_BURDEN',subjectId:other.id,counterpartyId:other.id});
-    // Need + actual complementary counterparty holdings. No hostile exclusion.
-    const need=(['gold','wood','stone','iron','food'] as const).find(k=> f.resources[k] < (k==='food'?f.territories.length*ECONOMY_CONFIG.foodPerTerritoryPerCycle:
-      Math.max(...listConstructionProjectTypes().map(p=>getConstructionProjectDefinition(p).cost[k]??0))) && other.resources[k]>f.resources[k]);
-    const exchange=need&&(['gold','wood','stone','iron','food'] as const).some(k=>k!==need&&f.resources[k]>other.resources[k]&&f.resources[k]>0);
-    if(exchange) add({domain:'TRADE_ECONOMIC',kind:'RESOURCE_EXCHANGE',subjectId:other.id,counterpartyId:other.id});
+    if(tradeCounterparties.has(other.id)) add({domain:'TRADE_ECONOMIC',kind:'RESOURCE_EXCHANGE',subjectId:other.id,counterpartyId:other.id});
   }
   return out.sort((a,b)=>comparePlanIds(a.id,b.id));
 }
@@ -201,7 +199,7 @@ export function pressureRate(state:GameState,s:AISourceContext):number {
   const goals=state.factions.get(s.factionId)?.goals??[];
   const matching=goals.some(g=>g.progress<g.targetProgress && (g.targetTerritory===s.subjectId || (!!s.counterpartyId&&g.targetFaction===s.counterpartyId)));
   // A committed operation reduces residual urgency but never invents completion.
-  const addressed=activeOperations(state,s.factionId).some(op=>op.sourceContextId===s.id && op.objective==='valid' && op.phase!=='selected');
+  const addressed=s.domain!=='TRADE_ECONOMIC'&&activeOperations(state,s.factionId).some(op=>op.sourceContextId===s.id && op.objective==='valid' && op.phase!=='selected');
   const base=addressed?0:T.unitsPerOnlineSecond;
   return matching?Math.floor(base*T.goalAmplifierNumerator/T.goalAmplifierDenominator):base;
 }
@@ -235,7 +233,7 @@ export function observeSources(state:GameState,fid:string,metrics?:AIPressureMet
     s.blockers=probe.blockers;
     s.unavailableReason=probe.predicates.length?null:
       (activeOperations(state,fid).some(op=>op.sourceContextId===s.id&&op.objective==='valid'&&op.phase!=='selected')?'ALREADY_ADDRESSED':
-      s.domain==='DIPLOMACY_PEACE'||s.domain==='TRADE_ECONOMIC'?'LIFECYCLE_UNAVAILABLE':'NO_AUTHORIZED_FORCE_OR_ROUTE');
+      'NO_AUTHORIZED_FORCE_OR_ROUTE');
     if(s.blocked&&!wasBlocked) {
       const o=state.aiDecisionOpportunities.get(fid);
       if(o&&!o.primary)o.lastOutcome='NO_ACTIONABLE_PLAN';

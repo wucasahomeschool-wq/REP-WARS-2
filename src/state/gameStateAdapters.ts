@@ -1,3 +1,5 @@
+import {reservedResource} from '../gameplay/trade/resources';
+import {RESOURCE_KEYS} from '../gameplay/economy/config';
 import { operationFromSelection } from '../engine/operations';
 /**
  * ENGINE INPUT / OUTPUT BOUNDARY ADAPTERS (AUTHORITATIVE RUNTIME GAMESTATE
@@ -68,7 +70,9 @@ export function toDecisionEngineSnapshot(state: GameState): GameStateSnapshot {
  * (see `docs/EVENT_ENGINE_CORRECTNESS.md`).
  */
 export function toWorldStepInput(state: GameState, armies?: Map<string, Army>): WorldStepInput {
+  const reservedResources=new Map([...state.factions.keys()].map(fid=>[fid,Object.fromEntries(RESOURCE_KEYS.map(r=>[r,reservedResource(state,fid,r)]))]));
   return {
+    reservedResources,
     turn: state.turn,
     territories: state.territories,
     factions: state.factions,

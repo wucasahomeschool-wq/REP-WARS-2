@@ -215,16 +215,10 @@ export const COMMAND_INDEX: CommandDefinition[] = [
     required:[p('proposalId','string','Exact player-originated proposal')],optional:[p('factionId','string','Player proposer')],
     routesTo:['state'],changesState:true,status:'implemented',possibleErrors:[ErrorCode.ACTION_NOT_ALLOWED],
   }),
-  cmd({
-    commandId: 'TRADE',
-    category: 'DIPLOMACY',
-    description: 'Not supported: current model adjusts opinion/memory but does not exchange resources.',
-    required: [p('targetFactionId', 'string', 'Trade partner')],
-    routesTo: ['state'],
-    changesState: false,
-    status: 'unsupported',
-    possibleErrors: [ErrorCode.FEATURE_NOT_IMPLEMENTED],
-  }),
+  cmd({commandId:'TRADE',category:'DIPLOMACY',description:'Initiate exact timed Trade, legal during WAR; reserve offered bank sources.',required:[p('plan','object','Exact Trade plan')],optional:[p('factionId','string','Proposer')],routesTo:['state'],changesState:true,status:'implemented',possibleErrors:[ErrorCode.ACTION_NOT_ALLOWED,ErrorCode.INVALID_PARAMETER]}),
+  cmd({commandId:'RESPOND_TRADE',category:'DIPLOMACY',description:'Required ACCEPT_TRADE/DECLINE_TRADE response.',required:[p('proposalId','string','Exact proposal'),p('response','string','Response')],optional:[p('factionId','string','Recipient')],routesTo:['state'],changesState:true,status:'implemented',possibleErrors:[ErrorCode.ACTION_NOT_ALLOWED]}),
+  cmd({commandId:'WITHDRAW_TRADE',category:'DIPLOMACY',description:'Player withdraws own pending Trade.',required:[p('proposalId','string','Proposal')],optional:[p('factionId','string','Player')],routesTo:['state'],changesState:true,status:'implemented',possibleErrors:[ErrorCode.ACTION_NOT_ALLOWED]}),
+  cmd({commandId:'COUNTEROFFER_TRADE',category:'DIPLOMACY',description:'Atomic exact response replacement, never proactive NEGOTIATE.',required:[p('proposalId','string','Old proposal'),p('plan','object','Exact reverse Trade plan')],optional:[p('factionId','string','Countering recipient')],routesTo:['state'],changesState:true,status:'implemented',possibleErrors:[ErrorCode.ACTION_NOT_ALLOWED]}),
 
   cmd({
     commandId: 'SYNC_PLAYER_WORLD',

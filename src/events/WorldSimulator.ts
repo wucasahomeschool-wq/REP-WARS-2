@@ -137,6 +137,7 @@ export class ConsequenceApplier {
     territories: Map<TerritoryId, Territory>,
     factions: Map<FactionId, WarlordSnapshot>,
     armies?: Map<ArmyId, Army>,
+    private readonly reservedResources?: Map<FactionId,Partial<Resources>>,
   ) {
     this.territories = cloneMap(territories, cloneTerritory);
     this.factions = cloneMap(factions, cloneWarlordSnapshot);
@@ -180,7 +181,7 @@ export class ConsequenceApplier {
         if (d.stabilityDelta) f.stability = Math.max(0, Math.min(100, f.stability + d.stabilityDelta));
         if (d.resources) {
           for (const k of Object.keys(d.resources) as (keyof Resources)[]) {
-            f.resources[k] = Math.max(0, (f.resources[k] ?? 0) + (d.resources[k] ?? 0));
+            f.resources[k] = Math.max(this.reservedResources?.get(factionId)?.[k]??0, (f.resources[k] ?? 0) + (d.resources[k] ?? 0));
           }
         }
         // Faction-wide income % only when this consequence is not already
@@ -225,7 +226,7 @@ export class ConsequenceApplier {
     const f = this.factions.get(factionId);
     if (!f) return false;
     for (const k of Object.keys(cost) as (keyof Resources)[]) {
-      if ((f.resources[k] ?? 0) < (cost[k] ?? 0)) return false;
+      if ((f.resources[k] ?? 0) - (this.reservedResources?.get(factionId)?.[k]??0) < (cost[k] ?? 0)) return false;
     }
     return true;
   }
@@ -235,7 +236,7 @@ export class ConsequenceApplier {
     const f = this.factions.get(factionId);
     if (!f) return;
     for (const k of Object.keys(cost) as (keyof Resources)[]) {
-      f.resources[k] = Math.max(0, (f.resources[k] ?? 0) - (cost[k] ?? 0));
+      f.resources[k] = Math.max(this.reservedResources?.get(factionId)?.[k]??0, (f.resources[k] ?? 0) - (cost[k] ?? 0));
     }
   }
 }
@@ -263,7 +264,7 @@ export class WorldSimulator {
     const terr = cloneMap(input.territories, cloneTerritory);
     const facts = cloneMap(input.factions, cloneWarlordSnapshot);
 
-    this.applier = new ConsequenceApplier(terr, facts, input.armies);
+    this.applier = new ConsequenceApplier(terr, facts, input.armies,input.reservedResources);
 
     const nextId = makeDeterministicIdFactory(input.seed, turn);
 
@@ -576,7 +577,7 @@ export class WorldSimulator {
     const rng = new SeededRNG(input.seed ^ BW.rngSalt ^ input.activeEventInstanceId.length);
     const terr = cloneMap(input.territories, cloneTerritory);
     const facts = cloneMap(input.factions, cloneWarlordSnapshot);
-    const applier = new ConsequenceApplier(terr, facts, input.armies);
+    const applier = new ConsequenceApplier(terr, facts, input.armies,input.reservedResources);
     const activeEvents = input.activeEvents.map(cloneActiveEvent);
     const newHistory = [...input.eventHistory];
     const nextId = makeDeterministicIdFactory(input.seed, input.turn);

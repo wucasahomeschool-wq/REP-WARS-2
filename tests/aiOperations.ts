@@ -462,11 +462,11 @@ export function registerAiOperationTests({ test, makeSelf, makeTerritory, makeCm
     const d=cloneGameState(o.getState()),before=encodePersistable(d);assert.strictEqual(settleOperation(d,id,'completed','duplicate battle'),false);
     assert.deepStrictEqual(encodePersistable(d),before);
   });
-  test('Phase C review: unavailable final actions cannot masquerade as physical operations',()=>{
+  test('Phase C/I: incomplete Trade cannot masquerade as a linked physical proposal',()=>{
     const s=world(),plan=makeConcretePlan({action:'TRADE',factionId:'me',counterpartyId:'enemy',offered:{gold:2},requested:{food:1}});
     const op=operationFromSelection({...makeCmt({warlordId:'me',action:'TRADE',targetId:'enemy'}),id:'unavailable',plan},0);
     op.phase='physical';op.status='executing';s.operations.set(op.id,op);
-    assert.ok(checkGameStateInvariants(s).some(v=>v.code==='operation.unavailable_physical_action'));
+    assert.ok(checkGameStateInvariants(s).some(v=>v.code==='trade.invalid_state'));
   });
 
   test('Phase C review: ambiguous legacy invasion settlement never clears another operation march',()=>{

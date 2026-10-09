@@ -1,3 +1,4 @@
+import {progressTradeShipments} from '../gameplay/trade/trade';
 import { progressRecruitment, settleRecruitmentWorldBoundary } from '../gameplay/recruitment/recruitment';
 import { nextAiWorldBoundary, commitAiWorldBoundary } from './aiTemporal';
 import { activeOperations, settleOperation } from '../engine/operations';
@@ -276,6 +277,7 @@ export class ContinuousWorldEngine {
       this.advanceArmyMovements(state, host, result);
       const constructing = activeOperations(state).filter(o => o.action === 'BUILD' && o.phase !== 'selected').map(o => o.id);
       progressAllConstructions(state);
+      progressTradeShipments(state); // Physical delivery precedes deadline gates and world-event choices.
       for (const id of constructing) {
         const op = state.operations.get(id)!;
         if (op.terminal) result.commitmentResolutions.push({ factionId: op.warlordId, commitmentId: id,

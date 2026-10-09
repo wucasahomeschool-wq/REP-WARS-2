@@ -214,7 +214,7 @@ export function registerAiConcretePlanTests(api: Api): void {
     assert.strictEqual(migrated.operations.get(legacy.id)!.plan, undefined);
     assert.strictEqual(migrated.operations.get(legacy.id)!.phase, 'terminal');
   });
-  test('Phase B: future-shaped pool and proposal contracts do not enable legacy execution', () => {
+  test('Phase B/I: incomplete historical proposal contracts cannot execute without exact sources', () => {
     const state = world();
     const future = [
       makeConcretePlan({ action: 'REINFORCE', factionId: 'me', territoryId: 'home', sourcePoolId: 'pool_home', quantity: 30, destination: { kind: 'garrison', territoryId: 'home' } }),
@@ -223,7 +223,7 @@ export function registerAiConcretePlanTests(api: Api): void {
     for (const p of future) {
       assert.strictEqual(concretePlanProblem(p), null); const s = cloneGameState(state); commit(s, p);
       const orch = new Orchestrator(s); const result = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'me' }));
-      assert.strictEqual(result.success, false); assert.strictEqual(result.errors[0]!.code, p.action==='REINFORCE'?'INVALID_TARGET':'FEATURE_NOT_IMPLEMENTED');
+      assert.strictEqual(result.success, false); assert.strictEqual(result.errors[0]!.code, 'INVALID_TARGET');
       assert.strictEqual(orch.getState().territories.get('home')!.garrison, 20);
       assert.strictEqual(orch.getState().factions.get('me')!.resources.gold, 10000);
     }

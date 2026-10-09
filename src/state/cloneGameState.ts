@@ -1,3 +1,5 @@
+import {indexedTradeMap} from '../gameplay/trade/records';
+import {proposalLive,shipmentLive} from '../gameplay/trade/trade';
 import { cloneConcretePlan } from '../types/AIConcretePlan';
 import { cloneOperations } from '../engine/operations';
 /**
@@ -251,6 +253,7 @@ export function adoptOwnedTransactionState(target: GameState, next: GameState): 
   target.peaceRelationships = next.peaceRelationships;
   target.peaceProposals = next.peaceProposals;
   target.peaceProposalThreads = next.peaceProposalThreads;
+  target.tradeProposals=next.tradeProposals;target.tradeShipments=next.tradeShipments;
   target.worldSeed = next.worldSeed;
   target.factions = next.factions;
   target.allFactionIds = next.allFactionIds;
@@ -355,6 +358,8 @@ export function cloneGameState(state: GameState): GameState {
     peaceRelationships: cloneMap(state.peaceRelationships, r => ({...r,factions:[...r.factions],finalizationTimer:r.finalizationTimer?{...r.finalizationTimer,progress:{...r.finalizationTimer.progress}}:null})),
     peaceProposals: cloneMap(state.peaceProposals, p => ({...p,responseTimer:p.responseTimer?{...p.responseTimer,progress:{...p.responseTimer.progress}}:null})),
     peaceProposalThreads: new Map(state.peaceProposalThreads),
+    tradeProposals:indexedTradeMap(proposalLive,[...state.tradeProposals].map(([id,p])=>[id,JSON.parse(JSON.stringify(p))] as const)),
+    tradeShipments:indexedTradeMap(shipmentLive,[...state.tradeShipments].map(([id,p])=>[id,JSON.parse(JSON.stringify(p))] as const)),
     territoryEconomy: cloneMap(state.territoryEconomy, cloneTerritoryEconomy),
     territoryInfrastructure: cloneMap(state.territoryInfrastructure, cloneTerritoryInfrastructure),
     playerFitness: clonePlayerFitness(state.playerFitness),

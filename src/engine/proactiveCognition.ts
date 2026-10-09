@@ -1,3 +1,4 @@
+import {accrueTradeTimers,nextTradeBoundary,hasRequiredTradeResponse} from '../gameplay/trade/trade';
 import { progressRecruitmentThroughReceipt } from '../gameplay/recruitment/recruitment';
 import { accruePeaceTimers, nextPeaceBoundary, hasRequiredPeaceResponse } from '../gameplay/diplomacy/peace';
 import { activeOperations } from './operations';
@@ -64,7 +65,7 @@ export function prepareProactiveDecision(state:GameState,fid:string,metrics?:AIP
   const o=opportunity(state,fid);
   // Completed spacing cannot stay as a 1-ms wake while required work owns cognition.
   if(o.spacing&&timerRemaining(state,o.spacing)===0)o.spacing=null;
-  if(hasRequiredPeaceResponse(state,fid)&&(!o.primary||o.primary.phase==='deliberating')) {
+  if((hasRequiredPeaceResponse(state,fid)||hasRequiredTradeResponse(state,fid))&&(!o.primary||o.primary.phase==='deliberating')) {
     if(o.primary){o.primary=null;o.lastBoundaryMs=state.aiClock.nowMs;}
     return null; // Required lane preempts unfinished thought, never committed initiation.
   }
@@ -94,7 +95,7 @@ export function invalidateProactiveInitiation(state:GameState,fid:string):void {
 /** Next meaningful temporal boundary, not a poll. Blocked contexts have no
  * pressure-triggered wake. Saturation and physical completion do not spawn cognition. */
 export function nextProactiveBoundary(state:GameState,horizon:number,presence:TemporalPresence):number {
-  let next=nextPeaceBoundary(state,horizon,presence);
+  let next=nextTradeBoundary(state,nextPeaceBoundary(state,horizon,presence),presence);
   for(const op of activeOperations(state))if(op.initiationTimer)next=Math.min(next,state.aiClock.nowMs+Math.max(1,durationRemainingMs(op.initiationTimer.progress,op.initiationTimer.onlineDurationMs,presence)));
   for(const [fid,o] of state.aiDecisionOpportunities) {
     if(!factionCanObserve(state,fid))continue;
@@ -115,6 +116,7 @@ export function accrueProactiveClocks(state:GameState,atMs:number,presence:Tempo
   progressRecruitmentThroughReceipt(state,atMs);
   accrueSourcePressure(state,elapsed,presence);
   accruePeaceTimers(state,atMs,presence);
+  accrueTradeTimers(state,atMs,presence);
   for(const o of state.aiDecisionOpportunities.values()) {
     if(o.primary?.timer)o.primary.timer.progress=accrueDurationProgress(o.primary.timer.progress,atMs,presence);
     if(o.spacing)o.spacing.progress=accrueDurationProgress(o.spacing.progress,atMs,presence);

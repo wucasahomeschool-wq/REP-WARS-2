@@ -355,6 +355,8 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   if(schema<23)migratePeaceState(state as unknown as GameState);
   else if(!(state.peaceRelationships instanceof Map)||!(state.peaceProposals instanceof Map)||!(state.peaceProposalThreads instanceof Map))
     throw new PersistenceError('persistence.corrupt','Schema 23 requires canonical Peace relationships, proposals and threads');
+  if(schema<24){state.tradeProposals=new Map();state.tradeShipments=new Map();}
+  else if(!(state.tradeProposals instanceof Map)||!(state.tradeShipments instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 24 requires Trade proposals and shipments');
   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
   return state;
 }

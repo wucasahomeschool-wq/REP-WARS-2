@@ -1,3 +1,4 @@
+import {tradeStateProblems} from './tradeInvariants';
 import { peaceStateProblems } from './peaceInvariants';
 import { REINFORCE_INITIATION } from '../constants/recruitment';
 import { RECRUITMENT_WORK_PER_TICK, simulationWork } from '../gameplay/recruitment/recruitment';
@@ -101,7 +102,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       push('opportunity.invalid_boundary', `Opportunity ${factionId} has invalid boundary`);
     if (opportunity.primaryOperationId !== null) {
       const primary = state.operations.get(opportunity.primaryOperationId);
-      if (!primary || primary.warlordId !== factionId || !(primary.phase === 'selected' || ['REINFORCE','OFFER_PEACE'].includes(primary.action) && primary.phase === 'physical'))
+      if (!primary || primary.warlordId !== factionId || !(primary.phase === 'selected' || ['REINFORCE','OFFER_PEACE','TRADE'].includes(primary.action) && primary.phase === 'physical'))
         push('opportunity.invalid_primary', `Opportunity ${factionId} does not own a pending initiation`);
     }
   }
@@ -418,7 +419,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       if (op.phase === 'selected' && (attention.cost !== 0 || acquired !== null || released !== null))
         push('attention.selected_charge', `Selection ${id} acquired Attention before initiation`);
       if (['physical','recovery'].includes(op.phase)) {
-        if (['ATTACK','MOVE','RETREAT','BUILD','OFFER_PEACE'].includes(op.action) && attention.cost === 0)
+        if (['ATTACK','MOVE','RETREAT','BUILD','OFFER_PEACE','TRADE'].includes(op.action) && attention.cost === 0)
           push('attention.missing_physical_cost', `Physical operation ${id} bypasses ordinary Attention`);
         if (released !== null || (attention.cost > 0 && acquired === null)) push('attention.missing_charge', `Physical operation ${id} lacks its charge`);
         const totals = attentionTotals.get(op.warlordId) ?? { ordinary: 0, historical: 0 };
@@ -452,7 +453,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     for (const claimId of op.claimIds) if (state.operationClaims.get(claimId)?.operationId !== id)
       push('operation.missing_claim', `operation ${id} lacks owned claim ${claimId}`);
     if ((op.phase === 'physical' || op.phase === 'recovery') && op.plan && !planProblem) {
-      if (!['ATTACK','MOVE','RETREAT','BUILD','REINFORCE','OFFER_PEACE'].includes(op.plan.action)) push('operation.unavailable_physical_action', `operation ${id} has no implemented physical lifecycle`);
+      if (!['ATTACK','MOVE','RETREAT','BUILD','REINFORCE','OFFER_PEACE','TRADE'].includes(op.plan.action)) push('operation.unavailable_physical_action', `operation ${id} has no implemented physical lifecycle`);
       const extinctInvader = op.phase === 'recovery' && !!op.links.invasionId && state.activeInvasions.has(op.links.invasionId)
         && 'armyId' in op.plan && !state.armies.has(op.plan.armyId);
       for (const c of requiredClaims(op.plan, id, state, !!op.links.invasionId).filter(c => extinctInvader ? c.kind !== 'force' : op.phase !== 'recovery' || c.kind === 'force')) if (state.operationClaims.get(c.id)?.operationId !== id)
@@ -488,13 +489,13 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
   for (const [id, claim] of state.operationClaims) {
     if (!claim || typeof claim !== 'object') { push('claim.invalid_shape', `claim ${id} is malformed`); continue; }
     const op = state.operations.get(claim.operationId);
-    if (!['force','construction_site','engagement_target','invasion_target','local_troops','garrison'].includes(claim.kind)) push('claim.invalid_kind', `claim ${id} has unknown kind`);
-    if (id !== claim.id || id !== claimIdentity(claim.kind, claim.subjectId, claim.scopeFactionId, claim.operationId)) push('claim.invalid_identity', `claim ${id} has inconsistent subject identity`);
+    if (!['force','construction_site','engagement_target','invasion_target','local_troops','garrison','resource'].includes(claim.kind)) push('claim.invalid_kind', `claim ${id} has unknown kind`);
+    if (id !== claim.id || claim.kind!=='resource'&&id !== claimIdentity(claim.kind, claim.subjectId, claim.scopeFactionId, claim.operationId)) push('claim.invalid_identity', `claim ${id} has inconsistent subject identity`);
     if (!op || op.phase === 'terminal' || !op.claimIds?.includes(id)) push('claim.orphan', `claim ${id} has no active owning operation`);
     if (op?.plan && !concretePlanProblem(op.plan) && !requiredClaims(op.plan, op.id, state, !!op.links.invasionId).some(c => c.id === id))
       push('claim.plan_mismatch', `claim ${id} is not required by its owner's exact plan`);
     if (claim.kind === 'engagement_target' && claim.scopeFactionId !== op?.warlordId) push('claim.invalid_scope', `claim ${id} faction scope disagrees`);
-    if (claim.kind === 'force' ? !state.armies.has(claim.subjectId) : !state.territories.has(claim.subjectId))
+    if (claim.kind==='resource'?!state.factions.has(claim.scopeFactionId!):claim.kind === 'force' ? !state.armies.has(claim.subjectId) : !state.territories.has(claim.subjectId))
       push('claim.missing_subject', `claim ${id} subject no longer exists`);
   }
   const quantities = new Map<string,number>();
@@ -885,6 +886,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     }
   }
 
+  for(const problem of tradeStateProblems(state))push('trade.invalid_state',problem);
   return violations;
 }
 

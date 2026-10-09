@@ -76,7 +76,7 @@ export function registerOrchestratorIntegrationTests(api: OrchestratorIntegratio
   test('command catalog matches routed handlers', () => {
     const implemented = COMMAND_INDEX.filter((c) => c.status === 'implemented');
     const unsupported = COMMAND_INDEX.filter((c) => c.status === 'unsupported');
-    assert.deepStrictEqual(unsupported.map((c) => c.commandId).sort(), ['DECLARE_WAR', 'TRADE']);
+    assert.deepStrictEqual(unsupported.map((c) => c.commandId).sort(), ['DECLARE_WAR']);
     for (const def of implemented) {
       if (!def.changesState) {
         assert.ok(READ_ONLY_HANDLERS[def.commandId], `missing read handler ${def.commandId}`);

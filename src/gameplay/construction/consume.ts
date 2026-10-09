@@ -1,3 +1,4 @@
+import {availableResource} from '../trade/resources';
 import { assertClaimAvailable } from '../../engine/operations';
 import { ConstructionProject, ConstructionProjectType, GameState } from '../../types/GameState';
 import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
@@ -36,7 +37,7 @@ export function startConstruction(
   const { cost, durationTicks } = definition;
   const charges = constructionCostEntries(cost);
   for (const { resource, amount } of charges) {
-    if (faction.resources[resource] < amount) {
+    if (availableResource(state,params.factionId,resource) < amount) {
       throw new OrchestrationError(ErrorCode.INSUFFICIENT_RESOURCES, 'Insufficient resources to start construction');
     }
   }

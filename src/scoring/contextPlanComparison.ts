@@ -1,3 +1,7 @@
+import {bundleEntries} from '../gameplay/trade/resources';
+import {TRADE_TUNING} from '../constants/trade';
+import {tradeRoute} from '../gameplay/trade/policy';
+import {tradeResponseEstimate} from './tradeAssessment';
 import { RECRUITMENT_TUNING } from '../constants/recruitment';
 import { PEACE_TUNING } from '../constants/peace';
 import { counterpartyResponseEstimate, peaceEstimateView } from './peaceAssessment';
@@ -86,6 +90,17 @@ export class ContextPlanComparator {
       add('war:continuation_avoided','WAR_VALUE','source_resolution',-war.facts.currentPositionBalance*PEACE_TUNING.warPositionWeight,'Opponent-specific current factual war position; no invented historical exhaustion','limited');
       add('proposal:external_choice','WAR_VALUE','realization',-T.uncertaintyWeight,estimate.limitations.join(' '),'limited');
       downside=Math.max(0,war.facts.currentPositionBalance);
+     } else if(plan.action==='TRADE') {
+      let gain=0,loss=0;
+      for(const [r,n]of bundleEntries(plan.requested)){const a=evaluators.resourceValue(plan.factionId,r,n,'gain');assessments.push(a);gain+=a.facts.marginalUtility;}
+      for(const [r,n]of bundleEntries(plan.offered)){const a=evaluators.resourceValue(plan.factionId,r,n,'loss');assessments.push(a);loss+=a.facts.marginalUtility;}
+      add('trade:requested_gain','RESOURCE_VALUE','source_resolution',saturatingMagnitude(gain,T.resourceScale)*TRADE_TUNING.resourceWeight,'Exact requested marginal resource gain');
+      add('trade:offered_loss','RESOURCE_VALUE','direct_cost',-saturatingMagnitude(loss,T.resourceScale)*TRADE_TUNING.resourceWeight,'Exact offered marginal resource loss, sole owner');
+      const estimate=tradeResponseEstimate({offered:plan.offered,requested:plan.requested});
+      add('trade:external_choice','RESOURCE_VALUE','realization',-T.uncertaintyWeight,estimate.limitations.join(' '),'limited');
+      const d=plan.delivery!,route=tradeRoute(state,d.recipientTerritoryId,d.proposerTerritoryId);
+      add('trade:receipt_timing','TIMING_SUPPORT','timeliness',route?-saturatingMagnitude(evaluators.support.logistics(route).timing.remainingTicks,T.timingScaleTicks)*T.timingWeight:-T.timingWeight,'Exact receiving-route authoritative duration; no extra logistics bonus','bounded');
+      downside=route?0:1;
     } else if(plan.action==='BUILD') {
       const build=evaluators.buildValue(plan);assessments.push(build);
       add('build:additional_effect','BUILD_VALUE','source_resolution',saturatingMagnitude(build.facts.additionalBenefit,1)*T.buildBenefitWeight,'Exact authored additional output/defense/capability over committed build baseline',build.uncertainty.confidence);
@@ -93,7 +108,7 @@ export class ContextPlanComparator {
       add('build:exposed_investment','BUILD_VALUE','realization',-build.facts.exposure*T.uncertaintyWeight,'LOCAL_DANGER consumed inside BUILD_VALUE, not added twice','bounded');
       add('initiation:time','TIMING_SUPPORT','timeliness',-saturatingMagnitude(build.facts.timing.remainingTicks,T.timingScaleTicks)*T.timingWeight,'Authored construction duration; existing sampled work not rerolled');
       downside=build.facts.exposure;
-    } else if(plan.action!=='WAIT')throw new Error(`Deferred lifecycle cannot be scored as operational: ${plan.action}`);
+    } else if(plan.action!=='WAIT')throw new Error('Unexpected action outside current comparator contract');
     if(plan.action!=='WAIT') {
       add('capacity:attention','ATTENTION_BURDEN','commitment_burden',-saturatingMagnitude(attentionCost(plan),Math.max(1,state.strategicAttention.capacity))*T.attentionWeight,'Additional management occupancy only, not physical cost');
       const faction=state.factions.get(plan.factionId)!;
@@ -101,7 +116,7 @@ export class ContextPlanComparator {
       const goals=new GoalSystem(faction.goals.map(g=>({...g})).sort((a,b)=>comparePlanIds(a.id,b.id)));
       goals.invalidateMissingTargets(state.factions.keys(),state.territories.keys());
       const alignment=goals.evaluateActionAlignment({actionType:plan.action,
-        targetTerritory:target,targetFaction:plan.action==='ATTACK'?state.territories.get(plan.targetTerritoryId)?.owner:plan.action==='OFFER_PEACE'?plan.counterpartyId:null,
+        targetTerritory:target,targetFaction:plan.action==='ATTACK'?state.territories.get(plan.targetTerritoryId)?.owner:['OFFER_PEACE','TRADE'].includes(plan.action)?(plan as import('../types/AIConcretePlan').TradePlan).counterpartyId:null,
         self:faction,currentTurn:state.turn,allTerritories:state.territories});
       goalIds=[...alignment.alignedGoals].sort((a,b)=>b.priority-a.priority||comparePlanIds(a.id,b.id)).map(g=>g.id);
       add('preference:goal','GOAL_MODIFIER','modifier',signed(alignment.scoreContribution,T.goalScale,T.modifierBound),'Existing canonical Goal alignment, sole explicit plan-preference owner');

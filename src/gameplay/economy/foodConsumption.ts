@@ -1,3 +1,4 @@
+import {reservedResource} from '../trade/resources';
 import { GameState } from '../../types/GameState';
 import { ECONOMY_CONFIG } from './config';
 
@@ -99,8 +100,9 @@ export function consumeEmpireFood(state: GameState): FoodConsumptionResult {
     const demandPerCycle = faction.territories.length * ECONOMY_CONFIG.foodPerTerritoryPerCycle;
     const foodBefore = Math.max(0, faction.resources.food);
     const stabilityBefore = faction.stability;
-    const applied = applyFactionCycles(foodBefore, stabilityBefore, demandPerCycle, cycles);
-    faction.resources.food = applied.foodAfter;
+    const reserved=reservedResource(state,factionId,'food');
+    const applied = applyFactionCycles(Math.max(0,foodBefore-reserved), stabilityBefore, demandPerCycle, cycles);
+    faction.resources.food = applied.foodAfter+reserved;
     faction.stability = applied.stabilityAfter;
     factions.push({
       factionId,
@@ -110,7 +112,7 @@ export function consumeEmpireFood(state: GameState): FoodConsumptionResult {
       paid: applied.paid,
       failedCycles: applied.failedCycles,
       foodBefore,
-      foodAfter: applied.foodAfter,
+      foodAfter: faction.resources.food,
       stabilityBefore,
       stabilityAfter: applied.stabilityAfter,
     });
