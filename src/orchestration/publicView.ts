@@ -1,4 +1,5 @@
 import { activeOperations } from '../engine/operations';
+import { publicPeaceState } from '../gameplay/diplomacy/peace';
 import { isArmyMoving } from '../army/movement';
 import { Army, FactionId, Territory } from '../types';
 import { GameState } from '../types/GameState';
@@ -136,6 +137,7 @@ export function serializePublicGameState(state: GameState, viewerFactionId: Fact
     : undefined;
   return {
     schemaVersion: state.schemaVersion,
+    diplomacy: publicPeaceState(state,viewerFactionId),
     turn: state.turn,
     worldTick: state.worldTick,
     lastProcessedAtMs: state.lastProcessedAtMs,

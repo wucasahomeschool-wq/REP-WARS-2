@@ -103,6 +103,9 @@ export interface ArmyMovement {
     interruptionReason?: string;
     /** AI MOVE/RETREAT commitment this march fulfills; null for player MOVE. */
     commitmentId: string | null;
+    /** Original hostile counterpart for attack travel, retained after objective invalidation.
+     * Physical arrival clears this with movement; ordinary MOVE has no counterpart. */
+    hostileCounterpartyId?: FactionId;
 }
 
 export interface Army {
@@ -132,6 +135,8 @@ export type StrategicAttackIntentStatus = 'pending_movement' | 'ready';
  * Live statuses only. See docs/STRATEGIC_ATTACK_ARCHITECTURE.md.
  */
 export interface StrategicAttackIntent {
+    /** Opposing faction when this physical hostile operation began. */
+    targetFactionId?: FactionId;
     targetTerritoryId: TerritoryId;
     stagingTerritoryId: TerritoryId;
     createdAtTick: number;

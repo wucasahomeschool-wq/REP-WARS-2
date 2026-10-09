@@ -1,3 +1,4 @@
+import { setFixturePeace } from './aiOperationFixtures';
 import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import { BALANCE } from '../src/constants/balance';
@@ -69,6 +70,7 @@ export function registerFoundationHardeningTests(api: FoundationHardeningTestApi
   test('AI can still act as its own faction through RESOLVE_COMMITMENT', () => {
     const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
     plantOwnedCities(state);
+    for(const a of state.allFactionIds)for(const b of state.allFactionIds)if(a<b)setFixturePeace(state,a,b);
     const owned = 'iron_kingdom_east';
     fixtureCommitments(state).set('iron_kingdom', makeCmt({
       warlordId: 'iron_kingdom',

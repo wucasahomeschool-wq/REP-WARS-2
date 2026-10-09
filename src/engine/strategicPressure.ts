@@ -1,4 +1,5 @@
 import { reinforcementQuantities } from '../gameplay/recruitment/reinforcement';
+import { factionsAreHostile } from '../gameplay/diplomacy/relationships';
 import { recruitmentPoolId } from '../gameplay/recruitment/recruitment';
 import type { GameState, ConstructionProjectType } from '../types/GameState';
 import { AISourceContext, AIPressureMetrics } from '../types/AIPressure';
@@ -39,7 +40,11 @@ export function sourcePlanPredicates(state: GameState, source: AISourceContext):
   };
   const fid=source.factionId;
   if(activeOperations(state,fid).some(op=>op.sourceContextId===source.id && op.objective==='valid' && op.phase!=='selected'))return [];
-  if(source.domain==='DIPLOMACY_PEACE'||source.domain==='TRADE_ECONOMIC')return [];
+  if(source.domain==='TRADE_ECONOMIC')return [];
+  if(source.domain==='DIPLOMACY_PEACE') {
+    if(source.counterpartyId)add({action:'OFFER_PEACE',factionId:fid,counterpartyId:source.counterpartyId});
+    return [...plans.values()];
+  }
   const subject=state.territories.get(source.subjectId);
   const reinforce=(territoryId:string,need:number,destination:import('../types/AIConcretePlan').ReinforcePlan['destination'])=>{
     if(!state.territoryRecruitment.has(territoryId))return;
@@ -104,9 +109,7 @@ export function sourceConcretePlans(state:GameState,source:AISourceContext):AICo
     .sort((a,b)=>comparePlanIds(a.id,b.id));
 }
 function hostile(state:GameState,fid:string,other:string|null):boolean {
-  if (!other || other===fid || !state.factions.has(other)) return false;
-  const rel=state.factions.get(fid)?.diplomacy.get(other)?.state;
-  return rel==='at_war' || rel==='hostile'; // No default-WAR migration.
+  return factionsAreHostile(state,fid,other);
 }
 function militaryAt(state:GameState,territory:string,owner:string):number {
   let power=0;
@@ -183,7 +186,7 @@ export function deriveSources(state:GameState,fid:string,atMs:number):AISourceCo
     add({domain:'FORCE_POSITIONING',kind:'EXPOSED_FORCE',subjectId:a.id});
   const f=state.factions.get(fid)!;
   for(const other of state.factions.values()) if(other.id!==fid && f.knownFactions.includes(other.id)) {
-    if(f.diplomacy.get(other.id)?.state==='at_war'&&f.stability<50 && f.territories.some(id=>state.territories.get(id)?.neighboring.some(n=>state.territories.get(n)?.owner===other.id
+    if(factionsAreHostile(state,fid,other.id)&&f.stability<50 && f.territories.some(id=>state.territories.get(id)?.neighboring.some(n=>state.territories.get(n)?.owner===other.id
       &&militaryAt(state,n,other.id)>(state.territories.get(id)?.garrison??0)+militaryAt(state,id,fid))))
       add({domain:'DIPLOMACY_PEACE',kind:'WAR_BURDEN',subjectId:other.id,counterpartyId:other.id});
     // Need + actual complementary counterparty holdings. No hostile exclusion.

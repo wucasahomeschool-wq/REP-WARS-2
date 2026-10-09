@@ -1,4 +1,5 @@
 import { cancelInvalidReinforcements } from '../engine/operations';
+import { processPeaceBoundary } from '../gameplay/diplomacy/peace';
 import { GameState } from '../types/GameState';
 import { cloneGameState } from '../state/cloneGameState';
 import { checkGameStateInvariants } from '../state/gameStateInvariants';
@@ -13,8 +14,10 @@ export function runStateTransaction<T>(
   apply: (draft: GameState) => T,
 ): { state: GameState; result: T } {
   const draft = cloneGameState(state);
+  processPeaceBoundary(draft); // Earned diplomacy gates precede newly issued commands.
   const result = apply(draft);
   cancelInvalidReinforcements(draft);
+  processPeaceBoundary(draft);
   const violations = checkGameStateInvariants(draft);
   if (violations.length > 0) {
     throw new OrchestrationError(

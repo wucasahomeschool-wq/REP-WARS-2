@@ -1,4 +1,5 @@
 import { availableLocalTroops } from '../gameplay/recruitment/reinforcement';
+import { factionsAreHostile, relationshipBetween } from '../gameplay/diplomacy/relationships';
 import type { Army, Resources, Territory, ResourceType, RelationshipState } from '../types';
 import type { GameState, ConstructionProject, ConstructionProjectType } from '../types/GameState';
 import type { TimingSupport } from '../types/StrategicEvaluation';
@@ -50,7 +51,7 @@ export class FactualSupport {
   readonly localPools = new Map<string,{troops:number;available:number;reserved:number}>();
   readonly stocks = new Map<string,Resources>();
   readonly wars = new Map<string,readonly string[]>();
-  readonly relationshipStates=new Map<string,ReadonlyMap<string,RelationshipState>>();
+  readonly relationshipStates=new Map<string,ReadonlyMap<string,import('../types/Peace').AuthoritativeRelationship>>();
   readonly builds: readonly ConstructionProject[];
   readonly committed: readonly CommittedEffect[];
   readonly presence: 'ONLINE'|'OFFLINE';
@@ -70,8 +71,8 @@ export class FactualSupport {
     for(const [id,f] of [...state.factions].sort(([a],[b])=>comparePlanIds(a,b))) {
       this.stocks.set(id,{...f.resources});
       this.foodDemand.set(id,(state.worldLevel??0)>=2?f.territories.length*ECONOMY_CONFIG.foodPerTerritoryPerCycle:0);
-      this.wars.set(id,[...f.diplomacy].filter(([,r])=>r.state==='at_war'||r.state==='hostile').map(([fid])=>fid).sort(comparePlanIds));
-      this.relationshipStates.set(id,new Map([...f.diplomacy].sort(([a],[b])=>comparePlanIds(a,b)).map(([fid,r])=>[fid,r.state])));
+      this.wars.set(id,[...state.factions.keys()].filter(fid=>factionsAreHostile(state,id,fid)).sort(comparePlanIds));
+      this.relationshipStates.set(id,new Map([...state.factions.keys()].filter(fid=>fid!==id).sort(comparePlanIds).map(fid=>[fid,relationshipBetween(state,id,fid)])));
     }
     const projectedInfra=new Map(state.territoryInfrastructure);
     const projectsBySite=new Map<string,ConstructionProject>();

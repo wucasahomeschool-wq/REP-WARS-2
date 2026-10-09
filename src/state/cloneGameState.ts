@@ -248,6 +248,9 @@ export function adoptOwnedTransactionState(target: GameState, next: GameState): 
   target.aiDecisionOpportunities = next.aiDecisionOpportunities;
   target.aiPressure = next.aiPressure;
   target.aiClock = next.aiClock;
+  target.peaceRelationships = next.peaceRelationships;
+  target.peaceProposals = next.peaceProposals;
+  target.peaceProposalThreads = next.peaceProposalThreads;
   target.worldSeed = next.worldSeed;
   target.factions = next.factions;
   target.allFactionIds = next.allFactionIds;
@@ -349,6 +352,9 @@ export function cloneGameState(state: GameState): GameState {
     constructions: cloneMap(state.constructions, cloneConstruction),
     cities: cloneMap(state.cities, cloneCity),
     territoryRecruitment: cloneMap(state.territoryRecruitment, p => ({ ...p })),
+    peaceRelationships: cloneMap(state.peaceRelationships, r => ({...r,factions:[...r.factions],finalizationTimer:r.finalizationTimer?{...r.finalizationTimer,progress:{...r.finalizationTimer.progress}}:null})),
+    peaceProposals: cloneMap(state.peaceProposals, p => ({...p,responseTimer:p.responseTimer?{...p.responseTimer,progress:{...p.responseTimer.progress}}:null})),
+    peaceProposalThreads: new Map(state.peaceProposalThreads),
     territoryEconomy: cloneMap(state.territoryEconomy, cloneTerritoryEconomy),
     territoryInfrastructure: cloneMap(state.territoryInfrastructure, cloneTerritoryInfrastructure),
     playerFitness: clonePlayerFitness(state.playerFitness),

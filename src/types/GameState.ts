@@ -96,8 +96,9 @@ import { GameRewardResult } from '../rewards/types';
  * 20 = Operation-owned Strategic Attention and canonical proactive opportunities (Phase D).
  * 21 = Source-bound Strategic Pressure and canonical proactive duration clocks (Phase E).
  * 22 = Territory-local recruitment/pools and quantity-reserved REINFORCE initiation (Phase G).
+ * 23 = Canonical Peace proposal threads, required-response clocks and relationship exceptions (Phase H).
  */
-export const GAME_STATE_SCHEMA_VERSION = 22;
+export const GAME_STATE_SCHEMA_VERSION = 23;
 
 export type InvasionId = string;
 
@@ -545,6 +546,10 @@ export interface GameState {
   cities: Map<CityId, City>;
   /** Exact local undeployed troops and earned recruitment work, separate from player rewards. */
   territoryRecruitment: Map<TerritoryId, import("./Recruitment").TerritoryRecruitment>;
+  /** Canonical diplomacy exceptions, proposals and exact live unordered-pair references. */
+  peaceRelationships: Map<string, import('./Peace').PeaceRelationship>;
+  peaceProposals: Map<string, import('./Peace').PeaceProposal>;
+  peaceProposalThreads: Map<string, string>;
   /**
    * Per-territory uncollected yield and last accrual tick. Faction
    * `resources` remain the banked reserve; recruitment uses only local Food yield.
@@ -668,6 +673,9 @@ export function emptyRewardApplicationState(): {
   constructions: Map<ConstructionId, ConstructionProject>;
   cities: Map<CityId, City>;
   territoryRecruitment: Map<TerritoryId, import("./Recruitment").TerritoryRecruitment>;
+  peaceRelationships: Map<string, import('./Peace').PeaceRelationship>;
+  peaceProposals: Map<string, import('./Peace').PeaceProposal>;
+  peaceProposalThreads: Map<string, string>;
   territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
   territoryInfrastructure: Map<TerritoryId, TerritoryInfrastructure>;
   playerFitness: PlayerFitnessState;
@@ -683,6 +691,9 @@ export function emptyRewardApplicationState(): {
     constructions: new Map(),
     cities: new Map(),
     territoryRecruitment: new Map(),
+    peaceRelationships: new Map(),
+    peaceProposals: new Map(),
+    peaceProposalThreads: new Map(),
     territoryEconomy: new Map(),
     territoryInfrastructure: new Map(),
     playerFitness: emptyPlayerFitnessState(),

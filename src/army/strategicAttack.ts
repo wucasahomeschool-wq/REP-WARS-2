@@ -1,4 +1,5 @@
 import { assertClaimAvailable, settleOperation } from '../engine/operations';
+import { assertHostilityAllowed } from '../gameplay/diplomacy/relationships';
 import { BALANCE } from '../constants/balance';
 import { BattleEngine, BattleInput } from '../battle/BattleEngine';
 import { Army, FactionId, GameStateSnapshot, RelationshipState, StrategicAttackIntent, TerritoryId } from '../types';
@@ -241,6 +242,8 @@ export function invalidateStaleAttackIntents(state: GameState): StaleAttackInval
       reason = 'attack target is no longer a known territory';
     } else if (!target.owner || target.owner === army.owner) {
       reason = 'attack target is no longer a foreign-owned territory';
+    } else if (intent.targetFactionId && target.owner!==intent.targetFactionId) {
+      reason = 'attack target now belongs to a different opposing faction';
     } else if (isPlayerAnchorProtected(state, intent.targetTerritoryId)) {
       reason = 'player anchor is protected while the player still owns other territories';
     } else if (!isLegalStagingTerritory(state, army.owner, intent.stagingTerritoryId, intent.targetTerritoryId)) {
@@ -296,12 +299,10 @@ function resolveStrategicBattle(
   const rel = defenderSnap.diplomacy.get(attackerId);
   if (rel) {
     rel.opinion = Math.max(-100, rel.opinion + BALANCE.diplomacy.opinionAttackImpact);
-    rel.state = (rel.state === 'allied' ? 'at_war' : rel.state === 'friendly' ? 'hostile' : rel.state === 'neutral' ? 'tense' : 'at_war') as RelationshipState;
   }
   const myRel = attackerSnap.diplomacy.get(defenderId);
   if (myRel) {
     myRel.opinion = Math.max(-100, myRel.opinion - 10);
-    if (myRel.state !== 'at_war' && myRel.state !== 'hostile') myRel.state = 'tense';
   }
 
   if (defenderField + target.garrison <= 0) {
@@ -466,6 +467,7 @@ export function startStrategicAttack(
     };
   }
 
+  assertHostilityAllowed(state,attackerId,target.owner,target.id);
   const alreadyPending = sortedFactionArmies(state, attackerId).find((a) => (
     isActiveAttackIntent(a) && a.attackIntent!.targetTerritoryId === target.id
   ));
@@ -525,9 +527,13 @@ export function startStrategicAttack(
     commitmentId,
   });
   const defenderId = target.owner;
+  // Direct player attacks need the same physical clearance ownership as AI
+  // operations even when their strategic intent invalidates during this march.
+  army.movement!.hostileCounterpartyId = defenderId;
   const battleSeed = paramNumber(host.req, 'seed')
     ?? deriveBattleSeed(state.worldSeed, state.turn, attackerId, defenderId, target.id);
   const intent: StrategicAttackIntent = {
+    targetFactionId: defenderId,
     targetTerritoryId: target.id,
     stagingTerritoryId: delayed.stagingTerritoryId,
     createdAtTick: state.worldTick,
@@ -622,6 +628,7 @@ export function executeReadyStrategicAttack(
   if (!target.owner || target.owner === army.owner) {
     return fail(ErrorCode.INVALID_TARGET, 'Attack target is no longer a foreign-owned territory');
   }
+  if(intent.targetFactionId&&target.owner!==intent.targetFactionId)return fail(ErrorCode.INVALID_TARGET,'Attack target now belongs to a different opposing faction');
   if (!state.factions.has(army.owner)) {
     return fail(ErrorCode.INVALID_FACTION, 'Attacking faction no longer exists');
   }

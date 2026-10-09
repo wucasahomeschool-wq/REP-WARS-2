@@ -1,4 +1,5 @@
 import { timerRemaining } from './proactiveCognition';
+import { settlePeaceProposal } from '../gameplay/diplomacy/peace';
 import { availableLocalTroops, reinforcementProblem, allocateReinforcement } from '../gameplay/recruitment/reinforcement';
 import { AICommitment } from '../types';
 import { AIOperation, AIOperationClaim } from '../types/AIOperation';
@@ -131,6 +132,12 @@ export function acquireOperationClaims(state: GameState, op: AIOperation): void 
 export function settleOperation(state: GameState, id: string, outcome: 'completed' | 'failed' | 'interrupted', reason: string): boolean {
   const op = state.operations.get(id);
   if (!op || op.terminal) return false;
+  if(op.plan?.action==='OFFER_PEACE') {
+    const proposal=op.links.peaceProposalId?state.peaceProposals.get(op.links.peaceProposalId):undefined;
+    if(proposal&&['initiating','pending'].includes(proposal.status))
+      return outcome==='completed'?false:settlePeaceProposal(state,proposal.id,'invalidated');
+    if(outcome==='completed'&&proposal?.status!=='accepted')return false;
+  }
   const project = op.links.constructionId ? state.constructions.get(op.links.constructionId) : undefined;
   // A reasoning failure is not a construction cancellation. The domain must
   // complete or destroy its project before its exclusive site can be released.

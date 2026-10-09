@@ -1,4 +1,5 @@
 import { isArmyMoving } from '../../army/movement';
+import { assertHostilityAllowed } from '../diplomacy/relationships';
 import { assertClaimAvailable } from '../../engine/operations';
 import { Army } from '../../types';
 import { ActiveInvasion, createActiveInvasion, GameState } from '../../types/GameState';
@@ -51,6 +52,7 @@ export function beginInvasionAgainstPlayer(
   if (target.owner !== state.playerFactionId) {
     throw new OrchestrationError(ErrorCode.INVALID_TARGET, 'Invasion defender must be the local player');
   }
+  assertHostilityAllowed(state,params.attackerId,target.owner,target.id,params.armies.map(a=>a.id));
   assertAnchorAttackAllowed(state, params.territoryId);
   for (const existing of state.activeInvasions.values()) {
     if (existing.territoryId === params.territoryId && isOpenInvasion(existing)) {
@@ -91,6 +93,7 @@ export function beginInvasionAgainstPlayer(
     if (!live) continue;
     live.attackIntent = {
       targetTerritoryId: params.territoryId,
+      targetFactionId: target.owner,
       stagingTerritoryId: live.location,
       createdAtTick: state.worldTick,
       status: 'ready',

@@ -87,3 +87,11 @@ export function makeOperationTestWorld(
     s.territoryInfrastructure.clear(); s.territoryEconomy.clear(); s.attackerCooldowns.clear(); s.activeEvents=[]; s.eventHistory=[];
     assert.deepStrictEqual(checkGameStateInvariants(s),[]); return s;
 }
+
+/** Explicit authored treaty for tests that require non-hostile construction, etc.
+ * This is never inferred from sentiment and never runs in production. */
+export function setFixturePeace(state:GameState,a:string,b:string):void {
+  const factions:[string,string]=a<b?[a,b]:[b,a],pairId=`pair:v1:${JSON.stringify(factions)}`;
+  state.peaceRelationships.set(pairId,{pairId,factions,state:'PEACE',proposalId:null,acceptedAtMs:state.aiClock.nowMs,
+    activatedAtMs:state.aiClock.nowMs,expiresAtMs:null,legacyExpiresTurn:null,finalizationTimer:null});
+}

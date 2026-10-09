@@ -69,8 +69,11 @@ export class StrategicEvaluators {
     return this.memo('LOCAL_DANGER',[factionId,territoryId,excludeArmyId??null,proposedArmyId??null,proposedArrivalTicks??null],()=>{
       const t=this.support.territories.get(territoryId)!;
       const threats=new Map<string,{army:Army;remainingTicks:number;committed:boolean}>();
-      for(const a of this.support.armies.values())if(this.support.hostile(factionId,a.owner)&&a.id!==excludeArmyId) {
+      for(const a of this.support.armies.values())if(a.owner!==factionId&&a.id!==excludeArmyId) {
         const committedAttack=this.support.committed.find(e=>e.id===`attack:${a.id}`&&e.objectiveValid);
+        // Mutual Peace acceptance prohibits fresh hostility, not an existing
+        // exact committed attack. Keep actual threats in the factual baseline.
+        if(!this.support.hostile(factionId,a.owner)&&!committedAttack)continue;
         if(committedAttack&&committedAttack.territoryId!==territoryId)continue;
         const attack=committedAttack;
         const placement=this.support.placement(a),at=this.support.territories.get(placement);
@@ -226,7 +229,7 @@ export class StrategicEvaluators {
       const own=power(factionId),enemy=power(opponentId);
       const committed=this.support.committed.filter(e=>e.classification==='contingent_execution'&&e.id.startsWith('attack:')&&
         ((e.factionId===factionId&&this.support.territories.get(e.territoryId)?.owner===opponentId)||(e.factionId===opponentId&&this.support.territories.get(e.territoryId)?.owner===factionId)));
-      return assessment('WAR_VALUE',{opponentId,atWar:this.support.relationshipStates.get(factionId)?.get(opponentId)==='at_war',ownBorderStrength:own,opponentBorderStrength:enemy,
+      return assessment('WAR_VALUE',{opponentId,atWar:this.support.relationshipStates.get(factionId)?.get(opponentId)==='WAR',ownBorderStrength:own,opponentBorderStrength:enemy,
         currentPositionBalance:(own-enemy)/Math.max(1,own+enemy),committedHostileEffects:committed.map(e=>({id:e.id,territoryId:e.territoryId,objectiveValid:e.objectiveValid})),
         territorialTrajectory:null,militaryLossTrajectory:null,economicWarPenalty:0,
         limitations:['No canonical conflict ledger; historic gains/losses cannot be inferred from Memory or operation success.','No implemented war-specific economic penalty. Current position and committed contingent work only.']},

@@ -1,4 +1,6 @@
 import { REINFORCE_INITIATION as RECRUIT } from '../constants/recruitment';
+import { PEACE_TIMING } from '../constants/peace';
+import { beginPeaceProposal, offerPeaceProblem, processPeaceBoundary, settlePeaceProposal } from '../gameplay/diplomacy/peace';
 import { reinforcementProblem } from '../gameplay/recruitment/reinforcement';
 import { startProactiveTimer, timerRemaining, opportunity, invalidateProactiveInitiation } from '../engine/proactiveCognition';
 import { derivePresenceSegments } from '../world/presenceLeases';
@@ -397,6 +399,32 @@ export function handleReinforce(state: GameState, ctx: HandlerContext): HandlerR
   return handleStartAiOperation(state,ctx);
 }
 
+export function handleOfferPeace(state:GameState,ctx:HandlerContext):HandlerResult {
+  const plan=ctx.req.parameters?.plan as AIConcretePlan;
+  if(concretePlanProblem(plan)||plan.action!=='OFFER_PEACE')throw new OrchestrationError(ErrorCode.INVALID_PARAMETER,'OFFER_PEACE requires an exact counterparty plan');
+  if(resolveActingFactionId(state,ctx.req)!==plan.factionId)throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Peace proposer does not match acting faction');
+  return handleStartAiOperation(state,ctx);
+}
+export function handleRespondPeace(state:GameState,ctx:HandlerContext):HandlerResult {
+  const id=requireString(ctx.req,'proposalId'),response=requireString(ctx.req,'response');
+  const p=state.peaceProposals.get(id);
+  if(!p||p.recipient!==resolveActingFactionId(state,ctx.req))throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Only the exact Peace recipient may respond');
+  if(!['ACCEPT_PEACE','DECLINE_PEACE'].includes(response))throw new OrchestrationError(ErrorCode.INVALID_PARAMETER,'Invalid Peace response');
+  processPeaceBoundary(state); // Earned deadline/finalization boundaries precede new input.
+  const wanted=response==='ACCEPT_PEACE'?'accepted':'declined';
+  if(p.status===wanted)return {...emptyResult(),payload:{proposalId:id,status:p.status,replayed:true}};
+  if(p.status!=='pending')throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Peace offer is not awaiting response');
+  settlePeaceProposal(state,id,wanted);processPeaceBoundary(state);
+  return {...emptyResult(),payload:{proposalId:id,status:p.status}};
+}
+export function handleWithdrawPeace(state:GameState,ctx:HandlerContext):HandlerResult {
+  const id=requireString(ctx.req,'proposalId'),p=state.peaceProposals.get(id),actor=resolveActingFactionId(state,ctx.req);
+  if(!p||actor!==state.playerFactionId||p.proposer!==actor)throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Only a player may withdraw their own Peace offer');
+  if(p.status==='withdrawn')return {...emptyResult(),payload:{proposalId:id,status:p.status,replayed:true}};
+  if(p.status!=='pending')throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'No pending Peace offer to withdraw');
+  settlePeaceProposal(state,id,'withdrawn');return {...emptyResult(),payload:{proposalId:id,status:p.status}};
+}
+
 function inFlightMovementResult(army: Army): HandlerResult {
   const movement = army.movement!;
   return {
@@ -412,33 +440,9 @@ function inFlightMovementResult(army: Army): HandlerResult {
   };
 }
 
-export function handleDeclareWar(state: GameState, ctx: HandlerContext): HandlerResult {
-  const factionId = resolveActingFactionId(state, ctx.req);
-  const targetId = requireString(ctx.req, 'targetFactionId');
-  if (targetId === factionId) {
-    throw new OrchestrationError(ErrorCode.INVALID_TARGET, 'Cannot declare war on self');
-  }
-  requireFactionSnapshot(state, targetId);
-  const self = requireFactionSnapshot(state, factionId);
-  const target = requireFactionSnapshot(state, targetId);
-  pushMemory(self, state.turn, 'war_declared', targetId, null, 10, { target: target.name });
-  pushMemory(target, state.turn, 'war_declared', factionId, null, 12, { attacker: self.name });
-  const rel = target.diplomacy.get(factionId);
-  if (rel) {
-    rel.state = 'at_war';
-    rel.opinion = Math.max(-100, rel.opinion + BALANCE.diplomacy.warDeclarationOpinionHit);
-  }
-  const myRel = self.diplomacy.get(targetId);
-  if (myRel) {
-    myRel.state = 'at_war';
-    myRel.opinion = Math.max(-100, myRel.opinion - 25);
-  }
-  return {
-    ...emptyResult(),
-    stateChanges: [{ entity: 'diplomacy', id: targetId, summary: `${self.name} declared war on ${target.name}` }],
-    events: [{ kind: 'diplomacy', id: `war_${factionId}_${targetId}`, title: 'War declared', summary: `${self.name} → ${target.name}`, factionId, data: { targetFactionId: targetId } }],
-    payload: { targetFactionId: targetId },
-  };
+/** Historical API symbol only: WAR is default and declarations cannot end Peace. */
+export function handleDeclareWar(_state: GameState, _ctx: HandlerContext): HandlerResult {
+  throw new OrchestrationError(ErrorCode.FEATURE_NOT_IMPLEMENTED, 'DECLARE_WAR is obsolete; relationships follow the canonical Peace lifecycle');
 }
 
 export function handleNegotiate(state: GameState, ctx: HandlerContext): HandlerResult {
@@ -600,6 +604,7 @@ export function progressProactiveThrough(state: GameState, ctx: HandlerContext, 
     // completions apply. WAIT's feasibility revalidation must see those effects
     // just like ordinary cognition; it is not an exception to boundary ordering.
     if(!allowDecisions)return;
+    processPeaceBoundary(state); // Required responses and diplomacy gates precede proactive thought.
     for(const op of activeOperations(state).filter(o=>o.action==='REINFORCE'&&o.phase==='physical')) {
       const plan=op.plan;
       if(plan?.action!=='REINFORCE')throw new Error('Reinforcement operation lost exact plan');
@@ -720,6 +725,11 @@ function executeConcreteCommitment(state: GameState, ctx: HandlerContext, plan: 
       return handlerResultForConstructionStart(project, plan.territoryId, before, cloneResources(faction.resources), plan.factionId);
     }
     case 'REINFORCE': return { ...emptyResult(), payload: { initiationPending: true } };
+    case 'OFFER_PEACE': {
+      const proposal=beginPeaceProposal(state,plan,commitmentId);
+      state.operations.get(commitmentId)!.links.peaceProposalId=proposal.id;
+      return {...emptyResult(),payload:{initiationPending:true}};
+    }
     case 'WAIT': return { ...emptyResult(), payload: { waited: true } };
     default: throw new OrchestrationError(ErrorCode.FEATURE_NOT_IMPLEMENTED, `Final ${plan.action} lifecycle unavailable`);
   }
@@ -739,7 +749,7 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
         rejection.reason, { feasibility: feasibility.rejections,
           ...(rejection.reason.includes('anchor') ? { reason: ANCHOR_PROTECTED_REASON, territoryId: planTargetId(op.plan) } : {}) });
     }
-    if(op.action==='REINFORCE') {
+    if(op.action==='REINFORCE'||op.action==='OFFER_PEACE') {
       const primary=opportunity(draft,op.warlordId);
       if(primary.primaryOperationId && primary.primaryOperationId!==op.id || primary.primary && primary.primaryOperationId!==op.id)
         throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Primary proactive initiation busy');
@@ -751,6 +761,7 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
     // The provisional selection delay is not a duplicate physical timer.
     delete op.durationTicks; delete op.completionCondition;
     if ('armyId' in op.plan) op.links.armyId = op.plan.armyId;
+    if(op.plan.action==='ATTACK')op.hostileCounterpartyId=draft.territories.get(op.plan.targetTerritoryId)!.owner!;
     const inner = executeConcreteCommitment(draft, ctx, op.plan, op.id);
     if (op.action === 'BUILD') {
       const project = [...draft.constructions.values()].find(p => p.aiOperationId === op.id);
@@ -758,10 +769,11 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
       op.links.constructionId = project.id;
     }
     if (typeof inner.payload.invasionId === 'string') op.links.invasionId = inner.payload.invasionId;
-    if(op.action==='REINFORCE') {
+    if(op.action==='REINFORCE'||op.action==='OFFER_PEACE') {
       const primary=opportunity(draft,op.warlordId);
       primary.primaryOperationId=op.id;
-      op.initiationTimer=startProactiveTimer(draft,op.warlordId,'reinforce',RECRUIT.initiationOnlineMs,RECRUIT.initiationOnlineMs,RECRUIT.initiationOfflineMs/RECRUIT.initiationOnlineMs);
+      const timing=op.action==='REINFORCE'?RECRUIT:{initiationOnlineMs:PEACE_TIMING.initiationOnlineMs,initiationOfflineMs:PEACE_TIMING.initiationOfflineMs};
+      op.initiationTimer=startProactiveTimer(draft,op.warlordId,op.action.toLowerCase(),timing.initiationOnlineMs,timing.initiationOnlineMs,timing.initiationOfflineMs/timing.initiationOnlineMs);
     } else finishDecisionInitiation(draft, op.id, true);
     if (op.action === 'WAIT') settleOperation(draft, op.id, 'completed', 'no new physical operation');
     else if (op.action === 'ATTACK' && inner.payload.attackOutcome === 'battle_resolved') {
@@ -783,7 +795,7 @@ export function handleStartAiOperation(state: GameState, ctx: HandlerContext): H
   const plan = ctx.req.parameters?.plan as AIConcretePlan;
   const problem = concretePlanProblem(plan);
   if (problem) throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, problem);
-  if (state.playerFactionId === plan.factionId) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'AI cannot control player forces');
+  if (state.playerFactionId === plan.factionId && !(plan.action==='OFFER_PEACE'&&ctx.req.commandId==='OFFER_PEACE')) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'AI cannot control player forces');
   if (plan.action === 'WAIT') throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'WAIT is a source-bound initiation timer, not a physical operation');
   const faction = requireFactionSnapshot(state, plan.factionId);
   const sequence = faction.nextAiCommitmentSequence;
@@ -812,7 +824,7 @@ export function handleResolveCommitment(state: GameState, ctx: HandlerContext): 
     if (problem || op.plan.action !== op.action || op.plan.factionId !== factionId || planTargetId(op.plan) !== op.targetId)
       throw new OrchestrationError(ErrorCode.INVALID_TARGET, problem ?? 'operation/plan binding mismatch');
   }
-  if (!op.plan || !['ATTACK','MOVE','RETREAT','BUILD','REINFORCE','WAIT'].includes(op.action)) {
+  if (!op.plan || !['ATTACK','MOVE','RETREAT','BUILD','REINFORCE','OFFER_PEACE','WAIT'].includes(op.action)) {
     settleOperation(state, op.id, 'failed', 'Final lifecycle unavailable or incomplete legacy reasoning');
     return { ...emptyResult(), commandSuccess: false, errors: [{ code: ErrorCode.FEATURE_NOT_IMPLEMENTED, message: 'Operation lifecycle unavailable' }],
       payload: { operationId: op.id, commitmentOutcome: 'failed', reassessmentRequired: true } };
@@ -833,7 +845,9 @@ export const MUTATING_HANDLERS: Record<string, MutatingHandler> = {
   MOVE: handleMove,
   BUILD: handleBuild,
   REINFORCE: handleReinforce,
-  DECLARE_WAR: handleDeclareWar,
+  OFFER_PEACE: handleOfferPeace,
+  RESPOND_PEACE: handleRespondPeace,
+  WITHDRAW_PEACE: handleWithdrawPeace,
   NEGOTIATE: handleNegotiate,
   ADVANCE_WORLD: handleAdvanceWorld,
   TRANSITION_TO_NEXT_WORLD: handleTransitionToNextWorld,

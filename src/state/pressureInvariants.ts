@@ -80,7 +80,7 @@ export function pressureStateProblems(state:GameState):string[] {
       if(o.primary.phase!=='selected'&&!o.primary.timer)errors.push('Primary timed phase missing timer');
       if(o.primary.phase==='selected') {
         const op=o.primaryOperationId?state.operations.get(o.primaryOperationId):null;
-        if(!op||!(op.phase==='selected'||op.action==='REINFORCE'&&op.phase==='physical')||op.sourceContextId!==o.primary.contextId||o.primary.timer!==null)
+        if(!op||!(op.phase==='selected'||['REINFORCE','OFFER_PEACE'].includes(op.action)&&op.phase==='physical')||op.sourceContextId!==o.primary.contextId||o.primary.timer!==null)
           errors.push('Selected primary thread lacks its exact source-bound operation');
       }
       // A source may disappear between canonical domain mutation and observation.

@@ -2,6 +2,7 @@ import type { GameState } from '../types/GameState';
 import type { AIConcretePlan } from '../types/AIConcretePlan';
 import type { AIOperation } from '../types/AIOperation';
 import { activeOperations } from './operations';
+import { relationshipBetween } from '../gameplay/diplomacy/relationships';
 
 export interface CompatibilityContext { state: GameState; activeOperations: readonly AIOperation[] }
 /** Pure context-aware rules. Production rules derive facts from canonical state.
@@ -11,10 +12,12 @@ export interface StrategicCompatibilityRule {
   id: string;
   reject(plan: AIConcretePlan, context: CompatibilityContext): string | null;
 }
-// Current executable mechanics have no independent strategic lifecycle conflict.
-// Physical force/site/invasion conflicts belong exclusively to claim feasibility.
-// Proposal/accepted-Peace clearance rules are not implemented by this phase.
-const CURRENT_RULES: readonly StrategicCompatibilityRule[] = Object.freeze([]);
+// Pair-specific hostility, independent of physical claims and Attention.
+const CURRENT_RULES: readonly StrategicCompatibilityRule[] = Object.freeze([{id:'peace:new-hostility',reject(plan,{state}) {
+  if(plan.action!=='ATTACK')return null;
+  const owner=state.territories.get(plan.targetTerritoryId)?.owner;
+  return owner&&relationshipBetween(state,plan.factionId,owner)!=='WAR'?'Authoritative relationship blocks a new hostile operation':null;
+}}]);
 export function assessStrategicCompatibility(plan: AIConcretePlan, state: GameState,
   rules: readonly StrategicCompatibilityRule[] = CURRENT_RULES) {
   if (!rules.length) return { compatible: true, reasons: [] as string[] };

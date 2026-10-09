@@ -1,4 +1,6 @@
 import { RECRUITMENT_TUNING } from '../constants/recruitment';
+import { PEACE_TUNING } from '../constants/peace';
+import { counterpartyResponseEstimate, peaceEstimateView } from './peaceAssessment';
 import type { GameState } from '../types/GameState';
 import type { AISourceContext } from '../types/AIPressure';
 import type { ScoredConcretePlan } from '../types';
@@ -78,6 +80,12 @@ export class ContextPlanComparator {
       add('allocation:local_effect','FORCE_POSITION_VALUE','source_resolution',saturatingMagnitude(allocation.facts.additionalUtility,T.powerScale)*T.positionWeight,'Marginal exact local defensive/offensive capacity; no new troops','bounded');
       add('allocation:pool_flexibility','FORCE_POSITION_VALUE','opportunity_cost',-allocation.facts.consumedFraction*RECRUITMENT_TUNING.reserveFlexibilityWeight,'Exact consumed local reserve fraction; one owner for foregone local use');
       downside=0; // Uncertain hostile timing is not a fabricated loss probability.
+    } else if(plan.action==='OFFER_PEACE') {
+      const war=evaluators.warValue(plan.factionId,plan.counterpartyId);assessments.push(war);
+      const estimate=counterpartyResponseEstimate(peaceEstimateView(state,plan.factionId,plan.counterpartyId));
+      add('war:continuation_avoided','WAR_VALUE','source_resolution',-war.facts.currentPositionBalance*PEACE_TUNING.warPositionWeight,'Opponent-specific current factual war position; no invented historical exhaustion','limited');
+      add('proposal:external_choice','WAR_VALUE','realization',-T.uncertaintyWeight,estimate.limitations.join(' '),'limited');
+      downside=Math.max(0,war.facts.currentPositionBalance);
     } else if(plan.action==='BUILD') {
       const build=evaluators.buildValue(plan);assessments.push(build);
       add('build:additional_effect','BUILD_VALUE','source_resolution',saturatingMagnitude(build.facts.additionalBenefit,1)*T.buildBenefitWeight,'Exact authored additional output/defense/capability over committed build baseline',build.uncertainty.confidence);
@@ -93,7 +101,7 @@ export class ContextPlanComparator {
       const goals=new GoalSystem(faction.goals.map(g=>({...g})).sort((a,b)=>comparePlanIds(a.id,b.id)));
       goals.invalidateMissingTargets(state.factions.keys(),state.territories.keys());
       const alignment=goals.evaluateActionAlignment({actionType:plan.action,
-        targetTerritory:target,targetFaction:plan.action==='ATTACK'?state.territories.get(plan.targetTerritoryId)?.owner:null,
+        targetTerritory:target,targetFaction:plan.action==='ATTACK'?state.territories.get(plan.targetTerritoryId)?.owner:plan.action==='OFFER_PEACE'?plan.counterpartyId:null,
         self:faction,currentTurn:state.turn,allTerritories:state.territories});
       goalIds=[...alignment.alignedGoals].sort((a,b)=>b.priority-a.priority||comparePlanIds(a.id,b.id)).map(g=>g.id);
       add('preference:goal','GOAL_MODIFIER','modifier',signed(alignment.scoreContribution,T.goalScale,T.modifierBound),'Existing canonical Goal alignment, sole explicit plan-preference owner');

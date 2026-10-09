@@ -1,3 +1,4 @@
+import { peaceStateProblems } from './peaceInvariants';
 import { REINFORCE_INITIATION } from '../constants/recruitment';
 import { RECRUITMENT_WORK_PER_TICK, simulationWork } from '../gameplay/recruitment/recruitment';
 import { reinforcementProblem } from '../gameplay/recruitment/reinforcement';
@@ -83,6 +84,7 @@ function checkGameplaySessionLeases(
 export function checkGameStateInvariants(state: GameState): GameStateInvariantViolation[] {
   const violations: GameStateInvariantViolation[] = [];
   const push = (code: string, message: string) => violations.push({ code, message });
+  for(const message of peaceStateProblems(state)) push('peace.invalid_state',message);
   for(const message of pressureStateProblems(state)) push('pressure.invalid_state',message);
   if (!(state.operations instanceof Map) || !(state.operationClaims instanceof Map)) {
     push('operation.missing_storage', 'canonical operation and claim maps are required');
@@ -99,7 +101,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       push('opportunity.invalid_boundary', `Opportunity ${factionId} has invalid boundary`);
     if (opportunity.primaryOperationId !== null) {
       const primary = state.operations.get(opportunity.primaryOperationId);
-      if (!primary || primary.warlordId !== factionId || !(primary.phase === 'selected' || primary.action === 'REINFORCE' && primary.phase === 'physical'))
+      if (!primary || primary.warlordId !== factionId || !(primary.phase === 'selected' || ['REINFORCE','OFFER_PEACE'].includes(primary.action) && primary.phase === 'physical'))
         push('opportunity.invalid_primary', `Opportunity ${factionId} does not own a pending initiation`);
     }
   }
@@ -395,6 +397,8 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     if (!op || !Array.isArray(op.claimIds) || !op.links || typeof op.links !== 'object' || Array.isArray(op.links)) {
       push('operation.invalid_shape', `operation ${id} lacks canonical linkage/claims`); continue;
     }
+    if(op.hostileCounterpartyId!==undefined&&(op.action!=='ATTACK'||op.hostileCounterpartyId===op.warlordId||!state.factions.has(op.hostileCounterpartyId)))
+      push('operation.invalid_hostile_counterparty', `Operation ${id} has invalid opposing faction linkage`);
     if (id !== op.id) push('operation.id_mismatch', `operations key ${id} differs from ${op.id}`);
     const attention = op.attention;
     if (!attention || attention.factionId !== op.warlordId || !Number.isSafeInteger(attention.cost) || attention.cost < 0 || typeof attention.grandfathered !== 'boolean')
@@ -414,7 +418,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       if (op.phase === 'selected' && (attention.cost !== 0 || acquired !== null || released !== null))
         push('attention.selected_charge', `Selection ${id} acquired Attention before initiation`);
       if (['physical','recovery'].includes(op.phase)) {
-        if (['ATTACK','MOVE','RETREAT','BUILD'].includes(op.action) && attention.cost === 0)
+        if (['ATTACK','MOVE','RETREAT','BUILD','OFFER_PEACE'].includes(op.action) && attention.cost === 0)
           push('attention.missing_physical_cost', `Physical operation ${id} bypasses ordinary Attention`);
         if (released !== null || (attention.cost > 0 && acquired === null)) push('attention.missing_charge', `Physical operation ${id} lacks its charge`);
         const totals = attentionTotals.get(op.warlordId) ?? { ordinary: 0, historical: 0 };
@@ -448,7 +452,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     for (const claimId of op.claimIds) if (state.operationClaims.get(claimId)?.operationId !== id)
       push('operation.missing_claim', `operation ${id} lacks owned claim ${claimId}`);
     if ((op.phase === 'physical' || op.phase === 'recovery') && op.plan && !planProblem) {
-      if (!['ATTACK','MOVE','RETREAT','BUILD','REINFORCE'].includes(op.plan.action)) push('operation.unavailable_physical_action', `operation ${id} has no implemented physical lifecycle`);
+      if (!['ATTACK','MOVE','RETREAT','BUILD','REINFORCE','OFFER_PEACE'].includes(op.plan.action)) push('operation.unavailable_physical_action', `operation ${id} has no implemented physical lifecycle`);
       const extinctInvader = op.phase === 'recovery' && !!op.links.invasionId && state.activeInvasions.has(op.links.invasionId)
         && 'armyId' in op.plan && !state.armies.has(op.plan.armyId);
       for (const c of requiredClaims(op.plan, id, state, !!op.links.invasionId).filter(c => extinctInvader ? c.kind !== 'force' : op.phase !== 'recovery' || c.kind === 'force')) if (state.operationClaims.get(c.id)?.operationId !== id)
@@ -518,6 +522,16 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     if(!op.initiationTimer||op.initiationTimer.onlineDurationMs!==REINFORCE_INITIATION.initiationOnlineMs||op.initiationTimer.offlineDurationMs!==REINFORCE_INITIATION.initiationOfflineMs||reinforcementProblem(state,op.plan,op.id))push('recruitment.invalid_initiation',`Invalid live allocation ${op.id}`);
   }
   for (const army of state.armies.values()) {
+    const counterparty=army.movement?.hostileCounterpartyId;
+    if(counterparty!==undefined&&(counterparty===army.owner||!state.factions.has(counterparty)))
+      push('peace.invalid_hostile_march',`Army ${army.id} has invalid hostile travel linkage`);
+    if(counterparty!==undefined&&army.attackIntent?.targetFactionId&&counterparty!==army.attackIntent.targetFactionId)
+      push('peace.invalid_hostile_march',`Army ${army.id} travel and attack counterparties disagree`);
+    if(counterparty!==undefined&&army.movement?.commitmentId){
+      const op=state.operations.get(army.movement.commitmentId);
+      if(op?.action!=='ATTACK'||op.hostileCounterpartyId!==counterparty)
+        push('peace.invalid_hostile_march',`Army ${army.id} travel and operation counterparties disagree`);
+    }
     for (const id of [army.movement?.commitmentId, army.attackIntent?.commitmentId]) {
       if (!id) continue;
       const op = state.operations.get(id);

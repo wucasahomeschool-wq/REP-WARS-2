@@ -1,4 +1,5 @@
 import { availableLocalTroops, reinforcementProblem } from '../gameplay/recruitment/reinforcement';
+import { offerPeaceProblem } from '../gameplay/diplomacy/peace';
 import { requiredClaims } from './operations';
 import { assessAttention } from './strategicAttention';
 import { assessStrategicCompatibility, StrategicCompatibilityRule } from './strategicCompatibility';
@@ -40,7 +41,11 @@ export function validateConcretePlan(plan: AIConcretePlan, state: GameStateSnaps
     const problem=state.canonicalState?reinforcementProblem(state.canonicalState,plan,commitmentId,ignoreClaims):'Canonical local pool required';
     return problem?fail(problem):{valid:true,reason:''};
   }
-  if (plan.action === 'OFFER_PEACE' || plan.action === 'TRADE') return fail('final action lifecycle unavailable');
+  if(plan.action==='OFFER_PEACE') {
+    const problem=state.canonicalState?offerPeaceProblem(state.canonicalState,plan,commitmentId):'Canonical diplomacy state required';
+    return problem?fail(problem):{valid:true,reason:''};
+  }
+  if (plan.action === 'TRADE') return fail('final action lifecycle unavailable');
   if (plan.action === 'BUILD') return buildAvailable(state, plan) ? { valid: true, reason: '' } : fail('build site, capacity or exact funding is unavailable');
   const army = state.armies.get(plan.armyId);
   if (!army || army.owner !== plan.factionId) return fail('selected army missing or wrong ownership');

@@ -1,3 +1,4 @@
+import { registerAiPeaceTests } from './aiPeace';
 import { registerAiRecruitmentTests } from './aiRecruitment';
 import { primeSourceDecision } from './aiPressureFixtures';
 import { opportunity, selectWaitInitiation, prepareProactiveDecision, accrueProactiveClocks } from '../src/engine/proactiveCognition';
@@ -1658,7 +1659,7 @@ test('createGameState() contains the expected major state domains', () => {
   const expected = [
     'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'operationClaims', 'operations', 'constructions',
     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
-    'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment',
+    'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
@@ -2472,7 +2473,7 @@ test('AI_DECIDE does not run DecisionEngine for the player faction', () => {
   assert.strictEqual(res.errors[0]!.code, ErrorCode.ACTION_NOT_ALLOWED);
 });
 
-test('unsupported diplomacy remains FEATURE_NOT_IMPLEMENTED for player and AI callers', () => {
+test('Trade remains deferred while Peace rejects missing exact plans and player impersonation', () => {
   const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' }));
   const peaceP = orch.execute(cmdReq('OFFER_PEACE', 'player_1', { targetFactionId: 'iron_kingdom' }));
   const peaceAi = orch.execute(cmdReq('OFFER_PEACE', 'player_1', {
@@ -2482,7 +2483,9 @@ test('unsupported diplomacy remains FEATURE_NOT_IMPLEMENTED for player and AI ca
   const tradeAi = orch.execute(cmdReq('TRADE', 'player_1', {
     targetFactionId: 'iron_kingdom', factionId: 'ashen_horde',
   }));
-  for (const r of [peaceP, peaceAi, tradeP, tradeAi]) {
+  assert.strictEqual(peaceP.errors[0]!.code, ErrorCode.MISSING_PARAMETER);
+  assert.strictEqual(peaceAi.success,false);
+  for (const r of [tradeP, tradeAi]) {
     assert.strictEqual(r.success, false);
     assert.strictEqual(r.errors[0]!.code, ErrorCode.FEATURE_NOT_IMPLEMENTED);
   }
@@ -3113,6 +3116,7 @@ registerAiOperationTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
 registerAiStrategyConcurrencyTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
 registerAiStrategicPressureTests({ test, makeSelf, makeTerritory, cmdReq });
 registerAiRecruitmentTests({test,makeSelf,makeTerritory,cmdReq});
+registerAiPeaceTests({test,makeSelf,makeTerritory,cmdReq});
 registerAiStrategicEvaluationTests({ test, makeSelf, makeTerritory, cmdReq });
 
 registerFoundationHardeningTests({

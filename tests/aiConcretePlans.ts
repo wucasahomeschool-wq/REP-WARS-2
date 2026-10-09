@@ -219,7 +219,6 @@ export function registerAiConcretePlanTests(api: Api): void {
     const future = [
       makeConcretePlan({ action: 'REINFORCE', factionId: 'me', territoryId: 'home', sourcePoolId: 'pool_home', quantity: 30, destination: { kind: 'garrison', territoryId: 'home' } }),
       makeConcretePlan({ action: 'TRADE', factionId: 'me', counterpartyId: 'enemy', offered: { iron: 20 }, requested: { wood: 30 } }),
-      makeConcretePlan({ action: 'OFFER_PEACE', factionId: 'me', counterpartyId: 'enemy' }),
     ];
     for (const p of future) {
       assert.strictEqual(concretePlanProblem(p), null); const s = cloneGameState(state); commit(s, p);

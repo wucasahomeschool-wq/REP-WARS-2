@@ -3,7 +3,7 @@ import { settleOperation } from '../../engine/operations';
 import { Army } from '../../types';
 import { ActiveInvasion, GameState } from '../../types/GameState';
 import { BattleEngine, BattleInput } from '../../battle/BattleEngine';
-import { applyBattleResultToGameState } from '../../orchestration/applyBattle';
+import { applyBattleResultToGameState, applyUnopposedOccupationToGameState } from '../../orchestration/applyBattle';
 import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
 import { GameEvent, HandlerResult } from '../../orchestration/protocol';
 import { armiesInTerritory, requireFactionSnapshot, requireTerritory } from '../../orchestration/helpers';
@@ -207,6 +207,22 @@ export function resolveInvasionBattle(
   const virtualDefender = defensePower > 0
     ? [{ soldiers: defensePower, knights: 0, siegeEngines: 0, morale: 80, supply: 80 }]
     : [];
+
+  // Default WAR exposes genuinely undefended player tiles. Reuse the existing
+  // occupation rule after the existing response/defense lifecycle, instead of
+  // passing an impossible zero-defender input to BattleEngine. No new combat
+  // formula, duration or force is introduced.
+  if (target.garrison <= 0 && [...realDefenders,...virtualDefender].every(a=>a.soldiers+a.knights<=0)) {
+    const applied=applyUnopposedOccupationToGameState(state,target,invasion.attackerFactionId,attackers,state.turn);
+    setCooldown(state,invasion.attackerFactionId,'continuationUntilTick',state.worldTick+failedDefenseContinuationTicks());
+    releaseInvasionArmies(state,invasion);state.activeInvasions.delete(invasionId);closeCommitment(state,invasion,true);
+    const invasionOutcome=outcomeForReason(reason,false);
+    return {...emptyResult(),stateChanges:applied.stateChanges,territoriesChanged:applied.territoryChanges,armiesChanged:applied.armyChanges,
+      events:[invasionResolveEvent({invasionId,territoryId:target.id,attackerFactionId:invasion.attackerFactionId,invasionOutcome,
+        winner:'attacker',territoryOutcome:'captured',resolveReason:reason,resolvedWithoutBattle:true}),...applied.events],
+      payload:{attackOutcome:'battle_resolved',invasionOutcome,invasionId,winner:'attacker',territoryOutcome:'captured',
+        defensePower,territoryId:target.id,resolveReason:reason,resolvedWithoutBattle:true}};
+  }
   const input: BattleInput = {
     turn: state.turn,
     seed: invasion.battleSeed ?? 1,

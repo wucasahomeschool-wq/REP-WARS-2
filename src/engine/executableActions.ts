@@ -1,25 +1,27 @@
 import { ActionType } from '../types';
 
 /** New concrete-plan execution: reusable existing physical domains plus reward-free WAIT.
- * Local pool allocation is timed; Peace/Trade proposals remain deferred.
+ * Local pool allocation and Peace proposals are timed; Trade remains deferred.
  */
-export const EXECUTABLE_CONCRETE_ACTIONS: ReadonlySet<ActionType> = new Set(['ATTACK', 'BUILD', 'REINFORCE', 'MOVE', 'RETREAT', 'WAIT']);
+export const EXECUTABLE_CONCRETE_ACTIONS: ReadonlySet<ActionType> = new Set(['ATTACK', 'BUILD', 'REINFORCE', 'OFFER_PEACE', 'MOVE', 'RETREAT', 'WAIT']);
 
-/** Legacy persisted commitments without plans may still use the old command bridge. */
+/** Historical classification only. Incomplete legacy commitments cannot start
+ * canonical operations; no declaration may become executable through this bridge. */
 export const EXECUTABLE_COMMITMENT_ACTIONS: ReadonlySet<ActionType> = new Set([
   'ATTACK',
   'BUILD',
   'REINFORCE',
   'MOVE',
   'NEGOTIATE',
-  'DECLARE_WAR',
   'RETREAT',
   'WAIT',
   'DEFEND',
 ]);
 
-/** Unsupported both for old commitments and new final-shaped contracts. */
+/** Unsupported incomplete historical contracts. Exact current Peace plans use
+ * EXECUTABLE_CONCRETE_ACTIONS; historical declarations are obsolete outright. */
 export const UNSUPPORTED_COMMITMENT_ACTIONS: ReadonlySet<ActionType> = new Set([
+  'DECLARE_WAR',
   'OFFER_PEACE',
   'TRADE',
 ]);

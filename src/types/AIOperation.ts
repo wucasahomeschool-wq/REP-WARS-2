@@ -4,13 +4,15 @@ import type { OperationAttention } from './AIStrategy';
 /** Domain timing/state lives on the linked army/project/invasion, never here. */
 export interface AIOperation extends AICommitment {
   sourceContextId?: string;
+  /** Exact opposing faction at hostile initiation, unaffected by later conquest. */
+  hostileCounterpartyId?: string;
   initiationTimer?: import('./AIPressure').ProactiveTimer;
   attention: OperationAttention;
   phase: 'selected' | 'physical' | 'recovery' | 'terminal';
   objective: 'valid' | 'invalid';
   createdAtTick: number;
   claimIds: string[];
-  links: { armyId?: string; constructionId?: string; invasionId?: string };
+  links: { armyId?: string; constructionId?: string; invasionId?: string; peaceProposalId?: string };
   terminal: { outcome: 'completed' | 'failed' | 'interrupted'; reason: string; atTick: number } | null;
   /** Archived legacy reasoning may lack an exact plan. It cannot start a physical operation. */
   legacy?: boolean;

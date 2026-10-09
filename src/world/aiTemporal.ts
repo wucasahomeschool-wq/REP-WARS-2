@@ -36,6 +36,14 @@ export function anchorAiReceiptClock(state:GameState):void {
     if(o.spacing)o.spacing.progress.accruedThroughMs+=offset;
   }
   for(const op of activeOperations(state))if(op.initiationTimer)op.initiationTimer.progress.accruedThroughMs+=offset;
+  for(const p of state.peaceProposals.values()) {
+    p.createdAtMs+=offset;if(p.pendingAtMs!==null)p.pendingAtMs+=offset;if(p.resolvedAtMs!==null)p.resolvedAtMs+=offset;
+    if(p.responseTimer)p.responseTimer.progress.accruedThroughMs+=offset;
+  }
+  for(const r of state.peaceRelationships.values()) {
+    r.acceptedAtMs+=offset;if(r.activatedAtMs!==null)r.activatedAtMs+=offset;if(r.expiresAtMs!==null)r.expiresAtMs+=offset;
+    if(r.finalizationTimer)r.finalizationTimer.progress.accruedThroughMs+=offset;
+  }
   state.aiClock.nowMs=at;
   state.aiClock.worldAnchor={accruedTargetWorldTick:state.accruedTargetWorldTick,subTickMicroticks:state.subTickMicroticks,
     accrualDivisionRemainder:state.accrualDivisionRemainder,lastAccrualAtMs:at};
