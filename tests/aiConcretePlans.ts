@@ -224,7 +224,7 @@ export function registerAiConcretePlanTests(api: Api): void {
     for (const p of future) {
       assert.strictEqual(concretePlanProblem(p), null); const s = cloneGameState(state); commit(s, p);
       const orch = new Orchestrator(s); const result = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'me' }));
-      assert.strictEqual(result.success, false); assert.strictEqual(result.errors[0]!.code, 'FEATURE_NOT_IMPLEMENTED');
+      assert.strictEqual(result.success, false); assert.strictEqual(result.errors[0]!.code, p.action==='REINFORCE'?'INVALID_TARGET':'FEATURE_NOT_IMPLEMENTED');
       assert.strictEqual(orch.getState().territories.get('home')!.garrison, 20);
       assert.strictEqual(orch.getState().factions.get('me')!.resources.gold, 10000);
     }

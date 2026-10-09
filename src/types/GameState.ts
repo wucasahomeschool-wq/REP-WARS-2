@@ -95,8 +95,9 @@ import { GameRewardResult } from '../rewards/types';
  * 19 = Canonical multi-operation ownership and exclusive physical claims (Phase C).
  * 20 = Operation-owned Strategic Attention and canonical proactive opportunities (Phase D).
  * 21 = Source-bound Strategic Pressure and canonical proactive duration clocks (Phase E).
+ * 22 = Territory-local recruitment/pools and quantity-reserved REINFORCE initiation (Phase G).
  */
-export const GAME_STATE_SCHEMA_VERSION = 21;
+export const GAME_STATE_SCHEMA_VERSION = 22;
 
 export type InvasionId = string;
 
@@ -227,6 +228,8 @@ export interface City {
  */
 export interface TerritoryEconomy {
   territoryId: TerritoryId;
+  /** Phase G materializes only local Food between legacy whole-ledger accruals. */
+  foodAccrualTick?: number;
   lastAccrualTick: number;
   uncollected: Resources;
 }
@@ -540,9 +543,11 @@ export interface GameState {
    * the previous city; the new owner receives bare land.
    */
   cities: Map<CityId, City>;
+  /** Exact local undeployed troops and earned recruitment work, separate from player rewards. */
+  territoryRecruitment: Map<TerritoryId, import("./Recruitment").TerritoryRecruitment>;
   /**
    * Per-territory uncollected yield and last accrual tick. Faction
-   * `resources` remain the only stored reserve.
+   * `resources` remain the banked reserve; recruitment uses only local Food yield.
    */
   territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
   /**
@@ -662,6 +667,7 @@ export function emptyRewardApplicationState(): {
   activeInvasions: Map<InvasionId, ActiveInvasion>;
   constructions: Map<ConstructionId, ConstructionProject>;
   cities: Map<CityId, City>;
+  territoryRecruitment: Map<TerritoryId, import("./Recruitment").TerritoryRecruitment>;
   territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
   territoryInfrastructure: Map<TerritoryId, TerritoryInfrastructure>;
   playerFitness: PlayerFitnessState;
@@ -676,6 +682,7 @@ export function emptyRewardApplicationState(): {
     activeInvasions: new Map(),
     constructions: new Map(),
     cities: new Map(),
+    territoryRecruitment: new Map(),
     territoryEconomy: new Map(),
     territoryInfrastructure: new Map(),
     playerFitness: emptyPlayerFitnessState(),

@@ -1,3 +1,4 @@
+import { initializeRecruitment, simulationWork } from '../gameplay/recruitment/recruitment';
 import { migratePressureState } from './pressureMigration';
 import { migrateLegacyOperations } from './operationMigration';
 import { migrateStrategicState } from './strategyMigration';
@@ -348,6 +349,8 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   if (schema < 21) migratePressureState(state as unknown as GameState);
   else if (!(state.aiPressure instanceof Map) || !state.aiClock || typeof state.aiClock !== 'object')
     throw new PersistenceError('persistence.corrupt','Schema 21 requires canonical source pressure and temporal cursor');
+  if (schema < 22) initializeRecruitment(state as unknown as GameState, simulationWork({wholeTicks:state.accruedTargetWorldTick as number,subTickMicroticks:state.subTickMicroticks as number,accrualDivisionRemainder:state.accrualDivisionRemainder as number}));
+  else if (!(state.territoryRecruitment instanceof Map)) throw new PersistenceError('persistence.corrupt', 'Schema 22 requires local recruitment pools');
   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
   return state;
 }

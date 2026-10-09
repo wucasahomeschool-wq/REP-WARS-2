@@ -1,3 +1,5 @@
+import { progressRecruitmentThroughReceipt } from '../gameplay/recruitment/recruitment';
+import { activeOperations } from './operations';
 import type { GameState } from '../types/GameState';
 import type { AISourceContext, AIPressureMetrics, ProactiveTimer } from '../types/AIPressure';
 import type { AIDecisionOpportunity } from '../types/AIStrategy';
@@ -86,6 +88,7 @@ export function invalidateProactiveInitiation(state:GameState,fid:string):void {
  * pressure-triggered wake. Saturation and physical completion do not spawn cognition. */
 export function nextProactiveBoundary(state:GameState,horizon:number,presence:TemporalPresence):number {
   let next=horizon;
+  for(const op of activeOperations(state))if(op.initiationTimer)next=Math.min(next,state.aiClock.nowMs+Math.max(1,durationRemainingMs(op.initiationTimer.progress,op.initiationTimer.onlineDurationMs,presence)));
   for(const [fid,o] of state.aiDecisionOpportunities) {
     if(!factionCanObserve(state,fid))continue;
     const timer=o.primary?.timer??o.spacing;
@@ -102,10 +105,12 @@ export function nextProactiveBoundary(state:GameState,horizon:number,presence:Te
 }
 export function accrueProactiveClocks(state:GameState,atMs:number,presence:TemporalPresence):void {
   const elapsed=atMs-state.aiClock.nowMs;if(elapsed<0)throw new Error('AI clock cannot rewind');
+  progressRecruitmentThroughReceipt(state,atMs);
   accrueSourcePressure(state,elapsed,presence);
   for(const o of state.aiDecisionOpportunities.values()) {
     if(o.primary?.timer)o.primary.timer.progress=accrueDurationProgress(o.primary.timer.progress,atMs,presence);
     if(o.spacing)o.spacing.progress=accrueDurationProgress(o.spacing.progress,atMs,presence);
   }
+  for(const op of activeOperations(state))if(op.initiationTimer)op.initiationTimer.progress=accrueDurationProgress(op.initiationTimer.progress,atMs,presence);
   state.aiClock.nowMs=atMs;
 }

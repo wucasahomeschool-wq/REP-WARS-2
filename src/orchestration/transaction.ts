@@ -1,3 +1,4 @@
+import { cancelInvalidReinforcements } from '../engine/operations';
 import { GameState } from '../types/GameState';
 import { cloneGameState } from '../state/cloneGameState';
 import { checkGameStateInvariants } from '../state/gameStateInvariants';
@@ -13,6 +14,7 @@ export function runStateTransaction<T>(
 ): { state: GameState; result: T } {
   const draft = cloneGameState(state);
   const result = apply(draft);
+  cancelInvalidReinforcements(draft);
   const violations = checkGameStateInvariants(draft);
   if (violations.length > 0) {
     throw new OrchestrationError(

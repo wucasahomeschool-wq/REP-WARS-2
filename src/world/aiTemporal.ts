@@ -1,3 +1,4 @@
+import { activeOperations } from '../engine/operations';
 import type { GameState } from '../types/GameState';
 import { WORLD_TICK_DURATION_MS } from './realtimeClock';
 import { BALANCE } from '../constants/balance';
@@ -34,6 +35,7 @@ export function anchorAiReceiptClock(state:GameState):void {
     if(o.primary?.timer)o.primary.timer.progress.accruedThroughMs+=offset;
     if(o.spacing)o.spacing.progress.accruedThroughMs+=offset;
   }
+  for(const op of activeOperations(state))if(op.initiationTimer)op.initiationTimer.progress.accruedThroughMs+=offset;
   state.aiClock.nowMs=at;
   state.aiClock.worldAnchor={accruedTargetWorldTick:state.accruedTargetWorldTick,subTickMicroticks:state.subTickMicroticks,
     accrualDivisionRemainder:state.accrualDivisionRemainder,lastAccrualAtMs:at};

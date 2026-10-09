@@ -129,6 +129,7 @@ export function registerAiOperationTests({ test, makeSelf, makeTerritory, makeCm
     // from a longer historical march; no timing/balance constant is changed.
     const physical=cloneGameState(initial.getState());physical.armies.get('b')!.movement!.durationTicks=10;
     const o=new Orchestrator(physical);advance(o,2);const d=cloneGameState(o.getState());
+    settleTerritoryOwnershipChange(d,'target','me','enemy');
     const t=d.territories.get('target')!;t.owner='me';d.factions.get('enemy')!.territories=[];d.factions.get('me')!.territories.push('target');
     const march={...d.armies.get('b')!.movement!};invalidateStaleAttackIntents(d);
     assert.deepStrictEqual(d.armies.get('b')!.movement,march);assert.strictEqual(movementTicksRemaining(march,d.worldTick),8);

@@ -1,4 +1,4 @@
-import { settleOperation } from '../../engine/operations';
+import { activeOperations, settleOperation } from '../../engine/operations';
 import { FactionId, TerritoryId } from '../../types';
 import { GameState } from '../../types/GameState';
 import { cityIdFor, removeCity } from '../cities/city';
@@ -59,6 +59,16 @@ function snapshotTerritoryDestruction(
   };
 }
 
+/** PROVISIONAL IMPLEMENTATION POLICY — PRODUCT CONFIRMATION REQUIRED.
+ * Narrow local-garrison analogue: undeployed troops/fraction are destroyed on
+ * ownership transfer. No capture, retreat or redistribution rule is inferred.
+ * Replace this policy here if product confirms different pool treatment; the
+ * canonical pool/claim architecture does not require destruction.
+ */
+export function applyLocalPoolConquestPolicy(state: GameState, territoryId: TerritoryId): void {
+  state.territoryRecruitment.delete(territoryId);
+}
+
 /**
  * Ownership-transfer settlement:
  * 1. Stop the previous owner's production clock.
@@ -73,11 +83,15 @@ export function settleTerritoryOwnershipChange(
   previousOwner: FactionId | null = null,
 ): TerritoryDestructionReport {
   const report = snapshotTerritoryDestruction(state, territoryId, newOwner, previousOwner);
+  for(const op of activeOperations(state).filter(op=>op.plan?.action==='REINFORCE'&&op.plan.territoryId===territoryId))
+    settleOperation(state,op.id,'failed','Local reinforcement source ownership changed');
+  applyLocalPoolConquestPolicy(state, territoryId);
   persistTerritoryAccrual(state, territoryId);
   const rec = state.territoryEconomy.get(territoryId);
   if (rec) {
     rec.uncollected = emptyResources();
     rec.lastAccrualTick = state.worldTick;
+    if(rec.foodAccrualTick!==undefined)rec.foodAccrualTick=state.worldTick;
   }
   for (const [id, project] of [...state.constructions.entries()]) {
     if (project.territoryId === territoryId && project.status === 'in_progress') {

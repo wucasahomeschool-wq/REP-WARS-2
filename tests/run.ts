@@ -1,3 +1,4 @@
+import { registerAiRecruitmentTests } from './aiRecruitment';
 import { primeSourceDecision } from './aiPressureFixtures';
 import { opportunity, selectWaitInitiation, prepareProactiveDecision, accrueProactiveClocks } from '../src/engine/proactiveCognition';
 import { registerAiStrategicPressureTests } from './aiStrategicPressure';
@@ -1657,7 +1658,7 @@ test('createGameState() contains the expected major state domains', () => {
   const expected = [
     'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'operationClaims', 'operations', 'constructions',
     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
-    'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure',
+    'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
@@ -2179,20 +2180,15 @@ test('BUILD starts timed fortification using construction definition cost', () =
   assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore + 1);
 });
 
-test('REINFORCE uses centralized BALANCE reinforcement cost', () => {
+test('legacy resource-funded REINFORCE cannot create troops or spend banked resources', () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'iron_kingdom' });
-  const fid = 'iron_kingdom';
-  const owned = state.factions.get(fid)!.territories[0]!;
-  const garBefore = state.territories.get(owned)!.garrison;
-  const { gold: costG, food: costF, garrisonGain } = BALANCE.economy.reinforcementCost;
-  const goldBefore = state.factions.get(fid)!.resources.gold;
-  const foodBefore = state.factions.get(fid)!.resources.food;
-  const orch = new Orchestrator(state);
-  const res = orch.execute(cmdReq('REINFORCE', 'player_1', { territoryId: owned, factionId: fid }));
-  assert.strictEqual(res.success, true);
-  assert.strictEqual(orch.getState().territories.get(owned)!.garrison, garBefore + garrisonGain);
-  assert.strictEqual(orch.getState().factions.get(fid)!.resources.gold, goldBefore - costG);
-  assert.strictEqual(orch.getState().factions.get(fid)!.resources.food, foodBefore - costF);
+  const fid = 'iron_kingdom', owned = state.factions.get(fid)!.territories[0]!;
+  const before=cloneGameState(state), orch=new Orchestrator(state);
+  const res=orch.execute(cmdReq('REINFORCE','player_1',{territoryId:owned,factionId:fid}));
+  assert.strictEqual(res.success,false);
+  assert.deepStrictEqual(orch.getState().territories,before.territories);
+  assert.deepStrictEqual(orch.getState().factions,before.factions);
+  assert.deepStrictEqual(orch.getState().playerRewards,before.playerRewards);
 });
 
 test('insufficient resources leaves state unchanged on BUILD', () => {
@@ -2213,7 +2209,7 @@ test('GameState invariants run after state-changing commands', () => {
   const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
   const fid = 'merchant_republic';
   const owned = orch.getState().factions.get(fid)!.territories[0]!;
-  const res = orch.execute(cmdReq('REINFORCE', 'player_1', { territoryId: owned, factionId: fid }));
+  const res = orch.execute(cmdReq('ADVANCE_WORLD', 'player_1', { elapsedTicks: 1 }));
   assert.strictEqual(res.success, true);
   assert.deepStrictEqual(checkGameStateInvariants(orch.getState()), []);
 });
@@ -3116,6 +3112,7 @@ registerAiConcretePlanTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
 registerAiOperationTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
 registerAiStrategyConcurrencyTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
 registerAiStrategicPressureTests({ test, makeSelf, makeTerritory, cmdReq });
+registerAiRecruitmentTests({test,makeSelf,makeTerritory,cmdReq});
 registerAiStrategicEvaluationTests({ test, makeSelf, makeTerritory, cmdReq });
 
 registerFoundationHardeningTests({

@@ -171,6 +171,7 @@ function cloneCity(city: City): City {
 function cloneTerritoryEconomy(economy: TerritoryEconomy): TerritoryEconomy {
   return {
     territoryId: economy.territoryId,
+    ...(economy.foodAccrualTick!==undefined?{foodAccrualTick:economy.foodAccrualTick}:{}),
     lastAccrualTick: economy.lastAccrualTick,
     uncollected: { ...economy.uncollected },
   };
@@ -266,6 +267,7 @@ export function adoptOwnedTransactionState(target: GameState, next: GameState): 
   target.activeInvasions = next.activeInvasions;
   target.constructions = next.constructions;
   target.cities = next.cities;
+  target.territoryRecruitment = next.territoryRecruitment;
   target.territoryEconomy = next.territoryEconomy;
   target.territoryInfrastructure = next.territoryInfrastructure;
   target.playerFitness = next.playerFitness;
@@ -346,6 +348,7 @@ export function cloneGameState(state: GameState): GameState {
     activeInvasions: cloneMap(state.activeInvasions, cloneActiveInvasion),
     constructions: cloneMap(state.constructions, cloneConstruction),
     cities: cloneMap(state.cities, cloneCity),
+    territoryRecruitment: cloneMap(state.territoryRecruitment, p => ({ ...p })),
     territoryEconomy: cloneMap(state.territoryEconomy, cloneTerritoryEconomy),
     territoryInfrastructure: cloneMap(state.territoryInfrastructure, cloneTerritoryInfrastructure),
     playerFitness: clonePlayerFitness(state.playerFitness),

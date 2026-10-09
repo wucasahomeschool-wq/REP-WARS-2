@@ -1,3 +1,5 @@
+import { reinforcementQuantities } from '../gameplay/recruitment/reinforcement';
+import { recruitmentPoolId } from '../gameplay/recruitment/recruitment';
 import type { GameState, ConstructionProjectType } from '../types/GameState';
 import { AISourceContext, AIPressureMetrics } from '../types/AIPressure';
 import { AIConcretePlan, comparePlanIds, makeConcretePlan, concretePlanId, concretePlanProblem, PlanDraft } from '../types/AIConcretePlan';
@@ -5,10 +7,12 @@ import { toDecisionEngineSnapshot } from '../state/gameStateAdapters';
 import { assessConcretePlanFeasibility } from './concretePlans';
 import { activeOperations } from './operations';
 import { STRATEGIC_PRESSURE_TUNING as T, PROACTIVE_TEMPORAL_RULES as TIME } from '../constants/strategicPressure';
-import { MIN_ATTACKING_TROOPS } from '../army/strategicAttack';
+import { MIN_ATTACKING_TROOPS, armyHasActiveStrategicOperation } from '../army/strategicAttack';
 import { constructionCostEntries, getConstructionProjectDefinition, listConstructionProjectTypes } from '../gameplay/construction/definitions';
 import { ECONOMY_CONFIG } from '../gameplay/economy/config';
 import type { TemporalPresence } from '../world/timeToTick';
+import { computeAttackerPower, computeDefenderPower } from '../battle/CombatPower';
+import { withTerritoryCombatView } from '../gameplay/defense/territoryDefense';
 
 export function sourceContextId(source: Pick<AISourceContext,'factionId'|'domain'|'kind'|'subjectId'|'counterpartyId'|'projectType'>): string {
   return `source:v1:${JSON.stringify([source.factionId,source.domain,source.kind,source.subjectId,source.counterpartyId ?? null,source.projectType ?? null])}`;
@@ -37,6 +41,15 @@ export function sourcePlanPredicates(state: GameState, source: AISourceContext):
   if(activeOperations(state,fid).some(op=>op.sourceContextId===source.id && op.objective==='valid' && op.phase!=='selected'))return [];
   if(source.domain==='DIPLOMACY_PEACE'||source.domain==='TRADE_ECONOMIC')return [];
   const subject=state.territories.get(source.subjectId);
+  const reinforce=(territoryId:string,need:number,destination:import('../types/AIConcretePlan').ReinforcePlan['destination'])=>{
+    if(!state.territoryRecruitment.has(territoryId))return;
+    for(const quantity of reinforcementQuantities(need))add({action:'REINFORCE',factionId:fid,territoryId,sourcePoolId:recruitmentPoolId(territoryId),quantity,destination});
+  };
+  if(source.kind==='COVERAGE_GAP'&&subject?.owner===fid) {
+    const need=coverageTroopShortfall(state,subject.id,fid);
+    reinforce(subject.id,need,{kind:'garrison',territoryId:subject.id});
+    for(const a of state.armies.values())if(a.owner===fid&&a.location===subject.id)reinforce(subject.id,need,{kind:'army',armyId:a.id,territoryId:subject.id});
+  }
   if (source.domain==='DEVELOPMENT' && subject?.owner===fid && source.projectType) {
     const resources=Object.fromEntries(constructionCostEntries(getConstructionProjectDefinition(source.projectType).cost).map(x=>[x.resource,x.amount]));
     add({action:'BUILD',factionId:fid,territoryId:subject.id,projectType:source.projectType,
@@ -48,6 +61,10 @@ export function sourcePlanPredicates(state: GameState, source: AISourceContext):
     const origin=state.territories.get(army.location);
     if (!origin) continue;
     if (source.kind==='HOSTILE_OPPORTUNITY' && subject && subject.owner===source.counterpartyId) {
+      if(origin.owner===fid && [origin.id,...origin.neighboring].some(id=>{const site=state.territories.get(id);return site?.owner===fid&&site.neighboring.includes(subject.id);})) {
+        const need=Math.max(MIN_ATTACKING_TROOPS+1,subject.garrison+militaryAt(state,subject.id,subject.owner!))-army.soldiers-army.knights;
+        reinforce(origin.id,need,{kind:'army',armyId:army.id,territoryId:origin.id});
+      }
       for (const stagingId of [origin.id,...origin.neighboring]) {
         const staging=state.territories.get(stagingId);
         if (staging?.owner!==fid || !staging.neighboring.includes(subject.id)) continue;
@@ -96,6 +113,31 @@ function militaryAt(state:GameState,territory:string,owner:string):number {
   for(const a of state.armies.values()) if(a.owner===owner && a.location===territory) power+=a.soldiers+a.knights;
   return power;
 }
+/** Cheap factual coverage scope: the strongest adjacent hostile force group
+ * that can currently attack, versus stationary local defenders. This is not a
+ * plan score or a future battle draw. Use authoritative CombatPower so terrain,
+ * City, fortifications and unit quality cannot leave a phantom raw-count gap.
+ * Quantity is expressed as additional local soldier/garrison equivalents. */
+function coverageTroopShortfall(state:GameState,territoryId:string,fid:string):number {
+  const territory=state.territories.get(territoryId)!;
+  const armies=[...state.armies.values()].sort((a,b)=>comparePlanIds(a.id,b.id));
+  const engaged=new Set([...state.activeInvasions.values()].flatMap(i=>i.attackingArmyIds));
+  const available=(a:typeof armies[number])=>!armyHasActiveStrategicOperation(a)&&!engaged.has(a.id);
+  const defenders=armies.filter(a=>a.owner===fid&&a.location===territoryId&&available(a));
+  let threat=0;
+  for(const id of territory.neighboring) {
+    const origin=state.territories.get(id);
+    if(!origin||!hostile(state,fid,origin.owner))continue;
+    const attackers=armies.filter(a=>a.owner===origin.owner&&a.location===id&&available(a)&&a.soldiers+a.knights>MIN_ATTACKING_TROOPS);
+    if(attackers.length)threat=Math.max(threat,computeAttackerPower(attackers).effectivePower);
+  }
+  if(!threat)return 0;
+  const view=withTerritoryCombatView(state,territory);
+  const defense=computeDefenderPower(defenders,territory.garrison,view).effectivePower;
+  if(threat<=defense)return 0;
+  const perTroop=computeDefenderPower(defenders,territory.garrison+1,view).effectivePower-defense;
+  return Math.ceil((threat-defense)/perTroop);
+}
 function usefulBuild(state:GameState,fid:string,tid:string,type:ConstructionProjectType):boolean {
   const t=state.territories.get(tid)!;const f=state.factions.get(fid)!;
   const infra=state.territoryInfrastructure.get(tid);
@@ -123,7 +165,7 @@ export function deriveSources(state:GameState,fid:string,atMs:number):AISourceCo
     if(hostile(state,fid,t.owner) && (t.baseValue>0 || Object.values(t.resourceOutput).some(v=>v!>0))) {
       const defense=t.garrison+militaryAt(state,t.id,t.owner!);
       const plausible=[...state.armies.values()].some(a=>a.owner===fid && a.soldiers+a.knights>0
-        && (a.soldiers+a.knights)*T.credibleForceRatioDenominator>=defense*T.credibleForceRatioNumerator
+        && (a.soldiers+a.knights+(state.territoryRecruitment.get(a.location)?.troops??0))*T.credibleForceRatioDenominator>=defense*T.credibleForceRatioNumerator
         && [a.location,...(state.territories.get(a.location)?.neighboring??[])].some(st=>{
           const staging=state.territories.get(st);return staging?.owner===fid&&staging.neighboring.includes(t.id);
         }));
@@ -133,8 +175,8 @@ export function deriveSources(state:GameState,fid:string,atMs:number):AISourceCo
     for(const type of listConstructionProjectTypes()) if(usefulBuild(state,fid,t.id,type)) {
       add({domain:'DEVELOPMENT',kind:type==='CITY'||type==='FORTIFICATION'?'FRONTIER_DEVELOPMENT':'PRODUCTIVE_DEVELOPMENT',subjectId:t.id,projectType:type});
     }
-    const threat=t.neighboring.some(id=>{const n=state.territories.get(id);return !!n&&hostile(state,fid,n.owner)&&militaryAt(state,id,n.owner!)>t.garrison;});
-    if(threat && militaryAt(state,t.id,fid)===0 && [...state.armies.values()].some(a=>a.owner===fid&&state.territories.get(a.location)?.neighboring.includes(t.id)))
+    const localNeed=coverageTroopShortfall(state,t.id,fid);
+    if(localNeed>0 && (state.territoryRecruitment.has(t.id)||[...state.armies.values()].some(a=>a.owner===fid&&state.territories.get(a.location)?.neighboring.includes(t.id))))
       add({domain:'FORCE_POSITIONING',kind:'COVERAGE_GAP',subjectId:t.id});
   }
   for(const a of state.armies.values()) if(a.owner===fid && hostile(state,fid,state.territories.get(a.location)?.owner??null))

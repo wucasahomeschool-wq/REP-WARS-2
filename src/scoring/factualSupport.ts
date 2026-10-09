@@ -1,3 +1,4 @@
+import { availableLocalTroops } from '../gameplay/recruitment/reinforcement';
 import type { Army, Resources, Territory, ResourceType, RelationshipState } from '../types';
 import type { GameState, ConstructionProject, ConstructionProjectType } from '../types/GameState';
 import type { TimingSupport } from '../types/StrategicEvaluation';
@@ -34,6 +35,7 @@ export interface CommittedEffect {
   classification: 'deterministic_execution'|'contingent_execution';
   armyId?: string; territoryId: string; projectType?: ConstructionProjectType;
   timing: TimingSupport; objectiveValid: boolean;
+  localAllocation?: {quantity:number; destination:import('../types/AIConcretePlan').ReinforcePlan['destination']; initiation:ReturnType<typeof sampledActivityTiming>};
 }
 export interface FactualTerritory extends Omit<Territory,'baseValue'|'population'> {
   output: Resources; projectedOutput: Resources;
@@ -45,6 +47,7 @@ export interface FactualTerritory extends Omit<Territory,'baseValue'|'population
 export class FactualSupport {
   readonly territories = new Map<string,FactualTerritory>();
   readonly armies = new Map<string,Army>();
+  readonly localPools = new Map<string,{troops:number;available:number;reserved:number}>();
   readonly stocks = new Map<string,Resources>();
   readonly wars = new Map<string,readonly string[]>();
   readonly relationshipStates=new Map<string,ReadonlyMap<string,RelationshipState>>();
@@ -93,6 +96,7 @@ export class FactualSupport {
       movement:a.movement?{...a.movement}:null,
       // Intent identity/target only; never copy the future battle seed.
     });
+    for(const [id,pool] of state.territoryRecruitment) {const available=availableLocalTroops(state,id);this.localPools.set(id,{troops:pool.troops,available,reserved:pool.troops-available});}
     const operations=activeOperations(state);
     for(const invasion of [...state.activeInvasions.values()].sort((a,b)=>comparePlanIds(a.id,b.id)))if(invasion.defenseMobilization) {
       const power=Math.max(0,Math.round(invasion.defenseMobilization.defensePower*defenseWorkoutMultiplier(state,invasion.territoryId)));
@@ -119,6 +123,9 @@ export class FactualSupport {
       effects.push({id:`attack:${o.plan.armyId}`,armyId:o.plan.armyId,factionId:o.warlordId,territoryId:o.plan.targetTerritoryId,classification:'contingent_execution',timing:this.timing(0,0,'external'),objectiveValid:o.objective==='valid'});
     }
     for(const p of this.builds)effects.push({id:p.id,factionId:p.factionId,territoryId:p.territoryId,projectType:p.projectType,classification:'deterministic_execution',objectiveValid:true,timing:this.timing(displayedRemainingTicks(p,state.worldTick),p.durationTicks,'persisted')});
+    for(const op of operations)if(op.plan?.action==='REINFORCE'&&op.initiationTimer) {
+      effects.push({id:op.id,factionId:op.warlordId,territoryId:op.plan.territoryId,classification:'deterministic_execution',objectiveValid:op.objective==='valid',timing:this.timing(0,0,'external'),localAllocation:{quantity:op.plan.quantity,destination:{...op.plan.destination},initiation:sampledActivityTiming(op.initiationTimer,this.presence)}});
+    }
     this.committed=effects.sort((a,b)=>comparePlanIds(a.id,b.id));
   }
   timing(remainingTicks:number,totalTicks=remainingTicks,certainty:TimingSupport['certainty']='authored'):TimingSupport {

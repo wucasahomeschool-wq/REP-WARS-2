@@ -1,5 +1,8 @@
+import { REINFORCE_INITIATION } from '../constants/recruitment';
+import { RECRUITMENT_WORK_PER_TICK, simulationWork } from '../gameplay/recruitment/recruitment';
+import { reinforcementProblem } from '../gameplay/recruitment/reinforcement';
 import { pressureStateProblems, sourcePlanBindingProblem } from './pressureInvariants';
-import { requiredClaims, claimIdentity, isImmutableTerminalOperation } from '../engine/operations';
+import { activeOperations, requiredClaims, claimIdentity, isImmutableTerminalOperation } from '../engine/operations';
 import { concretePlanProblem, planTargetId } from '../types/AIConcretePlan';
 import { recordedAiCommitmentSequenceFloors } from '../engine/commitmentIdentity';
 /**
@@ -96,7 +99,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       push('opportunity.invalid_boundary', `Opportunity ${factionId} has invalid boundary`);
     if (opportunity.primaryOperationId !== null) {
       const primary = state.operations.get(opportunity.primaryOperationId);
-      if (!primary || primary.warlordId !== factionId || primary.phase !== 'selected')
+      if (!primary || primary.warlordId !== factionId || !(primary.phase === 'selected' || primary.action === 'REINFORCE' && primary.phase === 'physical'))
         push('opportunity.invalid_primary', `Opportunity ${factionId} does not own a pending initiation`);
     }
   }
@@ -445,7 +448,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     for (const claimId of op.claimIds) if (state.operationClaims.get(claimId)?.operationId !== id)
       push('operation.missing_claim', `operation ${id} lacks owned claim ${claimId}`);
     if ((op.phase === 'physical' || op.phase === 'recovery') && op.plan && !planProblem) {
-      if (!['ATTACK','MOVE','RETREAT','BUILD'].includes(op.plan.action)) push('operation.unavailable_physical_action', `operation ${id} has no implemented physical lifecycle`);
+      if (!['ATTACK','MOVE','RETREAT','BUILD','REINFORCE'].includes(op.plan.action)) push('operation.unavailable_physical_action', `operation ${id} has no implemented physical lifecycle`);
       const extinctInvader = op.phase === 'recovery' && !!op.links.invasionId && state.activeInvasions.has(op.links.invasionId)
         && 'armyId' in op.plan && !state.armies.has(op.plan.armyId);
       for (const c of requiredClaims(op.plan, id, state, !!op.links.invasionId).filter(c => extinctInvader ? c.kind !== 'force' : op.phase !== 'recovery' || c.kind === 'force')) if (state.operationClaims.get(c.id)?.operationId !== id)
@@ -481,14 +484,38 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
   for (const [id, claim] of state.operationClaims) {
     if (!claim || typeof claim !== 'object') { push('claim.invalid_shape', `claim ${id} is malformed`); continue; }
     const op = state.operations.get(claim.operationId);
-    if (!['force','construction_site','engagement_target','invasion_target'].includes(claim.kind)) push('claim.invalid_kind', `claim ${id} has unknown kind`);
-    if (id !== claim.id || id !== claimIdentity(claim.kind, claim.subjectId, claim.scopeFactionId)) push('claim.invalid_identity', `claim ${id} has inconsistent subject identity`);
+    if (!['force','construction_site','engagement_target','invasion_target','local_troops','garrison'].includes(claim.kind)) push('claim.invalid_kind', `claim ${id} has unknown kind`);
+    if (id !== claim.id || id !== claimIdentity(claim.kind, claim.subjectId, claim.scopeFactionId, claim.operationId)) push('claim.invalid_identity', `claim ${id} has inconsistent subject identity`);
     if (!op || op.phase === 'terminal' || !op.claimIds?.includes(id)) push('claim.orphan', `claim ${id} has no active owning operation`);
     if (op?.plan && !concretePlanProblem(op.plan) && !requiredClaims(op.plan, op.id, state, !!op.links.invasionId).some(c => c.id === id))
       push('claim.plan_mismatch', `claim ${id} is not required by its owner's exact plan`);
     if (claim.kind === 'engagement_target' && claim.scopeFactionId !== op?.warlordId) push('claim.invalid_scope', `claim ${id} faction scope disagrees`);
     if (claim.kind === 'force' ? !state.armies.has(claim.subjectId) : !state.territories.has(claim.subjectId))
       push('claim.missing_subject', `claim ${id} subject no longer exists`);
+  }
+  const quantities = new Map<string,number>();
+  for(const claim of state.operationClaims.values())if(claim.kind==='local_troops') {
+    if(!Number.isSafeInteger(claim.quantity)||claim.quantity!<=0)push('claim.invalid_quantity',`Invalid local quantity ${claim.id}`);
+    quantities.set(claim.subjectId,(quantities.get(claim.subjectId)??0)+(claim.quantity??0));
+    const op=state.operations.get(claim.operationId);
+    if(op?.plan?.action!=='REINFORCE'||op.plan.quantity!==claim.quantity)push('claim.quantity_mismatch',`Claim ${claim.id} changed selected quantity`);
+  }
+  let earnedRecruitmentFrontier:bigint|undefined;
+  try {
+    const processed=BigInt(state.worldTick)*RECRUITMENT_WORK_PER_TICK;
+    const accrued=simulationWork({wholeTicks:state.accruedTargetWorldTick,subTickMicroticks:state.subTickMicroticks,accrualDivisionRemainder:state.accrualDivisionRemainder});
+    earnedRecruitmentFrontier=processed>accrued?processed:accrued;
+  } catch { /* Invalid clock fields already have their own structural violations. */ }
+  if(!(state.territoryRecruitment instanceof Map))push('recruitment.missing_map','Canonical local recruitment map missing');
+  else for(const [id,pool] of state.territoryRecruitment) {
+    if(!pool||typeof pool!=='object'){push('recruitment.invalid_shape',`Malformed local pool ${id}`);continue;}
+    const t=state.territories.get(id);
+    if(!t||!state.factions.has(pool.factionId)||t.owner===null||pool.territoryId!==id||pool.factionId!==t.owner||pool.factionId===state.playerFactionId)push('recruitment.invalid_owner',`Invalid local pool ${id}`);
+    if(!Number.isSafeInteger(pool.troops)||pool.troops<0||(quantities.get(id)??0)>pool.troops)push('recruitment.invalid_quantity',`Invalid or over-reserved local pool ${id}`);
+    try {if(typeof pool.fractionalWork!=='string'||typeof pool.accruedThroughWork!=='string'||!/^(0|[1-9][0-9]*)$/.test(pool.fractionalWork)||!/^(0|[1-9][0-9]*)$/.test(pool.accruedThroughWork)||BigInt(pool.fractionalWork)>=RECRUITMENT_WORK_PER_TICK||(earnedRecruitmentFrontier!==undefined&&BigInt(pool.accruedThroughWork)>earnedRecruitmentFrontier))throw new Error();}catch{push('recruitment.invalid_work',`Invalid exact recruitment progress ${id}`);}
+  }
+  for (const op of activeOperations(state))if(op.plan?.action==='REINFORCE'&&op.phase==='physical') {
+    if(!op.initiationTimer||op.initiationTimer.onlineDurationMs!==REINFORCE_INITIATION.initiationOnlineMs||op.initiationTimer.offlineDurationMs!==REINFORCE_INITIATION.initiationOfflineMs||reinforcementProblem(state,op.plan,op.id))push('recruitment.invalid_initiation',`Invalid live allocation ${op.id}`);
   }
   for (const army of state.armies.values()) {
     for (const id of [army.movement?.commitmentId, army.attackIntent?.commitmentId]) {
@@ -764,6 +791,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       if (!state.territories.has(rec.territoryId)) {
         push('economy.invalid_territory', `territoryEconomy ${rec.territoryId} is not a known territory`);
       }
+      if(rec.foodAccrualTick!==undefined && (!Number.isSafeInteger(rec.foodAccrualTick)||rec.foodAccrualTick<0||rec.foodAccrualTick>state.worldTick))push('economy.invalid_food_stamp',`Invalid local Food stamp ${rec.territoryId}`);
       if (!Number.isInteger(rec.lastAccrualTick) || rec.lastAccrualTick < 0) {
         push('economy.invalid_last_accrual', `territoryEconomy ${rec.territoryId} lastAccrualTick is ${String(rec.lastAccrualTick)}`);
       }

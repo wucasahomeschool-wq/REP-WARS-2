@@ -1,3 +1,4 @@
+import { settleTerritoryOwnershipChange } from '../src/gameplay/economy/ownership';
 import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import * as fs from 'fs';
@@ -319,6 +320,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
     orch.execute(cmdReq('ATTACK', 'p', { territoryId: 'front', factionId: ATK, seed: 42 }));
     const duration = orch.getState().armies.get('atk_army')!.movement!.durationTicks;
     orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: duration - 1 }));
+    settleTerritoryOwnershipChange(orch.getState(),'front',ATK,DEF);
     orch.getState().territories.get('front')!.owner = ATK;
     orch.getState().factions.get(ATK)!.territories.push('front');
     orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));

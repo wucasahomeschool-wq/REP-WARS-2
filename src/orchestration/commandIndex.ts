@@ -163,8 +163,8 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   cmd({
     commandId: 'REINFORCE',
     category: 'ECONOMY',
-    description: 'Spend gold/food to add garrison using BALANCE.economy.reinforcementCost.',
-    required: [p('territoryId', 'string', 'Owned territory to reinforce')],
+    description: 'Initiate an exact timed allocation from a territory-local undeployed troop pool (AI world growth only).',
+    required: [p('plan', 'object', 'Exact REINFORCE concrete plan')],
     optional: [p('factionId', 'string', 'Acting faction')],
     routesTo: ['state'],
     changesState: true,

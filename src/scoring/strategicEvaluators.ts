@@ -1,5 +1,5 @@
 import type { Army, ResourceType } from '../types';
-import type { BuildPlan } from '../types/AIConcretePlan';
+import type { BuildPlan, ReinforcePlan } from '../types/AIConcretePlan';
 import type { EvaluatorAssessment, FactualUncertainty, StrategicEvaluator } from '../types/StrategicEvaluation';
 import { STRATEGIC_EVALUATORS } from '../types/StrategicEvaluation';
 import { computeAttackerPower, computeDefenderPower } from '../battle/CombatPower';
@@ -108,6 +108,40 @@ export class StrategicEvaluators {
         shortfall:Math.max(0,hostilePower-defense),dangerRatio:hostilePower/(hostilePower+defense),earliestThreatTicks:earliest,
         committedThreats:[...threats.values()].filter(x=>x.committed).length,friendlySupportIds:defenders.map(a=>a.id),proposedSupportArrivalTicks},
         ['canonical force identity deduplication','CombatPower defenders/attackers','LOGISTICS_ANALYSIS','committed arrivals (only support arriving in time)'],threats.size?contingentFacts:deterministicFacts);
+    });
+  }
+  /** Existing FORCE_POSITION_VALUE identity, not an eighth evaluator.
+   * Allocation improves exact local capacity; alternative local use owns the
+   * pool opportunity cost once. It does not assume intervening hostile choices. */
+  localAllocationValue(plan:ReinforcePlan,targetTerritoryId?:string) {
+    return this.memo('FORCE_POSITION_VALUE',[plan.id,targetTerritoryId??null],()=>{
+      const t=this.support.territories.get(plan.territoryId)!;
+      const pool=this.support.localPools.get(t.id)!;
+      const danger=this.localDanger(plan.factionId,t.id).facts;
+      const destination=plan.destination.kind==='army'?this.support.armies.get(plan.destination.armyId):undefined;
+      const virtual=this.support.virtualDefenses.get(t.id)??[];
+      const defenders=danger.friendlySupportIds.map(id=>{
+        const a=this.support.armies.get(id)??virtual.find(v=>v.id===id);
+        if(!a)throw new Error('Local allocation lost factual defender identity');
+        return destination?.id===id?{...a,soldiers:a.soldiers+plan.quantity}:a;
+      });
+      const garrison=t.garrison+(plan.destination.kind==='garrison'?plan.quantity:0);
+      const afterDefense=computeDefenderPower(defenders,garrison,t).effectivePower;
+      const defenseGain=Math.min(Math.max(0,afterDefense-danger.defensePower),danger.shortfall);
+      let attackGap=0;
+      let offensiveGain=0;
+      // Preparation is factual support for the already-selected offensive
+      // objective, never an internal search for a different hostile target.
+      if(destination && targetTerritoryId && this.support.hostile(plan.factionId,this.support.territories.get(targetTerritoryId)?.owner??null)) {
+        const outlook=this.battleOutlook(destination.id,targetTerritoryId).facts;
+        attackGap=Math.max(0,outlook.defenderEffectiveStrength-outlook.attackerEffectiveStrength);
+        const afterAttack=computeAttackerPower([{...destination,soldiers:destination.soldiers+plan.quantity}]).effectivePower;
+        offensiveGain=Math.min(Math.max(0,afterAttack-outlook.attackerEffectiveStrength),attackGap);
+      }
+      return assessment('FORCE_POSITION_VALUE',{territoryId:t.id,quantity:plan.quantity,availablePool:pool.available,
+        additionalUtility:Math.max(defenseGain,offensiveGain),defenseGain,offensiveGain,
+        consumedFraction:plan.quantity/Math.max(1,pool.available)},
+        ['Exact local pool availability minus canonical quantity claims','LOCAL_DANGER factual shortfall','CombatPower marginal soldiers','BATTLE_OUTLOOK target-bound preparation'],contingentFacts);
     });
   }
   forcePositionValue(factionId:string,armyId:string,territoryId:string,baselineTerritoryId:string) {

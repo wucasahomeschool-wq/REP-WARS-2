@@ -1,3 +1,4 @@
+import { progressRecruitment, settleRecruitmentWorldBoundary } from '../gameplay/recruitment/recruitment';
 import { nextAiWorldBoundary, commitAiWorldBoundary } from './aiTemporal';
 import { activeOperations, settleOperation } from '../engine/operations';
 import { progressAllConstructions, displayedRemainingTicks } from '../gameplay/construction/progress';
@@ -252,6 +253,7 @@ export class ContinuousWorldEngine {
       return result;
     }
 
+    progressRecruitment(state);
     host.rebindRuntime(state);
     const ticksPerEventTurn = BALANCE.world.ticksPerEventTurn;
 
@@ -270,6 +272,7 @@ export class ContinuousWorldEngine {
         });
       }
 
+      settleRecruitmentWorldBoundary(state);
       this.advanceArmyMovements(state, host, result);
       const constructing = activeOperations(state).filter(o => o.action === 'BUILD' && o.phase !== 'selected').map(o => o.id);
       progressAllConstructions(state);

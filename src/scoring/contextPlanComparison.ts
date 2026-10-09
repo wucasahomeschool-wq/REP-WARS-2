@@ -1,3 +1,4 @@
+import { RECRUITMENT_TUNING } from '../constants/recruitment';
 import type { GameState } from '../types/GameState';
 import type { AISourceContext } from '../types/AIPressure';
 import type { ScoredConcretePlan } from '../types';
@@ -72,6 +73,11 @@ export class ContextPlanComparator {
       add('force:exposure_change','LOCAL_DANGER','additional_benefit',signed(before.facts.dangerRatio-after.facts.dangerRatio,1,T.dangerWeight),'Changed exposure of this force; territory importance excluded','bounded');
       add('initiation:time','TIMING_SUPPORT','timeliness',-saturatingMagnitude(time.remainingTicks,T.timingScaleTicks)*T.timingWeight,'Authoritative exact route travel bounds');
       downside=after.facts.dangerRatio;
+    } else if(plan.action==='REINFORCE') {
+      const allocation=evaluators.localAllocationValue(plan,source.kind==='HOSTILE_OPPORTUNITY'?source.subjectId:undefined);assessments.push(allocation);
+      add('allocation:local_effect','FORCE_POSITION_VALUE','source_resolution',saturatingMagnitude(allocation.facts.additionalUtility,T.powerScale)*T.positionWeight,'Marginal exact local defensive/offensive capacity; no new troops','bounded');
+      add('allocation:pool_flexibility','FORCE_POSITION_VALUE','opportunity_cost',-allocation.facts.consumedFraction*RECRUITMENT_TUNING.reserveFlexibilityWeight,'Exact consumed local reserve fraction; one owner for foregone local use');
+      downside=0; // Uncertain hostile timing is not a fabricated loss probability.
     } else if(plan.action==='BUILD') {
       const build=evaluators.buildValue(plan);assessments.push(build);
       add('build:additional_effect','BUILD_VALUE','source_resolution',saturatingMagnitude(build.facts.additionalBenefit,1)*T.buildBenefitWeight,'Exact authored additional output/defense/capability over committed build baseline',build.uncertainty.confidence);

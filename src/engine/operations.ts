@@ -1,3 +1,5 @@
+import { timerRemaining } from './proactiveCognition';
+import { availableLocalTroops, reinforcementProblem, allocateReinforcement } from '../gameplay/recruitment/reinforcement';
 import { AICommitment } from '../types';
 import { AIOperation, AIOperationClaim } from '../types/AIOperation';
 import { GameState } from '../types/GameState';
@@ -16,6 +18,7 @@ function freezeTerminal(op: AIOperation): AIOperation {
   // Settlement can also receive manually constructed compatibility records.
   // Freeze an isolated plan rather than assuming every caller used our factory.
   if (op.plan !== undefined) op.plan = cloneConcretePlan(op.plan);
+  if(op.initiationTimer){Object.freeze(op.initiationTimer.progress);Object.freeze(op.initiationTimer);}
   Object.freeze(op.reason);
   op.factorBreakdown.forEach(Object.freeze); Object.freeze(op.factorBreakdown);
   Object.freeze(op.claimIds); Object.freeze(op.links); Object.freeze(op.terminal); Object.freeze(op.attention);
@@ -28,6 +31,7 @@ export function cloneOperation(op: AIOperation): AIOperation {
   // rebuilding completed exact plans during long offline catch-up.
   if (immutableTerminals.has(op)) return op;
   const copy = { ...op, ...(op.plan !== undefined ? { plan: cloneConcretePlan(op.plan) } : {}),
+    ...(op.initiationTimer ? { initiationTimer: { ...op.initiationTimer, progress: { ...op.initiationTimer.progress } } } : {}),
     reason: [...op.reason], factorBreakdown: op.factorBreakdown.map(f => ({ ...f })),
     claimIds: [...op.claimIds], links: { ...op.links }, attention: { ...op.attention }, terminal: op.terminal ? { ...op.terminal } : null };
   return copy.terminal ? freezeTerminal(copy) : copy;
@@ -90,12 +94,13 @@ export function activeOperations(state: GameState, factionId?: string): AIOperat
   return [...values].filter(o => o.phase !== 'terminal' && (factionId === undefined || o.warlordId === factionId))
     .sort((a, b) => comparePlanIds(a.id, b.id));
 }
-export function claimIdentity(kind: AIOperationClaim['kind'], subjectId: string, scopeFactionId?: string): string {
+export function claimIdentity(kind: AIOperationClaim['kind'], subjectId: string, scopeFactionId?: string, operationId?: string): string {
+  if(kind === 'local_troops') return `local_troops:${JSON.stringify([subjectId, operationId])}`;
   return kind === 'engagement_target' ? `${kind}:${JSON.stringify([scopeFactionId, subjectId])}` : `${kind}:${subjectId}`;
 }
 export function requiredClaims(plan: AIConcretePlan, operationId: string, state?: GameState, linkedInvasion = false): AIOperationClaim[] {
   const claim = (kind: AIOperationClaim['kind'], subjectId: string): AIOperationClaim =>
-    ({ id: claimIdentity(kind, subjectId, plan.factionId), operationId, kind, subjectId,
+    ({ id: claimIdentity(kind, subjectId, plan.factionId, operationId), operationId, kind, subjectId,
       ...(kind === 'engagement_target' ? { scopeFactionId: plan.factionId } : {}) });
   switch (plan.action) {
     case 'ATTACK': return [claim('force', plan.armyId), claim('engagement_target', plan.targetTerritoryId),
@@ -103,6 +108,8 @@ export function requiredClaims(plan: AIConcretePlan, operationId: string, state?
         ? [claim('invasion_target', plan.targetTerritoryId)] : [])];
     case 'MOVE': case 'RETREAT': return [claim('force', plan.armyId)];
     case 'BUILD': return [claim('construction_site', plan.territoryId)];
+    case 'REINFORCE': return [{...claim('local_troops', plan.territoryId),quantity:plan.quantity},
+      plan.destination.kind==='army'?claim('force',plan.destination.armyId):claim('garrison',plan.territoryId)];
     default: return [];
   }
 }
@@ -113,7 +120,9 @@ export function assertClaimAvailable(state: GameState, kind: AIOperationClaim['k
 export function acquireOperationClaims(state: GameState, op: AIOperation): void {
   if (!op.plan) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Incomplete legacy reasoning cannot start an operation');
   const claims = requiredClaims(op.plan, op.id, state);
-  for (const c of claims) assertClaimAvailable(state, c.kind, c.subjectId, op.id, c.scopeFactionId);
+  if(op.plan.action==='REINFORCE' && availableLocalTroops(state,op.plan.territoryId,op.id)<op.plan.quantity)
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Local troop quantity already claimed');
+  for (const c of claims.filter(c=>c.kind!=='local_troops')) assertClaimAvailable(state, c.kind, c.subjectId, op.id, c.scopeFactionId);
   // All conflicts checked before any writes. Domain start itself runs on an isolated draft.
   for (const c of claims) state.operationClaims.set(c.id, c);
   op.claimIds = claims.map(c => c.id).sort(comparePlanIds);
@@ -153,6 +162,14 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
     }
     return false; // Keep force/claims until the already-started march reaches its physical boundary.
   }
+  if(op.plan?.action==='REINFORCE' && outcome==='completed') {
+    // Exact allocation and terminal accounting are one canonical transition.
+    // An early/duplicate terminal call can neither allocate nor fake success.
+    if(!op.initiationTimer || timerRemaining(state,op.initiationTimer)>0 || reinforcementProblem(state,op.plan,id))return false;
+    if(requiredClaims(op.plan,id,state).some(c=>state.operationClaims.get(c.id)?.operationId!==id))return false;
+    allocateReinforcement(state,op.plan,id);
+    finishDecisionInitiation(state,id,true);
+  }
   op.status = outcome; op.phase = 'terminal'; op.statusReason = reason;
   op.terminal = { outcome, reason, atTick: state.worldTick };
   if (op.attention.acquiredAtTick !== null) op.attention.releasedAtTick = state.worldTick;
@@ -167,4 +184,15 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
   freezeTerminal(op);
   state.operations.set(id, op); // Refresh the derived live-key index.
   return true;
+}
+
+/** Domain mutations may invalidate an unfinished allocation before its timer
+ * boundary (conquest, force destruction, invasion). Settle on the transaction
+ * draft before validation; this cannot reroute, create troops, grant relief or
+ * touch a preceding committed state. */
+export function cancelInvalidReinforcements(state:GameState):void {
+  for(const op of activeOperations(state))if(op.plan?.action==='REINFORCE'&&op.phase==='physical') {
+    const problem=reinforcementProblem(state,op.plan,op.id);
+    if(problem)settleOperation(state,op.id,'failed',problem);
+  }
 }

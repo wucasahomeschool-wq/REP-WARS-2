@@ -537,21 +537,8 @@ function simulateDecisionOutcomes(
         }
         break;
       case 'REINFORCE':
-        if (d.targetId) {
-          const t = gameState.territories.get(d.targetId);
-          if (t && t.owner === d.warlordId) {
-            // AI DECISION CORRECTNESS PASS: moved from inline literals to
-            // BALANCE.economy.reinforcementCost, the same source
-            // ActionScorer.scoreReinforce() now reads for its affordability
-            // check, so scoring and execution can't disagree about cost.
-            const { gold: costG, food: costF, garrisonGain } = BALANCE.economy.reinforcementCost;
-            if (ws.snapshot.resources.gold >= costG && ws.snapshot.resources.food >= costF) {
-              ws.snapshot.resources.gold -= costG;
-              ws.snapshot.resources.food -= costF;
-              t.garrison += garrisonGain;
-            }
-          }
-        }
+        // Legacy harness cannot allocate canonically timed local pools.
+        // Never recreate purchased troops; use Orchestrator in production.
         break;
       case 'WAIT': {
         // Initiate no operation; waiting never grants resources or troops.

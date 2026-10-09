@@ -1,3 +1,4 @@
+import { availableLocalTroops, reinforcementProblem } from '../gameplay/recruitment/reinforcement';
 import { requiredClaims } from './operations';
 import { assessAttention } from './strategicAttention';
 import { assessStrategicCompatibility, StrategicCompatibilityRule } from './strategicCompatibility';
@@ -35,7 +36,11 @@ export function validateConcretePlan(plan: AIConcretePlan, state: GameStateSnaps
     return held && held.operationId !== commitmentId;
   })) return fail('required physical claim unavailable');
   if (plan.action === 'WAIT') return { valid: true, reason: '' };
-  if (plan.action === 'REINFORCE' || plan.action === 'OFFER_PEACE' || plan.action === 'TRADE') return fail('final action lifecycle unavailable');
+  if(plan.action==='REINFORCE') {
+    const problem=state.canonicalState?reinforcementProblem(state.canonicalState,plan,commitmentId,ignoreClaims):'Canonical local pool required';
+    return problem?fail(problem):{valid:true,reason:''};
+  }
+  if (plan.action === 'OFFER_PEACE' || plan.action === 'TRADE') return fail('final action lifecycle unavailable');
   if (plan.action === 'BUILD') return buildAvailable(state, plan) ? { valid: true, reason: '' } : fail('build site, capacity or exact funding is unavailable');
   const army = state.armies.get(plan.armyId);
   if (!army || army.owner !== plan.factionId) return fail('selected army missing or wrong ownership');
@@ -85,7 +90,8 @@ export function assessConcretePlanFeasibility(plan: AIConcretePlan, snapshot: Ga
   if (!legality.valid) rejections.push({ kind: 'LEGALITY', reason: legality.reason });
   const state = snapshot.canonicalState;
   if (state) {
-    for (const claim of requiredClaims(plan, operationId ?? '', state)) {
+    if(plan.action==='REINFORCE' && (state.territoryRecruitment.get(plan.territoryId)?.troops??0)>=plan.quantity && availableLocalTroops(state,plan.territoryId,operationId)<plan.quantity)rejections.push({kind:'CLAIM',reason:'Local troop quantity already reserved'});
+    for (const claim of requiredClaims(plan, operationId ?? '', state).filter(c=>c.kind!=='local_troops')) {
       const held = state.operationClaims.get(claim.id);
       if (held && held.operationId !== operationId) rejections.push({ kind: 'CLAIM', reason: `Required claim ${claim.id} belongs to ${held.operationId}` });
     }
@@ -103,7 +109,9 @@ export function assessConcretePlanFeasibility(plan: AIConcretePlan, snapshot: Ga
  * every adjacent home fallback from foreign ground; every authored build type
  * on every owned site. No heuristic pruning or top-N truncation before scoring.
  * Candidate count is bounded by the graph (force * local degree squared + 5 * sites).
- * Pools and proposal lifecycles do not exist: REINFORCE/PEACE/TRADE yield zero plans.
+ * This source-free compatibility generator excludes local-pool allocation.
+ * Canonical cognition generates REINFORCE only inside its actual source scope
+ * (sourcePlanPredicates); Peace/Trade lifecycles remain unavailable.
  */
 export function generateConcretePlans(state: GameStateSnapshot, factionId: string): AIConcretePlan[] {
   if (!state.factions.has(factionId)) return [];

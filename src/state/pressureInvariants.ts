@@ -1,3 +1,4 @@
+import { activeOperations } from '../engine/operations';
 import type { GameState } from '../types/GameState';
 import { PRESSURE_DOMAINS, ProactiveTimer } from '../types/AIPressure';
 import { STRATEGIC_PRESSURE_TUNING as T } from '../constants/strategicPressure';
@@ -21,9 +22,9 @@ export function sourcePlanBindingProblem(id:unknown,plan:AIConcretePlan):string|
     const [fid,,kind,subject,counterparty,project]=sourceParts(id);
     if(fid!==plan.factionId)throw new Error();
     switch(kind) {
-      case 'HOSTILE_OPPORTUNITY': if(plan.action!=='MOVE'&&(plan.action!=='ATTACK'||plan.targetTerritoryId!==subject))throw new Error();break;
+      case 'HOSTILE_OPPORTUNITY': if(plan.action!=='REINFORCE'&&plan.action!=='MOVE'&&(plan.action!=='ATTACK'||plan.targetTerritoryId!==subject))throw new Error();break;
       case 'EXPOSED_FORCE': if(plan.action!=='RETREAT'||plan.armyId!==subject)throw new Error();break;
-      case 'COVERAGE_GAP': if(plan.action!=='MOVE'||plan.destinationTerritoryId!==subject)throw new Error();break;
+      case 'COVERAGE_GAP': if(plan.action==='REINFORCE'?plan.territoryId!==subject:plan.action!=='MOVE'||plan.destinationTerritoryId!==subject)throw new Error();break;
       case 'PRODUCTIVE_DEVELOPMENT': case 'FRONTIER_DEVELOPMENT': if(plan.action!=='BUILD'||plan.territoryId!==subject||plan.projectType!==project)throw new Error();break;
       case 'WAR_BURDEN': if(plan.action!=='OFFER_PEACE'||plan.counterpartyId!==counterparty)throw new Error();break;
       case 'RESOURCE_EXCHANGE': if(plan.action!=='TRADE'||plan.counterpartyId!==counterparty)throw new Error();break;
@@ -61,6 +62,7 @@ export function pressureStateProblems(state:GameState):string[] {
     for(const b of s.blockers) if(!b||typeof b!=='object'||concretePlanProblem(b.plan)||b.plan.factionId!==s.factionId||b.plan.action==='WAIT'
       ||!Array.isArray(b.reasons)||!b.reasons.length||b.reasons.some(r=>!r||!['LEGALITY','CLAIM','COMPATIBILITY','ATTENTION'].includes(r.kind)))errors.push(`Invalid complete-candidate blocker ${id}`);
   }
+  for(const op of activeOperations(state))if(op.initiationTimer)timer(op.initiationTimer);
   for(const [fid,o] of state.aiDecisionOpportunities??[]) {
     if(o.lastBoundaryMs!=null&&(!int(o.lastBoundaryMs)||o.lastBoundaryMs>state.aiClock.nowMs))errors.push('Invalid proactive boundary marker');
     if(o.nextTimerSequence!==undefined&&!int(o.nextTimerSequence))errors.push('Invalid persisted timer sequence');
@@ -78,7 +80,7 @@ export function pressureStateProblems(state:GameState):string[] {
       if(o.primary.phase!=='selected'&&!o.primary.timer)errors.push('Primary timed phase missing timer');
       if(o.primary.phase==='selected') {
         const op=o.primaryOperationId?state.operations.get(o.primaryOperationId):null;
-        if(!op||op.phase!=='selected'||op.sourceContextId!==o.primary.contextId||o.primary.timer!==null)
+        if(!op||!(op.phase==='selected'||op.action==='REINFORCE'&&op.phase==='physical')||op.sourceContextId!==o.primary.contextId||o.primary.timer!==null)
           errors.push('Selected primary thread lacks its exact source-bound operation');
       }
       // A source may disappear between canonical domain mutation and observation.

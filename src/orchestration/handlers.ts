@@ -1,3 +1,6 @@
+import { REINFORCE_INITIATION as RECRUIT } from '../constants/recruitment';
+import { reinforcementProblem } from '../gameplay/recruitment/reinforcement';
+import { startProactiveTimer, timerRemaining, opportunity, invalidateProactiveInitiation } from '../engine/proactiveCognition';
 import { derivePresenceSegments } from '../world/presenceLeases';
 import { prepareProactiveDecision, selectWaitInitiation, nextProactiveBoundary, accrueProactiveClocks, authoritativePresence } from '../engine/proactiveCognition';
 import { sourceConcretePlans } from '../engine/strategicPressure';
@@ -387,40 +390,11 @@ export function handleBuild(state: GameState, ctx: HandlerContext): HandlerResul
 }
 
 export function handleReinforce(state: GameState, ctx: HandlerContext): HandlerResult {
-  const factionId = resolveActingFactionId(state, ctx.req);
-  const territoryId = requireString(ctx.req, 'territoryId');
-  const t = requireTerritory(state, territoryId);
-  if (t.owner !== factionId) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Can only reinforce owned territory');
-  }
-  const faction = requireFactionSnapshot(state, factionId);
-  const { gold: costG, food: costF, garrisonGain } = BALANCE.economy.reinforcementCost;
-  if (faction.resources.gold < costG || faction.resources.food < costF) {
-    throw new OrchestrationError(ErrorCode.INSUFFICIENT_RESOURCES, `Need ${costG} gold and ${costF} food to reinforce`);
-  }
-  const resourcesChanged: ResourceChange[] = [];
-  const goldFrom = faction.resources.gold;
-  const foodFrom = faction.resources.food;
-  faction.resources.gold -= costG;
-  faction.resources.food -= costF;
-  recordResourceChange(resourcesChanged, factionId, 'gold', goldFrom, faction.resources.gold);
-  recordResourceChange(resourcesChanged, factionId, 'food', foodFrom, faction.resources.food);
-  const garFrom = t.garrison;
-  t.garrison += garrisonGain;
-  return {
-    ...emptyResult(),
-    stateChanges: [{
-      entity: 'territory',
-      id: territoryId,
-      field: 'garrison',
-      from: garFrom,
-      to: t.garrison,
-      summary: `${territoryId} garrison ${garFrom} → ${t.garrison}`,
-    }],
-    resourcesChanged,
-    territoriesChanged: [{ territoryId, field: 'garrison', from: garFrom, to: t.garrison }],
-    payload: { territoryId, garrison: t.garrison },
-  };
+  // The legacy resource purchase path is gone. Explicit local quantities use
+  // exactly the same canonical timed operation boundary as AI cognition.
+  if(!ctx.req.parameters?.plan)throw new OrchestrationError(ErrorCode.INVALID_PARAMETER,'REINFORCE requires an exact local-pool plan');
+  if((ctx.req.parameters.plan as AIConcretePlan).action!=='REINFORCE')throw new OrchestrationError(ErrorCode.INVALID_PARAMETER,'Expected REINFORCE plan');
+  return handleStartAiOperation(state,ctx);
 }
 
 function inFlightMovementResult(army: Army): HandlerResult {
@@ -626,6 +600,19 @@ export function progressProactiveThrough(state: GameState, ctx: HandlerContext, 
     // completions apply. WAIT's feasibility revalidation must see those effects
     // just like ordinary cognition; it is not an exception to boundary ordering.
     if(!allowDecisions)return;
+    for(const op of activeOperations(state).filter(o=>o.action==='REINFORCE'&&o.phase==='physical')) {
+      const plan=op.plan;
+      if(plan?.action!=='REINFORCE')throw new Error('Reinforcement operation lost exact plan');
+      const problem=reinforcementProblem(state,plan,op.id);
+      if(problem || !op.initiationTimer) {
+        settleOperation(state,op.id,'failed',problem??'Missing reinforcement timer');
+        invalidateProactiveInitiation(state,op.warlordId);
+        continue;
+      }
+      if(timerRemaining(state,op.initiationTimer)>0)continue;
+      if(!settleOperation(state,op.id,'completed','Exact local troop allocation completed'))throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE,'Timed allocation lost exact claim ownership');
+      resolutions.push({factionId:op.warlordId,commitmentId:op.id,action:op.action,outcome:'completed',success:true,worldTick:state.worldTick});
+    }
     for(const id of [...state.allFactionIds].sort()) {
       if(id===state.playerFactionId || isLevel1TutorialAiSuppressed(state,id))continue;
       const inner=withRequestParameters(ctx.req,{warlordId:id},()=>handleAiDecide(state,ctx));
@@ -732,6 +719,7 @@ function executeConcreteCommitment(state: GameState, ctx: HandlerContext, plan: 
       const project = startConstruction(state, { factionId: plan.factionId, territoryId: plan.territoryId, projectType: plan.projectType, operationId: commitmentId });
       return handlerResultForConstructionStart(project, plan.territoryId, before, cloneResources(faction.resources), plan.factionId);
     }
+    case 'REINFORCE': return { ...emptyResult(), payload: { initiationPending: true } };
     case 'WAIT': return { ...emptyResult(), payload: { waited: true } };
     default: throw new OrchestrationError(ErrorCode.FEATURE_NOT_IMPLEMENTED, `Final ${plan.action} lifecycle unavailable`);
   }
@@ -751,6 +739,11 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
         rejection.reason, { feasibility: feasibility.rejections,
           ...(rejection.reason.includes('anchor') ? { reason: ANCHOR_PROTECTED_REASON, territoryId: planTargetId(op.plan) } : {}) });
     }
+    if(op.action==='REINFORCE') {
+      const primary=opportunity(draft,op.warlordId);
+      if(primary.primaryOperationId && primary.primaryOperationId!==op.id || primary.primary && primary.primaryOperationId!==op.id)
+        throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Primary proactive initiation busy');
+    }
     acquireOperationClaims(draft, op);
     acquireAttention(draft, op);
     draft.operations.set(op.id, op);
@@ -765,7 +758,11 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
       op.links.constructionId = project.id;
     }
     if (typeof inner.payload.invasionId === 'string') op.links.invasionId = inner.payload.invasionId;
-    finishDecisionInitiation(draft, op.id, true);
+    if(op.action==='REINFORCE') {
+      const primary=opportunity(draft,op.warlordId);
+      primary.primaryOperationId=op.id;
+      op.initiationTimer=startProactiveTimer(draft,op.warlordId,'reinforce',RECRUIT.initiationOnlineMs,RECRUIT.initiationOnlineMs,RECRUIT.initiationOfflineMs/RECRUIT.initiationOnlineMs);
+    } else finishDecisionInitiation(draft, op.id, true);
     if (op.action === 'WAIT') settleOperation(draft, op.id, 'completed', 'no new physical operation');
     else if (op.action === 'ATTACK' && inner.payload.attackOutcome === 'battle_resolved') {
       const battle = inner.payload.battleResult as { winner?: string } | undefined;
@@ -815,7 +812,7 @@ export function handleResolveCommitment(state: GameState, ctx: HandlerContext): 
     if (problem || op.plan.action !== op.action || op.plan.factionId !== factionId || planTargetId(op.plan) !== op.targetId)
       throw new OrchestrationError(ErrorCode.INVALID_TARGET, problem ?? 'operation/plan binding mismatch');
   }
-  if (!op.plan || !['ATTACK','MOVE','RETREAT','BUILD','WAIT'].includes(op.action)) {
+  if (!op.plan || !['ATTACK','MOVE','RETREAT','BUILD','REINFORCE','WAIT'].includes(op.action)) {
     settleOperation(state, op.id, 'failed', 'Final lifecycle unavailable or incomplete legacy reasoning');
     return { ...emptyResult(), commandSuccess: false, errors: [{ code: ErrorCode.FEATURE_NOT_IMPLEMENTED, message: 'Operation lifecycle unavailable' }],
       payload: { operationId: op.id, commitmentOutcome: 'failed', reassessmentRequired: true } };

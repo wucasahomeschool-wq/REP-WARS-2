@@ -4,6 +4,7 @@ import type { OperationAttention } from './AIStrategy';
 /** Domain timing/state lives on the linked army/project/invasion, never here. */
 export interface AIOperation extends AICommitment {
   sourceContextId?: string;
+  initiationTimer?: import('./AIPressure').ProactiveTimer;
   attention: OperationAttention;
   phase: 'selected' | 'physical' | 'recovery' | 'terminal';
   objective: 'valid' | 'invalid';
@@ -21,7 +22,8 @@ export interface AIOperation extends AICommitment {
 export interface AIOperationClaim {
   id: string;
   operationId: string;
-  kind: 'force' | 'construction_site' | 'engagement_target' | 'invasion_target';
+  kind: 'force' | 'construction_site' | 'engagement_target' | 'invasion_target' | 'local_troops' | 'garrison';
+  quantity?: number;
   subjectId: string;
   /** Existing pending-attack limit is faction-local, not ownership of enemy land. */
   scopeFactionId?: string;
