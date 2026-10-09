@@ -1,3 +1,4 @@
+import {initializeCognition} from '../cognition/migration';
 import { createOperationMap } from '../engine/operations';
 import { Army, DiplomaticRelationship, FactionId, Personality, Territory, WarlordSnapshot } from '../types';
 import {
@@ -224,6 +225,7 @@ export function createGameStateFromWorld(
   bindLevelAnchors(state, definition);
   bindLevel1Tutorial(state);
   assertWorldIdentity(state, definition);
+  initializeCognition(state);
   return state;
 }
 

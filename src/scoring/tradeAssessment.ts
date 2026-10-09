@@ -1,3 +1,9 @@
+import {TRADE_TUNING} from '../constants/trade';
+import {goalPreference} from '../cognition/goals';
+import {factionDecisionView} from '../cognition/decisionView';
+import {opinionPreference} from '../cognition/opinion';
+import {makeConcretePlan} from '../types/AIConcretePlan';
+import {STRATEGIC_EVALUATION_TUNING as T} from '../constants/strategicEvaluation';
 import type {GameState} from '../types/GameState';
 import type {TradeProposal} from '../types/Trade';
 import {acceptanceProblem} from '../gameplay/trade/trade';
@@ -16,5 +22,12 @@ export function assessRequiredTradeResponse(state:GameState,p:TradeProposal) {
   const loss=bundleEntries(p.plan.requested).reduce((n,[r,q])=>n+evaluator.resourceValue(p.recipient,r,q,'loss').facts.marginalUtility,0);
   // Required assessment uses own canonical value. No Pressure prerequisite,
   // ordinary Attention charge, fabricated hostility penalty or raw Memory.
-  return {outcome:gain-loss>=0?'ACCEPT_TRADE' as const:'DECLINE_TRADE' as const,reason:'Own factual RESOURCE_VALUE marginal gains/losses'};
+  const view=factionDecisionView(state,p.recipient);
+  const responsePlan=makeConcretePlan({action:'TRADE',factionId:p.recipient,counterpartyId:p.proposer,offered:p.plan.requested,requested:p.plan.offered});
+  const goals=goalPreference(state,p.recipient,responsePlan,T.modifierBound);
+  const opinion=opinionPreference(view.own.opinions.get(p.proposer)??0,'TRADE');
+  const factual=(gain-loss)/(T.resourceScale+Math.abs(gain-loss))*TRADE_TUNING.resourceWeight;
+  const modifier=Math.max(-T.modifierStackBound,Math.min(T.modifierStackBound,goals.value+opinion));
+  return {outcome:factual+modifier>=0?'ACCEPT_TRADE' as const:'DECLINE_TRADE' as const,reason:'Own factual RESOURCE_VALUE plus bounded own Goal/Opinion preference',
+    factual,modifier,opinion,goal:goals.value,goalAssessments:goals.assessments};
 }

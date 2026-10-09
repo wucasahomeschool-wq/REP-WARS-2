@@ -1,3 +1,4 @@
+import {cognitionStateProblems} from './cognitionInvariants';
 import {tradeStateProblems} from './tradeInvariants';
 import { peaceStateProblems } from './peaceInvariants';
 import { REINFORCE_INITIATION } from '../constants/recruitment';
@@ -85,6 +86,7 @@ function checkGameplaySessionLeases(
 export function checkGameStateInvariants(state: GameState): GameStateInvariantViolation[] {
   const violations: GameStateInvariantViolation[] = [];
   const push = (code: string, message: string) => violations.push({ code, message });
+  for(const message of cognitionStateProblems(state))push('cognition.invalid_state',message);
   for(const message of peaceStateProblems(state)) push('peace.invalid_state',message);
   for(const message of pressureStateProblems(state)) push('pressure.invalid_state',message);
   if (!(state.operations instanceof Map) || !(state.operationClaims instanceof Map)) {

@@ -26,7 +26,7 @@ export interface EvaluatorAssessment {
 export type ComparisonCategory = 'source_resolution'|'additional_benefit'|'direct_cost'|'opportunity_cost'|'commitment_burden'|'timeliness'|'realization'|'modifier'|'stabilizer';
 export interface PlanContribution {
   causalKey: string;
-  owner: StrategicEvaluator|'TIMING_SUPPORT'|'ATTENTION_BURDEN'|'GOAL_MODIFIER'|'RISK_MODIFIER'|'REPETITION';
+  owner: StrategicEvaluator|'TIMING_SUPPORT'|'ATTENTION_BURDEN'|'GOAL_MODIFIER'|'OPINION_MODIFIER'|'RISK_MODIFIER'|'REPETITION';
   category: ComparisonCategory;
   normalizedMagnitude: number;
   direction: 'benefit'|'cost';

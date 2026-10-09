@@ -1,3 +1,4 @@
+import {refreshGoals} from '../cognition/goals';
 import {processTradeBoundary} from '../gameplay/trade/trade';
 import { cancelInvalidReinforcements } from '../engine/operations';
 import { processPeaceBoundary } from '../gameplay/diplomacy/peace';
@@ -17,10 +18,12 @@ export function runStateTransaction<T>(
   const draft = cloneGameState(state);
   processTradeBoundary(draft);
   processPeaceBoundary(draft); // Earned diplomacy gates precede newly issued commands.
+  refreshGoals(draft);
   const result = apply(draft);
   cancelInvalidReinforcements(draft);
   processTradeBoundary(draft);
   processPeaceBoundary(draft);
+  refreshGoals(draft);
   const violations = checkGameStateInvariants(draft);
   if (violations.length > 0) {
     throw new OrchestrationError(

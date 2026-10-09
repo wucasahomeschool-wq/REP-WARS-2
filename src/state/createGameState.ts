@@ -1,3 +1,4 @@
+import {initializeCognition} from '../cognition/migration';
 import { createOperationMap } from '../engine/operations';
 /**
  * DETERMINISTIC GAMESTATE INITIALIZATION.
@@ -100,6 +101,7 @@ export function createLegacySampleMapGameState(options: CreateLegacySampleMapOpt
   seedTerritoryEconomy(state);
   syncAllFactionResourceIncome(state);
   bindLevelAnchors(state);
+  initializeCognition(state);
   return state;
 }
 

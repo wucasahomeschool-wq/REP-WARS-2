@@ -1,3 +1,6 @@
+import {applyOpinionEvent} from '../cognition/opinion';
+import {COGNITION_TUNING as COGNITION} from '../constants/cognition';
+import {refreshGoals} from '../cognition/goals';
 import { Army, ArmyId, FactionId, Territory, TerritoryId } from '../types';
 import { BattleResult } from '../battle/BattleEngine';
 import { GameState } from '../types/GameState';
@@ -67,6 +70,7 @@ function eliminateArmies(state: GameState, armies: Army[], armyChanges: ArmyChan
     if (operationId) settleOperation(state, operationId, 'failed', 'claimed force destroyed in battle');
     armyChanges.push({ armyId: a.id, eliminated: true });
   }
+  refreshGoals(state);
 }
 
 function transferTerritory(
@@ -76,6 +80,7 @@ function transferTerritory(
   changes: StateChange[],
   territoryChanges: TerritoryChange[],
   events: GameEvent[],
+  attackingArmies: Army[],
 ): void {
   const oldOwner = territory.owner;
   if (oldOwner === newOwner) return;
@@ -86,6 +91,11 @@ function transferTerritory(
   const winner = state.factions.get(newOwner);
   if (winner && !winner.territories.includes(territory.id)) winner.territories.push(territory.id);
   territory.owner = newOwner;
+  // Distinct captures at one boundary are distinct consequences. Include exact
+  // physical actors and their canonical operation identity, never map order.
+  const actors=[...attackingArmies].sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0)
+    .map(a=>[a.id,state.operationClaims.get(`force:${a.id}`)?.operationId??a.attackIntent?.commitmentId??null]);
+  if(oldOwner)applyOpinionEvent(state,`conquest:${JSON.stringify([state.worldTick,territory.id,oldOwner,newOwner,actors])}`,oldOwner,newOwner,'territory_lost',COGNITION.eventDelta.territory_lost);
   const destruction = settleTerritoryOwnershipChange(state, territory.id, newOwner, oldOwner);
   if (territoryDestructionHasLosses(destruction)) {
     events.push({
@@ -121,6 +131,7 @@ function transferTerritory(
   if (oldOwner && oldOwner === state.playerFactionId) {
     events.push(...applyPlayerTerritoryLoss(state, territory.id));
   }
+  refreshGoals(state);
   if (newOwner === state.playerFactionId) {
     events.push(...applyWorldCompletionCheck(state));
   }
@@ -167,7 +178,7 @@ export function applyUnopposedOccupationToGameState(
     });
     territoryChanges.push({ territoryId: territory.id, field: 'garrison', from: gFrom, to: 0 });
   }
-  transferTerritory(state, territory, attackerId, changes, territoryChanges, events);
+  transferTerritory(state, territory, attackerId, changes, territoryChanges, events,attackingArmies);
   for (const a of attackingArmies) {
     const from = a.location;
     a.location = territory.id;
@@ -236,7 +247,7 @@ export function applyBattleResultToGameState(
     eliminateArmies(state, defendingArmies, armyChanges);
     applySurvivingArmies(attackingArmies, result.attacker.remaining, result.attacker.moraleChange, armyChanges);
     if (result.territoryOutcome === 'captured' && attacker) {
-      transferTerritory(state, territory, attacker.id, changes, territoryChanges, events);
+      transferTerritory(state, territory, attacker.id, changes, territoryChanges, events,attackingArmies);
       for (const a of attackingArmies) a.location = territory.id;
       if (defender) {
         pushMemory(attacker, turn, 'territory_gained', defender.id, territory.id, 12, { territory: territory.id, via: 'conquest' });

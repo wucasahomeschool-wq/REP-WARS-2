@@ -1,8 +1,9 @@
+import {adjustDirectedOpinion} from '../cognition/opinion';
 import { FactionId, TerritoryId, Resources, Territory, WarlordSnapshot, Army, ArmyId } from '../types';
 import { BALANCE } from '../constants/balance';
 import { SeededRNG } from '../utils/SeededRNG';
 import {
-  ActiveEvent, ConsequenceDelta, ConditionContext, EventDefinition, EventSeverity,
+  ActiveEvent, AuthoredOpinionEffect, ConsequenceDelta, ConditionContext, EventDefinition, EventSeverity,
   HistoryEntry, ImperialChoice, SEVERITY_ORDER, TriggeredEvent, WorldHelper,
   WorldStepInput, WorldStepOutput, buildDefaultSeverityTable, pickSeverityFromTable,
   severityAtLeast,
@@ -38,7 +39,7 @@ function cloneWarlordSnapshot(f: WarlordSnapshot): WarlordSnapshot {
     resourceIncome: { ...f.resourceIncome },
     diplomacy,
     memory: [...f.memory],
-    goals: [...f.goals],
+    goals: f.goals.map(g=>({...g,...(g.lifecycle?{lifecycle:{...g.lifecycle,objective:g.lifecycle.objective?{...g.lifecycle.objective}:null}}:{})})),
     currentThreats: [...f.currentThreats],
     knownFactions: [...f.knownFactions],
     knownTerritories: [...f.knownTerritories],
@@ -132,6 +133,7 @@ export class ConsequenceApplier {
   factions: Map<FactionId, WarlordSnapshot>;
   armies?: Map<ArmyId, Army>;
   applied: string[];
+  readonly opinionEffects: AuthoredOpinionEffect[] = [];
 
   constructor(
     territories: Map<TerritoryId, Territory>,
@@ -145,7 +147,7 @@ export class ConsequenceApplier {
     this.applied = [];
   }
 
-  applyDelta(c: ConsequenceDelta): string | null {
+  applyDelta(c: ConsequenceDelta, opinionEventId?: string): string | null {
     const d = c.delta;
     // Territory deltas
     if (c.territoryId) {
@@ -203,8 +205,12 @@ export class ConsequenceApplier {
           }
         }
         if (d.relationshipDeltaOpinion) {
-          const rel = f.diplomacy.get(d.relationshipDeltaOpinion.target);
-          if (rel) rel.opinion = Math.max(-100, Math.min(100, rel.opinion + d.relationshipDeltaOpinion.delta));
+          const {target,delta}=d.relationshipDeltaOpinion;
+          // Missing/self/malformed authored targets never create ghost stance.
+          if(target!==f.id&&this.factions.has(target)&&Number.isFinite(delta)){
+            adjustDirectedOpinion(f,target,delta);
+            if(opinionEventId)this.opinionEffects.push({id:opinionEventId,observer:f.id,target,delta});
+          }
         }
       }
     }
@@ -212,10 +218,10 @@ export class ConsequenceApplier {
     return c.message;
   }
 
-  applyMany(cs: ConsequenceDelta[]): string[] {
+  applyMany(cs: ConsequenceDelta[], opinionScope?: string): string[] {
     const out: string[] = [];
-    for (const c of cs) {
-      const r = this.applyDelta(c);
+    for (let i=0;i<cs.length;i++) {
+      const r = this.applyDelta(cs[i]!,opinionScope?`${opinionScope}:${i}`:undefined);
       if (r) out.push(r);
     }
     return out;
@@ -291,7 +297,7 @@ export class WorldSimulator {
         const ctx = this._buildCtx(turn, ev.territoryId, ev.factionId, terr, facts, newActiveEvents, rng.fork(1000 + turn * 31));
         const cs = def.perTurn(ctx, ev.severity, ev);
         for (const c of cs) perTurnConsequences.push(c);
-        const applied = this.applier.applyMany(cs);
+        const applied = this.applier.applyMany(cs,`world-event:${turn}:perTurn:${ev.instanceId}`);
         for (const a of applied) {
           newEventHistory.push({
             id: nextId('hist'),
@@ -367,7 +373,7 @@ export class WorldSimulator {
         chainDelays: this._seedChainDelays(def, null, severity, rng.fork(700 + turn)),
         choicesPending: choices,
       };
-      const applied = this.applier.applyMany(triggerRes.consequences);
+      const applied = this.applier.applyMany(triggerRes.consequences,`world-event:${turn}:trigger:${inst.instanceId}`);
       newActiveEvents.push(inst);
       triggeredEvents.push({
         definition: def,
@@ -470,7 +476,7 @@ export class WorldSimulator {
         choices,
         durationTurns: dur,
       });
-      const applied = this.applier.applyMany(triggerRes.consequences);
+      const applied = this.applier.applyMany(triggerRes.consequences,`world-event:${turn}:trigger:${inst.instanceId}`);
       newActiveEvents.push(inst);
       triggeredEvents.push(triggeredNow[triggeredNow.length - 1]);
       summary.push(`[EVENT] ${inst.title}`);
@@ -530,6 +536,7 @@ export class WorldSimulator {
       mutatedTerritories: this.applier.territories,
       mutatedFactions: this.applier.factions,
       mutatedArmies: this.applier.armies,
+      opinionEffects: this.applier.opinionEffects,
     };
   }
 

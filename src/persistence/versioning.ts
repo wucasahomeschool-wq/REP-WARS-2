@@ -1,3 +1,4 @@
+import {initializeCognition} from '../cognition/migration';
 import { initializeRecruitment, simulationWork } from '../gameplay/recruitment/recruitment';
 import { migratePeaceState } from './peaceMigration';
 import { migratePressureState } from './pressureMigration';
@@ -357,6 +358,8 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
     throw new PersistenceError('persistence.corrupt','Schema 23 requires canonical Peace relationships, proposals and threads');
   if(schema<24){state.tradeProposals=new Map();state.tradeShipments=new Map();}
   else if(!(state.tradeProposals instanceof Map)||!(state.tradeShipments instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 24 requires Trade proposals and shipments');
+  if(schema<25)initializeCognition(state as unknown as GameState);
+  else if(!(state.opinionEvents instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 25 requires Opinion event receipts');
   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
   return state;
 }

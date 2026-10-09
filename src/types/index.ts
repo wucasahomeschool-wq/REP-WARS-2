@@ -77,7 +77,7 @@ export type TreatyType = 'alliance' | 'non_aggression' | 'trade_agreement' | 'va
  * docs/AI_RUNTIME_INTEGRATION.md, "Memory / outcome feedback".
  */
 export type MemoryEventType = 'attack_received' | 'attack_made' | 'territory_lost' | 'territory_gained' | 'treaty_broken' | 'treaty_signed' | 'trade_completed' | 'alliance_formed' | 'alliance_broken' | 'major_victory' | 'major_defeat' | 'peace_offered' | 'war_declared' | 'battle_won' | 'battle_lost' | 'action_failed';
-export type GoalType = 'control_region' | 'dominant_faction' | 'protect_territory' | 'destroy_rival' | 'expand_to_resources' | 'prepare_for_invasion' | 'economic_growth' | 'form_alliance' | 'break_siege';
+export type GoalType = 'control_territory' | 'develop_territory' | 'seek_peace' | 'resource_condition' | 'force_position' | 'control_region' | 'dominant_faction' | 'protect_territory' | 'destroy_rival' | 'expand_to_resources' | 'prepare_for_invasion' | 'economic_growth' | 'form_alliance' | 'break_siege';
 export interface Resources {
     gold: number;
     food: number;
@@ -197,6 +197,8 @@ export interface MemoryEntry {
     details: Record<string, unknown>;
 }
 export interface StrategicGoal {
+    /** Required on canonical production records; optional for legacy harness inputs. */
+    lifecycle?: import("./AICognition").GoalLifecycle;
     id: string;
     type: GoalType;
     priority: number;

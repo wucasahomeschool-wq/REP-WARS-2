@@ -1,3 +1,5 @@
+import {applyOpinionEvent} from '../cognition/opinion';
+import {COGNITION_TUNING as COGNITION} from '../constants/cognition';
 import { assertClaimAvailable, settleOperation } from '../engine/operations';
 import { assertHostilityAllowed } from '../gameplay/diplomacy/relationships';
 import { BALANCE } from '../constants/balance';
@@ -279,6 +281,7 @@ function resolveStrategicBattle(
   attackerId: FactionId,
   attackingArmies: Army[],
   plannedBattleSeed?: number,
+  operationId?: string | null,
 ): HandlerResult {
   const target = requireTerritory(state, targetId);
   if (!target.owner || target.owner === attackerId) {
@@ -296,14 +299,7 @@ function resolveStrategicBattle(
 
   pushMemory(attackerSnap, state.turn, 'attack_made', defenderId, target.id, 8, { target: target.id });
   pushMemory(defenderSnap, state.turn, 'attack_received', attackerId, target.id, 10, { attacker: attackerSnap.name });
-  const rel = defenderSnap.diplomacy.get(attackerId);
-  if (rel) {
-    rel.opinion = Math.max(-100, rel.opinion + BALANCE.diplomacy.opinionAttackImpact);
-  }
-  const myRel = attackerSnap.diplomacy.get(defenderId);
-  if (myRel) {
-    myRel.opinion = Math.max(-100, myRel.opinion - 10);
-  }
+  applyOpinionEvent(state,`attack:${JSON.stringify([operationId??null,state.worldTick,target.id,attackerId,attackingArmies.map(a=>a.id).sort()])}`,defenderId,attackerId,'attack_received',COGNITION.eventDelta.attack_received);
 
   if (defenderField + target.garrison <= 0) {
     const applied = applyUnopposedOccupationToGameState(state, target, attackerId, attackingArmies, state.turn);
@@ -486,7 +482,7 @@ export function startStrategicAttack(
       && (!params.stagingTerritoryId || a.location === params.stagingTerritoryId));
   for (const army of immediate) assertClaimAvailable(state, 'force', army.id, commitmentId);
   if (immediate.length > 0) {
-    return resolveStrategicBattle(state, host, target.id, attackerId, immediate);
+    return resolveStrategicBattle(state, host, target.id, attackerId, immediate,undefined,commitmentId);
   }
 
   const selectedArmy = params.onlyArmyId ? state.armies.get(params.onlyArmyId) : undefined;
@@ -649,7 +645,7 @@ export function executeReadyStrategicAttack(
     const restricted = intent.onlyArmyId
       ? (attackers.some((a) => a.id === intent.onlyArmyId) ? attackers.filter((a) => a.id === intent.onlyArmyId) : [army])
       : (attackers.some((a) => a.id === army.id) ? attackers : [army, ...attackers]);
-    return resolveStrategicBattle(state, host, intent.targetTerritoryId, army.owner, restricted, intent.battleSeed);
+    return resolveStrategicBattle(state, host, intent.targetTerritoryId, army.owner, restricted, intent.battleSeed,intent.commitmentId);
   } catch (err) {
     clearAttackIntent(army);
     if (err instanceof OrchestrationError) {

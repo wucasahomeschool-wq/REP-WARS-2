@@ -1,3 +1,4 @@
+import {refreshGoals} from '../cognition/goals';
 import {accrueTradeTimers,nextTradeBoundary,hasRequiredTradeResponse} from '../gameplay/trade/trade';
 import { progressRecruitmentThroughReceipt } from '../gameplay/recruitment/recruitment';
 import { accruePeaceTimers, nextPeaceBoundary, hasRequiredPeaceResponse } from '../gameplay/diplomacy/peace';
@@ -78,7 +79,7 @@ export function prepareProactiveDecision(state:GameState,fid:string,metrics?:AIP
     if(p.timer&&timerRemaining(state,p.timer)>0)return null;
     if(!sourceConcretePlans(state,s).some(plan=>plan.action!=='WAIT')) {outcome(state,fid,'NO_ACTIONABLE_PLAN',metrics);return null;}
     if(p.phase==='waiting') {successfulInitiation(state,fid,s.id,true,metrics);return null;}
-    if(p.phase==='deliberating') {p.contextRevision=s.revision;p.phase='selected';p.timer=null;o.lastBoundaryMs=state.aiClock.nowMs;if(metrics)metrics.deliberations++;return s;}
+    if(p.phase==='deliberating') {refreshGoals(state,fid);p.contextRevision=s.revision;p.phase='selected';p.timer=null;o.lastBoundaryMs=state.aiClock.nowMs;if(metrics)metrics.deliberations++;return s;}
     return null;
   }
   if(o.spacing) {if(timerRemaining(state,o.spacing)>0)return null;o.spacing=null;}

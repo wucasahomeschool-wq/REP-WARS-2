@@ -1,3 +1,4 @@
+import {goalMatchesSource} from '../cognition/goals';
 import {tradeCandidates,observableTradeCounterparties} from '../gameplay/trade/candidates';
 import { reinforcementQuantities } from '../gameplay/recruitment/reinforcement';
 import { factionsAreHostile } from '../gameplay/diplomacy/relationships';
@@ -196,8 +197,7 @@ export function deriveSources(state:GameState,fid:string,atMs:number):AISourceCo
   return out.sort((a,b)=>comparePlanIds(a.id,b.id));
 }
 export function pressureRate(state:GameState,s:AISourceContext):number {
-  const goals=state.factions.get(s.factionId)?.goals??[];
-  const matching=goals.some(g=>g.progress<g.targetProgress && (g.targetTerritory===s.subjectId || (!!s.counterpartyId&&g.targetFaction===s.counterpartyId)));
+  const matching=goalMatchesSource(state,s);
   // A committed operation reduces residual urgency but never invents completion.
   const addressed=s.domain!=='TRADE_ECONOMIC'&&activeOperations(state,s.factionId).some(op=>op.sourceContextId===s.id && op.objective==='valid' && op.phase!=='selected');
   const base=addressed?0:T.unitsPerOnlineSecond;

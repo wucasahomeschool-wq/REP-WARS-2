@@ -15,7 +15,9 @@ import { FactualSupport } from './factualSupport';
 import { StrategicEvaluators } from './strategicEvaluators';
 import { sourceConcretePlans } from '../engine/strategicPressure';
 import { attentionCost } from '../engine/strategicAttention';
-import { GoalSystem } from '../goals/GoalSystem';
+import {goalPreference} from '../cognition/goals';
+import {factionDecisionView} from '../cognition/decisionView';
+import {opinionPreference} from '../cognition/opinion';
 import { SeededRNG } from '../utils/SeededRNG';
 
 export function saturatingMagnitude(value:number,scale:number):number {
@@ -43,10 +45,11 @@ export class ContextPlanComparator {
     if(!plans.some(p=>p.action!=='WAIT')||!plans.some(p=>p.action==='WAIT')||plans.some(p=>concretePlanProblem(p)||!authorized.has(p.id)||p.factionId!==canonical.factionId))throw new Error('Comparison requires feasible exact plans and WAIT from one actionable source');
     if(new Set(plans.map(p=>p.id)).size!==plans.length)throw new Error('Duplicate comparison plan');
     const support=new FactualSupport(state),evaluators=new StrategicEvaluators(support);
-    const comparisons=[...plans].sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>this.comparePlan(state,canonical,p,evaluators));
+    const view=factionDecisionView(state,source.factionId);
+    const comparisons=[...plans].sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>this.comparePlan(state,canonical,p,evaluators,view));
     return {comparisons,evaluatorCalls:{...evaluators.calls},cacheHits:evaluators.cacheHits};
   }
-  private comparePlan(state:GameState,source:AISourceContext,plan:AIConcretePlan,evaluators:StrategicEvaluators):PlanComparison {
+  private comparePlan(state:GameState,source:AISourceContext,plan:AIConcretePlan,evaluators:StrategicEvaluators,view:ReturnType<typeof factionDecisionView>):PlanComparison {
     const contributions:PlanContribution[]=[],assessments:EvaluatorAssessment[]=[];
     const add=(causalKey:string,owner:PlanContribution['owner'],category:ComparisonCategory,value:number,explanation:string,confidence:PlanContribution['confidence']='high')=>{
       addPlanContribution(contributions,causalKey,owner,category,value,explanation,confidence);
@@ -112,16 +115,15 @@ export class ContextPlanComparator {
     if(plan.action!=='WAIT') {
       add('capacity:attention','ATTENTION_BURDEN','commitment_burden',-saturatingMagnitude(attentionCost(plan),Math.max(1,state.strategicAttention.capacity))*T.attentionWeight,'Additional management occupancy only, not physical cost');
       const faction=state.factions.get(plan.factionId)!;
-      const target=planTargetId(plan);
-      const goals=new GoalSystem(faction.goals.map(g=>({...g})).sort((a,b)=>comparePlanIds(a.id,b.id)));
-      goals.invalidateMissingTargets(state.factions.keys(),state.territories.keys());
-      const alignment=goals.evaluateActionAlignment({actionType:plan.action,
-        targetTerritory:target,targetFaction:plan.action==='ATTACK'?state.territories.get(plan.targetTerritoryId)?.owner:['OFFER_PEACE','TRADE'].includes(plan.action)?(plan as import('../types/AIConcretePlan').TradePlan).counterpartyId:null,
-        self:faction,currentTurn:state.turn,allTerritories:state.territories});
-      goalIds=[...alignment.alignedGoals].sort((a,b)=>b.priority-a.priority||comparePlanIds(a.id,b.id)).map(g=>g.id);
-      add('preference:goal','GOAL_MODIFIER','modifier',signed(alignment.scoreContribution,T.goalScale,T.modifierBound),'Existing canonical Goal alignment, sole explicit plan-preference owner');
+      const goal=goalPreference(state,plan.factionId,plan,T.modifierBound);goalIds=goal.goalIds;
+      add('preference:goal','GOAL_MODIFIER','modifier',goal.value,JSON.stringify(goal.assessments));
+      if(plan.action==='ATTACK'||plan.action==='OFFER_PEACE'||plan.action==='TRADE'){
+        const other=plan.action==='ATTACK'?state.territories.get(plan.targetTerritoryId)?.owner:plan.counterpartyId;
+        const opinion=other?view.own.opinions.get(other)??0:0;
+        add('preference:opinion','OPINION_MODIFIER','modifier',opinionPreference(opinion,plan.action),`Own directed Opinion of ${other}: ${opinion}`);
+      }
       add('preference:risk','RISK_MODIFIER','modifier',-Math.max(0,Math.min(1,1-faction.personality.riskTolerance))*downside*T.modifierBound,'Current risk tolerance interprets downside; factual outlook unchanged','bounded');
-      // Ambition, generic action personality, raw Memory, Opinion and old
+      // Ambition, generic action personality, raw Memory and old
       // action-level repetition have no truthful exact-plan migration here.
       // Slots remain separate; lifecycle/model redesign is deferred.
     }
@@ -136,7 +138,7 @@ export class ContextPlanComparator {
     const modifierValue=Math.max(-T.modifierStackBound,Math.min(T.modifierStackBound,sums.modifier));
     const finalValue=Math.max(-T.comparisonBound,Math.min(T.comparisonBound,factualValue+modifierValue+sums.stabilizer));
     return {sourceContextId:source.id,plan,assessments,contributions,categories:sums,factualValue,modifierValue,stabilizerValue:sums.stabilizer,
-      finalValue,qualifies:plan.action==='WAIT'||finalValue>=T.minimumCommitmentAdvantage,baseline:'CURRENT_STATE_PLUS_COMMITTED_EFFECTS',goalIds};
+      finalValue,qualifies:plan.action==='WAIT'||factualValue>0&&finalValue>=T.minimumCommitmentAdvantage,baseline:'CURRENT_STATE_PLUS_COMMITTED_EFFECTS',goalIds};
   }
 }
 /** RNG only sees already-qualified bounded near ties. An inferior/sub-threshold

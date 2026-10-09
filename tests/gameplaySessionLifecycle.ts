@@ -55,7 +55,7 @@ export async function runGameplaySessionLifecycleTests(
     assert.strictEqual(state.gameplaySessionLeases[0]!.sessionId, opened.sessionId);
     assert.strictEqual(state.gameplaySessionLeases[0]!.openedByRequestId, 'open-1');
     assert.deepStrictEqual(temporal(state), anchoredTemporal(1_700_000_000_000));
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 24);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 25);
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
   });
 

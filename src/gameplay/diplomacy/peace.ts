@@ -1,3 +1,6 @@
+import {applyOpinionEvent} from '../../cognition/opinion';
+import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
+import {refreshGoals} from '../../cognition/goals';
 import type { GameState } from '../../types/GameState';
 import type { OfferPeacePlan } from '../../types/AIConcretePlan';
 import { comparePlanIds } from '../../types/AIConcretePlan';
@@ -115,6 +118,8 @@ export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics):void
     if(!r.finalizationTimer)r.finalizationTimer=startProactiveTimer(state,r.factions[0],`peace-finalization:${id}`,TIME.finalizationOnlineMs,TIME.finalizationOnlineMs,TIME.finalizationOfflineMs/TIME.finalizationOnlineMs);
     if(timerRemaining(state,r.finalizationTimer)>0)continue;
     r.finalizationTimer=null;r.state='PEACE';r.activatedAtMs=state.aiClock.nowMs;r.expiresAtMs=r.legacyExpiresTurn!==undefined?null:state.aiClock.nowMs+PEACE_TUNING.treatyDurationMs;
+    for(const observer of r.factions)applyOpinionEvent(state,`peace:${r.proposalId??id}:${r.activatedAtMs}`,observer,r.factions.find(f=>f!==observer)!,'treaty_signed',COGNITION.eventDelta.treaty_signed);
+    refreshGoals(state);
     record(state,r.proposalId??id,'activated',...r.factions,metrics);if(metrics)metrics.relationshipTransitions++;
   }
 }

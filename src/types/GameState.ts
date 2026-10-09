@@ -98,8 +98,9 @@ import { GameRewardResult } from '../rewards/types';
  * 22 = Territory-local recruitment/pools and quantity-reserved REINFORCE initiation (Phase G).
  * 23 = Canonical Peace proposal threads, required-response clocks and relationship exceptions (Phase H).
  * 24 = Canonical Trade proposals, exact bank reservations and bilateral shipment custody (Phase I).
+ * 25 = Concrete Goal lifecycle and idempotent directed Opinion event receipts (Phase J).
  */
-export const GAME_STATE_SCHEMA_VERSION = 24;
+export const GAME_STATE_SCHEMA_VERSION = 25;
 
 export type InvasionId = string;
 
@@ -553,6 +554,7 @@ export interface GameState {
   peaceProposalThreads: Map<string, string>;
   tradeProposals: Map<string, import('./Trade').TradeProposal>;
   tradeShipments: Map<string, import('./Trade').TradeShipment>;
+  opinionEvents: Map<string, import('./AICognition').OpinionEventReceipt>;
   /**
    * Per-territory uncollected yield and last accrual tick. Faction
    * `resources` remain the banked reserve; recruitment uses only local Food yield.
@@ -681,6 +683,7 @@ export function emptyRewardApplicationState(): {
   peaceProposalThreads: Map<string, string>;
   tradeProposals: Map<string, import('./Trade').TradeProposal>;
   tradeShipments: Map<string, import('./Trade').TradeShipment>;
+  opinionEvents: Map<string, import('./AICognition').OpinionEventReceipt>;
   territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
   territoryInfrastructure: Map<TerritoryId, TerritoryInfrastructure>;
   playerFitness: PlayerFitnessState;
@@ -699,7 +702,7 @@ export function emptyRewardApplicationState(): {
     peaceRelationships: new Map(),
     peaceProposals: new Map(),
     peaceProposalThreads: new Map(),
-    tradeProposals: new Map(), tradeShipments: new Map(),
+    tradeProposals: new Map(), tradeShipments: new Map(), opinionEvents: new Map(),
     territoryEconomy: new Map(),
     territoryInfrastructure: new Map(),
     playerFitness: emptyPlayerFitnessState(),

@@ -1,3 +1,6 @@
+import {applyOpinionEvent} from '../../cognition/opinion';
+import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
+import {refreshGoals} from '../../cognition/goals';
 import type {GameState} from '../../types/GameState';
 import type {TradePlan, ResourceBundle} from '../../types/AIConcretePlan';
 import {concretePlanProblem,comparePlanIds} from '../../types/AIConcretePlan';
@@ -114,6 +117,8 @@ export function progressTradeShipments(s:GameState,m?:TradeMetrics):void {
       if(bundleEntries(sh.cargo).some(([r,n])=>!Number.isSafeInteger(s.factions.get(sh.recipient)!.resources[r]+n))){block(s,sh,'Receiving bank cannot represent exact quantity; cargo preserved');continue;}
       for(const [r,n]of bundleEntries(sh.cargo))s.factions.get(sh.recipient)!.resources[r]+=n;
       sh.phase='delivered';sh.deliveredAtMs=s.aiClock.nowMs;sh.timer=null;s.tradeShipments.set(sh.id,sh);
+      applyOpinionEvent(s,sh.id,sh.recipient,sh.sender,'trade_completed',COGNITION.eventDelta.trade_completed);
+      refreshGoals(s,sh.recipient);
       record(s,sh.id,'delivered',sh.sender,sh.recipient,m);if(m)m.deliveries++;
     }
   }

@@ -1,7 +1,10 @@
 import type { GameState } from '../types/GameState';
 import { StrategicEvaluators } from './strategicEvaluators';
 import { FactualSupport } from './factualSupport';
-import { GoalSystem } from '../goals/GoalSystem';
+import {goalPreference} from '../cognition/goals';
+import {factionDecisionView} from '../cognition/decisionView';
+import {opinionPreference} from '../cognition/opinion';
+import {makeConcretePlan} from '../types/AIConcretePlan';
 import { STRATEGIC_EVALUATION_TUNING as T } from '../constants/strategicEvaluation';
 import { PEACE_TUNING } from '../constants/peace';
 import { relationshipBetween } from '../gameplay/diplomacy/relationships';
@@ -23,12 +26,12 @@ export function assessRequiredPeaceResponse(state:GameState,recipient:string,pro
   const faction=state.factions.get(recipient)!;
   const war=new StrategicEvaluators(new FactualSupport(state)).warValue(recipient,proposer);
   const factual=-war.facts.currentPositionBalance*PEACE_TUNING.warPositionWeight;
-  const alignment=new GoalSystem(faction.goals.map(g=>({...g}))).evaluateActionAlignment({actionType:'OFFER_PEACE',targetFaction:proposer,
-    targetTerritory:null,self:faction,currentTurn:state.turn,allTerritories:state.territories});
-  const goal=Math.max(-T.modifierBound,Math.min(T.modifierBound,alignment.scoreContribution/T.goalScale*T.modifierBound));
-  const opinion=Math.max(-100,Math.min(100,faction.diplomacy.get(proposer)?.opinion??0))/100*T.modifierBound;
+  const view=factionDecisionView(state,recipient);
+  const progress=goalPreference(state,recipient,makeConcretePlan({action:'OFFER_PEACE',factionId:recipient,counterpartyId:proposer}),T.modifierBound);
+  const goal=progress.value;
+  const opinion=opinionPreference(view.own.opinions.get(proposer)??0,'OFFER_PEACE');
   const risk=(1-Math.max(0,Math.min(1,faction.personality.riskTolerance)))*Math.max(0,-war.facts.currentPositionBalance)*T.modifierBound;
   const modifier=Math.max(-T.modifierStackBound,Math.min(T.modifierStackBound,goal+opinion+risk));
   return {outcome:factual+modifier>=0?'ACCEPT_PEACE' as const:'DECLINE_PEACE' as const,
-    factual,modifier,war,limitations:war.facts.limitations};
+    factual,modifier,goal,opinion,goalAssessments:progress.assessments,war,limitations:war.facts.limitations};
 }

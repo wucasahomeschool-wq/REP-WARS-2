@@ -186,13 +186,13 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   cmd({
     commandId: 'NEGOTIATE',
     category: 'DIPLOMACY',
-    description: 'Small mutual opinion improvement (supported by current harness model).',
+    description: 'Historical command only; exact Trade counteroffers use RESPOND_TRADE.',
     required: [p('targetFactionId', 'string', 'Faction to negotiate with')],
     optional: [p('factionId', 'string', 'Negotiating faction')],
     routesTo: ['state'],
-    changesState: true,
+    changesState: false,
     possibleErrors: [ErrorCode.INVALID_FACTION, ErrorCode.INVALID_TARGET],
-    status: 'implemented',
+    status: 'unsupported',
   }),
   cmd({
     commandId: 'OFFER_PEACE',

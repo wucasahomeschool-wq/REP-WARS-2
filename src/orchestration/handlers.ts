@@ -486,21 +486,9 @@ export function handleDeclareWar(_state: GameState, _ctx: HandlerContext): Handl
   throw new OrchestrationError(ErrorCode.FEATURE_NOT_IMPLEMENTED, 'DECLARE_WAR is obsolete; relationships follow the canonical Peace lifecycle');
 }
 
-export function handleNegotiate(state: GameState, ctx: HandlerContext): HandlerResult {
-  const factionId = resolveActingFactionId(state, ctx.req);
-  const targetId = requireString(ctx.req, 'targetFactionId');
-  requireFactionSnapshot(state, targetId);
-  const self = requireFactionSnapshot(state, factionId);
-  const target = requireFactionSnapshot(state, targetId);
-  const rel = self.diplomacy.get(targetId);
-  if (rel) rel.opinion = Math.min(100, rel.opinion + 3);
-  const tr = target.diplomacy.get(factionId);
-  if (tr) tr.opinion = Math.min(100, tr.opinion + 2);
-  return {
-    ...emptyResult(),
-    stateChanges: [{ entity: 'diplomacy', id: targetId, summary: 'Negotiation improved bilateral opinion' }],
-    payload: { targetFactionId: targetId },
-  };
+/** Historical command only. Counteroffers use their exact Trade response lifecycle. */
+export function handleNegotiate(_state: GameState, _ctx: HandlerContext): HandlerResult {
+  throw new OrchestrationError(ErrorCode.FEATURE_NOT_IMPLEMENTED,'Generalized NEGOTIATE is obsolete; use an exact Trade counteroffer response');
 }
 
 function applyCommitmentTerminal(state: GameState, _ctx: HandlerContext, operationId: string,
@@ -892,7 +880,6 @@ export const MUTATING_HANDLERS: Record<string, MutatingHandler> = {
   TRADE:handleTrade, RESPOND_TRADE:handleRespondTrade, WITHDRAW_TRADE:handleWithdrawTrade, COUNTEROFFER_TRADE:handleCounterofferTrade,
   RESPOND_PEACE: handleRespondPeace,
   WITHDRAW_PEACE: handleWithdrawPeace,
-  NEGOTIATE: handleNegotiate,
   ADVANCE_WORLD: handleAdvanceWorld,
   TRANSITION_TO_NEXT_WORLD: handleTransitionToNextWorld,
   AI_DECIDE: handleAiDecide,

@@ -175,11 +175,14 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
       id: 'goal_missing', type: 'destroy_rival', priority: 80,
       targetFaction: 'missing', targetTerritory: null, targetRegion: null, targetResource: null,
       progress: 4, targetProgress: 100, deadlineTurn: null, createdTurn: 0,
+      lifecycle:{ownerId:FACTION,objective:{kind:'ELIMINATE_FACTION',factionId:'missing'},status:'INVALIDATED',visibility:'PRIVATE',createdAtTick:null,resolvedAtTick:state.worldTick,reason:'Target disappeared'},
     }];
+    const canonicalGoals=structuredClone(faction.goals);
     const ws = buildWarlordStates(state).get(FACTION)!;
     new DecisionEngine(SEED).decide(ws, toDecisionEngineSnapshot(state), state.turn);
     assert.strictEqual(faction.goals[0]!.progress, 4);
     assert.strictEqual(ws.goals.getAllGoals()[0]!.progress, 100);
+    assert.deepStrictEqual(faction.goals,canonicalGoals);
     assert.deepStrictEqual(checkGameStateInvariants(state), []);
   });
 
@@ -197,7 +200,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
     for (const current of [next, hydratePersistedPayload(encodePersistable(next))]) {
       const runtime = rebindWarlordRuntime(current, oldRuntime);
       const seen = observeCognition(() => engine.decide(runtime.get(FACTION)!, toDecisionEngineSnapshot(current), current.turn));
-      assert.strictEqual(seen.goals.getAllGoals().find((g) => g.id === goal.id)!.progress, 4);
+      assert.strictEqual(seen.goals.getAllGoals().find((g) => g.id === goal.id)!.progress, 0);
       assert.ok(seen.memory.getEntries().some((entry) => entry.type === 'action_failed'));
     }
   });

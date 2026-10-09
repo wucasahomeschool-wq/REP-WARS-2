@@ -1,3 +1,4 @@
+import {refreshGoals} from '../cognition/goals';
 import { assertClaimAvailable } from '../engine/operations';
 import { BALANCE } from '../constants/balance';
 import { Army, ArmyMovement, ArmyMovementStatus, FactionId, Territory, TerritoryId } from '../types';
@@ -193,6 +194,7 @@ export function progressArmyMovements(state: GameState, worldTick: number): Move
     const from = army.location;
     army.location = dest.id;
     army.movement = null;
+    refreshGoals(state,army.owner);
     results.push({
       armyId: army.id,
       owner: army.owner,

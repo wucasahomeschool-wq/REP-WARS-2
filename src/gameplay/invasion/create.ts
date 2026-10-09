@@ -1,3 +1,5 @@
+import {applyOpinionEvent} from '../../cognition/opinion';
+import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
 import { isArmyMoving } from '../../army/movement';
 import { assertHostilityAllowed } from '../diplomacy/relationships';
 import { assertClaimAvailable } from '../../engine/operations';
@@ -84,6 +86,7 @@ export function beginInvasionAgainstPlayer(
     commitmentId: params.commitmentId ?? null,
   });
   state.activeInvasions.set(invasion.id, invasion);
+  applyOpinionEvent(state,invasion.id,invasion.defenderFactionId,invasion.attackerFactionId,'attack_received',COGNITION.eventDelta.attack_received);
   if (invasion.commitmentId) {
     const op = state.operations.get(invasion.commitmentId);
     if (op) op.links.invasionId = invasion.id;

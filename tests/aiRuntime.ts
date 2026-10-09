@@ -272,7 +272,7 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     return { state, self };
   }
 
-  test('applyCommitmentOutcomeFeedback: successful ATTACK with an originating goal records progress on the canonical GameState', () => {
+  test('applyCommitmentOutcomeFeedback: successful ATTACK feedback cannot fabricate Goal progress without achieved canonical facts', () => {
     const { state } = stateWithSelf({ goals: [{
       id: 'goal_0', type: 'destroy_rival', priority: 80, targetFaction: ENEMY, targetTerritory: null,
       targetRegion: null, targetResource: null, progress: 0, targetProgress: 100, deadlineTurn: null, createdTurn: 0,
@@ -280,7 +280,7 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     const commitment = makeCmt({ warlordId: ME, action: 'ATTACK', targetId: 'target', originatingGoalId: 'goal_0' });
     applyCommitmentOutcomeFeedback(state, ME, commitment, 'completed');
     const goal = state.factions.get(ME)!.goals.find((g) => g.id === 'goal_0')!;
-    assert.ok(goal.progress > 0, 'goal progress should increase after a successful ATTACK');
+    assert.strictEqual(goal.progress,0, 'Feedback alone cannot establish an achieved objective');
   });
 
   test('applyCommitmentOutcomeFeedback: failed action does not record goal progress', () => {
@@ -302,10 +302,10 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     const commitment = makeCmt({ warlordId: ME, action: 'ATTACK', targetId: 'target', originatingGoalId: 'goal_0' });
     applyCommitmentOutcomeFeedback(state, ME, commitment, 'completed');
     const cloned = cloneGameState(state);
-    assert.strictEqual(cloned.factions.get(ME)!.goals.find((g) => g.id === 'goal_0')!.progress, 15);
+    assert.strictEqual(cloned.factions.get(ME)!.goals.find((g) => g.id === 'goal_0')!.progress, 0);
     // cloned goal object must be independent of the source.
     cloned.factions.get(ME)!.goals[0]!.progress = 99;
-    assert.strictEqual(state.factions.get(ME)!.goals.find((g) => g.id === 'goal_0')!.progress, 15);
+    assert.strictEqual(state.factions.get(ME)!.goals.find((g) => g.id === 'goal_0')!.progress, 0);
   });
 
   test('applyCommitmentOutcomeFeedback: failed ATTACK/EXPAND/MOVE records an action_failed memory entry', () => {
