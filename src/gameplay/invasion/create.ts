@@ -1,4 +1,5 @@
 import {applyOpinionEvent} from '../../cognition/opinion';
+import {recordConflictFact,hostileFactIdentity} from '../../conflict/ledger';
 import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
 import { isArmyMoving } from '../../army/movement';
 import { assertHostilityAllowed } from '../diplomacy/relationships';
@@ -35,6 +36,8 @@ export function beginInvasionAgainstPlayer(
     territoryId: string;
     armies: Army[];
     commitmentId?: string | null;
+    /** Existing authoritative command identity; only the factual chain uses it. */
+    requestId?: string;
     battleSeed?: number;
     /** Tutorial/scripted invasions skip 24h protection and attacker cooldown. Pause still blocks. */
     bypassPlayerDefenseGates?: boolean;
@@ -85,7 +88,10 @@ export function beginInvasionAgainstPlayer(
     battleSeed: params.battleSeed ?? deriveBattleSeed(state.worldSeed, state.turn, params.attackerId, state.playerFactionId, params.territoryId),
     commitmentId: params.commitmentId ?? null,
   });
+  invasion.conflictFactId=hostileFactIdentity(state,params.territoryId,params.armies.map(a=>a.id),params.commitmentId,params.requestId);
   state.activeInvasions.set(invasion.id, invasion);
+  for(const kind of ['ATTACK_COMMITTED','HOSTILE_ARRIVAL'] as const)recordConflictFact(state,invasion.conflictFactId,
+    {kind,actor:invasion.attackerFactionId,target:invasion.defenderFactionId,territoryId:invasion.territoryId});
   applyOpinionEvent(state,invasion.id,invasion.defenderFactionId,invasion.attackerFactionId,'attack_received',COGNITION.eventDelta.attack_received);
   if (invasion.commitmentId) {
     const op = state.operations.get(invasion.commitmentId);
@@ -95,6 +101,7 @@ export function beginInvasionAgainstPlayer(
     const live = state.armies.get(army.id);
     if (!live) continue;
     live.attackIntent = {
+      conflictFactId: invasion.conflictFactId,
       targetTerritoryId: params.territoryId,
       targetFactionId: target.owner,
       stagingTerritoryId: live.location,
@@ -162,6 +169,7 @@ export function maybeHoldAttackAsInvasion(
     territoryId: string;
     armies: Army[];
     commitmentId?: string | null;
+    requestId?: string;
     battleSeed?: number;
   },
 ): HandlerResult | null {

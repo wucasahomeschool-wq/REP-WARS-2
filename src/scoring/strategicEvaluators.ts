@@ -1,4 +1,6 @@
 import type { Army, ResourceType } from '../types';
+import {CONFLICT_TUNING as C} from '../constants/conflict';
+import {conflictResources} from '../conflict/ledger';
 import type { BuildPlan, ReinforcePlan } from '../types/AIConcretePlan';
 import type { EvaluatorAssessment, FactualUncertainty, StrategicEvaluator } from '../types/StrategicEvaluation';
 import { STRATEGIC_EVALUATORS } from '../types/StrategicEvaluation';
@@ -232,11 +234,25 @@ export class StrategicEvaluators {
       const own=power(factionId),enemy=power(opponentId);
       const committed=this.support.committed.filter(e=>e.classification==='contingent_execution'&&e.id.startsWith('attack:')&&
         ((e.factionId===factionId&&this.support.territories.get(e.territoryId)?.owner===opponentId)||(e.factionId===opponentId&&this.support.territories.get(e.territoryId)?.owner===factionId)));
+      const conflict=this.support.conflictFor(factionId,opponentId);
+      const signed=(n:number,scale:number)=>n/(scale+Math.abs(n));
+      const economic=(stocks:import('../types').Resources,fid:string)=>conflictResources.reduce((n,r)=>n+(stocks[r]>0?this.resourceValue(fid,r,stocks[r],'loss').facts.marginalUtility:0),0);
+      const balance=(ownLoss:number,enemyLoss:number,territories:number,ownResources:import('../types').Resources,enemyResources:import('../types').Resources)=>
+        C.casualtyWeight*signed(enemyLoss-ownLoss,C.casualtyScale)+C.territoryWeight*signed(territories,C.territoryScale)+
+        C.economicWeight*signed(economic(enemyResources,opponentId)-economic(ownResources,factionId),C.economicScale);
+      const cumulative=conflict?balance(conflict.own.troopsLost,conflict.opponent.troopsLost,conflict.own.territoriesGained-conflict.own.territoriesLost,conflict.own.resourcesLost,conflict.opponent.resourcesLost):0;
+      const recent=conflict?balance(conflict.recent.ownTroopsLost,conflict.recent.opponentTroopsLost,conflict.recent.netTerritories,conflict.recent.ownResourcesLost,conflict.recent.opponentResourcesLost):0;
+      const previous=conflict?balance(conflict.previous.ownTroopsLost,conflict.previous.opponentTroopsLost,conflict.previous.netTerritories,conflict.previous.ownResourcesLost,conflict.previous.opponentResourcesLost):0;
+      const historyBalance=conflict?.materialFacts?cumulative*(1-C.recentWeight)+recent*C.recentWeight:0;
+      const currentPositionBalance=(own-enemy)/Math.max(1,own+enemy);
+      const continuationBalance=conflict?.materialFacts?currentPositionBalance*(1-C.historyWeight)+historyBalance*C.historyWeight:currentPositionBalance;
       return assessment('WAR_VALUE',{opponentId,atWar:this.support.relationshipStates.get(factionId)?.get(opponentId)==='WAR',ownBorderStrength:own,opponentBorderStrength:enemy,
-        currentPositionBalance:(own-enemy)/Math.max(1,own+enemy),committedHostileEffects:committed.map(e=>({id:e.id,territoryId:e.territoryId,objectiveValid:e.objectiveValid})),
-        territorialTrajectory:null,militaryLossTrajectory:null,economicWarPenalty:0,
-        limitations:['No canonical conflict ledger; historic gains/losses cannot be inferred from Memory or operation success.','No implemented war-specific economic penalty. Current position and committed contingent work only.']},
-        ['canonical relationship state','current physical border forces','committed hostile intent/operation deduplicated; no victory assumed'],{...contingentFacts,confidence:'limited'});
+        currentPositionBalance,continuationBalance,historyBalance,committedHostileEffects:committed.map(e=>({id:e.id,territoryId:e.territoryId,objectiveValid:e.objectiveValid})),
+        conflict,territorialTrajectory:conflict?{net:conflict.own.territoriesGained-conflict.own.territoriesLost,recent:conflict.recent.netTerritories,previous:conflict.previous.netTerritories}:null,
+        militaryLossTrajectory:conflict?{own:conflict.own.troopsLost,opponent:conflict.opponent.troopsLost,recentOwn:conflict.recent.ownTroopsLost,recentOpponent:conflict.recent.opponentTroopsLost}:null,
+        recentMaterialBalance:recent,previousMaterialBalance:previous,trajectoryChange:recent-previous,economicWarPenalty:0,
+        limitations:['Observed ledger coverage begins at first recorded fact; no invented earlier history.','Trajectory is recorded consequences, not a forecast; commitment does not guarantee capture.','No generic war-specific economic penalty; attributable conquest forfeitures only.','Siege, destroyed structures and pool losses are reported separately without invented exchange prices.']},
+        ['canonical relationship and border forces','keyed current Conflict Ledger episode and bounded material windows','RESOURCE_VALUE support owns forfeited-resource utility inside WAR_VALUE','committed hostile work, no victory assumed'],{...contingentFacts,confidence:'limited'});
     });
   }
 }

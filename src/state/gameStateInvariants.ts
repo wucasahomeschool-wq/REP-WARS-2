@@ -1,3 +1,4 @@
+import {conflictStateProblems} from './conflictInvariants';
 import {cognitionStateProblems} from './cognitionInvariants';
 import {tradeStateProblems} from './tradeInvariants';
 import { peaceStateProblems } from './peaceInvariants';
@@ -91,6 +92,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
   for(const message of pressureStateProblems(state)) push('pressure.invalid_state',message);
   if (!(state.operations instanceof Map) || !(state.operationClaims instanceof Map)) {
     push('operation.missing_storage', 'canonical operation and claim maps are required');
+    for(const problem of conflictStateProblems(state))push('conflict.invalid_state',problem);
     return violations;
   }
   if (!state.strategicAttention || !Number.isSafeInteger(state.strategicAttention.capacity) || state.strategicAttention.capacity < 0)
@@ -889,6 +891,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
   }
 
   for(const problem of tradeStateProblems(state))push('trade.invalid_state',problem);
+  for(const problem of conflictStateProblems(state))push('conflict.invalid_state',problem);
   return violations;
 }
 

@@ -360,6 +360,9 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   else if(!(state.tradeProposals instanceof Map)||!(state.tradeShipments instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 24 requires Trade proposals and shipments');
   if(schema<25)initializeCognition(state as unknown as GameState);
   else if(!(state.opinionEvents instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 25 requires Opinion event receipts');
+  // No reconstructed fighting, casualties or historical Peace epochs.
+  if(schema<26){state.conflictLedger=new Map();state.conflictEventReceipts=new Map();}
+  else if(!(state.conflictLedger instanceof Map)||!(state.conflictEventReceipts instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 26 requires canonical conflict ledger and receipts');
   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
   return state;
 }

@@ -309,7 +309,7 @@ export async function runCommandIdempotencyTests(
     assert.strictEqual(read.success, true, read.errors[0]?.message);
     assert.strictEqual(load(store, 'cmd_read').gameplaySessionLeases[0]!.lastCommandSequence, null);
     assert.strictEqual(load(store, 'cmd_read').gameplaySessionLeases[0]!.lastCommandReceipt, null);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 25);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
   });
 
   await report('many commands keep one command receipt', async () => {

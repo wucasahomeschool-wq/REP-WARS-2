@@ -135,6 +135,8 @@ export type StrategicAttackIntentStatus = 'pending_movement' | 'ready';
  * Live statuses only. See docs/STRATEGIC_ATTACK_ARCHITECTURE.md.
  */
 export interface StrategicAttackIntent {
+    /** Persisted exact factual-chain link; no duplicate physical authority. */
+    conflictFactId?: string;
     /** Opposing faction when this physical hostile operation began. */
     targetFactionId?: FactionId;
     targetTerritoryId: TerritoryId;

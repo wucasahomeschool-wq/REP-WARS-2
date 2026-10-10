@@ -25,12 +25,12 @@ export function peaceEstimateView(state:GameState,proposer:string,recipient:stri
 export function assessRequiredPeaceResponse(state:GameState,recipient:string,proposer:string) {
   const faction=state.factions.get(recipient)!;
   const war=new StrategicEvaluators(new FactualSupport(state)).warValue(recipient,proposer);
-  const factual=-war.facts.currentPositionBalance*PEACE_TUNING.warPositionWeight;
+  const factual=-war.facts.continuationBalance*PEACE_TUNING.warPositionWeight;
   const view=factionDecisionView(state,recipient);
   const progress=goalPreference(state,recipient,makeConcretePlan({action:'OFFER_PEACE',factionId:recipient,counterpartyId:proposer}),T.modifierBound);
   const goal=progress.value;
   const opinion=opinionPreference(view.own.opinions.get(proposer)??0,'OFFER_PEACE');
-  const risk=(1-Math.max(0,Math.min(1,faction.personality.riskTolerance)))*Math.max(0,-war.facts.currentPositionBalance)*T.modifierBound;
+  const risk=(1-Math.max(0,Math.min(1,faction.personality.riskTolerance)))*Math.max(0,-war.facts.continuationBalance)*T.modifierBound;
   const modifier=Math.max(-T.modifierStackBound,Math.min(T.modifierStackBound,goal+opinion+risk));
   return {outcome:factual+modifier>=0?'ACCEPT_PEACE' as const:'DECLINE_PEACE' as const,
     factual,modifier,goal,opinion,goalAssessments:progress.assessments,war,limitations:war.facts.limitations};

@@ -1,4 +1,5 @@
 import {settleTradeProposal} from '../gameplay/trade/trade';
+import {recordConflictFact} from '../conflict/ledger';
 import {tradeResourceClaims,availableResource} from '../gameplay/trade/resources';
 import { timerRemaining } from './proactiveCognition';
 import { settlePeaceProposal } from '../gameplay/diplomacy/peace';
@@ -187,6 +188,8 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
     finishDecisionInitiation(state,id,true);
   }
   op.status = outcome; op.phase = 'terminal'; op.statusReason = reason;
+  if(op.action==='ATTACK'&&op.hostileCounterpartyId)recordConflictFact(state,op.id,
+    {kind:'ATTACK_TERMINAL',actor:op.warlordId,target:op.hostileCounterpartyId,outcome});
   op.terminal = { outcome, reason, atTick: state.worldTick };
   if (op.attention.acquiredAtTick !== null) op.attention.releasedAtTick = state.worldTick;
   finishDecisionInitiation(state, id, false);

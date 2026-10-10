@@ -80,6 +80,8 @@ import { WORKOUT_PURPOSES } from '../fitness/types';
 import { ContinuousWorldEngine, WorldAdvanceResult, WorldSimulationHost } from '../world/ContinuousWorldEngine';
 import { parseElapsedTicks } from '../world/worldTime';
 import { runEventEngineTurn } from '../world/eventTick';
+import {recordConflictFact} from '../conflict/ledger';
+import {relationshipBetween} from '../gameplay/diplomacy/relationships';
 import {
   beginArmyMovement,
   findMovingArmyForCommitment,
@@ -277,6 +279,7 @@ export function executeAttack(state: GameState, ctx: HandlerContext, territoryId
     territoryId,
     armies: immediate,
     commitmentId,
+    requestId: ctx.req.requestId,
     battleSeed: paramNumber(ctx.req, 'seed'),
   });
   if (held) return held;
@@ -303,6 +306,7 @@ export function executePendingStrategicAttack(state: GameState, ctx: HandlerCont
         territoryId: intent.targetTerritoryId,
         armies: [army],
         commitmentId: intent.commitmentId,
+        requestId: ctx.req.requestId,
         battleSeed: intent.battleSeed,
       });
       if (held) {
@@ -792,7 +796,16 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
     // The provisional selection delay is not a duplicate physical timer.
     delete op.durationTicks; delete op.completionCondition;
     if ('armyId' in op.plan) op.links.armyId = op.plan.armyId;
-    if(op.plan.action==='ATTACK')op.hostileCounterpartyId=draft.territories.get(op.plan.targetTerritoryId)!.owner!;
+    if(op.plan.action==='ATTACK'){
+      op.hostileCounterpartyId=draft.territories.get(op.plan.targetTerritoryId)!.owner!;
+      recordConflictFact(draft,op.id,{kind:'ATTACK_COMMITTED',actor:op.warlordId,target:op.hostileCounterpartyId,territoryId:op.plan.targetTerritoryId});
+    }
+    if(op.plan.action==='RETREAT'){
+      const other=draft.territories.get(op.plan.originTerritoryId)?.owner;
+      // Physical withdrawal remains legal during Peace. It is not a new
+      // conflict consequence and must not change the closed war episode.
+      if(other&&other!==op.warlordId&&relationshipBetween(draft,op.warlordId,other)!=='PEACE')recordConflictFact(draft,op.id,{kind:'RETREAT',actor:op.warlordId,target:other,territoryId:op.plan.originTerritoryId});
+    }
     const inner = executeConcreteCommitment(draft, ctx, op.plan, op.id);
     if (op.action === 'BUILD') {
       const project = [...draft.constructions.values()].find(p => p.aiOperationId === op.id);

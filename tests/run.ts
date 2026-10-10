@@ -1,3 +1,4 @@
+import {registerAiConflictTests} from './aiConflict';
 import {registerAiCognitionTests} from './aiCognition';
 import {registerAiTradeTests} from './aiTrade';
 import { registerAiPeaceTests } from './aiPeace';
@@ -1659,7 +1660,7 @@ test('createGameState() contains the expected major state domains', () => {
   const state = createGameState({ seed: 42 });
   const keys = Object.keys(state).sort();
   const expected = [
-    'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'opinionEvents', 'operationClaims', 'operations', 'constructions',
+    'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'conflictLedger', 'conflictEventReceipts', 'opinionEvents', 'operationClaims', 'operations', 'constructions',
     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
     'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'tradeProposals', 'tradeShipments', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
@@ -3121,6 +3122,7 @@ registerAiRecruitmentTests({test,makeSelf,makeTerritory,cmdReq});
 registerAiPeaceTests({test,makeSelf,makeTerritory,cmdReq});
 registerAiTradeTests({test,makeSelf,makeTerritory,cmdReq});
 registerAiCognitionTests({test,makeSelf,makeTerritory,cmdReq});
+registerAiConflictTests({test,makeSelf,makeTerritory,cmdReq});
 registerAiStrategicEvaluationTests({ test, makeSelf, makeTerritory, cmdReq });
 
 registerFoundationHardeningTests({

@@ -1,4 +1,5 @@
 import {applyOpinionEvent} from '../../cognition/opinion';
+import {recordConflictFact} from '../../conflict/ledger';
 import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
 import {refreshGoals} from '../../cognition/goals';
 import type { GameState } from '../../types/GameState';
@@ -109,6 +110,8 @@ export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics):void
     if(r.state==='PEACE'||r.factions.some(f=>!activeDiplomacyFaction(state,f))||(r.legacyExpiresTurn!=null&&state.turn>=r.legacyExpiresTurn)) {
       if((r.expiresAtMs!==null&&state.aiClock.nowMs>=r.expiresAtMs)||(r.legacyExpiresTurn!=null&&state.turn>=r.legacyExpiresTurn)
         ||r.factions.some(f=>!activeDiplomacyFaction(state,f))) {
+        if(r.state==='PEACE'&&r.factions.every(f=>activeDiplomacyFaction(state,f)))recordConflictFact(state,`peace-expiry:${r.proposalId??id}:${r.expiresAtMs??r.legacyExpiresTurn}`,
+          {kind:'WAR_RETURN',actor:r.factions[0],target:r.factions[1]});
         state.peaceRelationships.delete(id);record(state,r.proposalId??id,'ended',...r.factions,metrics);if(metrics)metrics.relationshipTransitions++;
       }
       continue;
@@ -118,6 +121,7 @@ export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics):void
     if(!r.finalizationTimer)r.finalizationTimer=startProactiveTimer(state,r.factions[0],`peace-finalization:${id}`,TIME.finalizationOnlineMs,TIME.finalizationOnlineMs,TIME.finalizationOfflineMs/TIME.finalizationOnlineMs);
     if(timerRemaining(state,r.finalizationTimer)>0)continue;
     r.finalizationTimer=null;r.state='PEACE';r.activatedAtMs=state.aiClock.nowMs;r.expiresAtMs=r.legacyExpiresTurn!==undefined?null:state.aiClock.nowMs+PEACE_TUNING.treatyDurationMs;
+    recordConflictFact(state,`peace:${r.proposalId??id}:${r.activatedAtMs}`,{kind:'PEACE_ACTIVATED',actor:r.factions[0],target:r.factions[1]});
     for(const observer of r.factions)applyOpinionEvent(state,`peace:${r.proposalId??id}:${r.activatedAtMs}`,observer,r.factions.find(f=>f!==observer)!,'treaty_signed',COGNITION.eventDelta.treaty_signed);
     refreshGoals(state);
     record(state,r.proposalId??id,'activated',...r.factions,metrics);if(metrics)metrics.relationshipTransitions++;

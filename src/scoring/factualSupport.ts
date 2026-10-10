@@ -1,4 +1,5 @@
 import {liveTradeShipments} from '../gameplay/trade/trade';
+import {conflictSummary} from '../conflict/ledger';
 import {availableStocks} from '../gameplay/trade/resources';
 import { availableLocalTroops } from '../gameplay/recruitment/reinforcement';
 import { factionsAreHostile, relationshipBetween } from '../gameplay/diplomacy/relationships';
@@ -49,6 +50,8 @@ export interface FactualTerritory extends Omit<Territory,'baseValue'|'population
 /** Explicit physical-fact whitelist. No Goals, Memory, Opinion, personality,
  * pressure, score, world seed or attack battleSeed can enter an evaluator. */
 export class FactualSupport {
+  private readonly conflictFacts:Pick<GameState,'conflictLedger'|'worldTick'|'aiClock'>;
+  conflictFor(owner:string,opponent:string){return conflictSummary(this.conflictFacts,owner,opponent);}
   readonly territories = new Map<string,FactualTerritory>();
   readonly armies = new Map<string,Army>();
   readonly localPools = new Map<string,{troops:number;available:number;reserved:number}>();
@@ -65,6 +68,9 @@ export class FactualSupport {
   private readonly worldFraction:FixedPointAccrual;
   private readonly resourceCache=new Map<string,ReturnType<FactualSupport['deriveResourceFacts']>>();
   constructor(state: GameState) {
+    // Whitelisted keyed factual storage. No receipt/history scan or private
+    // cognition is copied. Summary detaches only the requested current episode.
+    this.conflictFacts={conflictLedger:state.conflictLedger,worldTick:state.worldTick,aiClock:state.aiClock};
     this.presence = playerPresenceAt(state.gameplaySessionLeases,state.aiClock.nowMs);
     this.cityCombatEnabled=(state.worldLevel??0)>=2;
     this.playerFactionId=state.playerFactionId;

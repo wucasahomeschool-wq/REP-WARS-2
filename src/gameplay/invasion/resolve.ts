@@ -1,3 +1,4 @@
+import {recordConflictFact} from '../../conflict/ledger';
 import { isArmyMoving } from '../../army/movement';
 import { settleOperation } from '../../engine/operations';
 import { Army } from '../../types';
@@ -62,8 +63,11 @@ function releaseInvasionArmies(state: GameState, invasion: ActiveInvasion): void
   }
 }
 
-function closeCommitment(state: GameState, invasion: { attackerFactionId: string; commitmentId: string | null }, success: boolean): void {
-  if (!invasion.commitmentId) return;
+function closeCommitment(state: GameState, invasion: ActiveInvasion, success: boolean): void {
+  if (!invasion.commitmentId) {
+    recordConflictFact(state,invasion.conflictFactId??invasion.id,{kind:'ATTACK_TERMINAL',actor:invasion.attackerFactionId,target:invasion.defenderFactionId,outcome:success?'completed':'failed'});
+    return;
+  }
   settleOperation(state, invasion.commitmentId, success ? 'completed' : 'failed', success ? 'attacker victory' : 'attacker did not win');
 }
 
@@ -213,7 +217,7 @@ export function resolveInvasionBattle(
   // passing an impossible zero-defender input to BattleEngine. No new combat
   // formula, duration or force is introduced.
   if (target.garrison <= 0 && [...realDefenders,...virtualDefender].every(a=>a.soldiers+a.knights<=0)) {
-    const applied=applyUnopposedOccupationToGameState(state,target,invasion.attackerFactionId,attackers,state.turn);
+    const applied=applyUnopposedOccupationToGameState(state,target,invasion.attackerFactionId,attackers,state.turn,invasion.conflictFactId??invasion.commitmentId??invasion.id);
     setCooldown(state,invasion.attackerFactionId,'continuationUntilTick',state.worldTick+failedDefenseContinuationTicks());
     releaseInvasionArmies(state,invasion);state.activeInvasions.delete(invasionId);closeCommitment(state,invasion,true);
     const invasionOutcome=outcomeForReason(reason,false);
@@ -240,7 +244,7 @@ export function resolveInvasionBattle(
     throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, validation.errors.join('; '), { errors: validation.errors });
   }
   const result = battle.resolve(input);
-  const applied = applyBattleResultToGameState(state, result, attackers, realDefenders, state.turn);
+  const applied = applyBattleResultToGameState(state, result, attackers, realDefenders, state.turn,invasion.conflictFactId??invasion.commitmentId??invasion.id);
   const success = result.winner === 'defender' || (result.winner === 'draw' && target.owner === invasion.defenderFactionId);
   if (success && reason === 'defense_battle') {
     setCooldown(state, invasion.attackerFactionId, 'recoveryUntilTick', state.worldTick + successfulDefenseRecoveryTicks());

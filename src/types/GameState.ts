@@ -99,8 +99,9 @@ import { GameRewardResult } from '../rewards/types';
  * 23 = Canonical Peace proposal threads, required-response clocks and relationship exceptions (Phase H).
  * 24 = Canonical Trade proposals, exact bank reservations and bilateral shipment custody (Phase I).
  * 25 = Concrete Goal lifecycle and idempotent directed Opinion event receipts (Phase J).
+ * 26 = Canonical factual conflict episodes/aggregates and replay receipts (Phase K).
  */
-export const GAME_STATE_SCHEMA_VERSION = 25;
+export const GAME_STATE_SCHEMA_VERSION = 26;
 
 export type InvasionId = string;
 
@@ -177,6 +178,8 @@ export type InvasionStatus = 'pending_response' | 'defense_in_progress';
  * Expired iff `now > deadlineTick`.
  */
 export interface ActiveInvasion {
+  /** Stable factual chain identity; does not simulate invasion state. */
+  conflictFactId?: string;
   id: InvasionId;
   defenderFactionId: FactionId;
   attackerFactionId: FactionId;
@@ -555,6 +558,8 @@ export interface GameState {
   tradeProposals: Map<string, import('./Trade').TradeProposal>;
   tradeShipments: Map<string, import('./Trade').TradeShipment>;
   opinionEvents: Map<string, import('./AICognition').OpinionEventReceipt>;
+  conflictLedger: Map<string, import('./ConflictLedger').ConflictPairLedger>;
+  conflictEventReceipts: Map<string, import('./ConflictLedger').ConflictReceipt>;
   /**
    * Per-territory uncollected yield and last accrual tick. Faction
    * `resources` remain the banked reserve; recruitment uses only local Food yield.
@@ -684,6 +689,8 @@ export function emptyRewardApplicationState(): {
   tradeProposals: Map<string, import('./Trade').TradeProposal>;
   tradeShipments: Map<string, import('./Trade').TradeShipment>;
   opinionEvents: Map<string, import('./AICognition').OpinionEventReceipt>;
+  conflictLedger: Map<string, import('./ConflictLedger').ConflictPairLedger>;
+  conflictEventReceipts: Map<string, import('./ConflictLedger').ConflictReceipt>;
   territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
   territoryInfrastructure: Map<TerritoryId, TerritoryInfrastructure>;
   playerFitness: PlayerFitnessState;
@@ -702,7 +709,7 @@ export function emptyRewardApplicationState(): {
     peaceRelationships: new Map(),
     peaceProposals: new Map(),
     peaceProposalThreads: new Map(),
-    tradeProposals: new Map(), tradeShipments: new Map(), opinionEvents: new Map(),
+    tradeProposals: new Map(), tradeShipments: new Map(), opinionEvents: new Map(), conflictLedger:new Map(), conflictEventReceipts:new Map(),
     territoryEconomy: new Map(),
     territoryInfrastructure: new Map(),
     playerFitness: emptyPlayerFitnessState(),

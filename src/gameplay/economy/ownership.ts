@@ -1,5 +1,5 @@
 import { activeOperations, settleOperation } from '../../engine/operations';
-import { FactionId, TerritoryId } from '../../types';
+import { FactionId, TerritoryId, Resources } from '../../types';
 import { GameState } from '../../types/GameState';
 import { cityIdFor, removeCity } from '../cities/city';
 import { emptyResources } from './config';
@@ -18,6 +18,8 @@ export interface TerritoryDestructionReport {
   mineDestroyed: boolean;
   lumberDestroyed: boolean;
   constructionCancelled: number;
+  resourcesLost:Resources;
+  undeployedTroopsLost:number;
 }
 
 export function territoryDestructionHasLosses(report: TerritoryDestructionReport): boolean {
@@ -56,6 +58,8 @@ function snapshotTerritoryDestruction(
     mineDestroyed: infra?.mineCompletedAtTick != null,
     lumberDestroyed: infra?.lumberCompletedAtTick != null,
     constructionCancelled,
+    resourcesLost:emptyResources(),
+    undeployedTroopsLost:state.territoryRecruitment.get(territoryId)?.troops??0,
   };
 }
 
@@ -89,6 +93,7 @@ export function settleTerritoryOwnershipChange(
   persistTerritoryAccrual(state, territoryId);
   const rec = state.territoryEconomy.get(territoryId);
   if (rec) {
+    report.resourcesLost={...rec.uncollected};
     rec.uncollected = emptyResources();
     rec.lastAccrualTick = state.worldTick;
     if(rec.foodAccrualTick!==undefined)rec.foodAccrualTick=state.worldTick;

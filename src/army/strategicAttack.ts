@@ -1,4 +1,5 @@
 import {applyOpinionEvent} from '../cognition/opinion';
+import {hostileFactIdentity,recordConflictFact} from '../conflict/ledger';
 import {COGNITION_TUNING as COGNITION} from '../constants/cognition';
 import { assertClaimAvailable, settleOperation } from '../engine/operations';
 import { assertHostilityAllowed } from '../gameplay/diplomacy/relationships';
@@ -289,6 +290,9 @@ function resolveStrategicBattle(
   }
   assertAnchorAttackAllowed(state, target.id);
   const defenderId = target.owner;
+  const conflictId=hostileFactIdentity(state,target.id,attackingArmies.map(a=>a.id),operationId,host.req.requestId);
+  recordConflictFact(state,conflictId,{kind:'ATTACK_COMMITTED',actor:attackerId,target:defenderId,territoryId:target.id});
+  recordConflictFact(state,conflictId,{kind:'HOSTILE_ARRIVAL',actor:attackerId,target:defenderId,territoryId:target.id});
   const attackerSnap = requireFactionSnapshot(state, attackerId);
   const defenderSnap = requireFactionSnapshot(state, defenderId);
   const defendingArmies = armiesInTerritory(state, target.id).filter((a) => a.owner === defenderId);
@@ -302,7 +306,7 @@ function resolveStrategicBattle(
   applyOpinionEvent(state,`attack:${JSON.stringify([operationId??null,state.worldTick,target.id,attackerId,attackingArmies.map(a=>a.id).sort()])}`,defenderId,attackerId,'attack_received',COGNITION.eventDelta.attack_received);
 
   if (defenderField + target.garrison <= 0) {
-    const applied = applyUnopposedOccupationToGameState(state, target, attackerId, attackingArmies, state.turn);
+    const applied = applyUnopposedOccupationToGameState(state, target, attackerId, attackingArmies, state.turn,conflictId);
     for (const a of attackingArmies) {
       const live = state.armies.get(a.id);
       if (live) {
@@ -311,6 +315,7 @@ function resolveStrategicBattle(
       }
     }
     clearAttackIntentsForTarget(state, target.id, attackerId);
+    if(!operationId)recordConflictFact(state,conflictId,{kind:'ATTACK_TERMINAL',actor:attackerId,target:defenderId,outcome:'completed'});
     const remainingSoldiers = attackingArmies.reduce((sum, army) => sum + army.soldiers, 0);
     const remainingKnights = attackingArmies.reduce((sum, army) => sum + army.knights, 0);
     const remainingSiege = attackingArmies.reduce((sum, army) => sum + army.siegeEngines, 0);
@@ -383,7 +388,7 @@ function resolveStrategicBattle(
     throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, validation.errors.join('; '), { errors: validation.errors });
   }
   const result = battle.resolve(input);
-  const applied = applyBattleResultToGameState(state, result, attackingArmies, defendingArmies, state.turn);
+  const applied = applyBattleResultToGameState(state, result, attackingArmies, defendingArmies, state.turn,conflictId);
   for (const a of attackingArmies) {
     const live = state.armies.get(a.id);
     if (live) {
@@ -392,6 +397,7 @@ function resolveStrategicBattle(
     }
   }
   clearAttackIntentsForTarget(state, target.id, attackerId);
+  if(!operationId)recordConflictFact(state,conflictId,{kind:'ATTACK_TERMINAL',actor:attackerId,target:defenderId,outcome:result.winner==='attacker'?'completed':'failed'});
   const events: GameEvent[] = [{
     kind: 'battle',
     id: `battle_${state.turn}_${target.id}`,
@@ -528,7 +534,9 @@ export function startStrategicAttack(
   army.movement!.hostileCounterpartyId = defenderId;
   const battleSeed = paramNumber(host.req, 'seed')
     ?? deriveBattleSeed(state.worldSeed, state.turn, attackerId, defenderId, target.id);
+  const conflictFactId=hostileFactIdentity(state,target.id,[army.id],commitmentId,host.req.requestId);
   const intent: StrategicAttackIntent = {
+    conflictFactId,
     targetFactionId: defenderId,
     targetTerritoryId: target.id,
     stagingTerritoryId: delayed.stagingTerritoryId,
@@ -539,6 +547,7 @@ export function startStrategicAttack(
     onlyArmyId: params.onlyArmyId ?? delayed.armyId,
   };
   army.attackIntent = intent;
+  recordConflictFact(state,conflictFactId,{kind:'ATTACK_COMMITTED',actor:attackerId,target:defenderId,territoryId:target.id});
   const armyChanges: ArmyChange[] = [
     ...moved.armiesChanged,
     { armyId: army.id, field: 'attackIntent', from: null, to: { ...intent } },

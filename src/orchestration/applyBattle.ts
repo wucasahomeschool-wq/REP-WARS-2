@@ -1,4 +1,5 @@
 import {applyOpinionEvent} from '../cognition/opinion';
+import {recordConflictFact,conflictEventId} from '../conflict/ledger';
 import {COGNITION_TUNING as COGNITION} from '../constants/cognition';
 import {refreshGoals} from '../cognition/goals';
 import { Army, ArmyId, FactionId, Territory, TerritoryId } from '../types';
@@ -81,6 +82,7 @@ function transferTerritory(
   territoryChanges: TerritoryChange[],
   events: GameEvent[],
   attackingArmies: Army[],
+  conflictId?:string,
 ): void {
   const oldOwner = territory.owner;
   if (oldOwner === newOwner) return;
@@ -97,6 +99,10 @@ function transferTerritory(
     .map(a=>[a.id,state.operationClaims.get(`force:${a.id}`)?.operationId??a.attackIntent?.commitmentId??null]);
   if(oldOwner)applyOpinionEvent(state,`conquest:${JSON.stringify([state.worldTick,territory.id,oldOwner,newOwner,actors])}`,oldOwner,newOwner,'territory_lost',COGNITION.eventDelta.territory_lost);
   const destruction = settleTerritoryOwnershipChange(state, territory.id, newOwner, oldOwner);
+  if(oldOwner)recordConflictFact(state,`conquest:${conflictId??JSON.stringify([state.worldTick,territory.id,actors])}`,{
+    kind:'TERRITORY_TRANSFER',actor:newOwner,target:oldOwner,territoryId:territory.id,resourcesLost:destruction.resourcesLost,
+    structuresLost:Number(destruction.cityDestroyed)+Number(destruction.farmDestroyed)+Number(destruction.mineDestroyed)+Number(destruction.lumberDestroyed),fortificationLevelsLost:destruction.fortificationDestroyed,projectsLost:destruction.constructionCancelled,
+    poolTroopsLost:destruction.undeployedTroopsLost});
   if (territoryDestructionHasLosses(destruction)) {
     events.push({
       kind: 'territory',
@@ -148,6 +154,7 @@ export function applyUnopposedOccupationToGameState(
   attackerId: FactionId,
   attackingArmies: Army[],
   turn: number,
+  conflictId?:string,
 ): {
   stateChanges: StateChange[];
   territoryChanges: TerritoryChange[];
@@ -161,6 +168,17 @@ export function applyUnopposedOccupationToGameState(
   const defenderId = territory.owner;
   if (!defenderId || defenderId === attackerId) {
     return { stateChanges: changes, territoryChanges, armyChanges, events };
+  }
+  // A replay may arrive after a legitimate recapture. Do not apply the old
+  // conquest again merely because its old target is foreign-owned once more.
+  if (conflictId) {
+    const prior = state.conflictEventReceipts.get(conflictEventId(`conquest:${conflictId}`, 'TERRITORY_TRANSFER', attackerId, defenderId));
+    if (prior) {
+      const fact = JSON.parse(prior.signature);
+      if (fact.actor !== attackerId || fact.target !== defenderId || fact.territoryId !== territory.id)
+        throw new Error('Conquest identity reused with different participants or target');
+      return { stateChanges: changes, territoryChanges, armyChanges, events };
+    }
   }
   if (defenderId === state.playerFactionId) {
     assertAnchorAttackAllowed(state, territory.id);
@@ -178,7 +196,7 @@ export function applyUnopposedOccupationToGameState(
     });
     territoryChanges.push({ territoryId: territory.id, field: 'garrison', from: gFrom, to: 0 });
   }
-  transferTerritory(state, territory, attackerId, changes, territoryChanges, events,attackingArmies);
+  transferTerritory(state, territory, attackerId, changes, territoryChanges, events,attackingArmies,conflictId);
   for (const a of attackingArmies) {
     const from = a.location;
     a.location = territory.id;
@@ -206,6 +224,7 @@ export function applyBattleResultToGameState(
   attackingArmies: Army[],
   defendingArmies: Army[],
   turn: number,
+  conflictId?:string,
 ): {
   stateChanges: StateChange[];
   territoryChanges: TerritoryChange[];
@@ -218,6 +237,26 @@ export function applyBattleResultToGameState(
   const events: GameEvent[] = [];
   const territory = state.territories.get(result.territoryId);
   if (!territory) return { stateChanges: changes, territoryChanges, armyChanges, events };
+  const battleIdentity=`battle:${conflictId??JSON.stringify([result.battleId,attackingArmies.map(a=>a.id).sort()])}`;
+  const resultFingerprint=JSON.stringify([result.territoryId,result.winner,result.territoryOutcome,
+    result.attacker.initialTroops,result.defender.initialTroops,result.attacker.casualties,result.defender.casualties,
+    result.attacker.remaining,result.defender.remaining,result.attacker.moraleChange,result.defender.moraleChange,
+    attackingArmies.map(a=>a.id).sort(),defendingArmies.map(a=>a.id).sort()]);
+  const prior=state.conflictEventReceipts.get(conflictEventId(battleIdentity,'BATTLE',result.attacker.factionId,result.defender.factionId));
+  if(prior){
+    if(JSON.parse(prior.signature).resultFingerprint!==resultFingerprint)throw new Error('Resolved battle identity reused with different consequences');
+    return {stateChanges:changes,territoryChanges,armyChanges,events};
+  }
+  const physicalDefenderInitial=territory.garrison+defendingArmies.reduce((n,a)=>n+a.soldiers+a.knights,0);
+  const physicalDefenderSiege=defendingArmies.reduce((n,a)=>n+a.siegeEngines,0);
+  const recordBattle=()=>{
+    const virtual=result.defender.initialTroops!==physicalDefenderInitial;
+    const actualDefenderLoss=virtual?Math.max(0,physicalDefenderInitial-territory.garrison-defendingArmies.reduce((n,a)=>n+(state.armies.has(a.id)?a.soldiers+a.knights:0),0)):result.defender.casualties.total;
+    recordConflictFact(state,battleIdentity,{
+      kind:'BATTLE',actor:result.attacker.factionId,target:result.defender.factionId,territoryId:territory.id,outcome:result.winner,
+      troopLosses:[result.attacker.casualties.total,actualDefenderLoss],siegeLosses:[result.attacker.casualties.siegeEngines,virtual?Math.max(0,physicalDefenderSiege-defendingArmies.reduce((n,a)=>n+(state.armies.has(a.id)?a.siegeEngines:0),0)):result.defender.casualties.siegeEngines],
+      resultFingerprint,casualtyBasis:virtual?'physical_settlement_excluding_virtual_defense':'battle_result'});
+  };
 
   const attacker = state.factions.get(result.attacker.factionId);
   const defender = state.factions.get(result.defender.factionId);
@@ -246,8 +285,9 @@ export function applyBattleResultToGameState(
   if (result.winner === 'attacker') {
     eliminateArmies(state, defendingArmies, armyChanges);
     applySurvivingArmies(attackingArmies, result.attacker.remaining, result.attacker.moraleChange, armyChanges);
+    recordBattle();
     if (result.territoryOutcome === 'captured' && attacker) {
-      transferTerritory(state, territory, attacker.id, changes, territoryChanges, events,attackingArmies);
+      transferTerritory(state, territory, attacker.id, changes, territoryChanges, events,attackingArmies,conflictId??result.battleId);
       for (const a of attackingArmies) a.location = territory.id;
       if (defender) {
         pushMemory(attacker, turn, 'territory_gained', defender.id, territory.id, 12, { territory: territory.id, via: 'conquest' });
@@ -261,6 +301,7 @@ export function applyBattleResultToGameState(
   } else if (result.winner === 'defender') {
     eliminateArmies(state, attackingArmies, armyChanges);
     applySurvivingArmies(defendingArmies, result.defender.remaining, result.defender.moraleChange, armyChanges);
+    recordBattle();
     if (attacker && defender) {
       pushMemory(attacker, turn, 'battle_lost', defender.id, territory.id, 10, { outcome: result.outcomeType });
       pushMemory(defender, turn, 'battle_won', attacker.id, territory.id, 8, { outcome: result.outcomeType });
@@ -268,6 +309,7 @@ export function applyBattleResultToGameState(
   } else {
     applySurvivingArmies(attackingArmies, result.attacker.remaining, result.attacker.moraleChange, armyChanges);
     applySurvivingArmies(defendingArmies, result.defender.remaining, result.defender.moraleChange, armyChanges);
+    recordBattle();
   }
 
   return { stateChanges: changes, territoryChanges, armyChanges, events };

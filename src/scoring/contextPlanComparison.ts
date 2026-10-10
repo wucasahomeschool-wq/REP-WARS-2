@@ -90,9 +90,9 @@ export class ContextPlanComparator {
     } else if(plan.action==='OFFER_PEACE') {
       const war=evaluators.warValue(plan.factionId,plan.counterpartyId);assessments.push(war);
       const estimate=counterpartyResponseEstimate(peaceEstimateView(state,plan.factionId,plan.counterpartyId));
-      add('war:continuation_avoided','WAR_VALUE','source_resolution',-war.facts.currentPositionBalance*PEACE_TUNING.warPositionWeight,'Opponent-specific current factual war position; no invented historical exhaustion','limited');
+      add('war:continuation_avoided','WAR_VALUE','source_resolution',-war.facts.continuationBalance*PEACE_TUNING.warPositionWeight,'Opponent-specific factual position and material trajectory; no exhaustion resource','limited');
       add('proposal:external_choice','WAR_VALUE','realization',-T.uncertaintyWeight,estimate.limitations.join(' '),'limited');
-      downside=Math.max(0,war.facts.currentPositionBalance);
+      downside=Math.max(0,war.facts.continuationBalance);
      } else if(plan.action==='TRADE') {
       let gain=0,loss=0;
       for(const [r,n]of bundleEntries(plan.requested)){const a=evaluators.resourceValue(plan.factionId,r,n,'gain');assessments.push(a);gain+=a.facts.marginalUtility;}

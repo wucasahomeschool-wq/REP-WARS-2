@@ -254,6 +254,9 @@ export function adoptOwnedTransactionState(target: GameState, next: GameState): 
   target.peaceProposals = next.peaceProposals;
   target.peaceProposalThreads = next.peaceProposalThreads;
   target.tradeProposals=next.tradeProposals;target.tradeShipments=next.tradeShipments;
+  target.opinionEvents = next.opinionEvents;
+  target.conflictLedger = next.conflictLedger;
+  target.conflictEventReceipts = next.conflictEventReceipts;
   target.worldSeed = next.worldSeed;
   target.factions = next.factions;
   target.allFactionIds = next.allFactionIds;
@@ -361,6 +364,8 @@ export function cloneGameState(state: GameState): GameState {
     tradeProposals:indexedTradeMap(proposalLive,[...state.tradeProposals].map(([id,p])=>[id,JSON.parse(JSON.stringify(p))] as const)),
     tradeShipments:indexedTradeMap(shipmentLive,[...state.tradeShipments].map(([id,p])=>[id,JSON.parse(JSON.stringify(p))] as const)),
     opinionEvents: cloneMap(state.opinionEvents, e => ({...e})),
+    conflictLedger:cloneMap(state.conflictLedger,p=>structuredClone(p)),
+    conflictEventReceipts:cloneMap(state.conflictEventReceipts,r=>({...r})),
     territoryEconomy: cloneMap(state.territoryEconomy, cloneTerritoryEconomy),
     territoryInfrastructure: cloneMap(state.territoryInfrastructure, cloneTerritoryInfrastructure),
     playerFitness: clonePlayerFitness(state.playerFitness),
