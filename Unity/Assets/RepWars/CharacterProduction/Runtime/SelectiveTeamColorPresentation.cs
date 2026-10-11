@@ -17,6 +17,7 @@ namespace RepWars.CharacterProduction
     }
 
     /// <summary>One cosmetic color for all authored views. No gameplay dependencies or frame loop.</summary>
+    [ExecuteAlways]
     [DisallowMultipleComponent]
     public sealed class SelectiveTeamColorPresentation : MonoBehaviour
     {

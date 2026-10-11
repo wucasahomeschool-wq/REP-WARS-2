@@ -8,9 +8,9 @@ verified at that exact commit before editing; the starting tree was clean.
 
 Implemented in code/tooling: Knight B mask recipe, shared Editor schema/proof
 generation, family-specific validation and focused EditMode tests. Source/configuration,
-raster references and regression checks can run here. Unity compilation, native asset
-generation, shader/render behavior, human visual approval and mobile profiling remain
-deferred. No native mask PNG, material or proof prefab has been generated in cloud.
+raster references and regression checks can run here. Generated Knight A/B proof prefabs,
+section textures, the shared team-color material, and Knight A/B mask PNGs are in this
+tree. Human visual approval of cloth edges and mobile profiling remain deferred.
 
 Runtime color API, shader and illustrated color math remain byte-identical. No source
 art, skin recipe, bone, mesh, weight, socket, sorting, facing mapping or animation is
@@ -32,21 +32,25 @@ Coordinates are original PNG pixels, top-left origin, Y downward; they do not us
 assembled rig positions. All polygons have two-pixel **inward** feathering; outside
 coverage is exactly zero.
 
-| View / source | Polygon | Padded section bounds / selected pixel centers |
-|---|---|---|
-| Front / `Disassembled Dark Knight Armor Set (1).png` (1254×1254) | (618,620), (647,631), (643,681), (630,704), (616,679) | (462,489,353,289) / 1,860 |
-| Side / `ChatGPT Image Oct 3, 2026, 08_01_25 AM.png` (1024×1536) | (593,716), (610,729), (612,792), (605,812), (594,794) | (360,556,278,364) / 1,388 |
-| Back / `ChatGPT Image Oct 3, 2026, 08_06_16 AM.png` (1024×1536) | (425,687), (441,690), (438,752), (425,789), (413,759), (416,718) | (359,551,288,351) / 1,903 |
+The provisional polygons below were the Phase 11 authoring values. Proof inspection
+showed the front polygon beside the central hanging cloth, and the side and back
+polygons as narrow stripes inside a larger cloth panel. The recipe now uses one
+inset contour of that panel per view. Counts are the Python raster after that revision.
 
-The bounds/counts above are Python reference results, not generated Unity textures.
-All source paths are under `assets/misc/Character Skin PNG pieces/` and remain read-only.
+| View / source | Padded section bounds / selected pixel centers |
+|---|---|
+| Front / `Disassembled Dark Knight Armor Set (1).png` (1254×1254) | (462,489,353,289) / 6,421 |
+| Side / `ChatGPT Image Oct 3, 2026, 08_01_25 AM.png` (1024×1536) | (360,556,278,364) / 3,786 |
+| Back / `ChatGPT Image Oct 3, 2026, 08_06_16 AM.png` (1024×1536) | (359,551,288,351) / 3,750 |
 
-**TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW:** wider hanging cloth,
-cloth perimeter, neck scarf, shoulder/elbow/hip/knee undersuit accents, shadowed cloth
-and any ambiguous trim. Metal plates, helmet, rivets, gloves, boots, belts, outlines
-and deep inter-piece gaps are intentionally not designated. Remaining source red
-artwork stays red until an approved mask revision; this partial proof does not promise
-complete faction-color consistency across all visible accents.
+Previous provisional counts were 1,860 / 1,388 / 1,903. Feather remains 2 pixels inward.
+The far side-view hanging cloth is a separate component behind the plate and stays
+authored; one polygon cannot cover it without crossing armor.
+
+**TEAM-COLOR MASK DECISION — REQUIRES HUMAN VISUAL REVIEW:** cloth perimeter beyond
+this inset, the far side panel, neck scarf, shoulder/elbow/hip/knee undersuit accents,
+shadowed cloth and any ambiguous trim. Metal plates, helmet, rivets, gloves, boots,
+belts, outlines and deep inter-piece gaps are intentionally not designated.
 
 ## Shared architecture and Knight A compatibility
 

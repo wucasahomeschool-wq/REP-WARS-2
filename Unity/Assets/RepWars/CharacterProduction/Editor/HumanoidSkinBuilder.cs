@@ -170,11 +170,19 @@ namespace RepWars.CharacterProduction.EditorTools
         static Sprite CreateSkinnedSprite(HumanoidSkinConfiguration config, KnightASkinSectionDefinition section,
             RectInt bounds, Texture2D texture, Transform rendererTransform, Transform[] transforms)
         {
-            var sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f), config.pixelsPerUnit, 0, SpriteMeshType.FullRect);
-            sprite.name = config.CharacterId + "_" + config.view + "_" + section.id;
             Vector2[] vertices; ushort[] triangles; BoneWeight[] weights;
             HumanoidSkinGeometry.BuildGrid(config, section, bounds, out vertices, out triangles, out weights);
-            sprite.OverrideGeometry(vertices, triangles);
+            // Unity 6000 rejects a vertex that lands exactly on the sprite's max edge. The inset stays inside mesh validation tolerance.
+            var contained = new Vector2[vertices.Length];
+            var maxX = bounds.width * 0.5f / config.pixelsPerUnit - 0.000004f;
+            var maxY = bounds.height * 0.5f / config.pixelsPerUnit - 0.000004f;
+            for (var i = 0; i < vertices.Length; i++)
+            {
+                var vertex = vertices[i];
+                if (vertex.x > maxX) vertex.x = maxX;
+                if (vertex.y > maxY) vertex.y = maxY;
+                contained[i] = vertex;
+            }
             var bones = new SpriteBone[transforms.Length];
             var bindPoses = new Matrix4x4[transforms.Length];
             for (var i = 0; i < transforms.Length; i++)
@@ -192,9 +200,32 @@ namespace RepWars.CharacterProduction.EditorTools
                     length = length };
                 bindPoses[i] = transforms[i].worldToLocalMatrix * rendererTransform.localToWorldMatrix;
             }
+            // Unity 6000 rejects Sprite.OverrideGeometry in the editor. Vertex data access authors the same grid.
+            var sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f), config.pixelsPerUnit, 0, SpriteMeshType.FullRect);
+            sprite.name = config.CharacterId + "_" + config.view + "_" + section.id;
+            sprite.SetVertexCount(contained.Length);
+            using (var indices = new NativeArray<ushort>(triangles, Allocator.Temp)) sprite.SetIndices(indices);
+            var positions = new NativeArray<Vector3>(contained.Length, Allocator.Temp);
+            var uvs = new NativeArray<Vector2>(contained.Length, Allocator.Temp);
+            try
+            {
+                for (var n = 0; n < contained.Length; n++)
+                {
+                    positions[n] = contained[n];
+                    uvs[n] = new Vector2(contained[n].x * config.pixelsPerUnit / bounds.width + 0.5f, contained[n].y * config.pixelsPerUnit / bounds.height + 0.5f);
+                }
+                sprite.SetVertexAttribute(VertexAttribute.Position, positions);
+                sprite.SetVertexAttribute(VertexAttribute.TexCoord0, uvs);
+            }
+            finally
+            {
+                positions.Dispose();
+                uvs.Dispose();
+            }
             sprite.SetBones(bones);
             using (var nativeBindPoses = new NativeArray<Matrix4x4>(bindPoses, Allocator.Temp)) sprite.SetBindPoses(nativeBindPoses);
             using (var nativeWeights = new NativeArray<BoneWeight>(weights, Allocator.Temp)) sprite.SetVertexAttribute<BoneWeight>(VertexAttribute.BlendWeight, nativeWeights);
+            if (sprite.vertices.Length != vertices.Length) throw new InvalidOperationException(section.id + " sprite mesh was not authored. vertices=" + sprite.vertices.Length);
             return sprite;
         }
 

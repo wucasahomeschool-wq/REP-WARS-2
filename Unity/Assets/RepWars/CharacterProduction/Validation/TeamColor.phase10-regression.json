@@ -19,7 +19,7 @@
     "Runtime/HumanoidFacingPresentation.cs": "97ca318dc21ef0e5a181285ead014ffea4103ff6cf47164798c004c64f62495b",
     "Runtime/HumanoidFacingDefinition.cs": "2ab73b634f7fb3e62408e5f855b3ce634340582c69e6380b3622c3c5a9660167",
     "Runtime/HumanoidFacingValidator.cs": "6ff679d8f12ec68ebdcbefc3d1330061ef590d78e1d45e35b363c9a45e41d47e",
-    "Editor/HumanoidSkinBuilder.cs": "cde1860f384315e4dc077d1c6b26a51e959dff1463595bb14d081135afffa773",
+    "Editor/HumanoidSkinBuilder.cs": "a2a68e80da18fceb16073b77914c8c7910dcf5e7e441bdea6f875fe2f5b836f2",
     "Editor/HumanoidSkinGeometry.cs": "4cc2193806eac1cdf8a7c51c331a489aa970d94e52be165c657c7a270ff97873",
     "Editor/HumanoidSkinValidator.cs": "618cb8898238e81331725b0f1e7f43351278afff562a2c613548822bbae42db7",
     "Editor/KnightBFacing.configuration.json": "5615319f6b17a444013d33211a99360e54b5ad56fa7689e380753abf736e4a80",

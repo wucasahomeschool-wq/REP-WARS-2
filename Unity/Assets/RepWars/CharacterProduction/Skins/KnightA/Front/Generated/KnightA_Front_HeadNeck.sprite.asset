@@ -1,0 +1,722 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!213 &21300000
+Sprite:
+  serializedVersion: 2
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: KnightA_Front_HeadNeck.sprite
+  m_Rect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 159
+    height: 257
+  m_Offset: {x: 0, y: 0}
+  m_Border: {x: 0, y: 0, z: 0, w: 0}
+  m_PixelsToUnits: 768
+  m_Pivot: {x: 0.5, y: 0.5}
+  m_Extrude: 0
+  m_PackingTag: 
+  m_RenderDataKey:
+    00000000000000000000000000000000: 0
+  m_AtlasTags: []
+  m_SpriteAtlas: {fileID: 0}
+  m_RD:
+    serializedVersion: 4
+    texture: {fileID: 2800000, guid: 610796c902d394143b57164440876263, type: 3}
+    alphaTexture: {fileID: 0}
+    secondaryTextures: []
+    m_SubMeshes:
+    - serializedVersion: 2
+      firstByte: 0
+      indexCount: 108
+      topology: 0
+      baseVertex: 0
+      firstVertex: 0
+      vertexCount: 28
+      localAABB:
+        m_Center: {x: 0, y: 0, z: 0}
+        m_Extent: {x: 0, y: 0, z: 0}
+    m_IndexBuffer: 000004000100010004000500010005000200020005000600020006000300030006000700040008000500050008000900050009000600060009000a0006000a00070007000a000b0008000c00090009000c000d0009000d000a000a000d000e000a000e000b000b000e000f000c0010000d000d00100011000d0011000e000e00110012000e0012000f000f0012001300100014001100110014001500110015001200120015001600120016001300130016001700140018001500150018001900150019001600160019001a0016001a00170017001a001b00y
+    m_VertexData:
+      serializedVersion: 3
+      m_VertexCount: 28
+      m_Channels:
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 3
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 1
+        offset: 0
+        format: 0
+        dimension: 2
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 1
+        offset: 8
+        format: 0
+        dimension: 4
+      - stream: 1
+        offset: 24
+        format: 10
+        dimension: 4
+      m_DataSize: 1456
+      _typelessdata: 0000d4bd55552bbe0000000055550dbd55552bbe0000000056550d3d55552bbe00000000e7fdd33d55552bbe000000000000d4bdc771e4bd0000000055550dbdc771e4bd0000000056550d3dc771e4bd00000000e7fdd33dc771e4bd000000000000d4bdc67164bd0000000055550dbdc67164bd0000000056550d3dc67164bd00000000e7fdd33dc67164bd000000000000d4bd000000000000000055550dbd000000000000000056550d3d0000000000000000e7fdd33d00000000000000000000d4bdc971643d0000000055550dbdc971643d0000000056550d3dc971643d00000000e7fdd33dc971643d000000000000d4bdc671e43d0000000055550dbdc671e43d0000000056550d3dc671e43d00000000e7fdd33dc671e43d000000000000d4bd49542b3e0000000055550dbd49542b3e0000000056550d3d49542b3e00000000e7fdd33d49542b3e0000000000000000ff007f32d0cccc3d6666663f000000000000000005000000040000000000000000000000abaaaa3eff007f32d0cccc3d6666663f000000000000000005000000040000000000000000000000abaa2a3fff007f32d0cccc3d6666663f000000000000000005000000040000000000000000000000bcfe7f3fff007f32d0cccc3d6666663f00000000000000000500000004000000000000000000000000000000abaa2a3e8814263ede7a563f000000000000000005000000040000000000000000000000abaaaa3eabaa2a3e8814263ede7a563f000000000000000005000000040000000000000000000000abaa2a3fabaa2a3e8814263ede7a563f000000000000000005000000040000000000000000000000bcfe7f3fabaa2a3e8814263ede7a563f00000000000000000500000004000000000000000000000000000000abaaaa3e52907d3f9feb1b3c000000000000000005000000040000000000000000000000abaaaa3eabaaaa3e52907d3f9feb1b3c000000000000000005000000040000000000000000000000abaa2a3fabaaaa3e52907d3f9feb1b3c000000000000000005000000040000000000000000000000bcfe7f3fabaaaa3e52907d3f9feb1b3c000000000000000005000000040000000000000000000000000000000000003f0000803f00000000000000000000000005000000000000000000000000000000abaaaa3e0000003f0000803f00000000000000000000000005000000000000000000000000000000abaa2a3f0000003f0000803f00000000000000000000000005000000000000000000000000000000bcfe7f3f0000003f0000803f0000000000000000000000000500000000000000000000000000000000000000abaa2a3f0000803f00000000000000000000000005000000000000000000000000000000abaaaa3eabaa2a3f0000803f00000000000000000000000005000000000000000000000000000000abaa2a3fabaa2a3f0000803f00000000000000000000000005000000000000000000000000000000bcfe7f3fabaa2a3f0000803f00000000000000000000000005000000000000000000000000000000000000005555553f0000803f00000000000000000000000005000000000000000000000000000000abaaaa3e5555553f0000803f00000000000000000000000005000000000000000000000000000000abaa2a3f5555553f0000803f00000000000000000000000005000000000000000000000000000000bcfe7f3f5555553f0000803f000000000000000000000000050000000000000000000000000000000000000038ff7f3f0000803f00000000000000000000000005000000000000000000000000000000abaaaa3e38ff7f3f0000803f00000000000000000000000005000000000000000000000000000000abaa2a3f38ff7f3f0000803f00000000000000000000000005000000000000000000000000000000bcfe7f3f38ff7f3f0000803f00000000000000000000000005000000000000000000000000000000
+    m_Bindpose:
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: 0.001953125
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 1.468099
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: 0.001953125
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.4967448
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: 0.001953125
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.44335938
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: -0.008463542
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.26236987
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: -0.021484375
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.12825525
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: -0.001953125
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: -0.03841138
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: -0.103515625
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.16471362
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: -0.15559895
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.18424487
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: -0.18945312
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.38606775
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: -0.19726562
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.62304693
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: 0.08268229
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.16992188
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: 0.13867188
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.18554688
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: 0.15039062
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.37955737
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: 0.17252605
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.6139323
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: -0.08528646
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.68554693
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: -0.13216145
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.9915365
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: -0.15039062
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 1.327474
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: 0.07747396
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.68554693
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: 0.11263021
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0.9902344
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    - e00: 1
+      e01: 0
+      e02: 0
+      e03: 0.12174479
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 1.3196615
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    m_BlendShapes:
+      vertices: []
+      shapes: []
+      channels: []
+      fullWeights: []
+    textureRect:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 159
+      height: 257
+    textureRectOffset: {x: 0, y: 0}
+    atlasRectOffset: {x: -1, y: -1}
+    settingsRaw: 3200
+    uvTransform: {x: 768, y: 79.5, z: 768, w: 128.5}
+    downscaleMultiplier: 1
+  m_AtlasRD:
+    serializedVersion: 4
+    texture: {fileID: 2800000, guid: 610796c902d394143b57164440876263, type: 3}
+    alphaTexture: {fileID: 0}
+    secondaryTextures: []
+    m_SubMeshes:
+    - serializedVersion: 2
+      firstByte: 0
+      indexCount: 6
+      topology: 0
+      baseVertex: 0
+      firstVertex: 0
+      vertexCount: 4
+      localAABB:
+        m_Center: {x: 0, y: 0, z: 0}
+        m_Extent: {x: 0, y: 0, z: 0}
+    m_IndexBuffer: 000001000200020001000300y
+    m_VertexData:
+      serializedVersion: 3
+      m_VertexCount: 4
+      m_Channels:
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 3
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 1
+        offset: 0
+        format: 0
+        dimension: 2
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      - stream: 0
+        offset: 0
+        format: 0
+        dimension: 0
+      m_DataSize: 80
+      _typelessdata: 0000d4bd55552b3e000000000000d43d55552b3e000000000000d4bd55552bbe000000000000d43d55552bbe000000000000000000000000000000000000000000000000000000000000000000000000
+    m_Bindpose: []
+    m_BlendShapes:
+      vertices: []
+      shapes: []
+      channels: []
+      fullWeights: []
+    textureRect:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 159
+      height: 257
+    textureRectOffset: {x: 0, y: 0}
+    atlasRectOffset: {x: -1, y: -1}
+    settingsRaw: 3072
+    uvTransform: {x: 768, y: 79.5, z: 768, w: 128.5}
+    downscaleMultiplier: 1
+  m_PhysicsShape: []
+  m_Bones:
+  - name: Root
+    guid: 
+    position: {x: -0.001953125, y: -1.468099, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.9713542
+    parentId: -1
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: Pelvis
+    guid: 
+    position: {x: 0, y: 0.9713542, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.053385437
+    parentId: 0
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: Spine
+    guid: 
+    position: {x: 0, y: 0.053385437, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.18128902
+    parentId: 1
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: Chest
+    guid: 
+    position: {x: 0.010416667, y: 0.1809895, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.13474523
+    parentId: 2
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: Neck
+    guid: 
+    position: {x: 0.013020833, y: 0.13411462, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.16780713
+    parentId: 3
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: Head
+    guid: 
+    position: {x: -0.01953125, y: 0.16666663, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.05
+    parentId: 4
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: LeftClavicle
+    guid: 
+    position: {x: 0.095052086, y: 0.09765625, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.05562502
+    parentId: 3
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: LeftUpperArm
+    guid: 
+    position: {x: 0.05208332, y: -0.01953125, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.20464256
+    parentId: 6
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: LeftForearm
+    guid: 
+    position: {x: 0.03385417, y: -0.20182288, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.23710793
+    parentId: 7
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: LeftHand
+    guid: 
+    position: {x: 0.0078125, y: -0.23697919, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.05
+    parentId: 8
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: RightClavicle
+    guid: 
+    position: {x: -0.09114583, y: 0.092447996, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.058128946
+    parentId: 3
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: RightUpperArm
+    guid: 
+    position: {x: -0.055989593, y: -0.015625, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.1943641
+    parentId: 10
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: RightForearm
+    guid: 
+    position: {x: -0.01171875, y: -0.1940105, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.2354179
+    parentId: 11
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: RightHand
+    guid: 
+    position: {x: -0.022135422, y: -0.23437494, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.05
+    parentId: 12
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: LeftThigh
+    guid: 
+    position: {x: 0.087239586, y: -0.18880212, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.30955917
+    parentId: 1
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: LeftShin
+    guid: 
+    position: {x: 0.046874993, y: -0.30598956, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.3364317
+    parentId: 14
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: LeftFoot
+    guid: 
+    position: {x: 0.018229172, y: -0.3359375, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.05
+    parentId: 15
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: RightThigh
+    guid: 
+    position: {x: -0.075520836, y: -0.18880212, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.30670902
+    parentId: 1
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: RightShin
+    guid: 
+    position: {x: -0.03515625, y: -0.30468747, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.32955316
+    parentId: 17
+    color:
+      serializedVersion: 2
+      rgba: 0
+  - name: RightFoot
+    guid: 
+    position: {x: -0.009114578, y: -0.3294271, z: 0}
+    rotation: {x: 0, y: 0, z: 0, w: 1}
+    length: 0.05
+    parentId: 18
+    color:
+      serializedVersion: 2
+      rgba: 0
+  m_ScriptableObjects: []
+  m_SpriteID: 

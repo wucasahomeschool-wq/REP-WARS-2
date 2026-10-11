@@ -7,6 +7,7 @@ using UnityEngine.Playables;
 namespace RepWars.CharacterProduction
 {
     /// <summary>Idle/Walk cosmetic clock and standard Unity clip playback. Does not move roots or sprite pieces.</summary>
+    [ExecuteAlways]
     [DisallowMultipleComponent]
     public sealed class HumanoidIdlePresentation : MonoBehaviour
     {
@@ -154,7 +155,12 @@ namespace RepWars.CharacterProduction
             return true;
         }
 
-        void Update() { if (IsPlaying && automaticAdvance) AdvancePresentation(Time.deltaTime); }
+        void Update()
+        {
+            // OnEnable/OnDisable must run while inspecting proofs. The clock itself stays Play Mode only.
+            if (!Application.isPlaying || !IsPlaying || !automaticAdvance) return;
+            AdvancePresentation(Time.deltaTime);
+        }
         void OnEnable()
         {
             Subscribe();
