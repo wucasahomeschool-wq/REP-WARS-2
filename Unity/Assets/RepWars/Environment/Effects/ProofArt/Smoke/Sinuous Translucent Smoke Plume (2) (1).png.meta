@@ -1,0 +1,860 @@
+fileFormatVersion: 2
+guid: 07604d9419246bf4db2ba543abe624d2
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 3515848971053473540
+    second: Sinuous Translucent Smoke Plume (2) (1)_0
+  - first:
+      213: -3426877293835901358
+    second: Sinuous Translucent Smoke Plume (2) (1)_1
+  - first:
+      213: 51896887173728089
+    second: Sinuous Translucent Smoke Plume (2) (1)_2
+  - first:
+      213: -9041514678114928092
+    second: Sinuous Translucent Smoke Plume (2) (1)_3
+  - first:
+      213: -2236114190359394301
+    second: Sinuous Translucent Smoke Plume (2) (1)_4
+  - first:
+      213: 5004423262313468566
+    second: Sinuous Translucent Smoke Plume (2) (1)_5
+  - first:
+      213: -2381334186339903383
+    second: Sinuous Translucent Smoke Plume (2) (1)_6
+  - first:
+      213: 138143037543807850
+    second: Sinuous Translucent Smoke Plume (2) (1)_7
+  - first:
+      213: -2585013086765534577
+    second: Sinuous Translucent Smoke Plume (2) (1)_8
+  - first:
+      213: 8254497278737152052
+    second: Sinuous Translucent Smoke Plume (2) (1)_9
+  - first:
+      213: -6319952966772649072
+    second: Sinuous Translucent Smoke Plume (2) (1)_10
+  - first:
+      213: -6953535907779553804
+    second: Sinuous Translucent Smoke Plume (2) (1)_11
+  - first:
+      213: -8829799538301674251
+    second: Sinuous Translucent Smoke Plume (2) (1)_12
+  - first:
+      213: -6526106063923086415
+    second: Sinuous Translucent Smoke Plume (2) (1)_13
+  - first:
+      213: -3708243472760226484
+    second: Sinuous Translucent Smoke Plume (2) (1)_14
+  - first:
+      213: 3159978738184128019
+    second: Sinuous Translucent Smoke Plume (2) (1)_15
+  - first:
+      213: -8073568543931407408
+    second: Sinuous Translucent Smoke Plume (2) (1)_16
+  - first:
+      213: -2773344728121166042
+    second: Sinuous Translucent Smoke Plume (2) (1)_17
+  - first:
+      213: 8483201813614225844
+    second: Sinuous Translucent Smoke Plume (2) (1)_18
+  - first:
+      213: -7179513344199021562
+    second: Sinuous Translucent Smoke Plume (2) (1)_19
+  - first:
+      213: 8059902590297078172
+    second: Sinuous Translucent Smoke Plume (2) (1)_20
+  - first:
+      213: 7874806001527494608
+    second: Sinuous Translucent Smoke Plume (2) (1)_21
+  - first:
+      213: 8840988396804129961
+    second: Sinuous Translucent Smoke Plume (2) (1)_22
+  - first:
+      213: -4471189419711226166
+    second: Sinuous Translucent Smoke Plume (2) (1)_23
+  - first:
+      213: 447792312978247899
+    second: Sinuous Translucent Smoke Plume (2) (1)_24
+  - first:
+      213: -6424271918119721069
+    second: Sinuous Translucent Smoke Plume (2) (1)_25
+  - first:
+      213: -5888524048463814046
+    second: Sinuous Translucent Smoke Plume (2) (1)_26
+  - first:
+      213: -4045992025671809824
+    second: Sinuous Translucent Smoke Plume (2) (1)_27
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 0
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 640
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 0
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationMethod: 0
+  spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 4096
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_0
+      rect:
+        serializedVersion: 2
+        x: 24
+        y: 0
+        width: 995
+        height: 1536
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 40f909be20ecac030800000000000000
+      internalID: 3515848971053473540
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_1
+      rect:
+        serializedVersion: 2
+        x: 162
+        y: 1217
+        width: 9
+        height: 15
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2562f04f1494170d0800000000000000
+      internalID: -3426877293835901358
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_2
+      rect:
+        serializedVersion: 2
+        x: 174
+        y: 1191
+        width: 15
+        height: 19
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 95740f4a1ff58b000800000000000000
+      internalID: 51896887173728089
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_3
+      rect:
+        serializedVersion: 2
+        x: 176
+        y: 1223
+        width: 11
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 42aba73ed46168280800000000000000
+      internalID: -9041514678114928092
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_4
+      rect:
+        serializedVersion: 2
+        x: 886
+        y: 1189
+        width: 107
+        height: 133
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3080b66cdf9b7f0e0800000000000000
+      internalID: -2236114190359394301
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_5
+      rect:
+        serializedVersion: 2
+        x: 990
+        y: 1173
+        width: 13
+        height: 27
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 69255e74178437540800000000000000
+      internalID: 5004423262313468566
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_6
+      rect:
+        serializedVersion: 2
+        x: 198
+        y: 1153
+        width: 9
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 96857b3ac2dc3fed0800000000000000
+      internalID: -2381334186339903383
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_7
+      rect:
+        serializedVersion: 2
+        x: 994
+        y: 1149
+        width: 13
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a6bfdf85c58cae100800000000000000
+      internalID: 138143037543807850
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_8
+      rect:
+        serializedVersion: 2
+        x: 1000
+        y: 1135
+        width: 22
+        height: 30
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f82ba972b40302cd0800000000000000
+      internalID: -2585013086765534577
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_9
+      rect:
+        serializedVersion: 2
+        x: 184
+        y: 1075
+        width: 39
+        height: 47
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4387e827a8ddd8270800000000000000
+      internalID: 8254497278737152052
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_10
+      rect:
+        serializedVersion: 2
+        x: 162
+        y: 1028
+        width: 7
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0931752e2440b48a0800000000000000
+      internalID: -6319952966772649072
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_11
+      rect:
+        serializedVersion: 2
+        x: 968
+        y: 771
+        width: 15
+        height: 45
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4f550ebeee3108f90800000000000000
+      internalID: -6953535907779553804
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_12
+      rect:
+        serializedVersion: 2
+        x: 980
+        y: 761
+        width: 11
+        height: 25
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5fcde992a10467580800000000000000
+      internalID: -8829799538301674251
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_13
+      rect:
+        serializedVersion: 2
+        x: 958
+        y: 759
+        width: 9
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1bb77559c1d9e65a0800000000000000
+      internalID: -6526106063923086415
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_14
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 735
+        width: 9
+        height: 11
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c4d3779653ca98cc0800000000000000
+      internalID: -3708243472760226484
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_15
+      rect:
+        serializedVersion: 2
+        x: 964
+        y: 727
+        width: 21
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 316804b8bef7adb20800000000000000
+      internalID: 3159978738184128019
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_16
+      rect:
+        serializedVersion: 2
+        x: 992
+        y: 735
+        width: 7
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0d363355f2ce4ff80800000000000000
+      internalID: -8073568543931407408
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_17
+      rect:
+        serializedVersion: 2
+        x: 1004
+        y: 689
+        width: 20
+        height: 23
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 627b2a0e9a91389d0800000000000000
+      internalID: -2773344728121166042
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_18
+      rect:
+        serializedVersion: 2
+        x: 74
+        y: 593
+        width: 17
+        height: 33
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4b9ec628a136ab570800000000000000
+      internalID: 8483201813614225844
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_19
+      rect:
+        serializedVersion: 2
+        x: 998
+        y: 495
+        width: 7
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 60c27d2f6ae3d5c90800000000000000
+      internalID: -7179513344199021562
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_20
+      rect:
+        serializedVersion: 2
+        x: 86
+        y: 461
+        width: 17
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c9978e2e3b68adf60800000000000000
+      internalID: 8059902590297078172
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_21
+      rect:
+        serializedVersion: 2
+        x: 873
+        y: 409
+        width: 6
+        height: 7
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0d7192cf55ee84d60800000000000000
+      internalID: 7874806001527494608
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_22
+      rect:
+        serializedVersion: 2
+        x: 988
+        y: 387
+        width: 19
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9a44cd6fa1081ba70800000000000000
+      internalID: 8840988396804129961
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_23
+      rect:
+        serializedVersion: 2
+        x: 968
+        y: 369
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ace90a289e423f1c0800000000000000
+      internalID: -4471189419711226166
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_24
+      rect:
+        serializedVersion: 2
+        x: 938
+        y: 245
+        width: 21
+        height: 39
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bd018347cb0e63600800000000000000
+      internalID: 447792312978247899
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_25
+      rect:
+        serializedVersion: 2
+        x: 56
+        y: 229
+        width: 7
+        height: 10
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 397e4fb4ab668d6a0800000000000000
+      internalID: -6424271918119721069
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_26
+      rect:
+        serializedVersion: 2
+        x: 904
+        y: 199
+        width: 7
+        height: 9
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 26228ff9392c74ea0800000000000000
+      internalID: -5888524048463814046
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Sinuous Translucent Smoke Plume (2) (1)_27
+      rect:
+        serializedVersion: 2
+        x: 102
+        y: 127
+        width: 11
+        height: 17
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0e4c4c170bfb9d7c0800000000000000
+      internalID: -4045992025671809824
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Sinuous Translucent Smoke Plume (2) (1)_0: 3515848971053473540
+      Sinuous Translucent Smoke Plume (2) (1)_1: -3426877293835901358
+      Sinuous Translucent Smoke Plume (2) (1)_10: -6319952966772649072
+      Sinuous Translucent Smoke Plume (2) (1)_11: -6953535907779553804
+      Sinuous Translucent Smoke Plume (2) (1)_12: -8829799538301674251
+      Sinuous Translucent Smoke Plume (2) (1)_13: -6526106063923086415
+      Sinuous Translucent Smoke Plume (2) (1)_14: -3708243472760226484
+      Sinuous Translucent Smoke Plume (2) (1)_15: 3159978738184128019
+      Sinuous Translucent Smoke Plume (2) (1)_16: -8073568543931407408
+      Sinuous Translucent Smoke Plume (2) (1)_17: -2773344728121166042
+      Sinuous Translucent Smoke Plume (2) (1)_18: 8483201813614225844
+      Sinuous Translucent Smoke Plume (2) (1)_19: -7179513344199021562
+      Sinuous Translucent Smoke Plume (2) (1)_2: 51896887173728089
+      Sinuous Translucent Smoke Plume (2) (1)_20: 8059902590297078172
+      Sinuous Translucent Smoke Plume (2) (1)_21: 7874806001527494608
+      Sinuous Translucent Smoke Plume (2) (1)_22: 8840988396804129961
+      Sinuous Translucent Smoke Plume (2) (1)_23: -4471189419711226166
+      Sinuous Translucent Smoke Plume (2) (1)_24: 447792312978247899
+      Sinuous Translucent Smoke Plume (2) (1)_25: -6424271918119721069
+      Sinuous Translucent Smoke Plume (2) (1)_26: -5888524048463814046
+      Sinuous Translucent Smoke Plume (2) (1)_27: -4045992025671809824
+      Sinuous Translucent Smoke Plume (2) (1)_3: -9041514678114928092
+      Sinuous Translucent Smoke Plume (2) (1)_4: -2236114190359394301
+      Sinuous Translucent Smoke Plume (2) (1)_5: 5004423262313468566
+      Sinuous Translucent Smoke Plume (2) (1)_6: -2381334186339903383
+      Sinuous Translucent Smoke Plume (2) (1)_7: 138143037543807850
+      Sinuous Translucent Smoke Plume (2) (1)_8: -2585013086765534577
+      Sinuous Translucent Smoke Plume (2) (1)_9: 8254497278737152052
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

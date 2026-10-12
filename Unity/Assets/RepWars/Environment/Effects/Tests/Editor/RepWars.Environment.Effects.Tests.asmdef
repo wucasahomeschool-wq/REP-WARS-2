@@ -1,0 +1,24 @@
+{
+    "name": "RepWars.Environment.Effects.Tests",
+    "rootNamespace": "RepWars.Environment.Effects.Tests",
+    "references": [
+        "RepWars.Environment.Effects",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,3387 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!29 &1
+OcclusionCullingSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_OcclusionBakeSettings:
+    smallestOccluder: 5
+    smallestHole: 0.25
+    backfaceThreshold: 100
+  m_SceneGUID: 00000000000000000000000000000000
+  m_OcclusionCullingData: {fileID: 0}
+--- !u!104 &2
+RenderSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 10
+  m_Fog: 0
+  m_FogColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  m_FogMode: 3
+  m_FogDensity: 0.01
+  m_LinearFogStart: 0
+  m_LinearFogEnd: 300
+  m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
+  m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
+  m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
+  m_AmbientIntensity: 1
+  m_AmbientMode: 3
+  m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
+  m_SkyboxMaterial: {fileID: 0}
+  m_HaloStrength: 0.5
+  m_FlareStrength: 1
+  m_FlareFadeSpeed: 3
+  m_HaloTexture: {fileID: 0}
+  m_SpotCookie: {fileID: 10001, guid: 0000000000000000e000000000000000, type: 0}
+  m_DefaultReflectionMode: 0
+  m_DefaultReflectionResolution: 128
+  m_ReflectionBounces: 1
+  m_ReflectionIntensity: 1
+  m_CustomReflection: {fileID: 0}
+  m_Sun: {fileID: 0}
+  m_UseRadianceAmbientProbe: 0
+--- !u!157 &3
+LightmapSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 13
+  m_BakeOnSceneLoad: 0
+  m_GISettings:
+    serializedVersion: 2
+    m_BounceScale: 1
+    m_IndirectOutputScale: 1
+    m_AlbedoBoost: 1
+    m_EnvironmentLightingMode: 0
+    m_EnableBakedLightmaps: 0
+    m_EnableRealtimeLightmaps: 0
+  m_LightmapEditorSettings:
+    serializedVersion: 12
+    m_Resolution: 2
+    m_BakeResolution: 40
+    m_AtlasSize: 1024
+    m_AO: 0
+    m_AOMaxDistance: 1
+    m_CompAOExponent: 1
+    m_CompAOExponentDirect: 0
+    m_ExtractAmbientOcclusion: 0
+    m_Padding: 2
+    m_LightmapParameters: {fileID: 0}
+    m_LightmapsBakeMode: 1
+    m_TextureCompression: 1
+    m_ReflectionCompression: 2
+    m_MixedBakeMode: 2
+    m_BakeBackend: 2
+    m_PVRSampling: 1
+    m_PVRDirectSampleCount: 32
+    m_PVRSampleCount: 512
+    m_PVRBounces: 2
+    m_PVREnvironmentSampleCount: 256
+    m_PVREnvironmentReferencePointCount: 2048
+    m_PVRFilteringMode: 1
+    m_PVRDenoiserTypeDirect: 2
+    m_PVRDenoiserTypeIndirect: 2
+    m_PVRDenoiserTypeAO: 2
+    m_PVRFilterTypeDirect: 0
+    m_PVRFilterTypeIndirect: 0
+    m_PVRFilterTypeAO: 0
+    m_PVREnvironmentMIS: 1
+    m_PVRCulling: 1
+    m_PVRFilteringGaussRadiusDirect: 1
+    m_PVRFilteringGaussRadiusIndirect: 1
+    m_PVRFilteringGaussRadiusAO: 1
+    m_PVRFilteringAtrousPositionSigmaDirect: 0.5
+    m_PVRFilteringAtrousPositionSigmaIndirect: 2
+    m_PVRFilteringAtrousPositionSigmaAO: 1
+    m_ExportTrainingData: 0
+    m_TrainingDataDestination: TrainingData
+    m_LightProbeSampleCountMultiplier: 4
+  m_LightingDataAsset: {fileID: 20201, guid: 0000000000000000f000000000000000, type: 0}
+  m_LightingSettings: {fileID: 0}
+--- !u!196 &4
+NavMeshSettings:
+  serializedVersion: 2
+  m_ObjectHideFlags: 0
+  m_BuildSettings:
+    serializedVersion: 3
+    agentTypeID: 0
+    agentRadius: 0.5
+    agentHeight: 2
+    agentSlope: 45
+    agentClimb: 0.4
+    ledgeDropHeight: 0
+    maxJumpAcrossDistance: 0
+    minRegionArea: 2
+    manualCellSize: 0
+    cellSize: 0.16666667
+    manualTileSize: 0
+    tileSize: 256
+    buildHeightMesh: 0
+    maxJobWorkers: 0
+    preserveTilesOutsideBounds: 0
+    debug:
+      m_Flags: 0
+  m_NavMeshData: {fileID: 0}
+--- !u!1 &24640898
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 24640900}
+  - component: {fileID: 24640899}
+  m_Layer: 0
+  m_Name: 01 Light layered fog (same thin sprites)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &24640899
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 24640898}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 676ac8df2fc544e7bb23ae62652ee5d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FogController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 100
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  fogSprites:
+  - {fileID: 21300000, guid: ff00b5dd70a4f6c43b88cca95b7b87c9, type: 3}
+  - {fileID: 21300000, guid: e6d3db2a1fa13294ba8ff250fbd821bc, type: 3}
+  - {fileID: 21300000, guid: 5f48cfb9af1671d40b24d3e483c0d3e5, type: 3}
+  - {fileID: 21300000, guid: a6a9ff07a8fb84846b134d6a82ca6beb, type: 3}
+  - {fileID: 21300000, guid: f7072feca1c6c8f40b18e550325f4e8a, type: 3}
+  - {fileID: 21300000, guid: 2414d668ad0c1244f9d24386353023e4, type: 3}
+  - {fileID: 21300000, guid: 7c87c7b9af4bbc54f8b2ca5d2353ee9d, type: 3}
+  - {fileID: 21300000, guid: 870680ec744b7da42b4f5fd7b122017a, type: 3}
+  - {fileID: 21300000, guid: b25024c97fd596a48a0c3e5a488e7654, type: 3}
+  settings:
+    layerCount: 3
+    opacity:
+      min: 0.1
+      max: 0.18
+    areaWidth: 10
+    areaHeight: 3
+    driftX: 0.25
+    driftY: 0.03
+    speedVariation:
+      min: 0.7
+      max: 1.3
+    verticalBobAmplitude: 0.08
+    verticalBobPeriod:
+      min: 6
+      max: 12
+    scale:
+      min: 0.9
+      max: 1.3
+    scalePulseAmount: 0.03
+    opacityPulsePeriod:
+      min: 5
+      max: 11
+    opacityPulseAmount: 0.25
+    edgeFadeFraction: 0.2
+    randomFlipX: 1
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!4 &24640900
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 24640898}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -16, y: 8, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &99189133
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 99189134}
+  m_Layer: 0
+  m_Name: 10 Small clean campfire
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &99189134
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99189133}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -8, y: -11, z: 0}
+  m_LocalScale: {x: 0.75, y: 0.75, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 458245913}
+  - {fileID: 316004372}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &122179264
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 122179265}
+  - component: {fileID: 122179266}
+  m_Layer: 0
+  m_Name: EmbersSparks
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &122179265
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 122179264}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1772205798}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &122179266
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 122179264}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29482ff421474524ba1300cabe585600, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.EmberSparkController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  emberSprites:
+  - {fileID: 21300000, guid: 5396f6f2074109546b66048f647e41cf, type: 3}
+  sparkSprites:
+  - {fileID: 21300000, guid: 5396f6f2074109546b66048f647e41cf, type: 3}
+  settings:
+    embersEnabled: 1
+    embers:
+      maxParticles: 8
+      ratePerSecond: 1.1
+      lifetime:
+        min: 1.5
+        max: 2.8
+      startScale:
+        min: 0.22
+        max: 0.38
+      endScaleMultiplier:
+        min: 0.4
+        max: 0.7
+      startAlpha:
+        min: 0.7
+        max: 1
+      fadeInFraction: 0.1
+      fadeOutFraction: 0.5
+      velocityX: 0.05
+      velocityY: 0.7
+      velocityJitter: 0.25
+      gravity: 0
+      drag: 0.3
+      swayAmplitude: 0.15
+      swayFrequency:
+        min: 0.8
+        max: 1.6
+      spawnRadiusX: 0.15
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: 0
+        max: 0
+      flickerAmount: 0.5
+      flickerFrequency: 9
+    sparksEnabled: 1
+    sparks:
+      maxParticles: 6
+      ratePerSecond: 0.55
+      lifetime:
+        min: 0.3
+        max: 0.6
+      startScale:
+        min: 0.12
+        max: 0.22
+      endScaleMultiplier:
+        min: 0.2
+        max: 0.4
+      startAlpha:
+        min: 0.9
+        max: 1
+      fadeInFraction: 0
+      fadeOutFraction: 0.6
+      velocityX: 0
+      velocityY: 2.2
+      velocityJitter: 1.2
+      gravity: -4
+      drag: 0.5
+      swayAmplitude: 0
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: 0
+        max: 0
+      flickerAmount: 0.2
+      flickerFrequency: 20
+  anchorOffset: {x: 0, y: 0.2}
+  emberTint: {r: 1, g: 0.55, b: 0.15, a: 1}
+  sparkTint: {r: 1, g: 0.9, b: 0.55, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &292892462
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 292892464}
+  - component: {fileID: 292892463}
+  m_Layer: 0
+  m_Name: 02 Denser layered fog (same thin sprites)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &292892463
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 292892462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 676ac8df2fc544e7bb23ae62652ee5d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FogController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 120
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  fogSprites:
+  - {fileID: 21300000, guid: ff00b5dd70a4f6c43b88cca95b7b87c9, type: 3}
+  - {fileID: 21300000, guid: e6d3db2a1fa13294ba8ff250fbd821bc, type: 3}
+  - {fileID: 21300000, guid: 5f48cfb9af1671d40b24d3e483c0d3e5, type: 3}
+  - {fileID: 21300000, guid: a6a9ff07a8fb84846b134d6a82ca6beb, type: 3}
+  - {fileID: 21300000, guid: f7072feca1c6c8f40b18e550325f4e8a, type: 3}
+  - {fileID: 21300000, guid: 2414d668ad0c1244f9d24386353023e4, type: 3}
+  - {fileID: 21300000, guid: 7c87c7b9af4bbc54f8b2ca5d2353ee9d, type: 3}
+  - {fileID: 21300000, guid: 870680ec744b7da42b4f5fd7b122017a, type: 3}
+  - {fileID: 21300000, guid: b25024c97fd596a48a0c3e5a488e7654, type: 3}
+  settings:
+    layerCount: 14
+    opacity:
+      min: 0.22
+      max: 0.42
+    areaWidth: 10
+    areaHeight: 3
+    driftX: 0.25
+    driftY: 0.03
+    speedVariation:
+      min: 0.7
+      max: 1.3
+    verticalBobAmplitude: 0.08
+    verticalBobPeriod:
+      min: 6
+      max: 12
+    scale:
+      min: 0.9
+      max: 1.3
+    scalePulseAmount: 0.03
+    opacityPulsePeriod:
+      min: 5
+      max: 11
+    opacityPulseAmount: 0.25
+    edgeFadeFraction: 0.2
+    randomFlipX: 1
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!4 &292892464
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 292892462}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 8, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &316004371
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 316004372}
+  - component: {fileID: 316004373}
+  m_Layer: 0
+  m_Name: Smoke
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &316004372
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 316004371}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 99189134}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &316004373
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 316004371}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16ffc02c3431448499c7cd355f225b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokePlumeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    body:
+      maxParticles: 8
+      ratePerSecond: 0.7
+      lifetime:
+        min: 3
+        max: 5
+      startScale:
+        min: 0.4
+        max: 0.6
+      endScaleMultiplier:
+        min: 1.4
+        max: 1.9
+      startAlpha:
+        min: 0.12
+        max: 0.22
+      fadeInFraction: 0.15
+      fadeOutFraction: 0.45
+      velocityX: 0.05
+      velocityY: 0.6
+      velocityJitter: 0.15
+      gravity: 0
+      drag: 0.2
+      swayAmplitude: 0.1
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: -10
+        max: 10
+      flickerAmount: 0
+      flickerFrequency: 8
+    detachedPuffs: 1
+    puffChancePerSecond: 0.15
+    puffScaleMultiplier:
+      min: 0.5
+      max: 0.8
+    puffSpeedMultiplier:
+      min: 1.3
+      max: 1.8
+    puffLifetimeMultiplier:
+      min: 1.1
+      max: 1.5
+  anchorOffset: {x: 0, y: 1.15}
+  tint: {r: 0.72, g: 0.72, b: 0.74, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &458245912
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 458245913}
+  - component: {fileID: 458245914}
+  m_Layer: 0
+  m_Name: Fire
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &458245913
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 458245912}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 99189134}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &458245914
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 458245912}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d95e09e3c7b4a118df9b4db79da4d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FireFrameController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  frames:
+  - {fileID: 21300000, guid: 3ce6bcec708478642b74cfd3b9befeaf, type: 3}
+  - {fileID: 21300000, guid: 5ef71ce6b78b6e24ea7ee672dd8ed912, type: 3}
+  - {fileID: 21300000, guid: 5b1b65636f0d9c144a89fddea2b405ee, type: 3}
+  - {fileID: 21300000, guid: bebf1ac7b022cfb47b2cbace22bec402, type: 3}
+  - {fileID: 21300000, guid: dad12eb1d3c9af74c8a8336c1740b341, type: 3}
+  - {fileID: 21300000, guid: 9ecff6051f2dd984e8d7574ec4531357, type: 3}
+  settings:
+    frameTime:
+      min: 0.08
+      max: 0.14
+    pulse: 1
+    pulseAmount: 0.04
+    pulsePeriod:
+      min: 0.6
+      max: 1.2
+    sway: 1
+    swayDegrees: 2
+    swayPeriod:
+      min: 1.5
+      max: 2.5
+    glowBase: 0.6
+    glowFlicker: 0.25
+  flameRenderer: {fileID: 0}
+  glowRenderer: {fileID: 0}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &486484027
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 486484029}
+  - component: {fileID: 486484028}
+  m_Layer: 0
+  m_Name: 15 Local-space plume (follows parent)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &486484028
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 486484027}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16ffc02c3431448499c7cd355f225b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokePlumeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    body:
+      maxParticles: 16
+      ratePerSecond: 2
+      lifetime:
+        min: 3
+        max: 5
+      startScale:
+        min: 0.4
+        max: 0.6
+      endScaleMultiplier:
+        min: 1.4
+        max: 1.9
+      startAlpha:
+        min: 0.35
+        max: 0.6
+      fadeInFraction: 0.15
+      fadeOutFraction: 0.45
+      velocityX: 0.05
+      velocityY: 0.6
+      velocityJitter: 0.15
+      gravity: 0
+      drag: 0.2
+      swayAmplitude: 0.1
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: -10
+        max: 10
+      flickerAmount: 0
+      flickerFrequency: 8
+    detachedPuffs: 1
+    puffChancePerSecond: 0.35
+    puffScaleMultiplier:
+      min: 0.5
+      max: 0.8
+    puffSpeedMultiplier:
+      min: 1.3
+      max: 1.8
+    puffLifetimeMultiplier:
+      min: 1.1
+      max: 1.5
+  anchorOffset: {x: 0, y: 0}
+  tint: {r: 0.55, g: 0.55, b: 0.58, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!4 &486484029
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 486484027}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 10, y: 2.2, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &495096256
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 495096257}
+  - component: {fileID: 495096258}
+  m_Layer: 0
+  m_Name: Smoke
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &495096257
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 495096256}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1492777554}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &495096258
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 495096256}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16ffc02c3431448499c7cd355f225b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokePlumeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    body:
+      maxParticles: 24
+      ratePerSecond: 3.2
+      lifetime:
+        min: 3
+        max: 5
+      startScale:
+        min: 0.4
+        max: 0.6
+      endScaleMultiplier:
+        min: 1.4
+        max: 1.9
+      startAlpha:
+        min: 0.35
+        max: 0.55
+      fadeInFraction: 0.15
+      fadeOutFraction: 0.45
+      velocityX: 0.05
+      velocityY: 0.6
+      velocityJitter: 0.15
+      gravity: 0
+      drag: 0.2
+      swayAmplitude: 0.1
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: -10
+        max: 10
+      flickerAmount: 0
+      flickerFrequency: 8
+    detachedPuffs: 1
+    puffChancePerSecond: 0.9
+    puffScaleMultiplier:
+      min: 0.5
+      max: 0.8
+    puffSpeedMultiplier:
+      min: 1.3
+      max: 1.8
+    puffLifetimeMultiplier:
+      min: 1.1
+      max: 1.5
+  anchorOffset: {x: 0, y: 1.15}
+  tint: {r: 0.42, g: 0.42, b: 0.44, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &514922201
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 514922203}
+  - component: {fileID: 514922202}
+  m_Layer: 0
+  m_Name: 13 Sparks only extra
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &514922202
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 514922201}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29482ff421474524ba1300cabe585600, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.EmberSparkController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  emberSprites:
+  - {fileID: 21300000, guid: 5396f6f2074109546b66048f647e41cf, type: 3}
+  sparkSprites:
+  - {fileID: 21300000, guid: 5396f6f2074109546b66048f647e41cf, type: 3}
+  settings:
+    embersEnabled: 0
+    embers:
+      maxParticles: 8
+      ratePerSecond: 1.1
+      lifetime:
+        min: 1.5
+        max: 2.8
+      startScale:
+        min: 0.22
+        max: 0.38
+      endScaleMultiplier:
+        min: 0.4
+        max: 0.7
+      startAlpha:
+        min: 0.7
+        max: 1
+      fadeInFraction: 0.1
+      fadeOutFraction: 0.5
+      velocityX: 0.05
+      velocityY: 0.7
+      velocityJitter: 0.25
+      gravity: 0
+      drag: 0.3
+      swayAmplitude: 0.15
+      swayFrequency:
+        min: 0.8
+        max: 1.6
+      spawnRadiusX: 0.15
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: 0
+        max: 0
+      flickerAmount: 0.5
+      flickerFrequency: 9
+    sparksEnabled: 1
+    sparks:
+      maxParticles: 6
+      ratePerSecond: 2
+      lifetime:
+        min: 0.3
+        max: 0.6
+      startScale:
+        min: 0.12
+        max: 0.22
+      endScaleMultiplier:
+        min: 0.2
+        max: 0.4
+      startAlpha:
+        min: 0.9
+        max: 1
+      fadeInFraction: 0
+      fadeOutFraction: 0.6
+      velocityX: 0
+      velocityY: 2.2
+      velocityJitter: 1.2
+      gravity: -4
+      drag: 0.5
+      swayAmplitude: 0
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: 0
+        max: 0
+      flickerAmount: 0.2
+      flickerFrequency: 20
+  anchorOffset: {x: 0, y: 0.2}
+  emberTint: {r: 1, g: 0.55, b: 0.15, a: 1}
+  sparkTint: {r: 1, g: 0.9, b: 0.55, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!4 &514922203
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 514922201}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2, y: -16, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &706390511
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 706390512}
+  - component: {fileID: 706390513}
+  m_Layer: 0
+  m_Name: Smoke
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &706390512
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 706390511}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1772205798}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &706390513
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 706390511}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16ffc02c3431448499c7cd355f225b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokePlumeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    body:
+      maxParticles: 16
+      ratePerSecond: 2
+      lifetime:
+        min: 3
+        max: 5
+      startScale:
+        min: 0.4
+        max: 0.6
+      endScaleMultiplier:
+        min: 1.4
+        max: 1.9
+      startAlpha:
+        min: 0.35
+        max: 0.6
+      fadeInFraction: 0.15
+      fadeOutFraction: 0.45
+      velocityX: 0.05
+      velocityY: 0.6
+      velocityJitter: 0.15
+      gravity: 0
+      drag: 0.2
+      swayAmplitude: 0.1
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: -10
+        max: 10
+      flickerAmount: 0
+      flickerFrequency: 8
+    detachedPuffs: 1
+    puffChancePerSecond: 0.35
+    puffScaleMultiplier:
+      min: 0.5
+      max: 0.8
+    puffSpeedMultiplier:
+      min: 1.3
+      max: 1.8
+    puffLifetimeMultiplier:
+      min: 1.1
+      max: 1.5
+  anchorOffset: {x: 0, y: 1.15}
+  tint: {r: 0.55, g: 0.55, b: 0.58, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &760104667
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 760104668}
+  - component: {fileID: 760104669}
+  m_Layer: 0
+  m_Name: EmbersSparks
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &760104668
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 760104667}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1427934811}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &760104669
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 760104667}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29482ff421474524ba1300cabe585600, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.EmberSparkController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  emberSprites:
+  - {fileID: 21300000, guid: 5396f6f2074109546b66048f647e41cf, type: 3}
+  sparkSprites:
+  - {fileID: 21300000, guid: 5396f6f2074109546b66048f647e41cf, type: 3}
+  settings:
+    embersEnabled: 1
+    embers:
+      maxParticles: 8
+      ratePerSecond: 1.1
+      lifetime:
+        min: 1.5
+        max: 2.8
+      startScale:
+        min: 0.22
+        max: 0.38
+      endScaleMultiplier:
+        min: 0.4
+        max: 0.7
+      startAlpha:
+        min: 0.7
+        max: 1
+      fadeInFraction: 0.1
+      fadeOutFraction: 0.5
+      velocityX: 0.05
+      velocityY: 0.7
+      velocityJitter: 0.25
+      gravity: 0
+      drag: 0.3
+      swayAmplitude: 0.15
+      swayFrequency:
+        min: 0.8
+        max: 1.6
+      spawnRadiusX: 0.15
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: 0
+        max: 0
+      flickerAmount: 0.5
+      flickerFrequency: 9
+    sparksEnabled: 0
+    sparks:
+      maxParticles: 6
+      ratePerSecond: 0.55
+      lifetime:
+        min: 0.3
+        max: 0.6
+      startScale:
+        min: 0.12
+        max: 0.22
+      endScaleMultiplier:
+        min: 0.2
+        max: 0.4
+      startAlpha:
+        min: 0.9
+        max: 1
+      fadeInFraction: 0
+      fadeOutFraction: 0.6
+      velocityX: 0
+      velocityY: 2.2
+      velocityJitter: 1.2
+      gravity: -4
+      drag: 0.5
+      swayAmplitude: 0
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: 0
+        max: 0
+      flickerAmount: 0.2
+      flickerFrequency: 20
+  anchorOffset: {x: 0, y: 0.2}
+  emberTint: {r: 1, g: 0.55, b: 0.15, a: 1}
+  sparkTint: {r: 1, g: 0.9, b: 0.55, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &847528640
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 847528642}
+  - component: {fileID: 847528641}
+  m_Layer: 0
+  m_Name: 05 Anchored smoke plume + detached puffs
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &847528641
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 847528640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16ffc02c3431448499c7cd355f225b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokePlumeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    body:
+      maxParticles: 16
+      ratePerSecond: 2
+      lifetime:
+        min: 3
+        max: 5
+      startScale:
+        min: 0.4
+        max: 0.6
+      endScaleMultiplier:
+        min: 1.4
+        max: 1.9
+      startAlpha:
+        min: 0.35
+        max: 0.6
+      fadeInFraction: 0.15
+      fadeOutFraction: 0.45
+      velocityX: 0.05
+      velocityY: 0.6
+      velocityJitter: 0.15
+      gravity: 0
+      drag: 0.2
+      swayAmplitude: 0.1
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: -10
+        max: 10
+      flickerAmount: 0
+      flickerFrequency: 8
+    detachedPuffs: 1
+    puffChancePerSecond: 0.35
+    puffScaleMultiplier:
+      min: 0.5
+      max: 0.8
+    puffSpeedMultiplier:
+      min: 1.3
+      max: 1.8
+    puffLifetimeMultiplier:
+      min: 1.1
+      max: 1.5
+  anchorOffset: {x: 0, y: 0}
+  tint: {r: 0.55, g: 0.55, b: 0.58, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!4 &847528642
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 847528640}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -4, y: 1, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &892566744
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 892566745}
+  - component: {fileID: 892566746}
+  m_Layer: 0
+  m_Name: Fire
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &892566745
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 892566744}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1531690147}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &892566746
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 892566744}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d95e09e3c7b4a118df9b4db79da4d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FireFrameController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  frames:
+  - {fileID: 21300000, guid: 3ce6bcec708478642b74cfd3b9befeaf, type: 3}
+  - {fileID: 21300000, guid: 5ef71ce6b78b6e24ea7ee672dd8ed912, type: 3}
+  - {fileID: 21300000, guid: 5b1b65636f0d9c144a89fddea2b405ee, type: 3}
+  - {fileID: 21300000, guid: bebf1ac7b022cfb47b2cbace22bec402, type: 3}
+  - {fileID: 21300000, guid: dad12eb1d3c9af74c8a8336c1740b341, type: 3}
+  - {fileID: 21300000, guid: 9ecff6051f2dd984e8d7574ec4531357, type: 3}
+  settings:
+    frameTime:
+      min: 0.08
+      max: 0.14
+    pulse: 1
+    pulseAmount: 0.04
+    pulsePeriod:
+      min: 0.6
+      max: 1.2
+    sway: 1
+    swayDegrees: 2
+    swayPeriod:
+      min: 1.5
+      max: 2.5
+    glowBase: 0.6
+    glowFlicker: 0.25
+  flameRenderer: {fileID: 0}
+  glowRenderer: {fileID: 0}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &963131466
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 963131467}
+  m_Layer: 0
+  m_Name: 09 Fire + sparks
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &963131467
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 963131466}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 12, y: -4.5, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1282238537}
+  - {fileID: 1891902212}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1007383979
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1007383980}
+  - component: {fileID: 1007383981}
+  m_Layer: 0
+  m_Name: Fire
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1007383980
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1007383979}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1772205798}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1007383981
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1007383979}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d95e09e3c7b4a118df9b4db79da4d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FireFrameController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  frames:
+  - {fileID: 21300000, guid: 3ce6bcec708478642b74cfd3b9befeaf, type: 3}
+  - {fileID: 21300000, guid: 5ef71ce6b78b6e24ea7ee672dd8ed912, type: 3}
+  - {fileID: 21300000, guid: 5b1b65636f0d9c144a89fddea2b405ee, type: 3}
+  - {fileID: 21300000, guid: bebf1ac7b022cfb47b2cbace22bec402, type: 3}
+  - {fileID: 21300000, guid: dad12eb1d3c9af74c8a8336c1740b341, type: 3}
+  - {fileID: 21300000, guid: 9ecff6051f2dd984e8d7574ec4531357, type: 3}
+  settings:
+    frameTime:
+      min: 0.08
+      max: 0.14
+    pulse: 1
+    pulseAmount: 0.04
+    pulsePeriod:
+      min: 0.6
+      max: 1.2
+    sway: 1
+    swayDegrees: 2
+    swayPeriod:
+      min: 1.5
+      max: 2.5
+    glowBase: 0.6
+    glowFlicker: 0.25
+  flameRenderer: {fileID: 0}
+  glowRenderer: {fileID: 0}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &1063427054
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1063427055}
+  m_Layer: 0
+  m_Name: NOTE - Using imported ProofArt sprites. Ember dot is a proof primitive; bespoke ember art is future polish.
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1063427055
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1063427054}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 13, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1103307506
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1103307507}
+  - component: {fileID: 1103307509}
+  - component: {fileID: 1103307508}
+  m_Layer: 0
+  m_Name: Prop3
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1103307507
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1103307506}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 3, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1242310991}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1103307508
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1103307506}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16ffc02c3431448499c7cd355f225b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokePlumeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 1
+    seed: 203
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    body:
+      maxParticles: 16
+      ratePerSecond: 2
+      lifetime:
+        min: 3
+        max: 5
+      startScale:
+        min: 0.4
+        max: 0.6
+      endScaleMultiplier:
+        min: 1.4
+        max: 1.9
+      startAlpha:
+        min: 0.35
+        max: 0.6
+      fadeInFraction: 0.15
+      fadeOutFraction: 0.45
+      velocityX: 0.05
+      velocityY: 0.6
+      velocityJitter: 0.15
+      gravity: 0
+      drag: 0.2
+      swayAmplitude: 0.1
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: -10
+        max: 10
+      flickerAmount: 0
+      flickerFrequency: 8
+    detachedPuffs: 1
+    puffChancePerSecond: 0.35
+    puffScaleMultiplier:
+      min: 0.5
+      max: 0.8
+    puffSpeedMultiplier:
+      min: 1.3
+      max: 1.8
+    puffLifetimeMultiplier:
+      min: 1.1
+      max: 1.5
+  anchorOffset: {x: 0, y: 1}
+  tint: {r: 0.55, g: 0.55, b: 0.58, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!114 &1103307509
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1103307506}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d95e09e3c7b4a118df9b4db79da4d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FireFrameController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 1
+    seed: 103
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  frames:
+  - {fileID: 21300000, guid: 3ce6bcec708478642b74cfd3b9befeaf, type: 3}
+  - {fileID: 21300000, guid: 5ef71ce6b78b6e24ea7ee672dd8ed912, type: 3}
+  - {fileID: 21300000, guid: 5b1b65636f0d9c144a89fddea2b405ee, type: 3}
+  - {fileID: 21300000, guid: bebf1ac7b022cfb47b2cbace22bec402, type: 3}
+  - {fileID: 21300000, guid: dad12eb1d3c9af74c8a8336c1740b341, type: 3}
+  - {fileID: 21300000, guid: 9ecff6051f2dd984e8d7574ec4531357, type: 3}
+  settings:
+    frameTime:
+      min: 0.08
+      max: 0.14
+    pulse: 1
+    pulseAmount: 0.04
+    pulsePeriod:
+      min: 0.6
+      max: 1.2
+    sway: 1
+    swayDegrees: 2
+    swayPeriod:
+      min: 1.5
+      max: 2.5
+    glowBase: 0.6
+    glowFlicker: 0.25
+  flameRenderer: {fileID: 0}
+  glowRenderer: {fileID: 0}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &1178429534
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1178429535}
+  - component: {fileID: 1178429537}
+  - component: {fileID: 1178429536}
+  m_Layer: 0
+  m_Name: Prop0
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1178429535
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1178429534}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -3, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1242310991}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1178429536
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1178429534}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16ffc02c3431448499c7cd355f225b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokePlumeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 1
+    seed: 200
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    body:
+      maxParticles: 16
+      ratePerSecond: 2
+      lifetime:
+        min: 3
+        max: 5
+      startScale:
+        min: 0.4
+        max: 0.6
+      endScaleMultiplier:
+        min: 1.4
+        max: 1.9
+      startAlpha:
+        min: 0.35
+        max: 0.6
+      fadeInFraction: 0.15
+      fadeOutFraction: 0.45
+      velocityX: 0.05
+      velocityY: 0.6
+      velocityJitter: 0.15
+      gravity: 0
+      drag: 0.2
+      swayAmplitude: 0.1
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: -10
+        max: 10
+      flickerAmount: 0
+      flickerFrequency: 8
+    detachedPuffs: 1
+    puffChancePerSecond: 0.35
+    puffScaleMultiplier:
+      min: 0.5
+      max: 0.8
+    puffSpeedMultiplier:
+      min: 1.3
+      max: 1.8
+    puffLifetimeMultiplier:
+      min: 1.1
+      max: 1.5
+  anchorOffset: {x: 0, y: 1}
+  tint: {r: 0.55, g: 0.55, b: 0.58, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!114 &1178429537
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1178429534}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d95e09e3c7b4a118df9b4db79da4d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FireFrameController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 1
+    seed: 100
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  frames:
+  - {fileID: 21300000, guid: 3ce6bcec708478642b74cfd3b9befeaf, type: 3}
+  - {fileID: 21300000, guid: 5ef71ce6b78b6e24ea7ee672dd8ed912, type: 3}
+  - {fileID: 21300000, guid: 5b1b65636f0d9c144a89fddea2b405ee, type: 3}
+  - {fileID: 21300000, guid: bebf1ac7b022cfb47b2cbace22bec402, type: 3}
+  - {fileID: 21300000, guid: dad12eb1d3c9af74c8a8336c1740b341, type: 3}
+  - {fileID: 21300000, guid: 9ecff6051f2dd984e8d7574ec4531357, type: 3}
+  settings:
+    frameTime:
+      min: 0.08
+      max: 0.14
+    pulse: 1
+    pulseAmount: 0.04
+    pulsePeriod:
+      min: 0.6
+      max: 1.2
+    sway: 1
+    swayDegrees: 2
+    swayPeriod:
+      min: 1.5
+      max: 2.5
+    glowBase: 0.6
+    glowFlicker: 0.25
+  flameRenderer: {fileID: 0}
+  glowRenderer: {fileID: 0}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &1179001918
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1179001919}
+  - component: {fileID: 1179001921}
+  - component: {fileID: 1179001920}
+  m_Layer: 0
+  m_Name: Prop2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1179001919
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179001918}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1242310991}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1179001920
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179001918}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16ffc02c3431448499c7cd355f225b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokePlumeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 1
+    seed: 202
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    body:
+      maxParticles: 16
+      ratePerSecond: 2
+      lifetime:
+        min: 3
+        max: 5
+      startScale:
+        min: 0.4
+        max: 0.6
+      endScaleMultiplier:
+        min: 1.4
+        max: 1.9
+      startAlpha:
+        min: 0.35
+        max: 0.6
+      fadeInFraction: 0.15
+      fadeOutFraction: 0.45
+      velocityX: 0.05
+      velocityY: 0.6
+      velocityJitter: 0.15
+      gravity: 0
+      drag: 0.2
+      swayAmplitude: 0.1
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: -10
+        max: 10
+      flickerAmount: 0
+      flickerFrequency: 8
+    detachedPuffs: 1
+    puffChancePerSecond: 0.35
+    puffScaleMultiplier:
+      min: 0.5
+      max: 0.8
+    puffSpeedMultiplier:
+      min: 1.3
+      max: 1.8
+    puffLifetimeMultiplier:
+      min: 1.1
+      max: 1.5
+  anchorOffset: {x: 0, y: 1}
+  tint: {r: 0.55, g: 0.55, b: 0.58, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!114 &1179001921
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179001918}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d95e09e3c7b4a118df9b4db79da4d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FireFrameController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 1
+    seed: 102
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  frames:
+  - {fileID: 21300000, guid: 3ce6bcec708478642b74cfd3b9befeaf, type: 3}
+  - {fileID: 21300000, guid: 5ef71ce6b78b6e24ea7ee672dd8ed912, type: 3}
+  - {fileID: 21300000, guid: 5b1b65636f0d9c144a89fddea2b405ee, type: 3}
+  - {fileID: 21300000, guid: bebf1ac7b022cfb47b2cbace22bec402, type: 3}
+  - {fileID: 21300000, guid: dad12eb1d3c9af74c8a8336c1740b341, type: 3}
+  - {fileID: 21300000, guid: 9ecff6051f2dd984e8d7574ec4531357, type: 3}
+  settings:
+    frameTime:
+      min: 0.08
+      max: 0.14
+    pulse: 1
+    pulseAmount: 0.04
+    pulsePeriod:
+      min: 0.6
+      max: 1.2
+    sway: 1
+    swayDegrees: 2
+    swayPeriod:
+      min: 1.5
+      max: 2.5
+    glowBase: 0.6
+    glowFlicker: 0.25
+  flameRenderer: {fileID: 0}
+  glowRenderer: {fileID: 0}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &1242310990
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1242310991}
+  m_Layer: 0
+  m_Name: 14 Reuse extra - same config x4
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1242310991
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1242310990}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 14, y: -16, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1178429535}
+  - {fileID: 1842379508}
+  - {fileID: 1179001919}
+  - {fileID: 1103307507}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1259257869
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1259257871}
+  - component: {fileID: 1259257870}
+  m_Layer: 0
+  m_Name: Main Camera
+  m_TagString: MainCamera
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!20 &1259257870
+Camera:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1259257869}
+  m_Enabled: 1
+  serializedVersion: 2
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.32, g: 0.4, b: 0.3, a: 1}
+  m_projectionMatrixMode: 1
+  m_GateFitMode: 2
+  m_FOVAxisMode: 0
+  m_Iso: 200
+  m_ShutterSpeed: 0.005
+  m_Aperture: 16
+  m_FocusDistance: 10
+  m_FocalLength: 50
+  m_BladeCount: 5
+  m_Curvature: {x: 2, y: 11}
+  m_BarrelClipping: 0.25
+  m_Anamorphism: 0
+  m_SensorSize: {x: 36, y: 24}
+  m_LensShift: {x: 0, y: 0}
+  m_NormalizedViewPortRect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1
+    height: 1
+  near clip plane: 0.3
+  far clip plane: 1000
+  field of view: 60
+  orthographic: 1
+  orthographic size: 16
+  m_Depth: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingPath: -1
+  m_TargetTexture: {fileID: 0}
+  m_TargetDisplay: 0
+  m_TargetEye: 3
+  m_HDR: 1
+  m_AllowMSAA: 1
+  m_AllowDynamicResolution: 0
+  m_ForceIntoRT: 0
+  m_OcclusionCulling: 1
+  m_StereoConvergence: 10
+  m_StereoSeparation: 0.022
+--- !u!4 &1259257871
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1259257869}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2, y: -4, z: -10}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1282238536
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1282238537}
+  - component: {fileID: 1282238538}
+  m_Layer: 0
+  m_Name: Fire
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1282238537
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1282238536}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 963131467}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1282238538
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1282238536}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d95e09e3c7b4a118df9b4db79da4d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FireFrameController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  frames:
+  - {fileID: 21300000, guid: 3ce6bcec708478642b74cfd3b9befeaf, type: 3}
+  - {fileID: 21300000, guid: 5ef71ce6b78b6e24ea7ee672dd8ed912, type: 3}
+  - {fileID: 21300000, guid: 5b1b65636f0d9c144a89fddea2b405ee, type: 3}
+  - {fileID: 21300000, guid: bebf1ac7b022cfb47b2cbace22bec402, type: 3}
+  - {fileID: 21300000, guid: dad12eb1d3c9af74c8a8336c1740b341, type: 3}
+  - {fileID: 21300000, guid: 9ecff6051f2dd984e8d7574ec4531357, type: 3}
+  settings:
+    frameTime:
+      min: 0.08
+      max: 0.14
+    pulse: 1
+    pulseAmount: 0.04
+    pulsePeriod:
+      min: 0.6
+      max: 1.2
+    sway: 1
+    swayDegrees: 2
+    swayPeriod:
+      min: 1.5
+      max: 2.5
+    glowBase: 0.6
+    glowFlicker: 0.25
+  flameRenderer: {fileID: 0}
+  glowRenderer: {fileID: 0}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &1377531720
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1377531722}
+  - component: {fileID: 1377531721}
+  m_Layer: 0
+  m_Name: 16 World-space plume (stays when parent moves)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1377531721
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1377531720}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16ffc02c3431448499c7cd355f225b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokePlumeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 1
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    body:
+      maxParticles: 16
+      ratePerSecond: 2
+      lifetime:
+        min: 3
+        max: 5
+      startScale:
+        min: 0.4
+        max: 0.6
+      endScaleMultiplier:
+        min: 1.4
+        max: 1.9
+      startAlpha:
+        min: 0.35
+        max: 0.6
+      fadeInFraction: 0.15
+      fadeOutFraction: 0.45
+      velocityX: 0.05
+      velocityY: 0.6
+      velocityJitter: 0.15
+      gravity: 0
+      drag: 0.2
+      swayAmplitude: 0.1
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: -10
+        max: 10
+      flickerAmount: 0
+      flickerFrequency: 8
+    detachedPuffs: 1
+    puffChancePerSecond: 0.35
+    puffScaleMultiplier:
+      min: 0.5
+      max: 0.8
+    puffSpeedMultiplier:
+      min: 1.3
+      max: 1.8
+    puffLifetimeMultiplier:
+      min: 1.1
+      max: 1.5
+  anchorOffset: {x: 0, y: 0}
+  tint: {r: 0.55, g: 0.55, b: 0.58, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!4 &1377531722
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1377531720}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 22, y: 2.2, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1421049808
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1421049810}
+  - component: {fileID: 1421049809}
+  m_Layer: 0
+  m_Name: 06 Authored-frame fire (no immediate repeat)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1421049809
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1421049808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d95e09e3c7b4a118df9b4db79da4d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FireFrameController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  frames:
+  - {fileID: 21300000, guid: 3ce6bcec708478642b74cfd3b9befeaf, type: 3}
+  - {fileID: 21300000, guid: 5ef71ce6b78b6e24ea7ee672dd8ed912, type: 3}
+  - {fileID: 21300000, guid: 5b1b65636f0d9c144a89fddea2b405ee, type: 3}
+  - {fileID: 21300000, guid: bebf1ac7b022cfb47b2cbace22bec402, type: 3}
+  - {fileID: 21300000, guid: dad12eb1d3c9af74c8a8336c1740b341, type: 3}
+  - {fileID: 21300000, guid: 9ecff6051f2dd984e8d7574ec4531357, type: 3}
+  settings:
+    frameTime:
+      min: 0.08
+      max: 0.14
+    pulse: 1
+    pulseAmount: 0.04
+    pulsePeriod:
+      min: 0.6
+      max: 1.2
+    sway: 1
+    swayDegrees: 2
+    swayPeriod:
+      min: 1.5
+      max: 2.5
+    glowBase: 0.6
+    glowFlicker: 0.25
+  flameRenderer: {fileID: 0}
+  glowRenderer: {fileID: 0}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!4 &1421049810
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1421049808}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -18, y: -4, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1427934810
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1427934811}
+  m_Layer: 0
+  m_Name: 08 Fire + embers
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1427934811
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1427934810}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2, y: -4.5, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 2084811851}
+  - {fileID: 760104668}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1492777553
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1492777554}
+  m_Layer: 0
+  m_Name: 11 Larger smoky fire
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1492777554
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1492777553}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 8, y: -11, z: 0}
+  m_LocalScale: {x: 1.3, y: 1.3, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1646790223}
+  - {fileID: 495096257}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1531690146
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1531690147}
+  m_Layer: 0
+  m_Name: 07 Fire + smoke
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1531690147
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1531690146}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -8, y: -4.5, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 892566745}
+  - {fileID: 1788118992}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1646790222
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1646790223}
+  - component: {fileID: 1646790224}
+  m_Layer: 0
+  m_Name: Fire
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1646790223
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1646790222}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1492777554}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1646790224
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1646790222}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d95e09e3c7b4a118df9b4db79da4d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FireFrameController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  frames:
+  - {fileID: 21300000, guid: 3ce6bcec708478642b74cfd3b9befeaf, type: 3}
+  - {fileID: 21300000, guid: 5ef71ce6b78b6e24ea7ee672dd8ed912, type: 3}
+  - {fileID: 21300000, guid: 5b1b65636f0d9c144a89fddea2b405ee, type: 3}
+  - {fileID: 21300000, guid: bebf1ac7b022cfb47b2cbace22bec402, type: 3}
+  - {fileID: 21300000, guid: dad12eb1d3c9af74c8a8336c1740b341, type: 3}
+  - {fileID: 21300000, guid: 9ecff6051f2dd984e8d7574ec4531357, type: 3}
+  settings:
+    frameTime:
+      min: 0.08
+      max: 0.14
+    pulse: 1
+    pulseAmount: 0.04
+    pulsePeriod:
+      min: 0.6
+      max: 1.2
+    sway: 1
+    swayDegrees: 2
+    swayPeriod:
+      min: 1.5
+      max: 2.5
+    glowBase: 0.6
+    glowFlicker: 0.25
+  flameRenderer: {fileID: 0}
+  glowRenderer: {fileID: 0}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &1772205797
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1772205798}
+  m_Layer: 0
+  m_Name: 12 Full campfire extra (fire + smoke + embers + sparks)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1772205798
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1772205797}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -16, y: -16, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1007383980}
+  - {fileID: 706390512}
+  - {fileID: 122179265}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1788118991
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1788118992}
+  - component: {fileID: 1788118993}
+  m_Layer: 0
+  m_Name: Smoke
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1788118992
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1788118991}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1531690147}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1788118993
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1788118991}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16ffc02c3431448499c7cd355f225b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokePlumeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    body:
+      maxParticles: 16
+      ratePerSecond: 2
+      lifetime:
+        min: 3
+        max: 5
+      startScale:
+        min: 0.4
+        max: 0.6
+      endScaleMultiplier:
+        min: 1.4
+        max: 1.9
+      startAlpha:
+        min: 0.35
+        max: 0.6
+      fadeInFraction: 0.15
+      fadeOutFraction: 0.45
+      velocityX: 0.05
+      velocityY: 0.6
+      velocityJitter: 0.15
+      gravity: 0
+      drag: 0.2
+      swayAmplitude: 0.1
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: -10
+        max: 10
+      flickerAmount: 0
+      flickerFrequency: 8
+    detachedPuffs: 1
+    puffChancePerSecond: 0.35
+    puffScaleMultiplier:
+      min: 0.5
+      max: 0.8
+    puffSpeedMultiplier:
+      min: 1.3
+      max: 1.8
+    puffLifetimeMultiplier:
+      min: 1.1
+      max: 1.5
+  anchorOffset: {x: 0, y: 1.15}
+  tint: {r: 0.55, g: 0.55, b: 0.58, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &1842379507
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1842379508}
+  - component: {fileID: 1842379510}
+  - component: {fileID: 1842379509}
+  m_Layer: 0
+  m_Name: Prop1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1842379508
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1842379507}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1242310991}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1842379509
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1842379507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16ffc02c3431448499c7cd355f225b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokePlumeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 1
+    seed: 201
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    body:
+      maxParticles: 16
+      ratePerSecond: 2
+      lifetime:
+        min: 3
+        max: 5
+      startScale:
+        min: 0.4
+        max: 0.6
+      endScaleMultiplier:
+        min: 1.4
+        max: 1.9
+      startAlpha:
+        min: 0.35
+        max: 0.6
+      fadeInFraction: 0.15
+      fadeOutFraction: 0.45
+      velocityX: 0.05
+      velocityY: 0.6
+      velocityJitter: 0.15
+      gravity: 0
+      drag: 0.2
+      swayAmplitude: 0.1
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: -10
+        max: 10
+      flickerAmount: 0
+      flickerFrequency: 8
+    detachedPuffs: 1
+    puffChancePerSecond: 0.35
+    puffScaleMultiplier:
+      min: 0.5
+      max: 0.8
+    puffSpeedMultiplier:
+      min: 1.3
+      max: 1.8
+    puffLifetimeMultiplier:
+      min: 1.1
+      max: 1.5
+  anchorOffset: {x: 0, y: 1}
+  tint: {r: 0.55, g: 0.55, b: 0.58, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!114 &1842379510
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1842379507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d95e09e3c7b4a118df9b4db79da4d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FireFrameController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 1
+    seed: 101
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  frames:
+  - {fileID: 21300000, guid: 3ce6bcec708478642b74cfd3b9befeaf, type: 3}
+  - {fileID: 21300000, guid: 5ef71ce6b78b6e24ea7ee672dd8ed912, type: 3}
+  - {fileID: 21300000, guid: 5b1b65636f0d9c144a89fddea2b405ee, type: 3}
+  - {fileID: 21300000, guid: bebf1ac7b022cfb47b2cbace22bec402, type: 3}
+  - {fileID: 21300000, guid: dad12eb1d3c9af74c8a8336c1740b341, type: 3}
+  - {fileID: 21300000, guid: 9ecff6051f2dd984e8d7574ec4531357, type: 3}
+  settings:
+    frameTime:
+      min: 0.08
+      max: 0.14
+    pulse: 1
+    pulseAmount: 0.04
+    pulsePeriod:
+      min: 0.6
+      max: 1.2
+    sway: 1
+    swayDegrees: 2
+    swayPeriod:
+      min: 1.5
+      max: 2.5
+    glowBase: 0.6
+    glowFlicker: 0.25
+  flameRenderer: {fileID: 0}
+  glowRenderer: {fileID: 0}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &1891902211
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1891902212}
+  - component: {fileID: 1891902213}
+  m_Layer: 0
+  m_Name: EmbersSparks
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1891902212
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1891902211}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 963131467}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1891902213
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1891902211}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29482ff421474524ba1300cabe585600, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.EmberSparkController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  emberSprites:
+  - {fileID: 21300000, guid: 5396f6f2074109546b66048f647e41cf, type: 3}
+  sparkSprites:
+  - {fileID: 21300000, guid: 5396f6f2074109546b66048f647e41cf, type: 3}
+  settings:
+    embersEnabled: 0
+    embers:
+      maxParticles: 8
+      ratePerSecond: 1.1
+      lifetime:
+        min: 1.5
+        max: 2.8
+      startScale:
+        min: 0.22
+        max: 0.38
+      endScaleMultiplier:
+        min: 0.4
+        max: 0.7
+      startAlpha:
+        min: 0.7
+        max: 1
+      fadeInFraction: 0.1
+      fadeOutFraction: 0.5
+      velocityX: 0.05
+      velocityY: 0.7
+      velocityJitter: 0.25
+      gravity: 0
+      drag: 0.3
+      swayAmplitude: 0.15
+      swayFrequency:
+        min: 0.8
+        max: 1.6
+      spawnRadiusX: 0.15
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: 0
+        max: 0
+      flickerAmount: 0.5
+      flickerFrequency: 9
+    sparksEnabled: 1
+    sparks:
+      maxParticles: 6
+      ratePerSecond: 1.4
+      lifetime:
+        min: 0.3
+        max: 0.6
+      startScale:
+        min: 0.12
+        max: 0.22
+      endScaleMultiplier:
+        min: 0.2
+        max: 0.4
+      startAlpha:
+        min: 0.9
+        max: 1
+      fadeInFraction: 0
+      fadeOutFraction: 0.6
+      velocityX: 0
+      velocityY: 2.2
+      velocityJitter: 1.2
+      gravity: -4
+      drag: 0.5
+      swayAmplitude: 0
+      swayFrequency:
+        min: 0.3
+        max: 0.7
+      spawnRadiusX: 0.1
+      spawnRadiusY: 0.05
+      rotationSpeed:
+        min: 0
+        max: 0
+      flickerAmount: 0.2
+      flickerFrequency: 20
+  anchorOffset: {x: 0, y: 0.2}
+  emberTint: {r: 1, g: 0.55, b: 0.15, a: 1}
+  sparkTint: {r: 1, g: 0.9, b: 0.55, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &1949204320
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1949204322}
+  - component: {fileID: 1949204321}
+  m_Layer: 0
+  m_Name: 03 Medium layered fog extra (same thin sprites)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1949204321
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949204320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 676ac8df2fc544e7bb23ae62652ee5d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FogController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 140
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  fogSprites:
+  - {fileID: 21300000, guid: ff00b5dd70a4f6c43b88cca95b7b87c9, type: 3}
+  - {fileID: 21300000, guid: e6d3db2a1fa13294ba8ff250fbd821bc, type: 3}
+  - {fileID: 21300000, guid: 5f48cfb9af1671d40b24d3e483c0d3e5, type: 3}
+  - {fileID: 21300000, guid: a6a9ff07a8fb84846b134d6a82ca6beb, type: 3}
+  - {fileID: 21300000, guid: f7072feca1c6c8f40b18e550325f4e8a, type: 3}
+  - {fileID: 21300000, guid: 2414d668ad0c1244f9d24386353023e4, type: 3}
+  - {fileID: 21300000, guid: 7c87c7b9af4bbc54f8b2ca5d2353ee9d, type: 3}
+  - {fileID: 21300000, guid: 870680ec744b7da42b4f5fd7b122017a, type: 3}
+  - {fileID: 21300000, guid: b25024c97fd596a48a0c3e5a488e7654, type: 3}
+  settings:
+    layerCount: 7
+    opacity:
+      min: 0.15
+      max: 0.28
+    areaWidth: 10
+    areaHeight: 3
+    driftX: 0.25
+    driftY: 0.03
+    speedVariation:
+      min: 0.7
+      max: 1.3
+    verticalBobAmplitude: 0.08
+    verticalBobPeriod:
+      min: 6
+      max: 12
+    scale:
+      min: 0.9
+      max: 1.3
+    scalePulseAmount: 0.03
+    opacityPulsePeriod:
+      min: 5
+      max: 11
+    opacityPulseAmount: 0.25
+    edgeFadeFraction: 0.2
+    randomFlipX: 1
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!4 &1949204322
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949204320}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 16, y: 8, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2084811850
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2084811851}
+  - component: {fileID: 2084811852}
+  m_Layer: 0
+  m_Name: Fire
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2084811851
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2084811850}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1427934811}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2084811852
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2084811850}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d95e09e3c7b4a118df9b4db79da4d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.FireFrameController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  frames:
+  - {fileID: 21300000, guid: 3ce6bcec708478642b74cfd3b9befeaf, type: 3}
+  - {fileID: 21300000, guid: 5ef71ce6b78b6e24ea7ee672dd8ed912, type: 3}
+  - {fileID: 21300000, guid: 5b1b65636f0d9c144a89fddea2b405ee, type: 3}
+  - {fileID: 21300000, guid: bebf1ac7b022cfb47b2cbace22bec402, type: 3}
+  - {fileID: 21300000, guid: dad12eb1d3c9af74c8a8336c1740b341, type: 3}
+  - {fileID: 21300000, guid: 9ecff6051f2dd984e8d7574ec4531357, type: 3}
+  settings:
+    frameTime:
+      min: 0.08
+      max: 0.14
+    pulse: 1
+    pulseAmount: 0.04
+    pulsePeriod:
+      min: 0.6
+      max: 1.2
+    sway: 1
+    swayDegrees: 2
+    swayPeriod:
+      min: 1.5
+      max: 2.5
+    glowBase: 0.6
+    glowFlicker: 0.25
+  flameRenderer: {fileID: 0}
+  glowRenderer: {fileID: 0}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!1 &2097604287
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2097604289}
+  - component: {fileID: 2097604288}
+  m_Layer: 0
+  m_Name: 04 Broad drifting smoke
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2097604288
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2097604287}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38f60e0dfb7d4847b3c4cdcc61501487, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: RepWars.Environment.Effects::RepWars.Environment.Effects.SmokeController
+  common:
+    sortingLayerName: Default
+    sortingOrder: 30
+    timeMode: 0
+    simulationSpace: 0
+    useSeed: 0
+    seed: 12345
+    playOnEnable: 1
+    fadeInSeconds: 0.75
+    fadeOutSeconds: 0.75
+    intensity: 1
+  smokeSprites:
+  - {fileID: 21300000, guid: 6217cd816b041354b894e93aebd693ec, type: 3}
+  - {fileID: 21300000, guid: 8287719d86cf19745b244c3fe19526b5, type: 3}
+  - {fileID: 21300000, guid: f4b3009aa5a40164ab9c97ed2c83afba, type: 3}
+  - {fileID: 21300000, guid: 07604d9419246bf4db2ba543abe624d2, type: 3}
+  - {fileID: 21300000, guid: 35c71738fbd02dc429423ab39d40c8aa, type: 3}
+  settings:
+    maxParticles: 14
+    ratePerSecond: 1.5
+    lifetime:
+      min: 6
+      max: 9
+    startScale:
+      min: 0.8
+      max: 1.2
+    endScaleMultiplier:
+      min: 1.3
+      max: 1.7
+    startAlpha:
+      min: 0.15
+      max: 0.3
+    fadeInFraction: 0.3
+    fadeOutFraction: 0.4
+    velocityX: 0.3
+    velocityY: 0.05
+    velocityJitter: 0.08
+    gravity: 0
+    drag: 0
+    swayAmplitude: 0.1
+    swayFrequency:
+      min: 0.05
+      max: 0.15
+    spawnRadiusX: 6
+    spawnRadiusY: 2
+    rotationSpeed:
+      min: -4
+      max: 4
+    flickerAmount: 0
+    flickerFrequency: 8
+  tint: {r: 0.75, g: 0.75, b: 0.78, a: 1}
+  sharedMaterial: {fileID: 0}
+  preset: {fileID: 0}
+--- !u!4 &2097604289
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2097604287}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -16, y: 2, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1660057539 &9223372036854775807
+SceneRoots:
+  m_ObjectHideFlags: 0
+  m_Roots:
+  - {fileID: 1259257871}
+  - {fileID: 24640900}
+  - {fileID: 292892464}
+  - {fileID: 1949204322}
+  - {fileID: 2097604289}
+  - {fileID: 847528642}
+  - {fileID: 486484029}
+  - {fileID: 1377531722}
+  - {fileID: 1421049810}
+  - {fileID: 1531690147}
+  - {fileID: 1427934811}
+  - {fileID: 963131467}
+  - {fileID: 99189134}
+  - {fileID: 1492777554}
+  - {fileID: 1772205798}
+  - {fileID: 514922203}
+  - {fileID: 1242310991}
+  - {fileID: 1063427055}

@@ -1,0 +1,14 @@
+{
+    "name": "RepWars.Environment.Effects",
+    "rootNamespace": "RepWars.Environment.Effects",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
