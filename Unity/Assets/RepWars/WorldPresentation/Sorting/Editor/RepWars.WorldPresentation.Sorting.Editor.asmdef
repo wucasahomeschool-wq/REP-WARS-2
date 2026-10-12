@@ -1,0 +1,19 @@
+{
+    "name": "RepWars.WorldPresentation.Sorting.Editor",
+    "rootNamespace": "RepWars.WorldPresentation.Editor",
+    "references": [
+        "RepWars.WorldPresentation.Sorting",
+        "Unity.RenderPipelines.Universal.2D.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

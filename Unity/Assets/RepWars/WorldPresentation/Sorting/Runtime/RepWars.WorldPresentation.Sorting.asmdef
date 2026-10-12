@@ -1,0 +1,14 @@
+{
+    "name": "RepWars.WorldPresentation.Sorting",
+    "rootNamespace": "RepWars.WorldPresentation",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
