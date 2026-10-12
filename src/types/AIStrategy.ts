@@ -7,6 +7,8 @@ export interface OperationAttention {
   releasedAtTick: number | null;
   /** Historical work is preserved even when it exceeds newly introduced capacity. */
   grandfathered: boolean;
+  /** Narrow, operation-owned critical allowance; cost itself is unchanged. */
+  emergency?: {contextId:string; revision:number; overflow:number};
 }
 /** One primary proactive selection/initiation thread, independent of physical work. */
 export interface AIDecisionOpportunity {

@@ -1,3 +1,5 @@
+import { RESPONSE_POLICY } from '../constants/aiResponse';
+import {responseStateProblems} from './responseInvariants';
 import {conflictStateProblems} from './conflictInvariants';
 import {cognitionStateProblems} from './cognitionInvariants';
 import {tradeStateProblems} from './tradeInvariants';
@@ -87,6 +89,7 @@ function checkGameplaySessionLeases(
 export function checkGameStateInvariants(state: GameState): GameStateInvariantViolation[] {
   const violations: GameStateInvariantViolation[] = [];
   const push = (code: string, message: string) => violations.push({ code, message });
+  for(const message of responseStateProblems(state))push('response.invalid_state',message);
   for(const message of cognitionStateProblems(state))push('cognition.invalid_state',message);
   for(const message of peaceStateProblems(state)) push('peace.invalid_state',message);
   for(const message of pressureStateProblems(state)) push('pressure.invalid_state',message);
@@ -393,7 +396,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
   }
 
   // ---- canonical operations and hard physical claims ----
-  const attentionTotals = new Map<string, { ordinary: number; historical: number }>();
+  const attentionTotals = new Map<string, { ordinary: number; historical: number; emergency:number }>();
   for (const [id, op] of state.operations) {
     const validatedAt = op && validatedTerminals.get(op);
     if (validatedAt !== undefined && state.worldTick >= validatedAt
@@ -426,8 +429,11 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
         if (['ATTACK','MOVE','RETREAT','BUILD','OFFER_PEACE','TRADE'].includes(op.action) && attention.cost === 0)
           push('attention.missing_physical_cost', `Physical operation ${id} bypasses ordinary Attention`);
         if (released !== null || (attention.cost > 0 && acquired === null)) push('attention.missing_charge', `Physical operation ${id} lacks its charge`);
-        const totals = attentionTotals.get(op.warlordId) ?? { ordinary: 0, historical: 0 };
-        totals[attention.grandfathered ? 'historical' : 'ordinary'] += attention.cost;
+        const totals = attentionTotals.get(op.warlordId) ?? { ordinary: 0, historical: 0, emergency:0 };
+        const emergency=attention.emergency?.overflow??0;
+        if(emergency){const context=state.aiResponses.get(attention.emergency!.contextId);if(!Number.isSafeInteger(emergency)||emergency<0||emergency>attention.cost||op.responseContextId!==context?.id||context?.factionId!==op.warlordId||context.lane!=='REACTIVE_EMERGENCY'||!Number.isSafeInteger(attention.emergency!.revision)||attention.emergency!.revision<0||attention.emergency!.revision>context.revision)push('attention.invalid_emergency',`Invalid emergency charge ${id}`);}
+        totals[attention.grandfathered ? 'historical' : 'ordinary'] += attention.cost-emergency;
+        totals.emergency+=emergency;
         attentionTotals.set(op.warlordId, totals);
       }
     }
@@ -487,6 +493,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       validatedTerminals.set(op, state.worldTick);
   }
   for (const [factionId, totals] of attentionTotals) {
+    if(totals.emergency>RESPONSE_POLICY.emergencyExtraCapacity)push('attention.emergency_over_capacity',`Faction ${factionId} exceeds narrow emergency allowance`);
     if (totals.ordinary > state.strategicAttention?.capacity || (!totals.historical && totals.ordinary + totals.historical > state.strategicAttention?.capacity))
       push('attention.ordinary_over_capacity', `Faction ${factionId} exceeds normal capacity without historical work`);
   }

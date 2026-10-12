@@ -1,3 +1,4 @@
+import { createResponseMap } from '../engine/responseRecords';
 import type { AIOperation, AIOperationClaim } from './AIOperation';
 import type { StrategicAttentionState, AIDecisionOpportunity } from './AIStrategy';
 import { STRATEGIC_ATTENTION_TUNING } from '../constants/strategicAttention';
@@ -100,8 +101,9 @@ import { GameRewardResult } from '../rewards/types';
  * 24 = Canonical Trade proposals, exact bank reservations and bilateral shipment custody (Phase I).
  * 25 = Concrete Goal lifecycle and idempotent directed Opinion event receipts (Phase J).
  * 26 = Canonical factual conflict episodes/aggregates and replay receipts (Phase K).
+ * 27 = Canonical non-proactive response contexts and primary response scheduler (Phase L).
  */
-export const GAME_STATE_SCHEMA_VERSION = 26;
+export const GAME_STATE_SCHEMA_VERSION = 27;
 
 export type InvasionId = string;
 
@@ -440,6 +442,8 @@ export interface GameState {
   lastAiDecisionTick: Map<FactionId, number>;
   /** Persisted common limit, applied independently to each faction's owned work. */
   strategicAttention: StrategicAttentionState;
+  aiResponses: Map<string, import('./AIResponse').AIResponseContext>;
+  aiResponseScheduler: import('./AIResponse').AIResponseScheduler;
   aiPressure: Map<string, import('./AIPressure').AISourceContext>;
   aiClock: import('./AIPressure').AIClock;
   aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
@@ -603,6 +607,8 @@ export function emptyWorldClock(): {
   lastFoodConsumptionTick: number;
   lastAiDecisionTick: Map<FactionId, number>;
   strategicAttention: StrategicAttentionState;
+  aiResponses: Map<string, import('./AIResponse').AIResponseContext>;
+  aiResponseScheduler: import('./AIResponse').AIResponseScheduler;
   aiPressure: Map<string, import('./AIPressure').AISourceContext>;
   aiClock: import('./AIPressure').AIClock;
   aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
@@ -618,6 +624,8 @@ export function emptyWorldClock(): {
     lastFoodConsumptionTick: 0,
     lastAiDecisionTick: new Map(),
     strategicAttention: { capacity: STRATEGIC_ATTENTION_TUNING.capacity },
+    aiResponses: createResponseMap(),
+    aiResponseScheduler: {primaryByFaction:new Map(),lastBoundaryByFaction:new Map(),observedWorldTick:0,dirty:false},
     aiPressure: new Map(),
     aiClock: { nowMs: 0, worldAnchor: null },
     aiDecisionOpportunities: new Map(),

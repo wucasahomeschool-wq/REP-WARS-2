@@ -1,3 +1,4 @@
+import { markResponseWorldChanged } from '../engine/responseRecords';
 import {refreshGoals} from '../cognition/goals';
 import { assertClaimAvailable } from '../engine/operations';
 import { BALANCE } from '../constants/balance';
@@ -100,6 +101,7 @@ export function beginArmyMovement(state: GameState, params: BeginArmyMovementPar
     commitmentId: params.commitmentId ?? null,
   };
   army.movement = movement;
+  markResponseWorldChanged(state);
   const armyChanges: ArmyChange[] = [{
     armyId: army.id,
     field: 'movement',
@@ -205,6 +207,7 @@ export function progressArmyMovements(state: GameState, worldTick: number): Move
       commitmentId: movement.commitmentId,
     });
   }
+  if(results.length)markResponseWorldChanged(state);
   return results;
 }
 

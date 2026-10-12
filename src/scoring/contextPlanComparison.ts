@@ -49,7 +49,14 @@ export class ContextPlanComparator {
     const comparisons=[...plans].sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>this.comparePlan(state,canonical,p,evaluators,view));
     return {comparisons,evaluatorCalls:{...evaluators.calls},cacheHits:evaluators.cacheHits};
   }
-  private comparePlan(state:GameState,source:AISourceContext,plan:AIConcretePlan,evaluators:StrategicEvaluators,view:ReturnType<typeof factionDecisionView>):PlanComparison {
+  /** Non-proactive exact-plan comparison has no Pressure source and no WAIT.
+   * NO_ADDITIONAL_INTERVENTION is an implicit zero baseline, not an action. */
+  compareInterventions(state:GameState,contextId:string,factionId:string,plans:readonly AIConcretePlan[]):PlanComparison[] {
+    if(new Set(plans.map(p=>p.id)).size!==plans.length||plans.some(p=>p.factionId!==factionId||p.action==='WAIT'||concretePlanProblem(p)))throw new Error('Invalid response plans');
+    const evaluators=new StrategicEvaluators(new FactualSupport(state)),view=factionDecisionView(state,factionId);
+    return [...plans].sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>this.comparePlan(state,{id:contextId,kind:'COVERAGE_GAP',subjectId:''},p,evaluators,view));
+  }
+  private comparePlan(state:GameState,source:Pick<AISourceContext,'id'|'kind'|'subjectId'>,plan:AIConcretePlan,evaluators:StrategicEvaluators,view:ReturnType<typeof factionDecisionView>):PlanComparison {
     const contributions:PlanContribution[]=[],assessments:EvaluatorAssessment[]=[];
     const add=(causalKey:string,owner:PlanContribution['owner'],category:ComparisonCategory,value:number,explanation:string,confidence:PlanContribution['confidence']='high')=>{
       addPlanContribution(contributions,causalKey,owner,category,value,explanation,confidence);
@@ -162,4 +169,12 @@ export function comparisonScoredPlan(c:PlanComparison):ScoredConcretePlan {
   return {plan:c.plan,action:c.plan.action,targetId:planTargetId(c.plan),targetName:planTargetId(c.plan),score:c.finalValue,baseScore:c.factualValue,
     factorBreakdown:c.contributions.map(x=>({factor:`${x.owner}:${x.causalKey}`,weight:1,contribution:(x.direction==='cost'?-1:1)*x.normalizedMagnitude})),
     reasoning:c.contributions.map(x=>`${x.owner}: ${x.explanation}`)};
+}
+
+/** Same qualified near-tie discipline, without manufacturing a WAIT plan. */
+export function selectInterventionComparison(comparisons:readonly PlanComparison[],rng:SeededRNG):PlanComparison|null {
+  if(new Set(comparisons.map(c=>c.sourceContextId)).size>1||comparisons.some(c=>!Number.isFinite(c.finalValue)))throw new Error('Invalid response comparison');
+  const sorted=comparisons.filter(c=>c.qualifies&&c.factualValue>0&&c.finalValue>=T.minimumCommitmentAdvantage).sort((a,b)=>b.finalValue-a.finalValue||comparePlanIds(a.plan.id,b.plan.id));
+  const near=sorted.filter(c=>c.finalValue>=sorted[0]!.finalValue-T.nearTieBand);
+  return near.length===0?null:near.length===1?near[0]!:near[Math.floor(rng.next()*near.length)]!;
 }

@@ -1,3 +1,4 @@
+import { markResponseWorldChanged } from '../engine/responseRecords';
 import {applyOpinionEvent} from '../cognition/opinion';
 import {hostileFactIdentity,recordConflictFact} from '../conflict/ledger';
 import {COGNITION_TUNING as COGNITION} from '../constants/cognition';
@@ -264,6 +265,7 @@ export function invalidateStaleAttackIntents(state: GameState): StaleAttackInval
     // until the existing movement system reaches arrival/interruption.
     if (intent.commitmentId) settleOperation(state, intent.commitmentId, 'failed', reason);
   }
+  if(out.length)markResponseWorldChanged(state);
   return out;
 }
 
@@ -547,6 +549,7 @@ export function startStrategicAttack(
     onlyArmyId: params.onlyArmyId ?? delayed.armyId,
   };
   army.attackIntent = intent;
+  markResponseWorldChanged(state);
   recordConflictFact(state,conflictFactId,{kind:'ATTACK_COMMITTED',actor:attackerId,target:defenderId,territoryId:target.id});
   const armyChanges: ArmyChange[] = [
     ...moved.armiesChanged,

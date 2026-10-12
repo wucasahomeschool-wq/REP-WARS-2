@@ -1,0 +1,767 @@
+PASS Phase A: canonical memory changes replace stale wrapper memory, including removed entries
+PASS Phase A: direct engine cognition refreshes canonical goals and snapshot instead of retained wrapper data
+PASS Phase A: AI_DECIDE observes earlier mutations in the same transaction and records history only on its draft
+PASS Phase A: Orchestrator decision preserves the preceding state and persists decision history
+PASS Phase A: continued, rebuilt, and hydrated runtimes produce the same decision and commitment identity
+PASS Phase A: a failed transaction rolls back cognition history and sequence for deterministic retry
+PASS Phase A: missing-goal target normalization remains disposable and does not rewrite canonical goals
+PASS Phase A: canonical outcome feedback is observed after rebind and save/reload
+PASS Phase A: schema 16 migration preserves the old commitment ID and continues above its recorded sequence
+PASS Phase A: schema 16 without a commitment initializes sequence zero; corrupt current sequences are rejected
+PASS Phase A: commitment writeback cannot overwrite an unrelated faction changed after view construction
+PASS Phase A: disposable helper mutations cannot leak into canonical goals or memory
+PASS Phase A: nested memory details are isolated in transaction drafts and disposable cognition
+PASS Phase A/D: retained wrappers cannot gate canonical cognition or overwrite ongoing work
+PASS Phase A: older-save migration never lowers an existing valid commitment high-water mark
+PASS Phase A: schema 17 and 18 reject a commitment sequence below already-recorded IDs
+PASS Phase A: sequence migration considers persisted movement, attack and invasion references
+GROUP aiCanonicalReasoning 17 0
+PASS Phase B: vocabulary is exactly eight; unavailable final sources produce no fake plans
+PASS Phase B: generators enumerate every legal force/staging combination rather than best-first truncation
+PASS Phase B: exact ATTACK army/target survive scoring and execution
+PASS Phase B: ATTACK uses exact selected staging even when another force/route is preferred by legacy selection
+PASS Phase B: MOVE consumes exact army and destination, not first army/neighbor
+PASS Phase B: RETREAT consumes exact army and destination, not first army/neighbor
+PASS Phase B: BUILD executes exact CITY on exact site
+PASS Phase B: BUILD executes exact FARM on exact site
+PASS Phase B: BUILD executes exact MINE on exact site
+PASS Phase B: BUILD executes exact LUMBER on exact site
+PASS Phase B: BUILD executes exact FORTIFICATION on exact site
+PASS Phase B: legality excludes wrong-owner, moving/engaged armies, invalid targets and impossible routes
+PASS Phase B: construction eligibility uses actual ownership, occupancy, requirements, capacity and costs
+PASS Phase B: execution invalidates changed exact force without substituting another legal force
+PASS Phase B: generation IDs/order and selected plan are invariant under insertion order, reconstruction and reload
+PASS Phase B: bounded near-top selection is seeded; clearly inferior plans cannot win
+PASS Phase B: plans and nested parameters are immutable and isolated when commitment/state is cloned
+PASS Phase B: persistence retains exact plans; schema 17 legacy commitments remain un-reconstructed
+PASS Phase B/I: incomplete historical proposal contracts cannot execute without exact sources
+PASS Phase B/D: WAIT remains target-free and reward-free without owning a faction-wide operation slot
+PASS Phase B: changed attack army fails without substituting an available attacker
+PASS Phase B: an exact fortification upgrade cannot silently become the next different level
+PASS Phase B: an active exact movement can be polled without selecting another force
+PASS Phase B: turn-only legacy harness rejects concrete operations rather than substituting parameters
+PASS Phase B: WAIT rejects physical-target parameters and legacy WAIT no longer grants income
+PASS Phase B: malformed persisted plan identity and binding are rejected
+PASS Phase B: falsy malformed plans are rejected instead of restoring legacy execution
+PASS Phase B: contradictory legacy display targets fail before any concrete operation starts
+GROUP aiConcretePlans 45 0
+PASS Phase C: MOVE Army A and staged ATTACK Army B coexist without overwriting either operation
+PASS Phase C: two independent marches complete at the same physical boundary
+PASS Phase C: construction and a march coexist; BUILD completes only with its actual project
+PASS Phase C: early terminal requests cannot free an active construction site
+PASS Phase C: claimed force cannot start incompatible MOVE
+PASS Phase C: claimed force cannot start incompatible ATTACK
+PASS Phase C: claimed force cannot start incompatible RETREAT
+PASS Phase C: occupied build site rejects atomically; another site remains usable
+PASS Phase C: multi-claim acquisition never leaves a partial force claim on target conflict
+PASS Phase C/ D: ordinary cognition preserves concurrent work and coalesces its primary initiation
+PASS Phase C: invalid ATTACK preserves eight ticks of remaining travel and its force claim
+PASS Phase C: settlement is idempotent, feedback once, and cannot release another operation claim
+PASS Phase C: destroyed construction settles its linked operation exactly once
+PASS Phase C: concurrent save/reload retains exact plans, IDs, links, claims and isolation
+PASS Phase C: same-boundary progression is identical after reload and reversed Map insertion
+PASS Phase C: migrated schema 18 without commitments introduces no fake operation
+PASS Phase C: schema 18 exact MOVE reconciles with existing physical truth
+PASS Phase C: schema 18 exact RETREAT reconciles with existing physical truth
+PASS Phase C: schema 18 exact ATTACK reconciles with existing physical truth
+PASS Phase C: schema 18 exact BUILD reconciles with existing physical truth
+PASS Phase C: incomplete legacy reasoning is archived without inventing a plan or deleting travel
+PASS Phase C: old completed BUILD with unique live project becomes a linked physical operation
+PASS Phase C: migration does not bind a saved exact plan to a different physical destination
+PASS Phase C: one matching legacy attack link cannot conceal a mismatched physical march
+PASS Phase C: invariant rejects orphan claims, low sequence and divergent domain plan linkage
+PASS Phase C: a faction-local attack claim does not reserve enemy territory against another faction
+PASS Phase C: direct commands cannot impersonate a selected WAIT operation to execute an attack
+PASS Phase C: operation identity remains unique across colliding faction hashes
+PASS Phase C: domain start failure rolls back operation, all claims and persisted sequence
+PASS Phase C: an anchor-protected exact start retains domain error metadata and acquires no claims
+PASS Phase C: terminal clones cannot leak nested mutation into preceding canonical state
+PASS Phase C: migration preserves prior BUILD feedback and does not repeat it on physical completion
+PASS Phase C: extinct invader releases only its force and waits for existing invasion resolution
+PASS Phase C: malformed physical plans and missing maps produce invariant violations
+PASS Phase C: schema 18 faction-local ID collisions migrate deterministically without overwriting a faction
+PASS Phase C: current-schema missing claim storage is corruption rather than silent reservation loss
+PASS Phase C: invasion attacker result settles attacker truth without outcome inversion
+PASS Phase C: invasion defender result settles attacker truth without outcome inversion
+PASS Phase C: invasion draw result settles attacker truth without outcome inversion
+PASS Phase C review: MOVE topology loss halts without teleport/free and survives reload
+PASS Phase C review: RETREAT topology loss halts without teleport/free and survives reload
+PASS Phase C review: ATTACK topology loss halts without teleport/free and survives reload
+PASS Phase C review: missing physical destination retains route/timing and force ownership
+PASS Phase C review: premature ready-attack polling preserves a still-traveling force
+PASS Phase C review: system invasion cannot take a moving force outside AI claims
+PASS Phase C review: direct commands/retries cannot overwrite a claimed exact force or destination
+PASS Phase C review: open invasion ownership change preserves force until domain settlement
+PASS Phase C review: active invasion migration links exact domain identity and survives reload
+PASS Phase C review: legacy reasoning cannot own another army sharing its old ID
+PASS Phase C review: ambiguous pending legacy record does not fabricate a new start beside real travel
+PASS Phase C review: terminal IDs preserve sequence floors through migration/reload
+PASS Phase C review: live queries do not scan retained terminal history; index rebuild/delete/clear remain equivalent
+PASS Phase C review: immutable plan shape caching never caches mutable or shallow-frozen input
+PASS Phase C/D: coalesced cognition analytics retain all operation IDs without reporting duplicate selection
+PASS Phase C review: immediate attacker battle result settles exact attacker once
+PASS Phase C review: immediate defender battle result settles exact attacker once
+PASS Phase C review: immediate draw battle result settles exact attacker once
+PASS Phase C/I: incomplete Trade cannot masquerade as a linked physical proposal
+PASS Phase C review: ambiguous legacy invasion settlement never clears another operation march
+PASS Phase C review: BUILD physical completion emits one exact terminal operation record
+GROUP aiOperations 105 0
+PASS Phase D: initial tunable costs express qualitative classes without physical modifiers
+PASS Phase D review: immutable terminal validation is reused without hiding contextual corruption
+PASS Phase D review: cached terminal validation cannot hide a backwards world boundary
+PASS Phase D review: settlement isolates a manually supplied mutable plan before caching history
+PASS Phase D review: ATTACK plus BUILD and independent construction retain independent settlement
+PASS Phase D review: public state and HTTP commands do not expose private strategic accounting
+PASS Phase D: compatible MOVE/MOVE acquires independent claims and Attention
+PASS Phase D: compatible MOVE/ATTACK acquires independent claims and Attention
+PASS Phase D: compatible BUILD/MOVE acquires independent claims and Attention
+PASS Phase D: Attention capacity blocks an otherwise legal unclaimed force
+PASS Phase D/E: saturated Attention preserves zero WAIT cost but cannot fabricate an actionable source
+PASS Phase D: claim, compatibility and Attention rejection diagnostics stay distinct
+PASS Phase D: compatibility rule ordering is stable and inspects relevant live operations
+PASS Phase D: movement completion releases only its Attention exactly once
+PASS Phase D: failure releases Attention once without releasing another owner
+PASS Phase D: invalid attack retains Attention until existing physical arrival
+PASS Phase D: BUILD releases Attention at project completion, not project start
+PASS Phase D: domain failure after acquisition rolls back Attention, claims, sequence and world
+PASS Phase D: schema 19 over-cap operations all survive with deterministic historical charges
+PASS Phase D: save/reload preserves charges, capacity, opportunity and independent cloned state
+PASS Phase D/E: empty source cannot recursively fabricate WAIT, including after reload
+PASS Phase D: pending selection occupies the sole primary thread, not faction physical work
+PASS Phase D: another decision can initiate before an existing long march completes
+PASS Phase D: physical completion does not restart proactive reconsideration spacing
+PASS Phase D: identical seed/opportunity and reversed map order yield identical selection and start
+PASS Phase D: active Attention query never scans retained terminal history
+PASS Phase D: competing CAS decisions cannot both acquire the same primary opportunity
+PASS Phase D: historical over-cap occupancy blocks new work until enough owned charges release
+PASS Phase D: blocked travel retains Attention through ticks and reload
+PASS Phase D: immediate ATTACK releases its charge at the exact same terminal boundary
+PASS Phase D: coarse/fine progression and reload preserve opportunity and Attention state
+PASS Phase D: invalid selected initiation closes only its primary thread without charging Attention
+PASS Phase D/E: full ordinary Attention preserves cheap observation without selecting WAIT-only sources
+PASS Phase D/E: migration archives contextless pending selection without inventing source/timing
+PASS Phase D: schema 20 rejects missing accounting instead of remigrating active costs
+PASS Phase D: invariants reject corrupt capacity accounting
+PASS Phase D: invariants reject corrupt cost accounting
+PASS Phase D: invariants reject corrupt owner accounting
+PASS Phase D: invariants reject corrupt terminal accounting
+PASS Phase D: invariants reject corrupt primary accounting
+PASS Phase D: invariants reject corrupt boundary accounting
+GROUP aiStrategyConcurrency 146 0
+PASS Phase E: exactly five locked pressure domains
+PASS Phase E: idle armies and WAR alone are not sources
+PASS Phase E: Goal and raw Memory cannot manufacture a source
+PASS Phase E: magnitude changes keep semantic source identity
+PASS Phase E: ownership transformation invalidates old source identity
+PASS Phase E: online/offline pressure is exact 1/50 and saturates
+PASS Phase E: fractional pressure is chunk/reload independent
+PASS Phase E: source-bound military plans cannot include unrelated empire actions
+PASS Phase E: meaningful construction sources map only BUILD/WAIT
+PASS Phase E: high pressure cannot make WAIT-only source actionable
+PASS Phase E: blocked troop predicates do not rearm on meaningless increments
+PASS Phase E: multiple prerequisites must jointly permit one full plan
+PASS Phase E: full construction bundle rearm ignores partial resource restoration
+PASS Phase E: pressure chooses context but never enters plan score
+PASS Phase E: unchanged blocked sources never enter full deliberation over many boundaries
+PASS Phase E: WAIT is exactly 2/60 seconds without a physical operation or reward
+PASS Phase E: valid WAIT relieves only its context and starts spacing
+PASS Phase E: WAIT source disappearance invalidates without relief/spacing
+PASS Phase E: WAIT material transformation invalidates without relief/spacing
+PASS Phase E: WAIT losing non-WAIT feasibility installs blockers without spacing
+PASS Phase E: WAIT completion consumes no second selection RNG or scoring
+PASS Phase E: WAIT reload retains exact duration, earned work and timer sequence
+PASS Phase E: rational duration promotes online and never demotes offline
+PASS Phase E: seeded spacing samples once in locked online/offline ranges
+PASS Phase E: physical operation completion cannot begin or reroll spacing
+PASS Phase E: direct WAIT operation is rejected and cannot bypass source/timer contract
+PASS Phase E: same-boundary retries cannot create a second primary thought
+PASS Phase E: reversed Map order gives identical sources, candidates and chosen context
+PASS Phase E: schema-20 migration preserves physical claims but archives contextless selections
+PASS Phase E: canonical pressure and primary clocks clone without aliasing
+PASS Phase E: corruption in source identity or duration clock is rejected
+PASS Phase E: eliminated factions do not observe, deliberate or wait
+PASS Phase E/I: holdings alone without complementary demand do not fabricate Trade sources
+PASS Phase E: real UTC WAIT completes between world ticks without moving the world
+PASS Phase E: online WAIT completes in exactly two seconds under authoritative leases
+PASS Phase E: WAIT online promotion preserves earned offline work and survives logout/reload
+PASS Phase E: rational activity projection preserves work and sub-millisecond carry
+PASS Phase E: receipt-driven catch-up equals fine world boundaries and reload
+PASS Phase E: a failed exact initiation grants no relief or reconsideration spacing
+PASS Phase E: Goal accelerates an existing source without consulting raw Memory
+PASS Phase E: no-action outcome is canonical blocker state, never a ninth action
+PASS Phase E: inactive faction pressure and unfinished cognition stop without fake WAIT
+PASS Phase E: trusted server receipts advance sub-tick cognition but client timestamps cannot
+PASS Phase E: operation source binding cannot suppress or relieve another faction source
+PASS Phase E review: pressure magnitude never changes scores inside a chosen context
+PASS Phase E review: a changed defending force invalidates a stale WAIT without relief
+PASS Phase E review: dormant blocked contexts reuse exact predicates while checking fresh facts
+PASS Phase E review: same-instant force arrival precedes WAIT revalidation
+PASS Phase E review: food-cycle source creation is independent of catch-up chunk size
+PASS Phase E review: a real military source acts while saturated blocked development stays dormant
+PASS Phase E review: new command effects follow an already-earned WAIT boundary
+PASS Phase E review: schema-20 archival preserves simultaneous physical work and consumed IDs
+PASS Phase E review: orphan selected threads and malformed blocker entries fail validation
+PASS Phase E review: public game state does not disclose pressure, predicates or cognition timers
+PASS Phase E review: seeded duration authoring uses whole-second canonical precision
+GROUP aiStrategicPressure 201 0
+PASS Phase F: exact seven factual evaluator identities
+PASS Phase F: Goal changes leave all seven factual outputs unchanged
+PASS Phase F: Personality and Ambition changes leave factual outputs unchanged
+PASS Phase F: raw Memory and Opinion never change factual outputs
+PASS Phase F: Goal has one bounded separate comparison owner
+PASS Phase F: Ambition alone gives no generic ATTACK push
+PASS Phase F: pressure magnitude never changes evaluator or comparison output
+PASS Phase F: deterministic Battle outlook excludes territory importance and battle seed
+PASS Phase F: Battle outlook uses authoritative terrain/morale/fort/city facts
+PASS Phase F: losing battle branch correctly admits force annihilation
+PASS Phase F: Territory value responds to actual output/infrastructure/connectivity
+PASS Phase F: Local danger excludes strategic territory importance
+PASS Phase F: credible hostile force changes local danger and timing
+PASS Phase F: overlapping intent/operation/route deduplicates hostile force
+PASS Phase F: committed support counts only if arriving before threat
+PASS Phase F: Force position is marginal and locations differ for same army
+PASS Phase F: redundant force size is not an unconditional position reward
+PASS Phase F: Resource marginal value is quantity-sensitive and scarce loss asymmetric
+PASS Phase F: abundant stocks reduce marginal resource cost
+PASS Phase F: uncollected production is not equivalent to spendable bank
+PASS Phase F: different owned sites do not invent separate bank stockpiles
+PASS Phase F: exact BUILD site/output/cost/duration determine factual value
+PASS Phase F: committed BUILD is baseline and paid costs not subtracted twice
+PASS Phase F: committed movement remains baseline instead of vanishing
+PASS Phase F: ATTACK contingent baseline never fabricates captured ownership
+PASS Phase F: WAR facts change with actual border position; no Memory ledger invented
+PASS Phase F: active physical duration uses persisted progress, never rerolls
+PASS Phase F: blocked physical timing remains unknown, not zero-time recovery
+PASS Phase F: BUILD cost causal contribution appears exactly once
+PASS Phase F: comparator refuses plans from an unrelated source
+PASS Phase F: WAIT comparison is exactly zero with no fabricated reward
+PASS Phase F: below-margin option cannot defeat WAIT even with RNG
+PASS Phase F: meaningful commitment advantage can select exact plan
+PASS Phase F: near tie seeded selection deterministic and inferior never wins
+PASS Phase F: normalization bounded for enormous factual values
+PASS Phase F: save/reload and reversed Maps preserve factual evaluation/comparison
+PASS Phase F: evaluating/comparing changes no canonical state or RNG
+PASS Phase F: within-decision memo reuses facts with clear evaluator identity
+PASS Phase F: canonical production ignores legacy ActionScorer entirely
+PASS Phase F: empty or blocked sources never run factual comparison
+PASS Phase F: unsampled future durations remain bounds without consuming RNG
+PASS Phase F: persisted sampled activity timing retains earned work and promotion
+PASS Phase F: successful WAIT remains an initiation timer through real production comparison
+PASS Phase F: no-source observer never runs evaluators or comparison
+PASS Phase F: acquisition does not value destroyed foreign fortifications as retained infrastructure
+PASS Phase F: unopposed domain capture has no fabricated battle casualties
+PASS Phase F: private comparison details never enter public game state
+PASS Phase F: live canonical cognition cannot fall back to legacy source-free scoring
+PASS Phase F/H: factual default WAR ignores legacy hostility sentiment
+PASS Phase F review: repeated outlook cannot change the actual seeded battle
+PASS Phase F review: committed engagement edge is not imaginary march time
+PASS Phase F review: proposed defense cannot arrive before its physical route
+PASS Phase F review: proposed defense arriving in time can provide coverage
+PASS Phase F review: an exact staged threat uses only remaining persisted travel
+PASS Phase F review: direct proposed support at the place remains immediate
+PASS Phase F review: contribution ledger rejects two owners for one consequence
+PASS Phase F review: authorized ID cannot disguise altered exact parameters
+PASS Phase F review: commitment margin boundary precedes the near-tie pool
+PASS Phase F review: near-tie boundary and stable ordering are exact
+PASS Phase F review: non-finite comparison cannot fall back into WAIT
+PASS Phase F review: larger authored BUILD benefit can justify higher cost
+PASS Phase F review: selected source alone reaches production comparison
+PASS Phase F review: evaluation failure is explicit and cannot invoke legacy scoring
+PASS Phase F review: production diagnostics explain threshold and final draw privately
+PASS Phase F review: earned invasion defense supports factual local danger once
+PASS Phase F review: diagnostic uncertainty cannot become hidden future authority
+PASS Phase F review: resource property and Goal ordering cannot change judgment
+PASS Phase F review: production catch-up never invokes deprecated scorer
+PASS Phase F review: comparison cannot silently prune legal source alternatives
+PASS Phase F review: selection refuses a fictional WAIT reward
+PASS Phase F review: uncommitted adjacent attack capability has no fictitious march delay
+PASS Phase F review: a committed hostile force cannot be freely retargeted in baseline
+PASS Phase F review: unreachable attack capability is not invented for an undersized force
+GROUP aiStrategicEvaluation 274 0
+PASS Phase G: automatic Food-funded troops require no AI decision or operation
+PASS Phase G: zero local Food gives zero troops despite abundant faction Food
+PASS Phase G: Food limits generation exactly and cannot fund starving backlog
+PASS Phase G: fractional work persists through serialization and split intervals
+PASS Phase G: fine versus coarse stocked fractional recruitment is exactly equivalent
+PASS Phase G: sub-microtick division remainder is retained exactly
+PASS Phase G: completed City hook uses provisional centralized multiplier only
+PASS Phase G: in-progress City does not grant completed recruitment effect
+PASS Phase G: starvation in one territory cannot consume another territory Food
+PASS Phase G: player banked workout troops and progression remain untouched
+PASS Phase G: exact garrison allocation conserves pool plus deployed troops
+PASS Phase G: exact stationary army allocation cannot select another army
+PASS Phase G: REINFORCE empty pool cannot purchase troops from rich bank
+PASS Phase G: wrong pool identity is rejected
+PASS Phase G: remote army is not a legal local reinforcement destination
+PASS Phase G: remote garrison plan rejected structurally
+PASS Phase G: force claim blocks MOVE during timed army allocation atomically
+PASS Phase G: moving force cannot receive ordinary reinforcement
+PASS Phase G: engaged attack force cannot receive reinforcement
+PASS Phase G: existing model does not fabricate a new army from the pool
+PASS Phase G: quantity claims prevent double spending without locking entire pool
+PASS Phase G: second primary initiation cannot race despite free local quantity
+PASS Phase G: online initiation is exactly one second with no immediate allocation
+PASS Phase G: mid-initiation reload preserves ID, quantity, claims and remaining progress
+PASS Phase G: online timing does not demote after disconnect
+PASS Phase G: offline timing promotes without erasing previously earned work
+PASS Phase G: destination loss cancels without losing reserved troops or giving relief
+PASS Phase G: provisional conquest policy destroys local pool without redistributing it
+PASS Phase G: duplicate terminal handling cannot allocate or refund twice
+PASS Phase G: zero Attention allocation remains claim- and primary-gated
+PASS Phase G: local pool alone does not create activity pressure
+PASS Phase G review: factual City and fortification defense end an otherwise raw-count coverage gap
+PASS Phase G review: allocation benefit is marginal to actual mixed-morale local defenders
+PASS Phase G: local coverage need creates truthful blocked pool-threshold source
+PASS Phase G: +1 pool increments cannot rearm before meaningful batch threshold
+PASS Phase G: bounded batch enumeration never enumerates one through pool size
+PASS Phase G: source-scoped reinforcement candidates retain exact local quantities
+PASS Phase G: seven factual evaluators score allocation without a reinforcement evaluator
+PASS Phase G: committed reserved troops are unavailable and not prematurely deployed in baseline
+PASS Phase G: schema-21 migration adds no historical troops/fractions and preserves canonical AI state
+PASS Phase G: clone isolates pools, fractional work and initiation progress
+PASS Phase G: corrupted over-reservation and fractional progress fail canonical invariants
+PASS Phase G: failed canonical transaction cannot leak pool, claim or timer mutations
+PASS Phase G: receipt sub-tick recruitment uses exact earned simulation work
+PASS Phase G: production funds future local recruitment without COLLECT or bank transfer
+PASS Phase G: coarse/fine world progression and reload preserve recruitment with production
+PASS Phase G: early central success cannot fake allocation or release its reservation
+PASS Phase G: authoritative destination mutation cancels reservation before transaction validation
+PASS Phase G: new invasion cancels unfinished local allocation without rejecting the domain event
+PASS Phase G: completed City boundary has identical coarse/fine recruitment and no early bonus
+PASS Phase G: migration skips already-earned historical backlog and fractional work
+PASS Phase G: unearned future receipt cannot generate troops
+PASS Phase G: negative or altered quantity reservation fails invariants
+PASS Phase G: failed multi-claim acquisition leaves no partial pool reservation
+PASS Phase G: source-bound production cognition relieves pressure only after exact timed allocation
+PASS Phase G: REINFORCE quantities and relevance do not depend on Map insertion order
+PASS Phase G: empty physical pool is LEGALITY rejection, not a fabricated claim conflict
+PASS Phase G: one-hop staged military source can prepare its exact army locally
+PASS Phase G: local Food materialization leaves other resource accrual lazy and cannot double credit Food
+PASS Phase G: collection cannot collect Food already consumed by recruitment or replay prior production
+PASS Phase G: equal earned simulation work recruits equally across mixed authoritative presence
+PASS Phase G: local pool and initiation internals do not leak into public/Unity state
+PASS Phase G: offensive allocation analysis uses the exact source target even across staging
+PASS Phase G: real world coarse/fine progression preserves timed allocation and troop conservation
+PASS Phase G review: invasion force membership blocks allocation without a retained attack intent
+PASS Phase G review: numeric recruitment work cannot masquerade as persisted exact strings
+PASS Phase G review: persisted recruitment watermark cannot exceed earned work
+PASS Phase G review: rebellion casualty consequences cannot create AI troops
+PASS Phase G review: competing CAS starts and duplicate completion conserve exact local troops
+PASS Phase G review: troop threshold cannot rearm while destination claim remains blocked
+PASS Phase G review: fractional Food production telescopes across materialization and collection
+PASS Phase G review: live receipts and coarse catch-up preserve starvation then Food availability
+PASS Phase G review: live/coarse City completion cannot retroactively modify recruitment
+PASS Phase G review: automatic threshold crossing gives identical coarse/fine reinforcement operations
+PASS Phase G review: conquest at allocation completion boundary cannot award troops to conqueror
+PASS Phase G review: destroyed City and conquered pool restart only at current earned boundary
+PASS Phase G review: malformed and neutral pools fail structural validation without throwing
+PASS Phase G review: an army moving toward the source territory is not co-located allocation capacity
+GROUP aiRecruitment 352 0
+PASS Phase H: known faction pairs default to symmetric WAR, independent of sentiment
+PASS Phase H: pair identity is unordered, exact and collision safe
+PASS Phase H: offer initiates exact recipient and acquires proposer Attention only
+PASS Phase H: offer publication is exactly 30 seconds offline
+PASS Phase H: online offer publication is exactly one second
+PASS Phase H: offer timing promotes offline to online
+PASS Phase H: offer timing cannot demote after disconnect
+PASS Phase H: unordered pair rejects reverse/same duplicate atomically
+PASS Phase H: different pairs coexist after primary initiation completes
+PASS Phase H: self/unknown/inactive counterparties rejected before operation creation
+PASS Phase H: incoming offer does not consume recipient Attention
+PASS Phase H: pending offer is not ceasefire
+PASS Phase H: player accept releases proposer charge before finalization
+PASS Phase H: acceptance blocks new hostilities symmetrically
+PASS Phase H: finalization waits ten seconds offline after clearance
+PASS Phase H: finalization is two seconds online
+PASS Phase H: finalization preserves no-demotion after presence loss
+PASS Phase H: decline releases charge and preserves WAR
+PASS Phase H: player response window is 300/7200 seconds
+PASS Phase H: player expiry declines no offer and releases Attention once
+PASS Phase H: late player input cannot accept expired proposal
+PASS Phase H: player may withdraw own pending proposal
+PASS Phase H: AI cannot voluntarily withdraw
+PASS Phase H: non-recipient cannot accept
+PASS Phase H: repeat accepted response is idempotent
+PASS Phase H: required AI response timer is sampled once in locked range
+PASS Phase H: required AI response proceeds without Pressure, despite full Attention and spacing
+PASS Phase H: required decision uses recipient own current canonical state
+PASS Phase H: raw Memory cannot influence required response
+PASS Phase H: counterparty estimate cannot inspect recipient private thought
+PASS Phase H: hard proposer invalidation releases proposal but not physical work
+PASS Phase H: recipient loss during initiation never publishes
+PASS Phase H: failed initiation leaves sequence, Attention and ledgers unchanged
+PASS Phase H: thrown transaction cannot leak proposal mutation
+PASS Phase H: clone deeply isolates response progress and relationship timer
+PASS Phase H: reload during initiation retains identity and exact progress
+PASS Phase H: reload during required response does not reroll or duplicate response
+PASS Phase H: reload during finalization preserves remaining duration
+PASS Phase H: central settlement cannot complete pending proposal early
+PASS Phase H: central invalidation and repeated terminal handling do not duplicate history
+PASS Phase H: accepted long attack retains actual movement and claim
+PASS Phase H: compatibility rejects fresh bilateral attack after acceptance
+PASS Phase H: exact existing intent may continue after acceptance but fresh force may not
+PASS Phase H: captured hostile counterparty survives target ownership change
+PASS Phase H: Peace ends to WAR at provisional real-world expiry
+PASS Phase H: legacy DECLARE_WAR command cannot terminate active Peace
+PASS Phase H: schema-22 sentiment does not migrate into Peace
+PASS Phase H: explicit unexpired treaty preserves authored turn expiry
+PASS Phase H: expired and unsigned/future historical treaties do not fabricate Peace
+PASS Phase H: migrating treaty with staged attack preserves travel and enters clearance
+PASS Phase H: malformed pair/thread/timer ownership fails invariants
+PASS Phase H: public proposal data omits private timers, plans, scores and cognition
+PASS Phase H: blocker rearm sees executable Peace only in its exact war source
+PASS Phase H: source-bound cognition selects exact Peace and relief occurs only on publication
+PASS Phase H: required response preempts unfinished proactive thought, not committed initiation
+PASS Phase H: required response promotion and no demotion retain sampled identity
+PASS Phase H: unrelated faction remains WAR after bilateral acceptance
+PASS Phase H: live proposal lookup never scans terminal proposal history
+PASS Phase H: acceptance during attack proceeds through actual invasion and terminal clearance
+PASS Phase H: duplicate same-pair CAS attempts persist one exact thread
+PASS Phase H: legacy treaty expiry during clearance restores WAR without clearing movement
+PASS Phase H: missing schema-23 authority fails hydration rather than recreating default stores
+PASS Phase H: terminal response replay cannot duplicate goal or Memory feedback
+PASS Phase H: physical Peace operation cannot lose its proposal ledger link
+PASS Phase H: undefended invasion uses existing occupation without a zero-defender battle
+PASS Phase H: recipient own required response distinguishes Goals from factual WAR findings
+PASS Phase H: reversing pair/thread insertion order preserves required response results and history
+PASS Phase H: required response removes elapsed spacing without one-millisecond polling
+PASS Phase H: third-party target transfer invalidates only objective and preserves travel
+PASS Phase H review: direct attack recovery travel still blocks Peace clearance
+PASS Phase H review: negative historical treaty dates cannot fabricate Peace
+PASS Phase H review: authoritative direct attack remains legal both ways while pending
+PASS Phase H review: stale direct attacks fail symmetrically in clearance and Peace
+PASS Phase H review: attack and acceptance CAS order survives stale-writer retries
+PASS Phase H review: finishing one of several attacks does not start finalization
+PASS Phase H review: undefended occupation never bypasses real field or mobilized defense
+PASS Phase H review: malformed treaty and default-WAR migration remain idempotent
+PASS Phase H review: multiple incoming responses use deadline order despite reversed storage
+PASS Phase H review: required responses ignore unexpired proactive spacing and tiny-wake churn
+PASS Phase H review: arrival precedes a simultaneous player response deadline at server receipt
+PASS Phase H review: finalization promotion after clearance cannot demote on logout
+PASS Phase H review: interrupted direct hostile travel retains clearance through reload
+PASS Phase H review: corrupt hostile movement linkage cannot impersonate another pair
+PASS Phase H review: factual danger retains committed attacks during clearance
+PASS Phase H review: historical declaration helpers cannot advertise executable WAR changes
+GROUP aiPeace 437 0
+PASS Phase I: exact eight proactive categories; Trade supported, NEGOTIATE not restored
+PASS Phase I: exact Trade manifest/endpoint plan is immutable and stable
+PASS Phase I: incomplete historical terms cannot invent a source/endpoint
+PASS Phase I: Trade initiation reserves exact offered side without subtracting it
+PASS Phase I: requested recipient resources unreserved during initiation and pending
+PASS Phase I: online initiation exact 2 seconds
+PASS Phase I: offline initiation exact 60 seconds
+PASS Phase I: initiation promotion never demotes on logout
+PASS Phase I: reload during initiation retains exact reserved terms and timer
+PASS Phase I: Trade is legal at WAR and pending creates no ceasefire
+PASS Phase I: Trade independent from clearance and PEACE
+PASS Phase I: second offer cannot double-reserve the same quantities
+PASS Phase I: same faction and same pair allow non-overlapping concurrent proposals
+PASS Phase I: exact resource source mismatch/wrong ownership reject atomically
+PASS Phase I: fractional/zero/invalid resource terms are rejected
+PASS Phase I: BUILD cannot consume pending offered Wood
+PASS Phase I: exact-plan feasibility distinguishes resource CLAIM from ATTENTION
+PASS Phase I: construction paid resources are unavailable to Trade
+PASS Phase I: empire upkeep consumes only unreserved bank Food
+PASS Phase I: event spending/cost eligibility cannot consume reserved bank stock
+PASS Phase I: exact requested side must still exist at acceptance
+PASS Phase I: recipient 60 minus own 20 leaves 40, not partially accepted/debt
+PASS Phase I: recipient exact bank manifest is deterministic without RNG
+PASS Phase I: ACCEPT creates two exact physical custody manifests, no teleport
+PASS Phase I: ACCEPT/delivery preserve exact resource totals
+PASS Phase I: duplicate ACCEPT/terminal settlement creates no extra shipments or transfer
+PASS Phase I: accepted Trade does not ceasefire or hold diplomatic Attention
+PASS Phase I: load then route then unload exact persisted phases
+PASS Phase I: interrupted route retains cargo and consumed travel without refund
+PASS Phase I: unroutable ACCEPT fails but offered resources remain reserved/pending
+PASS Phase I: decline releases exact reservations and Attention, no shipments
+PASS Phase I: player may withdraw own pending offer without transferring goods
+PASS Phase I: AI cannot voluntarily withdraw pending Trade
+PASS Phase I: player expiry releases reservations without fabricated decline cognition
+PASS Phase I: AI required response proceeds at full normal Attention and spacing
+PASS Phase I: own canonical RESOURCE_VALUE response declines unfundable exact request
+PASS Phase I: pending clone/hydration never aliases source manifests or timer progress
+PASS Phase I: reload during shipment preserves exact IDs/routes/cargo/progress
+PASS Phase I: fine/coarse delivery gives exact canonical result
+PASS Phase I: same-boundary duplicate progression cannot deliver twice
+PASS Phase I: counteroffer is new exact proposal with old reservations released
+PASS Phase I: invalid counteroffer rolls back old settlement and both resource/Attention changes
+PASS Phase I: invalidation during initiation releases claims and grants no success spacing
+PASS Phase I: accepted shipments retain obligations regardless of ongoing WAR
+PASS Phase I: missing/remote/new fake stockpile manifests cannot spend local yield
+PASS Phase I: committed factual stocks exclude pending offers and accepted cargo
+PASS Phase I: public view contains exact visible terms/status and no private cognition
+PASS Phase I: proposer estimate accepts only visible terms, no recipient private view
+PASS Phase I: schema 23 migration creates no historical Trade or delivery
+PASS Phase I: schema 24 corrupt missing Trade storage fails hydration
+PASS Phase I: invariants reject missing bilateral shipment and altered accepted quantity
+PASS Phase I: invariants reject over-reservation and terminal claim leakage
+PASS Phase I: acceptance stale CAS cannot duplicate bilateral cargo
+PASS Phase I: deterministic route and node do not depend on map insertion order
+PASS Phase I: candidate set complete within resource-pair bound and deterministic
+PASS Phase I: real complementary Trade source scores only RESOURCE_VALUE support within its context
+PASS Phase I: all-no-surplus world has no Trade source or per-pair full cognition
+PASS Phase I: terminal proposal history excluded from live hot paths
+PASS Phase I: actual canonical cognition selects and publishes an exact profitable Trade
+PASS Phase I: shipment arrival and unload complete through authoritative world commands
+PASS Phase I: several offered resource types remain exact across bilateral allocation
+PASS Phase I: recipient cannot ACCEPT using quantities reserved for another own proposal
+PASS Phase I: single primary initiation blocks a racing Trade without reserving partial resources
+PASS Phase I: Attention rejection leaves sequence/resources/claims and physical state unchanged
+PASS Phase I: recipient insufficiency does not forbid proposal publication
+PASS Phase I: failed initiation grants no source relief or successful spacing
+PASS Phase I: accepted cargo is an explicit committed effect, never a free bank balance
+PASS Phase I: inactive recipient hard-invalidates without fabricated response
+PASS Phase I: corrupt proposal operation identity and mutated shipment timing fail hydration
+PASS Phase I: proposal resource claim validation ignores JSON property insertion order
+PASS Phase I: blocked load/unload work retains custody without expired-timer wake churn
+PASS Phase I review: loss of dispatch node while loading blocks intact cargo immediately
+PASS Phase I review: loss of receiving node during transit blocks without waiting for arrival
+PASS Phase I review: blocked transit timing cannot keep earning physical progress
+PASS Phase I review: hydration rejects unloading before exact route arrival
+PASS Phase I review: ACCEPT rejects resource reservation with wrong authoritative subject
+PASS Phase I review: failure on second cargo insertion rolls back both banks, claims, Attention, timers and history
+PASS Phase I review: committed incoming cargo covers exchange need without becoming spendable stock
+PASS Phase I review: proactive generation excludes currently unroutable bilateral delivery
+PASS Phase I review: recipient BUILD and event spending remain legal while incoming terms are pending
+PASS Phase I review: losing receiving node before unload cannot credit new owner
+PASS Phase I review: dispatch conquest after departure cannot erase a valid outgoing route
+PASS Phase I review: pending endpoint loss invalidates without transfer or substitute node
+PASS Phase I review: all cargo phases including unload reload preserve future progression
+PASS Phase I review: counteroffer replay cannot spawn a second replacement or duplicate release
+PASS Phase I review: six independent quantities share one source bank without a broad lock
+PASS Phase I review: Trade and pending Peace coexist without terminating either
+PASS Phase I review: directed route missing only reverse path rejects bilateral ACCEPT
+PASS Phase I review: duplicate response commands do not duplicate custody or lifecycle history
+PASS Phase I review: independent counterparties may hold simultaneous exact proposals
+GROUP aiTrade 527 0
+PASS Phase J: explicit control Goal completes only from achieved control
+PASS Phase J: disappeared target invalidates without completing/rewarding
+PASS Phase J: completed development requires actual completed authored structure
+PASS Phase J: City Goal tests real city identity
+PASS Phase J: region control progress is real control fraction
+PASS Phase J: Peace Goal does not complete on clearance acceptance alone
+PASS Phase J: local force Goal completes at physical arrival, not movement start
+PASS Phase J: reserved bank does not satisfy spendable resource Goal
+PASS Phase J: missing/deadline targets have explicit invalidation
+PASS Phase J: Goal identity is stable and duplicate assignment rejected
+PASS Phase J: Goal cannot create candidate or real source
+PASS Phase J: Goal amplifies only its actual military source
+PASS Phase J: unrelated resource Goal cannot amplify Development
+PASS Phase J: exact relevant Goal assessment is contingent, not guaranteed capture
+PASS Phase J: unrelated Goal gives zero exact-plan preference
+PASS Phase J: committed Build cannot get repeated Goal progress preference
+PASS Phase J: all factual evaluators remain Goal and Opinion neutral
+PASS Phase J: completed and invalidated Goals lose all future modifier influence
+PASS Phase J: Goal changed during deliberation is read fresh at completion
+PASS Phase J: canonical clone and disposable wrapper deeply isolate Goal predicate
+PASS Phase J: Opinion is directed and neutral WAR is not dislike
+PASS Phase J: bounded Opinion update saturates deterministically
+PASS Phase J: Opinion event replay and reload cannot double count
+PASS Phase J: retained raw Memory does not duplicate current Opinion
+PASS Phase J: Opinion affects exact ATTACK preference but never factual outputs
+PASS Phase J: Opinion cannot bypass PEACE or clearance
+PASS Phase J: positive Opinion does not create a treaty
+PASS Phase J: Goal and Opinion have distinct single contribution owners
+PASS Phase J: aggressive Personality/Ambition cannot multiply target hatred
+PASS Phase J: directed Opinion cannot overwrite factual risk assessment
+PASS Phase J: pressure magnitude is not copied into either preference owner
+PASS Phase J: own Decision View is detached and excludes every private counterparty field
+PASS Phase J: proposer estimates never read recipient-private getters
+PASS Phase J: actual required Peace response uses only recipient own directed stance
+PASS Phase J: recipient own Peace Goal affects response outside WAR_VALUE
+PASS Phase J: Trade response Opinion changes willingness, not RESOURCE_VALUE
+PASS Phase J: reload while Trade pending preserves exact cognition and response
+PASS Phase J: schema 24 migration archives ambiguous objectives without fabricating history
+PASS Phase J: schema migration preserves operations/claims/Peace/Trade/recruitment IDs
+PASS Phase J: current schema missing receipt authority is corrupt
+PASS Phase J: lifecycle, range and receipt invariants reject corruption
+PASS Phase J: inactive owner Goals cannot drive thought; primary thread cleans up
+PASS Phase J: ranking and receipts are independent of collection insertion order
+PASS Phase J: factual/preference paths cannot consume early selection RNG
+PASS Phase J: cognition mutation rollback leaves preceding canonical state untouched
+PASS Phase J: public DTO cannot expose private Goal/Opinion/receipts
+PASS Phase J: exact action/evaluator count stays eight/seven
+PASS Phase J: pending Peace/reload retains own Goal and directed Opinion exactly
+PASS Phase J: actual Peace activation updates both directed Opinions exactly once
+PASS Phase J: Trade delivery, not publication/acceptance, owns beneficial Opinion event
+PASS Phase J: real exact attack updates defender stance without self-generated hatred
+PASS Phase J: event adapter applies current canonical Opinion once and deep-isolates Goals
+PASS Phase J: reload during proactive deliberation yields exact same preference/selection
+PASS Phase J: reload during Trade initiation preserves private cognition and exact reserved terms
+PASS Phase J: direct legacy negotiation is explicitly unavailable
+PASS Phase J: Opinion does not decay merely because time passes
+PASS Phase J: Goal change cannot create same-boundary recursive opportunities
+PASS Phase J: stale supplied Goal support cannot override fresh canonical objective
+PASS Phase J: actual comparison and own required response cannot inspect opponent private cognition
+PASS Phase J: unchanged cheap observation does not refresh or rescore Goals
+PASS Phase J: legacy Goal creation tick stays unknown rather than fabricated
+PASS Phase J: ambiguous historically finished Goal is archived rather than resurrected
+PASS Phase J: fortification Goal recognizes truthful intermediate progress
+PASS Phase J: Trade Goal amplification requires this partner to supply the relevant resource
+PASS Phase J: pressure observer skips unrelated Goal factual predicates
+PASS Phase J: legacy unknown creation boundary does not permit negative terminal time
+PASS Phase J review: committed contingent attack cannot earn duplicate Goal advancement
+PASS Phase J review: stale event output cannot overwrite canonical Goal lifecycle
+PASS Phase J review: unchanged event snapshot cannot invent an Opinion reversal
+PASS Phase J review: distinct authored effects at one boundary apply independently and replay once
+PASS Phase J review: malformed authored Opinion target cannot create ghost directed state
+PASS Phase J review: current-schema Goals cannot silently lose canonical lifecycle metadata
+PASS Phase J review: malformed event receipt identity/kind is rejected
+PASS Phase J review: real CAS conflict cannot leak Goal completion or Opinion receipt
+PASS Phase J review: authored effects flow through WorldSimulator with event-instance identity
+PASS Phase J review: impossible authored development and self-diplomacy objectives are rejected
+PASS Phase J review: actual invasion and conquest have one hostility and one distinct loss consequence
+PASS Phase J review: asymmetric directed stances clone and reload independently
+PASS Phase J review: committed incoming cargo covers future Goal need but never current completion
+PASS Phase J review: migration never replays delivered cargo or activated Peace into Opinion
+PASS Phase J review: completed Goal is removed from the actual deliberation-completion comparison
+PASS Phase J review: retained event output cannot mutate canonical Goal or Opinion references
+PASS Phase J review: distinct recaptures at one boundary retain separate territory-loss identities
+GROUP aiCognition 610 0
+PASS Phase K: clean canonical ledger does not fabricate default WAR history
+PASS Phase K: exact eight actions seven evaluators five domains remain
+PASS Phase K: pair identity preserves full exact IDs and unordered pair semantics
+PASS Phase K: faction-relative casualty and territorial facts are directional
+PASS Phase K: ATTACK_COMMITTED receipts replay and reload exactly once
+PASS Phase K: HOSTILE_ARRIVAL receipts replay and reload exactly once
+PASS Phase K: BATTLE receipts replay and reload exactly once
+PASS Phase K: TERRITORY_TRANSFER receipts replay and reload exactly once
+PASS Phase K: ATTACK_TERMINAL receipts replay and reload exactly once
+PASS Phase K: RETREAT receipts replay and reload exactly once
+PASS Phase K: PEACE_ACTIVATED receipts replay and reload exactly once
+PASS Phase K: WAR_RETURN receipts replay and reload exactly once
+PASS Phase K: conflicting event-ID reuse fails explicitly
+PASS Phase K: malformed quantities and missing exact battle consequence are rejected atomically
+PASS Phase K: clone and returned summary cannot alias canonical facts
+PASS Phase K: failed transaction rolls back consequence and ledger together
+PASS Phase K: actual persisted CAS conflict and retry settle a factual event once
+PASS Phase K: actual attack start records commitment but no travel victory or casualties
+PASS Phase K: concurrent exact attacks record independently for one pair
+PASS Phase K: immediate successful attack records one causal chain
+PASS Phase K: authoritative victory casualties and siege are exact without replay
+PASS Phase K: authoritative defeat casualties and siege are exact without replay
+PASS Phase K: retained defensive territory is not recorded as a gain
+PASS Phase K: invasion publication and actual capture preserve ledger causality
+PASS Phase K: virtual defense power is not a physical troop loss
+PASS Phase K: unopposed capture records no invented battle or casualties
+PASS Phase K: conquest records actually forfeited resource/structure/pool facts
+PASS Phase K: invalidation during travel keeps physical work and records no fake arrival
+PASS Phase K: actual Peace activation closes an episode but preserves its facts
+PASS Phase K: clearance does not close in-flight hostility history
+PASS Phase K: actual Peace expiry starts an empty new observed episode
+PASS Phase K: repeated war Peace periods preserve archives without history reconstruction
+PASS Phase K: duration uses observed authoritative boundaries without exhaustion score
+PASS Phase K: favorable casualty trajectory changes factual continuation
+PASS Phase K: unfavorable casualty trajectory changes factual continuation
+PASS Phase K: territory trajectory is faction-relative for me
+PASS Phase K: territory trajectory is faction-relative for enemy
+PASS Phase K: mixed recent trajectory is factual not a future prediction
+PASS Phase K: recent window remains bounded while cumulative facts survive
+PASS Phase K: activity counts do not independently become military success
+PASS Phase K: quiet observers do not scan ledger pairs or receipt history
+PASS Phase K: WAR evaluation reads no archived episodes or unbounded receipts
+PASS Phase K: factual ledger and WAR_VALUE never read private goals
+PASS Phase K: factual ledger and WAR_VALUE never read private memory
+PASS Phase K: factual ledger and WAR_VALUE never read private personality
+PASS Phase K: factual ledger and WAR_VALUE never read private ambition
+PASS Phase K: factual ledger and WAR_VALUE never read private diplomacy
+PASS Phase K: Opinion and Goals change preference but never the ledger/factual core
+PASS Phase K: future RNG cannot be consumed by ledger or WAR_VALUE
+PASS Phase K: unfavorable facts support own required Peace assessment outside Opinion
+PASS Phase K: opponent B facts cannot pollute opponent C
+PASS Phase K: ledger presence alone creates no new source or candidate
+PASS Phase K: attack comparison retains causal ownership and exact parameters
+PASS Phase K: schema 25 migration does not infer conflict facts from Memory Opinion or logs
+PASS Phase K: current schema cannot silently recreate missing ledger authority
+PASS Phase K: corruption invariants cover counts windows pair and receipt ownership
+PASS Phase K: public DTO excludes ledger receipts and factual assessment details
+PASS Phase K: collection insertion order cannot change trajectory or receipts
+PASS Phase K: equivalent authoritative event chunking survives intermediate reloads
+PASS Phase K: battle identity collision cannot silently suppress different consequences
+PASS Phase K: ordinary Battle Outlook evaluation cannot change the next real seeded battle
+PASS Phase K: tied-roll Battle Engine draw records casualties without invented capture or victory
+PASS Phase K: real staged attack fine coarse and reloaded progression have identical facts
+PASS Phase K: direct staged domain attack records one identity from start through arrival
+PASS Phase K: conquest reports actual undeployed forfeiture exactly once
+PASS Phase K: ledger never wakes an eliminated faction or invents a post-elimination war
+PASS Phase K: successful nested operation preserves canonical Opinion receipts too
+PASS Phase K: real clearance waits for attack while accepted Trade stays independent
+PASS Phase K: failed atomic attack initiation consumes no ledger identity
+PASS Phase K: actual attacking operation defeat settles failure without invented gains
+PASS Phase K: distinct direct commands at one boundary cannot share factual chain identity
+PASS Phase K: staged command chain identity persists across processing request changes
+PASS Phase K: invariants and serialization preserve a valid canonical pair
+PASS Phase K review: immediate invasion retains the exact direct command identity
+PASS Phase K review: siege-only casualties remain material window facts without becoming troop losses
+PASS Phase K review: replayed unopposed capture cannot undo a later recapture
+PASS Phase K review: exact recent/previous rollover at 16 material facts
+PASS Phase K review: exact recent/previous rollover at 17 material facts
+PASS Phase K review: exact recent/previous rollover at 32 material facts
+PASS Phase K review: exact recent/previous rollover at 33 material facts
+PASS Phase K review: closed Peace episode cannot be changed by a new terminal or retreat fact
+PASS Phase K review: legal physical withdrawal during Peace does not rewrite closed conflict totals
+PASS Phase K review: actual invasion mobilization records physical losses and defensive hold only
+PASS Phase K review: schema 25 ongoing physical attack keeps its exact plan without historical outcomes
+GROUP aiConflict 694 0
+PASS Phase L: exactly three response lanes, eight actions, seven factual evaluators
+PASS Phase L: quiet world has no response or recovery cognition
+PASS Phase L: WAR and subjective cognition alone never create an emergency
+PASS Phase L: exact semantic response identity has no delimiter collisions
+PASS Phase L: actual imminent commitment creates one stable context
+PASS Phase L: claimed routes and remote armies never become emergency candidates
+PASS Phase L: urgency escalation is material, single-tick ETA change is not
+PASS Phase L: new hostile participant retains independent context identity
+PASS Phase L: support loss causes a material context revision
+PASS Phase L: +1 troop and unrelated resource changes do not restart cognition
+PASS Phase L: critical threat preempts thought without relief spacing or physical reset
+PASS Phase L: urgent threat preempts proactive thought
+PASS Phase L: already committed WAIT initiation is not canceled
+PASS Phase L: CRITICAL sampled timing obeys locked ranges and persists
+PASS Phase L: URGENT sampled timing obeys locked ranges and persists
+PASS Phase L: offline to online promotes response progress without demotion
+PASS Phase L: existing runtime and reload complete identical response work
+PASS Phase L: response clocks have exact coarse/fine progression
+PASS Phase L: disappeared threat cancels timed cognition with no stale intervention
+PASS Phase L: one non-proactive thought thread despite independent threats
+PASS Phase L: selected local intervention executes exact plan through production bridge
+PASS Phase L: critical allowance is operation owned and normal capacity remains finite
+PASS Phase L: critical allowance never bypasses a force claim
+PASS Phase L: unfinished physical work keeps ordinary and emergency Attention
+PASS Phase L: no intervention is not WAIT and causes no rewards or cadence
+PASS Phase L: blocked attack objective preserves elapsed physical travel
+PASS Phase L: blocked movement recovery is dormant through unchanged boundaries
+PASS Phase L: physically resumed work invalidates dormant recovery
+PASS Phase L: required Peace work is registered from publication and bypasses proactive gates
+PASS Phase L: required Trade freshly sees recipient spending and releases pending reservation
+PASS Phase L: withdrawn proposal invalidates queued response without fake decline
+PASS Phase L: response invalidation and replay are idempotent
+PASS Phase L: Peace and Trade share stable required-deadline ordering
+PASS Phase L: critical threat priority does not starve earned required deadline
+PASS Phase L: required response survives reload with same exact windows and terms
+PASS Phase L: recipient elimination cancels response without optional cognition
+PASS Phase L: emergency disappears on faction elimination
+PASS Phase L: CAS rejects stale response without hidden merge
+PASS Phase L: failed exact start cannot leak context, Attention, sequence or claims
+PASS Phase L: canonical clone does not alias nested response timer/plan data
+PASS Phase L: malformed current response state cannot hydrate
+PASS Phase L: invariant rejects orphan primary and malformed exact response plan
+PASS Phase L: schema 26 migration invents no historical emergencies or timers
+PASS Phase L: schema 26 migration derives only current required proposal references
+PASS Phase L: insertion order cannot change context priority or exact candidates
+PASS Phase L: no private response scheduler/priority/timers leak in public DTO
+PASS Phase L: handled blocked threat cannot repeatedly bypass primary pacing
+PASS Phase L: a later hostile commitment by the same force has a new semantic identity
+PASS Phase L: a queued next emergency starts immediately after earned thought completion
+PASS Phase L: emergency overflow survives reload and releases once at physical arrival
+PASS Phase L: one critical intervention cannot consume unbounded overflow
+PASS Phase L: critical overflow does not reroll thought on an unrelated resource mutation
+PASS Phase L: a selected response cannot commit after its context disappears
+PASS Phase L: a selected response cannot substitute another army after its force is reserved
+PASS Phase L: terminal history does not enter queue/priority hot paths
+PASS Phase L: blocked cargo recovery preserves exact custody through reload
+PASS Phase L: private counterparty cognition remains inaccessible to required Trade assessment
+PASS Phase L: ordinary world ticks do not rescan healthy operations
+PASS Phase L: distant committed arrival schedules only material urgency boundaries
+PASS Phase L: invalid old attack objective cannot create a threat against the new owner
+GROUP aiResponses 754 0
+TOTAL 754 0

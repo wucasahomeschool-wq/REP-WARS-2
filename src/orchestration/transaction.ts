@@ -1,3 +1,4 @@
+import { observeNonProactiveWork, settleReadyRequiredResponses } from '../engine/nonProactiveCognition';
 import {refreshGoals} from '../cognition/goals';
 import {processTradeBoundary} from '../gameplay/trade/trade';
 import { cancelInvalidReinforcements } from '../engine/operations';
@@ -16,14 +17,17 @@ export function runStateTransaction<T>(
   apply: (draft: GameState) => T,
 ): { state: GameState; result: T } {
   const draft = cloneGameState(state);
-  processTradeBoundary(draft);
-  processPeaceBoundary(draft); // Earned diplomacy gates precede newly issued commands.
+  processTradeBoundary(draft,undefined,true);
+  processPeaceBoundary(draft,undefined,true); // Earned diplomacy gates precede newly issued commands.
+  settleReadyRequiredResponses(draft);
   refreshGoals(draft);
   const result = apply(draft);
   cancelInvalidReinforcements(draft);
-  processTradeBoundary(draft);
-  processPeaceBoundary(draft);
+  processTradeBoundary(draft,undefined,true);
+  processPeaceBoundary(draft,undefined,true);
+  settleReadyRequiredResponses(draft);
   refreshGoals(draft);
+  observeNonProactiveWork(draft);
   const violations = checkGameStateInvariants(draft);
   if (violations.length > 0) {
     throw new OrchestrationError(

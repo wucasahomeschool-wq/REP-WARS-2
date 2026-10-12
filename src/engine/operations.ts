@@ -1,3 +1,4 @@
+import { markResponseWorldChanged } from './responseRecords';
 import {settleTradeProposal} from '../gameplay/trade/trade';
 import {recordConflictFact} from '../conflict/ledger';
 import {tradeResourceClaims,availableResource} from '../gameplay/trade/resources';
@@ -25,7 +26,7 @@ function freezeTerminal(op: AIOperation): AIOperation {
   if(op.initiationTimer){Object.freeze(op.initiationTimer.progress);Object.freeze(op.initiationTimer);}
   Object.freeze(op.reason);
   op.factorBreakdown.forEach(Object.freeze); Object.freeze(op.factorBreakdown);
-  Object.freeze(op.claimIds); Object.freeze(op.links); Object.freeze(op.terminal); Object.freeze(op.attention);
+  Object.freeze(op.claimIds); Object.freeze(op.links); Object.freeze(op.terminal); if(op.attention.emergency)Object.freeze(op.attention.emergency); Object.freeze(op.attention);
   Object.freeze(op); immutableTerminals.add(op);
   return op;
 }
@@ -37,7 +38,7 @@ export function cloneOperation(op: AIOperation): AIOperation {
   const copy = { ...op, ...(op.plan !== undefined ? { plan: cloneConcretePlan(op.plan) } : {}),
     ...(op.initiationTimer ? { initiationTimer: { ...op.initiationTimer, progress: { ...op.initiationTimer.progress } } } : {}),
     reason: [...op.reason], factorBreakdown: op.factorBreakdown.map(f => ({ ...f })),
-    claimIds: [...op.claimIds], links: { ...op.links }, attention: { ...op.attention }, terminal: op.terminal ? { ...op.terminal } : null };
+    claimIds: [...op.claimIds], links: { ...op.links }, attention: { ...op.attention, ...(op.attention.emergency?{emergency:{...op.attention.emergency}}:{}) }, terminal: op.terminal ? { ...op.terminal } : null };
   return copy.terminal ? freezeTerminal(copy) : copy;
 }
 export function operationFromSelection(c: AICommitment, tick: number): AIOperation {
@@ -157,6 +158,7 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
     if (!army) {
       // The army may be destroyed by another battle. Release only the extinct
       // force; the invasion domain still owns its existing response/deadline.
+      if(op.objective!=='invalid'||op.phase!=='recovery')markResponseWorldChanged(state);
       op.objective = 'invalid'; op.phase = 'recovery'; op.status = 'executing'; op.statusReason = reason;
       for (const claimId of [...op.claimIds]) {
         const c = state.operationClaims.get(claimId);
@@ -169,6 +171,7 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
   }
   if (army?.movement && ['moving', 'blocked'].includes(army.movement.status) && army.movement.commitmentId === id) {
     if (outcome === 'completed') return false;
+    if(op.objective!=='invalid'||op.phase!=='recovery')markResponseWorldChanged(state);
     op.objective = 'invalid'; op.phase = 'recovery'; op.status = 'executing'; op.statusReason = reason;
     // The objective target no longer needs an engagement slot; keep the force.
     for (const claimId of [...op.claimIds]) {
@@ -187,6 +190,7 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
     allocateReinforcement(state,op.plan,id);
     finishDecisionInitiation(state,id,true);
   }
+  markResponseWorldChanged(state);
   op.status = outcome; op.phase = 'terminal'; op.statusReason = reason;
   if(op.action==='ATTACK'&&op.hostileCounterpartyId)recordConflictFact(state,op.id,
     {kind:'ATTACK_TERMINAL',actor:op.warlordId,target:op.hostileCounterpartyId,outcome});

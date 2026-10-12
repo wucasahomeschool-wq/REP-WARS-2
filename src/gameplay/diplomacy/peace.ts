@@ -1,3 +1,5 @@
+import { registerRequiredResponse, settleReadyRequiredResponses } from '../../engine/nonProactiveCognition';
+import { invalidateProposalResponse } from '../../engine/responseRecords';
 import {applyOpinionEvent} from '../../cognition/opinion';
 import {recordConflictFact} from '../../conflict/ledger';
 import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
@@ -12,7 +14,6 @@ import { finishDecisionInitiation } from '../../engine/decisionOpportunities';
 import { accrueDurationProgress, durationRemainingMs } from '../../world/timeToTick';
 import type { TemporalPresence } from '../../world/timeToTick';
 import { PEACE_TIMING as TIME, PEACE_TUNING } from '../../constants/peace';
-import { assessRequiredPeaceResponse } from '../../scoring/peaceAssessment';
 import { peacePairId, factionPair, relationshipBetween, activeDiplomacyFaction, hostileLifecyclesBetween } from './relationships';
 
 export function livePeaceProposals(state:GameState):PeaceProposal[] {
@@ -47,6 +48,7 @@ export function beginPeaceProposal(state:GameState,plan:OfferPeacePlan,operation
 export function settlePeaceProposal(state:GameState,id:string,status:Exclude<PeaceProposalStatus,'initiating'|'pending'>,metrics?:PeaceMetrics):boolean {
   const p=state.peaceProposals.get(id);if(!p||!['initiating','pending'].includes(p.status))return false;
   if(status==='accepted'&&p.status!=='pending')return false;
+  invalidateProposalResponse(state,'peace',id);
   p.status=status;p.resolvedAtMs=state.aiClock.nowMs;p.responseTimer=null;
   if(state.peaceProposalThreads.get(p.pairId)===id)state.peaceProposalThreads.delete(p.pairId);
   if(status==='accepted') {
@@ -76,7 +78,7 @@ export function nextPeaceBoundary(state:GameState,horizon:number,presence:Tempor
 /** Completion/arrival calls this after physical consequences. The required
  * lane then runs before ordinary proactive cognition, independently of Attention
  * and spacing. No pair-wide full-AI polling, no recursive counterparty model. */
-export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics):void {
+export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics,deferResponses=false):void {
   for(const p of livePeaceProposals(state)) {
     if(!activeDiplomacyFaction(state,p.proposer)||!activeDiplomacyFaction(state,p.recipient)||relationshipBetween(state,p.proposer,p.recipient)!=='WAR') {
       settlePeaceProposal(state,p.id,'invalidated',metrics);continue;
@@ -88,24 +90,15 @@ export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics):void
       const player=p.recipient===state.playerFactionId;
       p.responseTimer=startProactiveTimer(state,p.recipient,`peace-response:${p.id}`,player?TIME.playerResponseOnlineMs:TIME.responseOnlineMinMs,
         player?TIME.playerResponseOnlineMs:TIME.responseOnlineMaxMs,player?TIME.playerResponseOfflineMs/TIME.playerResponseOnlineMs:TIME.responseOfflineDivisor);
+      registerRequiredResponse(state,'peace',p.id);
       delete op.initiationTimer;
       finishDecisionInitiation(state,op.id,true);
       record(state,p.id,'offered',p.proposer,p.recipient,metrics);
     }
   }
-  // Deadline urgency, then creation boundary, then stable semantic identity.
-  const pending=livePeaceProposals(state).filter(p=>p.status==='pending').sort((a,b)=>
-    timerRemaining(state,a.responseTimer!)-timerRemaining(state,b.responseTimer!)||a.pendingAtMs!-b.pendingAtMs!||comparePlanIds(a.id,b.id));
-  for(const p of pending)if(timerRemaining(state,p.responseTimer!)===0) {
-    if(p.recipient===state.playerFactionId)settlePeaceProposal(state,p.id,'expired',metrics);
-    else {
-      const o=state.aiDecisionOpportunities.get(p.recipient);
-      if(o?.primary?.phase==='deliberating'){o.primary=null;o.lastBoundaryMs=state.aiClock.nowMs;}
-      if(metrics)metrics.requiredDeliberations++;
-      const response=assessRequiredPeaceResponse(state,p.recipient,p.proposer);
-      settlePeaceProposal(state,p.id,response.outcome==='ACCEPT_PEACE'?'accepted':'declined',metrics);
-    }
-  }
+  // Player expiry is a domain gate, never synthetic AI cognition.
+  for(const p of livePeaceProposals(state))if(p.status==='pending'&&p.recipient===state.playerFactionId&&timerRemaining(state,p.responseTimer!)===0)settlePeaceProposal(state,p.id,'expired',metrics);
+  if(!deferResponses){const before=livePeaceProposals(state).filter(p=>p.status==='pending'&&p.recipient!==state.playerFactionId).length;settleReadyRequiredResponses(state,'peace');if(metrics){const done=before-livePeaceProposals(state).filter(p=>p.status==='pending'&&p.recipient!==state.playerFactionId).length;metrics.requiredDeliberations+=done;metrics.responses+=done;}}
   for(const [id,r]of [...state.peaceRelationships].sort(([a],[b])=>comparePlanIds(a,b))) {
     if(r.state==='PEACE'||r.factions.some(f=>!activeDiplomacyFaction(state,f))||(r.legacyExpiresTurn!=null&&state.turn>=r.legacyExpiresTurn)) {
       if((r.expiresAtMs!==null&&state.aiClock.nowMs>=r.expiresAtMs)||(r.legacyExpiresTurn!=null&&state.turn>=r.legacyExpiresTurn)

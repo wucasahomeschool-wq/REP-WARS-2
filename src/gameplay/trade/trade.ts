@@ -1,3 +1,5 @@
+import { registerRequiredResponse, settleReadyRequiredResponses } from '../../engine/nonProactiveCognition';
+import { invalidateProposalResponse, markResponseWorldChanged } from '../../engine/responseRecords';
 import {applyOpinionEvent} from '../../cognition/opinion';
 import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
 import {refreshGoals} from '../../cognition/goals';
@@ -15,7 +17,6 @@ import {startProactiveTimer,timerRemaining} from '../../engine/proactiveCognitio
 import {finishDecisionInitiation} from '../../engine/decisionOpportunities';
 import {accrueDurationProgress,durationRemainingMs,TemporalPresence} from '../../world/timeToTick';
 import {calculateMovementDuration} from '../../army/movement';
-import {assessRequiredTradeResponse} from '../../scoring/tradeAssessment';
 export const proposalLive=(p:TradeProposal)=>p.status==='initiating'||p.status==='pending';
 export const shipmentLive=(s:TradeShipment)=>s.phase!=='delivered';
 export const liveTradeProposals=(s:GameState)=>liveTradeRecords(s.tradeProposals,proposalLive);
@@ -75,6 +76,7 @@ export function settleTradeProposal(s:GameState,id:string,status:Exclude<TradePr
     if(m){m.shipments+=2;m.accepts++;}
     record(s,outgoing.id,'shipment_created',p.proposer,p.recipient,m);record(s,incoming.id,'shipment_created',p.proposer,p.recipient,m);
   }
+  invalidateProposalResponse(s,'trade',id);
   p.status=status;p.resolvedAtMs=s.aiClock.nowMs;p.responseTimer=null;
   const released=tradeResourceClaims(p.plan,p.operationId).length;
   if(!settleOperation(s,p.operationId,status==='accepted'?'completed':'failed',`Trade proposal ${status}`))throw new Error('Trade proposal lost owning operation');
@@ -93,7 +95,7 @@ export function nextTradeBoundary(s:GameState,horizon:number,presence:TemporalPr
     if(timer)next=Math.min(next,s.aiClock.nowMs+Math.max(1,durationRemainingMs(timer.progress,timer.onlineDurationMs,presence)));}
   return next;
 }
-function block(s:GameState,sh:TradeShipment,reason:string):void {sh.phase='blocked';sh.blockedReason=reason;sh.blockedAtTick=s.worldTick;/* Retain cargo, elapsed leg and exact route. No recovery doctrine invented. */}
+function block(s:GameState,sh:TradeShipment,reason:string):void {markResponseWorldChanged(s);sh.phase='blocked';sh.blockedReason=reason;sh.blockedAtTick=s.worldTick;/* Retain cargo, elapsed leg and exact route. No recovery doctrine invented. */}
 function beginLeg(s:GameState,sh:TradeShipment):void {
   const from=s.territories.get(sh.route[sh.legIndex]!),to=s.territories.get(sh.route[sh.legIndex+1]!);
   if(!from||!to||!from.neighboring.includes(to.id)){block(s,sh,'Route unavailable; physical custody preserved');return;}
@@ -116,7 +118,7 @@ export function progressTradeShipments(s:GameState,m?:TradeMetrics):void {
       if(timerRemaining(s,sh.timer!)>0)continue;
       if(bundleEntries(sh.cargo).some(([r,n])=>!Number.isSafeInteger(s.factions.get(sh.recipient)!.resources[r]+n))){block(s,sh,'Receiving bank cannot represent exact quantity; cargo preserved');continue;}
       for(const [r,n]of bundleEntries(sh.cargo))s.factions.get(sh.recipient)!.resources[r]+=n;
-      sh.phase='delivered';sh.deliveredAtMs=s.aiClock.nowMs;sh.timer=null;s.tradeShipments.set(sh.id,sh);
+      markResponseWorldChanged(s);sh.phase='delivered';sh.deliveredAtMs=s.aiClock.nowMs;sh.timer=null;s.tradeShipments.set(sh.id,sh);
       applyOpinionEvent(s,sh.id,sh.recipient,sh.sender,'trade_completed',COGNITION.eventDelta.trade_completed);
       refreshGoals(s,sh.recipient);
       record(s,sh.id,'delivered',sh.sender,sh.recipient,m);if(m)m.deliveries++;
@@ -125,7 +127,7 @@ export function progressTradeShipments(s:GameState,m?:TradeMetrics):void {
 }
 /** Domain delivery occurs before required responses, which precede proactive
  * cognition. Only live indexes are examined; no full history scan/pair polling. */
-export function processTradeBoundary(s:GameState,m?:TradeMetrics):void {
+export function processTradeBoundary(s:GameState,m?:TradeMetrics,deferResponses=false):void {
   progressTradeShipments(s,m);
   for(const p of liveTradeProposals(s)) {
     const problem=tradePlanProblem(s,p.plan,p.operationId);
@@ -136,16 +138,11 @@ export function processTradeBoundary(s:GameState,m?:TradeMetrics):void {
     p.status='pending';p.pendingAtMs=s.aiClock.nowMs;delete op.initiationTimer;finishDecisionInitiation(s,op.id,true);
     const player=p.recipient===s.playerFactionId;
     p.responseTimer=startProactiveTimer(s,p.recipient,`trade-response:${p.id}`,player?RESPONSE.playerOnlineMs:RESPONSE.onlineMinMs,player?RESPONSE.playerOnlineMs:RESPONSE.onlineMaxMs,player?RESPONSE.playerOfflineMs/RESPONSE.playerOnlineMs:RESPONSE.offlineDivisor);
+    registerRequiredResponse(s,'trade',p.id);
     record(s,p.id,'offered',p.proposer,p.recipient,m);
   }
-  const pending=liveTradeProposals(s).filter(p=>p.status==='pending').sort((a,b)=>timerRemaining(s,a.responseTimer!)-timerRemaining(s,b.responseTimer!)||a.pendingAtMs!-b.pendingAtMs!||comparePlanIds(a.id,b.id));
-  for(const p of pending)if(timerRemaining(s,p.responseTimer!)===0) {
-    if(p.recipient===s.playerFactionId){settleTradeProposal(s,p.id,'expired',m);continue;}
-    const o=s.aiDecisionOpportunities.get(p.recipient);if(o?.primary?.phase==='deliberating'){o.primary=null;o.lastBoundaryMs=s.aiClock.nowMs;}
-    if(m)m.requiredResponses++;
-    const response=assessRequiredTradeResponse(s,p);
-    settleTradeProposal(s,p.id,response.outcome==='ACCEPT_TRADE'?'accepted':'declined',m);
-  }
+  for(const p of liveTradeProposals(s))if(p.status==='pending'&&p.recipient===s.playerFactionId&&timerRemaining(s,p.responseTimer!)===0)settleTradeProposal(s,p.id,'expired',m);
+  if(!deferResponses){const before=liveTradeProposals(s).filter(p=>p.status==='pending'&&p.recipient!==s.playerFactionId).length;settleReadyRequiredResponses(s,'trade');if(m)m.requiredResponses+=before-liveTradeProposals(s).filter(p=>p.status==='pending'&&p.recipient!==s.playerFactionId).length;}
 }
 export function publicTradeState(s:GameState,viewer:string|null) {
   return {proposals:[...s.tradeProposals.values()].filter(p=>p.pendingAtMs!==null&&(p.proposer===viewer||p.recipient===viewer)).sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>({id:p.id,proposer:p.proposer,recipient:p.recipient,offered:{...p.plan.offered},requested:{...p.plan.requested},status:p.status,remainingResponseMs:p.status==='pending'&&p.recipient===s.playerFactionId?timerRemaining(s,p.responseTimer!):null})),

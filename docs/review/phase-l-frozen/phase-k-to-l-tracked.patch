@@ -1,0 +1,1019 @@
+diff --git a/src/army/movement.ts b/src/army/movement.ts
+index 1ea872a5ffba1b3eeb2577c5c8125cb7b517a164..1ebc30dde6c5291d1f29b1aa7dcc3bfea5a3d353 100644
+--- a/src/army/movement.ts
++++ b/src/army/movement.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from '../engine/responseRecords';
+ import {refreshGoals} from '../cognition/goals';
+ import { assertClaimAvailable } from '../engine/operations';
+ import { BALANCE } from '../constants/balance';
+@@ -100,6 +101,7 @@ export function beginArmyMovement(state: GameState, params: BeginArmyMovementPar
+     commitmentId: params.commitmentId ?? null,
+   };
+   army.movement = movement;
++  markResponseWorldChanged(state);
+   const armyChanges: ArmyChange[] = [{
+     armyId: army.id,
+     field: 'movement',
+@@ -205,6 +207,7 @@ export function progressArmyMovements(state: GameState, worldTick: number): Move
+       commitmentId: movement.commitmentId,
+     });
+   }
++  if(results.length)markResponseWorldChanged(state);
+   return results;
+ }
+ 
+diff --git a/src/army/strategicAttack.ts b/src/army/strategicAttack.ts
+index 2c48d545f4f8a927275e84d516d3cccbf22e0fa3..8f3136e72da4b37e75a137bf046eb62f113d5b51 100644
+--- a/src/army/strategicAttack.ts
++++ b/src/army/strategicAttack.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from '../engine/responseRecords';
+ import {applyOpinionEvent} from '../cognition/opinion';
+ import {hostileFactIdentity,recordConflictFact} from '../conflict/ledger';
+ import {COGNITION_TUNING as COGNITION} from '../constants/cognition';
+@@ -264,6 +265,7 @@ export function invalidateStaleAttackIntents(state: GameState): StaleAttackInval
+     // until the existing movement system reaches arrival/interruption.
+     if (intent.commitmentId) settleOperation(state, intent.commitmentId, 'failed', reason);
+   }
++  if(out.length)markResponseWorldChanged(state);
+   return out;
+ }
+ 
+@@ -547,6 +549,7 @@ export function startStrategicAttack(
+     onlyArmyId: params.onlyArmyId ?? delayed.armyId,
+   };
+   army.attackIntent = intent;
++  markResponseWorldChanged(state);
+   recordConflictFact(state,conflictFactId,{kind:'ATTACK_COMMITTED',actor:attackerId,target:defenderId,territoryId:target.id});
+   const armyChanges: ArmyChange[] = [
+     ...moved.armiesChanged,
+diff --git a/src/engine/concretePlans.ts b/src/engine/concretePlans.ts
+index cde55226de0f74f5ca24039bce2dc2389629c6b5..d5b541afa2a24e739cfea0d7f7f706a5fa8c5b51 100644
+--- a/src/engine/concretePlans.ts
++++ b/src/engine/concretePlans.ts
+@@ -89,7 +89,7 @@ export function validateConcretePlan(plan: AIConcretePlan, state: GameStateSnaps
+ export type PlanRejectionKind = 'LEGALITY' | 'CLAIM' | 'COMPATIBILITY' | 'ATTENTION';
+ /** Independent diagnostic dimensions; no strategic decision is made here. */
+ export function assessConcretePlanFeasibility(plan: AIConcretePlan, snapshot: GameStateSnapshot,
+-  operationId?: string, compatibilityRules?: readonly StrategicCompatibilityRule[]) {
++  operationId?: string, compatibilityRules?: readonly StrategicCompatibilityRule[], responseContextId?:string) {
+   const rejections: { kind: PlanRejectionKind; reason: string }[] = [];
+   const shapeProblem = concretePlanProblem(plan);
+   if (shapeProblem) return { feasible: false, rejections: [{ kind: 'LEGALITY' as const, reason: shapeProblem }] };
+@@ -105,7 +105,7 @@ export function assessConcretePlanFeasibility(plan: AIConcretePlan, snapshot: Ga
+     }
+     const compatibility = assessStrategicCompatibility(plan, state, compatibilityRules);
+     for (const reason of compatibility.reasons) rejections.push({ kind: 'COMPATIBILITY', reason });
+-    const attention = assessAttention(state, plan, operationId);
++    const attention = assessAttention(state, plan, operationId,responseContextId);
+     if (!attention.available) rejections.push({ kind: 'ATTENTION', reason: `Ordinary Attention ${attention.occupied} + ${attention.cost} exceeds capacity ${attention.capacity}` });
+   }
+   return { feasible: rejections.length === 0, rejections };
+diff --git a/src/engine/decisionOpportunities.ts b/src/engine/decisionOpportunities.ts
+index 69845b884e06e39e0d6730080d9e1d2adbf9e69b..fab062a1338fe8bb046ac9e57c4f9a04e1484a92 100644
+--- a/src/engine/decisionOpportunities.ts
++++ b/src/engine/decisionOpportunities.ts
+@@ -25,7 +25,7 @@ export function attachDecisionInitiation(state: GameState, factionId: string, op
+  */
+ export function finishDecisionInitiation(state: GameState, operationId: string, successful: boolean): void {
+   const op = state.operations.get(operationId);
+-  if (!op) return;
++  if (!op || op.responseContextId) return;
+   const opportunity = state.aiDecisionOpportunities.get(op.warlordId);
+   if (opportunity?.primaryOperationId !== operationId) return;
+   opportunity.primaryOperationId = null;
+diff --git a/src/engine/operations.ts b/src/engine/operations.ts
+index 8e26ad669a5dc00928f7ef8eb48e6aa951df5bc6..92f5ef715e5c7520a89bf43bc27e4904b6b7ad48 100644
+--- a/src/engine/operations.ts
++++ b/src/engine/operations.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from './responseRecords';
+ import {settleTradeProposal} from '../gameplay/trade/trade';
+ import {recordConflictFact} from '../conflict/ledger';
+ import {tradeResourceClaims,availableResource} from '../gameplay/trade/resources';
+@@ -25,7 +26,7 @@ function freezeTerminal(op: AIOperation): AIOperation {
+   if(op.initiationTimer){Object.freeze(op.initiationTimer.progress);Object.freeze(op.initiationTimer);}
+   Object.freeze(op.reason);
+   op.factorBreakdown.forEach(Object.freeze); Object.freeze(op.factorBreakdown);
+-  Object.freeze(op.claimIds); Object.freeze(op.links); Object.freeze(op.terminal); Object.freeze(op.attention);
++  Object.freeze(op.claimIds); Object.freeze(op.links); Object.freeze(op.terminal); if(op.attention.emergency)Object.freeze(op.attention.emergency); Object.freeze(op.attention);
+   Object.freeze(op); immutableTerminals.add(op);
+   return op;
+ }
+@@ -37,7 +38,7 @@ export function cloneOperation(op: AIOperation): AIOperation {
+   const copy = { ...op, ...(op.plan !== undefined ? { plan: cloneConcretePlan(op.plan) } : {}),
+     ...(op.initiationTimer ? { initiationTimer: { ...op.initiationTimer, progress: { ...op.initiationTimer.progress } } } : {}),
+     reason: [...op.reason], factorBreakdown: op.factorBreakdown.map(f => ({ ...f })),
+-    claimIds: [...op.claimIds], links: { ...op.links }, attention: { ...op.attention }, terminal: op.terminal ? { ...op.terminal } : null };
++    claimIds: [...op.claimIds], links: { ...op.links }, attention: { ...op.attention, ...(op.attention.emergency?{emergency:{...op.attention.emergency}}:{}) }, terminal: op.terminal ? { ...op.terminal } : null };
+   return copy.terminal ? freezeTerminal(copy) : copy;
+ }
+ export function operationFromSelection(c: AICommitment, tick: number): AIOperation {
+@@ -157,6 +158,7 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
+     if (!army) {
+       // The army may be destroyed by another battle. Release only the extinct
+       // force; the invasion domain still owns its existing response/deadline.
++      if(op.objective!=='invalid'||op.phase!=='recovery')markResponseWorldChanged(state);
+       op.objective = 'invalid'; op.phase = 'recovery'; op.status = 'executing'; op.statusReason = reason;
+       for (const claimId of [...op.claimIds]) {
+         const c = state.operationClaims.get(claimId);
+@@ -169,6 +171,7 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
+   }
+   if (army?.movement && ['moving', 'blocked'].includes(army.movement.status) && army.movement.commitmentId === id) {
+     if (outcome === 'completed') return false;
++    if(op.objective!=='invalid'||op.phase!=='recovery')markResponseWorldChanged(state);
+     op.objective = 'invalid'; op.phase = 'recovery'; op.status = 'executing'; op.statusReason = reason;
+     // The objective target no longer needs an engagement slot; keep the force.
+     for (const claimId of [...op.claimIds]) {
+@@ -187,6 +190,7 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
+     allocateReinforcement(state,op.plan,id);
+     finishDecisionInitiation(state,id,true);
+   }
++  markResponseWorldChanged(state);
+   op.status = outcome; op.phase = 'terminal'; op.statusReason = reason;
+   if(op.action==='ATTACK'&&op.hostileCounterpartyId)recordConflictFact(state,op.id,
+     {kind:'ATTACK_TERMINAL',actor:op.warlordId,target:op.hostileCounterpartyId,outcome});
+diff --git a/src/engine/proactiveCognition.ts b/src/engine/proactiveCognition.ts
+index 55e99fa98f8bd04e1639d06f822399a016014c94..97d612aa97fda42d889bbe1658f3608a68e02773 100644
+--- a/src/engine/proactiveCognition.ts
++++ b/src/engine/proactiveCognition.ts
+@@ -1,7 +1,8 @@
++import { nonProactiveOwnsThought, nextResponseBoundary, accrueResponseClocks } from './nonProactiveCognition';
+ import {refreshGoals} from '../cognition/goals';
+-import {accrueTradeTimers,nextTradeBoundary,hasRequiredTradeResponse} from '../gameplay/trade/trade';
++import {accrueTradeTimers,nextTradeBoundary} from '../gameplay/trade/trade';
+ import { progressRecruitmentThroughReceipt } from '../gameplay/recruitment/recruitment';
+-import { accruePeaceTimers, nextPeaceBoundary, hasRequiredPeaceResponse } from '../gameplay/diplomacy/peace';
++import { accruePeaceTimers, nextPeaceBoundary } from '../gameplay/diplomacy/peace';
+ import { activeOperations } from './operations';
+ import type { GameState } from '../types/GameState';
+ import type { AISourceContext, AIPressureMetrics, ProactiveTimer } from '../types/AIPressure';
+@@ -66,7 +67,7 @@ export function prepareProactiveDecision(state:GameState,fid:string,metrics?:AIP
+   const o=opportunity(state,fid);
+   // Completed spacing cannot stay as a 1-ms wake while required work owns cognition.
+   if(o.spacing&&timerRemaining(state,o.spacing)===0)o.spacing=null;
+-  if((hasRequiredPeaceResponse(state,fid)||hasRequiredTradeResponse(state,fid))&&(!o.primary||o.primary.phase==='deliberating')) {
++  if(nonProactiveOwnsThought(state,fid)&&(!o.primary||o.primary.phase==='deliberating')) {
+     if(o.primary){o.primary=null;o.lastBoundaryMs=state.aiClock.nowMs;}
+     return null; // Required lane preempts unfinished thought, never committed initiation.
+   }
+@@ -96,7 +97,7 @@ export function invalidateProactiveInitiation(state:GameState,fid:string):void {
+ /** Next meaningful temporal boundary, not a poll. Blocked contexts have no
+  * pressure-triggered wake. Saturation and physical completion do not spawn cognition. */
+ export function nextProactiveBoundary(state:GameState,horizon:number,presence:TemporalPresence):number {
+-  let next=nextTradeBoundary(state,nextPeaceBoundary(state,horizon,presence),presence);
++  let next=nextResponseBoundary(state,nextTradeBoundary(state,nextPeaceBoundary(state,horizon,presence),presence),presence);
+   for(const op of activeOperations(state))if(op.initiationTimer)next=Math.min(next,state.aiClock.nowMs+Math.max(1,durationRemainingMs(op.initiationTimer.progress,op.initiationTimer.onlineDurationMs,presence)));
+   for(const [fid,o] of state.aiDecisionOpportunities) {
+     if(!factionCanObserve(state,fid))continue;
+@@ -116,6 +117,7 @@ export function accrueProactiveClocks(state:GameState,atMs:number,presence:Tempo
+   const elapsed=atMs-state.aiClock.nowMs;if(elapsed<0)throw new Error('AI clock cannot rewind');
+   progressRecruitmentThroughReceipt(state,atMs);
+   accrueSourcePressure(state,elapsed,presence);
++  accrueResponseClocks(state,atMs,presence);
+   accruePeaceTimers(state,atMs,presence);
+   accrueTradeTimers(state,atMs,presence);
+   for(const o of state.aiDecisionOpportunities.values()) {
+diff --git a/src/engine/strategicAttention.ts b/src/engine/strategicAttention.ts
+index 487c6a1ea8a45b128ca59e3a5c9b29a8326c92ac..b0fa05972cd45d4c165bb8285cdd5df0659a1d85 100644
+--- a/src/engine/strategicAttention.ts
++++ b/src/engine/strategicAttention.ts
+@@ -1,3 +1,4 @@
++import { RESPONSE_POLICY } from '../constants/aiResponse';
+ import { STRATEGIC_ATTENTION_TUNING } from '../constants/strategicAttention';
+ import type { AIConcretePlan } from '../types/AIConcretePlan';
+ import type { GameState } from '../types/GameState';
+@@ -13,19 +14,24 @@ export function occupiedAttention(state: GameState, factionId: string, excluding
+   return activeOperations(state, factionId).reduce((total, op) => total +
+     (op.id !== excludingOperationId && op.attention.acquiredAtTick !== null && op.attention.releasedAtTick === null ? op.attention.cost : 0), 0);
+ }
+-export function assessAttention(state: GameState, plan: AIConcretePlan, excludingOperationId?: string) {
++export function assessAttention(state: GameState, plan: AIConcretePlan, excludingOperationId?: string, responseContextId?:string) {
+   // A persisted common capacity applies independently to every faction;
+   // occupied budgets are never shared between factions.
+   const capacity = state.strategicAttention.capacity;
+   const cost = attentionCost(plan);
+   const occupied = occupiedAttention(state, plan.factionId, excludingOperationId);
+-  return { capacity, cost, occupied, available: capacity !== undefined && (cost === 0 || occupied + cost <= capacity) };
++  const context=responseContextId?state.aiResponses.get(responseContextId):undefined;
++  const allowance=context&&context.factionId===plan.factionId&&context.lane==='REACTIVE_EMERGENCY'&&context.severity==='CRITICAL'&&['queued','thinking','blocked'].includes(context.status)?RESPONSE_POLICY.emergencyExtraCapacity:0;
++  const reservedOverflow=activeOperations(state,plan.factionId).filter(o=>o.id!==excludingOperationId).reduce((n,o)=>n+(o.attention.emergency?.overflow??0),0);
++  const overflow=Math.max(0,occupied+cost-capacity);
++  return { capacity, cost, occupied, allowance, available: capacity !== undefined && (cost === 0 || occupied + cost <= capacity || allowance>0&&overflow<=allowance-reservedOverflow) };
+ }
+ /** Called only inside the atomic domain-start transaction after feasibility checks. */
+ export function acquireAttention(state: GameState, op: AIOperation): void {
+   if (!op.plan) throw new Error('Attention acquisition requires an exact plan');
+-  const result = assessAttention(state, op.plan, op.id);
++  const result = assessAttention(state, op.plan, op.id, op.responseContextId);
+   if (!result.available) throw new Error('Insufficient ordinary Strategic Attention');
+   op.attention = { factionId: op.warlordId, cost: result.cost,
+-    acquiredAtTick: result.cost ? state.worldTick : null, releasedAtTick: null, grandfathered: false };
++    acquiredAtTick: result.cost ? state.worldTick : null, releasedAtTick: null, grandfathered: false,
++    ...(result.occupied+result.cost>result.capacity?{emergency:{contextId:op.responseContextId!,revision:state.aiResponses.get(op.responseContextId!)!.revision,overflow:Math.min(result.cost,result.occupied+result.cost-result.capacity)}}:{}) };
+ }
+diff --git a/src/gameplay/diplomacy/peace.ts b/src/gameplay/diplomacy/peace.ts
+index bef24a800ffb19de3bf225b499f525db42044ef1..35a76edaf0ea09b3cafe40d72547e83a93469d88 100644
+--- a/src/gameplay/diplomacy/peace.ts
++++ b/src/gameplay/diplomacy/peace.ts
+@@ -1,3 +1,5 @@
++import { registerRequiredResponse, settleReadyRequiredResponses } from '../../engine/nonProactiveCognition';
++import { invalidateProposalResponse } from '../../engine/responseRecords';
+ import {applyOpinionEvent} from '../../cognition/opinion';
+ import {recordConflictFact} from '../../conflict/ledger';
+ import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
+@@ -12,7 +14,6 @@ import { finishDecisionInitiation } from '../../engine/decisionOpportunities';
+ import { accrueDurationProgress, durationRemainingMs } from '../../world/timeToTick';
+ import type { TemporalPresence } from '../../world/timeToTick';
+ import { PEACE_TIMING as TIME, PEACE_TUNING } from '../../constants/peace';
+-import { assessRequiredPeaceResponse } from '../../scoring/peaceAssessment';
+ import { peacePairId, factionPair, relationshipBetween, activeDiplomacyFaction, hostileLifecyclesBetween } from './relationships';
+ 
+ export function livePeaceProposals(state:GameState):PeaceProposal[] {
+@@ -47,6 +48,7 @@ export function beginPeaceProposal(state:GameState,plan:OfferPeacePlan,operation
+ export function settlePeaceProposal(state:GameState,id:string,status:Exclude<PeaceProposalStatus,'initiating'|'pending'>,metrics?:PeaceMetrics):boolean {
+   const p=state.peaceProposals.get(id);if(!p||!['initiating','pending'].includes(p.status))return false;
+   if(status==='accepted'&&p.status!=='pending')return false;
++  invalidateProposalResponse(state,'peace',id);
+   p.status=status;p.resolvedAtMs=state.aiClock.nowMs;p.responseTimer=null;
+   if(state.peaceProposalThreads.get(p.pairId)===id)state.peaceProposalThreads.delete(p.pairId);
+   if(status==='accepted') {
+@@ -76,7 +78,7 @@ export function nextPeaceBoundary(state:GameState,horizon:number,presence:Tempor
+ /** Completion/arrival calls this after physical consequences. The required
+  * lane then runs before ordinary proactive cognition, independently of Attention
+  * and spacing. No pair-wide full-AI polling, no recursive counterparty model. */
+-export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics):void {
++export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics,deferResponses=false):void {
+   for(const p of livePeaceProposals(state)) {
+     if(!activeDiplomacyFaction(state,p.proposer)||!activeDiplomacyFaction(state,p.recipient)||relationshipBetween(state,p.proposer,p.recipient)!=='WAR') {
+       settlePeaceProposal(state,p.id,'invalidated',metrics);continue;
+@@ -88,24 +90,15 @@ export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics):void
+       const player=p.recipient===state.playerFactionId;
+       p.responseTimer=startProactiveTimer(state,p.recipient,`peace-response:${p.id}`,player?TIME.playerResponseOnlineMs:TIME.responseOnlineMinMs,
+         player?TIME.playerResponseOnlineMs:TIME.responseOnlineMaxMs,player?TIME.playerResponseOfflineMs/TIME.playerResponseOnlineMs:TIME.responseOfflineDivisor);
++      registerRequiredResponse(state,'peace',p.id);
+       delete op.initiationTimer;
+       finishDecisionInitiation(state,op.id,true);
+       record(state,p.id,'offered',p.proposer,p.recipient,metrics);
+     }
+   }
+-  // Deadline urgency, then creation boundary, then stable semantic identity.
+-  const pending=livePeaceProposals(state).filter(p=>p.status==='pending').sort((a,b)=>
+-    timerRemaining(state,a.responseTimer!)-timerRemaining(state,b.responseTimer!)||a.pendingAtMs!-b.pendingAtMs!||comparePlanIds(a.id,b.id));
+-  for(const p of pending)if(timerRemaining(state,p.responseTimer!)===0) {
+-    if(p.recipient===state.playerFactionId)settlePeaceProposal(state,p.id,'expired',metrics);
+-    else {
+-      const o=state.aiDecisionOpportunities.get(p.recipient);
+-      if(o?.primary?.phase==='deliberating'){o.primary=null;o.lastBoundaryMs=state.aiClock.nowMs;}
+-      if(metrics)metrics.requiredDeliberations++;
+-      const response=assessRequiredPeaceResponse(state,p.recipient,p.proposer);
+-      settlePeaceProposal(state,p.id,response.outcome==='ACCEPT_PEACE'?'accepted':'declined',metrics);
+-    }
+-  }
++  // Player expiry is a domain gate, never synthetic AI cognition.
++  for(const p of livePeaceProposals(state))if(p.status==='pending'&&p.recipient===state.playerFactionId&&timerRemaining(state,p.responseTimer!)===0)settlePeaceProposal(state,p.id,'expired',metrics);
++  if(!deferResponses){const before=livePeaceProposals(state).filter(p=>p.status==='pending'&&p.recipient!==state.playerFactionId).length;settleReadyRequiredResponses(state,'peace');if(metrics){const done=before-livePeaceProposals(state).filter(p=>p.status==='pending'&&p.recipient!==state.playerFactionId).length;metrics.requiredDeliberations+=done;metrics.responses+=done;}}
+   for(const [id,r]of [...state.peaceRelationships].sort(([a],[b])=>comparePlanIds(a,b))) {
+     if(r.state==='PEACE'||r.factions.some(f=>!activeDiplomacyFaction(state,f))||(r.legacyExpiresTurn!=null&&state.turn>=r.legacyExpiresTurn)) {
+       if((r.expiresAtMs!==null&&state.aiClock.nowMs>=r.expiresAtMs)||(r.legacyExpiresTurn!=null&&state.turn>=r.legacyExpiresTurn)
+diff --git a/src/gameplay/economy/ownership.ts b/src/gameplay/economy/ownership.ts
+index 8eb9749d21f3f39c659e19b1f31cbd5297562c61..a4a1741952a09a9127857d58e9afce7cf83748f0 100644
+--- a/src/gameplay/economy/ownership.ts
++++ b/src/gameplay/economy/ownership.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from '../../engine/responseRecords';
+ import { activeOperations, settleOperation } from '../../engine/operations';
+ import { FactionId, TerritoryId, Resources } from '../../types';
+ import { GameState } from '../../types/GameState';
+@@ -86,6 +87,7 @@ export function settleTerritoryOwnershipChange(
+   newOwner: FactionId | null,
+   previousOwner: FactionId | null = null,
+ ): TerritoryDestructionReport {
++  markResponseWorldChanged(state);
+   const report = snapshotTerritoryDestruction(state, territoryId, newOwner, previousOwner);
+   for(const op of activeOperations(state).filter(op=>op.plan?.action==='REINFORCE'&&op.plan.territoryId===territoryId))
+     settleOperation(state,op.id,'failed','Local reinforcement source ownership changed');
+diff --git a/src/gameplay/invasion/create.ts b/src/gameplay/invasion/create.ts
+index 8cc352a1f511f441b61928c0cf8f50ef4d8c5139..d2d84c689ac8136b04b9f092c625c9a7f86c03fc 100644
+--- a/src/gameplay/invasion/create.ts
++++ b/src/gameplay/invasion/create.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from '../../engine/responseRecords';
+ import {applyOpinionEvent} from '../../cognition/opinion';
+ import {recordConflictFact,hostileFactIdentity} from '../../conflict/ledger';
+ import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
+@@ -90,6 +91,7 @@ export function beginInvasionAgainstPlayer(
+   });
+   invasion.conflictFactId=hostileFactIdentity(state,params.territoryId,params.armies.map(a=>a.id),params.commitmentId,params.requestId);
+   state.activeInvasions.set(invasion.id, invasion);
++  markResponseWorldChanged(state);
+   for(const kind of ['ATTACK_COMMITTED','HOSTILE_ARRIVAL'] as const)recordConflictFact(state,invasion.conflictFactId,
+     {kind,actor:invasion.attackerFactionId,target:invasion.defenderFactionId,territoryId:invasion.territoryId});
+   applyOpinionEvent(state,invasion.id,invasion.defenderFactionId,invasion.attackerFactionId,'attack_received',COGNITION.eventDelta.attack_received);
+diff --git a/src/gameplay/recruitment/recruitment.ts b/src/gameplay/recruitment/recruitment.ts
+index f8e606185e2dc0978e1b8b1e048f6b982e572304..d401dec0e483a67f1acfbef8b3150a5be2396a09 100644
+--- a/src/gameplay/recruitment/recruitment.ts
++++ b/src/gameplay/recruitment/recruitment.ts
+@@ -1,3 +1,4 @@
++import { notifyResponsePoolAvailability } from '../../engine/responseRecords';
+ import type { GameState } from '../../types/GameState';
+ import { BALANCE } from '../../constants/balance';
+ import { WORLD_TICK_DURATION_MS } from '../../world/realtimeClock';
+@@ -43,7 +44,8 @@ export function progressRecruitment(state:GameState,throughWork=BigInt(state.wor
+     const work=BigInt(pool.fractionalWork)+elapsed*BigInt(T.troopsPerSimulationTick*multiplier);
+     const generated=Math.min(affordable,Number(work/RECRUITMENT_WORK_PER_TICK));
+     if(!Number.isSafeInteger(generated)||!Number.isSafeInteger(pool.troops+generated))throw new Error('Local recruitment exceeds safe troop storage');
+-    pool.troops+=generated;
++    const troopsBefore=pool.troops;pool.troops+=generated;
++    notifyResponsePoolAvailability(state,t.id,troopsBefore,pool.troops);
+     pool.fractionalWork=generated===affordable?'0':(work%RECRUITMENT_WORK_PER_TICK).toString();
+     const consumed=generated*T.foodPerTroop;
+     state.territoryEconomy.get(t.id)!.uncollected.food-=consumed;
+diff --git a/src/gameplay/trade/trade.ts b/src/gameplay/trade/trade.ts
+index 6b5ef9b1afb5035a064eceaac477c01edacddf2e..4983210d5700fc24c2620c72a48f02e2cbd7865a 100644
+--- a/src/gameplay/trade/trade.ts
++++ b/src/gameplay/trade/trade.ts
+@@ -1,3 +1,5 @@
++import { registerRequiredResponse, settleReadyRequiredResponses } from '../../engine/nonProactiveCognition';
++import { invalidateProposalResponse, markResponseWorldChanged } from '../../engine/responseRecords';
+ import {applyOpinionEvent} from '../../cognition/opinion';
+ import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
+ import {refreshGoals} from '../../cognition/goals';
+@@ -15,7 +17,6 @@ import {startProactiveTimer,timerRemaining} from '../../engine/proactiveCognitio
+ import {finishDecisionInitiation} from '../../engine/decisionOpportunities';
+ import {accrueDurationProgress,durationRemainingMs,TemporalPresence} from '../../world/timeToTick';
+ import {calculateMovementDuration} from '../../army/movement';
+-import {assessRequiredTradeResponse} from '../../scoring/tradeAssessment';
+ export const proposalLive=(p:TradeProposal)=>p.status==='initiating'||p.status==='pending';
+ export const shipmentLive=(s:TradeShipment)=>s.phase!=='delivered';
+ export const liveTradeProposals=(s:GameState)=>liveTradeRecords(s.tradeProposals,proposalLive);
+@@ -75,6 +76,7 @@ export function settleTradeProposal(s:GameState,id:string,status:Exclude<TradePr
+     if(m){m.shipments+=2;m.accepts++;}
+     record(s,outgoing.id,'shipment_created',p.proposer,p.recipient,m);record(s,incoming.id,'shipment_created',p.proposer,p.recipient,m);
+   }
++  invalidateProposalResponse(s,'trade',id);
+   p.status=status;p.resolvedAtMs=s.aiClock.nowMs;p.responseTimer=null;
+   const released=tradeResourceClaims(p.plan,p.operationId).length;
+   if(!settleOperation(s,p.operationId,status==='accepted'?'completed':'failed',`Trade proposal ${status}`))throw new Error('Trade proposal lost owning operation');
+@@ -93,7 +95,7 @@ export function nextTradeBoundary(s:GameState,horizon:number,presence:TemporalPr
+     if(timer)next=Math.min(next,s.aiClock.nowMs+Math.max(1,durationRemainingMs(timer.progress,timer.onlineDurationMs,presence)));}
+   return next;
+ }
+-function block(s:GameState,sh:TradeShipment,reason:string):void {sh.phase='blocked';sh.blockedReason=reason;sh.blockedAtTick=s.worldTick;/* Retain cargo, elapsed leg and exact route. No recovery doctrine invented. */}
++function block(s:GameState,sh:TradeShipment,reason:string):void {markResponseWorldChanged(s);sh.phase='blocked';sh.blockedReason=reason;sh.blockedAtTick=s.worldTick;/* Retain cargo, elapsed leg and exact route. No recovery doctrine invented. */}
+ function beginLeg(s:GameState,sh:TradeShipment):void {
+   const from=s.territories.get(sh.route[sh.legIndex]!),to=s.territories.get(sh.route[sh.legIndex+1]!);
+   if(!from||!to||!from.neighboring.includes(to.id)){block(s,sh,'Route unavailable; physical custody preserved');return;}
+@@ -116,7 +118,7 @@ export function progressTradeShipments(s:GameState,m?:TradeMetrics):void {
+       if(timerRemaining(s,sh.timer!)>0)continue;
+       if(bundleEntries(sh.cargo).some(([r,n])=>!Number.isSafeInteger(s.factions.get(sh.recipient)!.resources[r]+n))){block(s,sh,'Receiving bank cannot represent exact quantity; cargo preserved');continue;}
+       for(const [r,n]of bundleEntries(sh.cargo))s.factions.get(sh.recipient)!.resources[r]+=n;
+-      sh.phase='delivered';sh.deliveredAtMs=s.aiClock.nowMs;sh.timer=null;s.tradeShipments.set(sh.id,sh);
++      markResponseWorldChanged(s);sh.phase='delivered';sh.deliveredAtMs=s.aiClock.nowMs;sh.timer=null;s.tradeShipments.set(sh.id,sh);
+       applyOpinionEvent(s,sh.id,sh.recipient,sh.sender,'trade_completed',COGNITION.eventDelta.trade_completed);
+       refreshGoals(s,sh.recipient);
+       record(s,sh.id,'delivered',sh.sender,sh.recipient,m);if(m)m.deliveries++;
+@@ -125,7 +127,7 @@ export function progressTradeShipments(s:GameState,m?:TradeMetrics):void {
+ }
+ /** Domain delivery occurs before required responses, which precede proactive
+  * cognition. Only live indexes are examined; no full history scan/pair polling. */
+-export function processTradeBoundary(s:GameState,m?:TradeMetrics):void {
++export function processTradeBoundary(s:GameState,m?:TradeMetrics,deferResponses=false):void {
+   progressTradeShipments(s,m);
+   for(const p of liveTradeProposals(s)) {
+     const problem=tradePlanProblem(s,p.plan,p.operationId);
+@@ -136,16 +138,11 @@ export function processTradeBoundary(s:GameState,m?:TradeMetrics):void {
+     p.status='pending';p.pendingAtMs=s.aiClock.nowMs;delete op.initiationTimer;finishDecisionInitiation(s,op.id,true);
+     const player=p.recipient===s.playerFactionId;
+     p.responseTimer=startProactiveTimer(s,p.recipient,`trade-response:${p.id}`,player?RESPONSE.playerOnlineMs:RESPONSE.onlineMinMs,player?RESPONSE.playerOnlineMs:RESPONSE.onlineMaxMs,player?RESPONSE.playerOfflineMs/RESPONSE.playerOnlineMs:RESPONSE.offlineDivisor);
++    registerRequiredResponse(s,'trade',p.id);
+     record(s,p.id,'offered',p.proposer,p.recipient,m);
+   }
+-  const pending=liveTradeProposals(s).filter(p=>p.status==='pending').sort((a,b)=>timerRemaining(s,a.responseTimer!)-timerRemaining(s,b.responseTimer!)||a.pendingAtMs!-b.pendingAtMs!||comparePlanIds(a.id,b.id));
+-  for(const p of pending)if(timerRemaining(s,p.responseTimer!)===0) {
+-    if(p.recipient===s.playerFactionId){settleTradeProposal(s,p.id,'expired',m);continue;}
+-    const o=s.aiDecisionOpportunities.get(p.recipient);if(o?.primary?.phase==='deliberating'){o.primary=null;o.lastBoundaryMs=s.aiClock.nowMs;}
+-    if(m)m.requiredResponses++;
+-    const response=assessRequiredTradeResponse(s,p);
+-    settleTradeProposal(s,p.id,response.outcome==='ACCEPT_TRADE'?'accepted':'declined',m);
+-  }
++  for(const p of liveTradeProposals(s))if(p.status==='pending'&&p.recipient===s.playerFactionId&&timerRemaining(s,p.responseTimer!)===0)settleTradeProposal(s,p.id,'expired',m);
++  if(!deferResponses){const before=liveTradeProposals(s).filter(p=>p.status==='pending'&&p.recipient!==s.playerFactionId).length;settleReadyRequiredResponses(s,'trade');if(m)m.requiredResponses+=before-liveTradeProposals(s).filter(p=>p.status==='pending'&&p.recipient!==s.playerFactionId).length;}
+ }
+ export function publicTradeState(s:GameState,viewer:string|null) {
+   return {proposals:[...s.tradeProposals.values()].filter(p=>p.pendingAtMs!==null&&(p.proposer===viewer||p.recipient===viewer)).sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>({id:p.id,proposer:p.proposer,recipient:p.recipient,offered:{...p.plan.offered},requested:{...p.plan.requested},status:p.status,remainingResponseMs:p.status==='pending'&&p.recipient===s.playerFactionId?timerRemaining(s,p.responseTimer!):null})),
+diff --git a/src/orchestration/applyBattle.ts b/src/orchestration/applyBattle.ts
+index 708d44ae620cfb1a67470c95c4c150f9c309a33c..57a672432b18eb1ba1a603773ac22a1593c44d33 100644
+--- a/src/orchestration/applyBattle.ts
++++ b/src/orchestration/applyBattle.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from '../engine/responseRecords';
+ import {applyOpinionEvent} from '../cognition/opinion';
+ import {recordConflictFact,conflictEventId} from '../conflict/ledger';
+ import {COGNITION_TUNING as COGNITION} from '../constants/cognition';
+@@ -71,6 +72,7 @@ function eliminateArmies(state: GameState, armies: Army[], armyChanges: ArmyChan
+     if (operationId) settleOperation(state, operationId, 'failed', 'claimed force destroyed in battle');
+     armyChanges.push({ armyId: a.id, eliminated: true });
+   }
++  markResponseWorldChanged(state);
+   refreshGoals(state);
+ }
+ 
+@@ -137,6 +139,7 @@ function transferTerritory(
+   if (oldOwner && oldOwner === state.playerFactionId) {
+     events.push(...applyPlayerTerritoryLoss(state, territory.id));
+   }
++  markResponseWorldChanged(state);
+   refreshGoals(state);
+   if (newOwner === state.playerFactionId) {
+     events.push(...applyWorldCompletionCheck(state));
+diff --git a/src/orchestration/handlers.ts b/src/orchestration/handlers.ts
+index 7be9eed5409051e379e664f323e636bc8495c261..803e4eb2c614a6299e82aea129c36c599196a0c6 100644
+--- a/src/orchestration/handlers.ts
++++ b/src/orchestration/handlers.ts
+@@ -1,3 +1,6 @@
++import { markResponseWorldChanged } from '../engine/responseRecords';
++import { processNonProactiveBoundary, reactivePlans, responseContextExists } from '../engine/nonProactiveCognition';
++import type { AIResponseContext } from '../types/AIResponse';
+ import {beginTradeProposal,processTradeBoundary,settleTradeProposal,acceptanceProblem} from '../gameplay/trade/trade';
+ import {TRADE_TIMING} from '../constants/trade';
+ import { REINFORCE_INITIATION as RECRUIT } from '../constants/recruitment';
+@@ -637,21 +640,25 @@ export function progressProactiveThrough(state: GameState, ctx: HandlerContext,
+     // completions apply. WAIT's feasibility revalidation must see those effects
+     // just like ordinary cognition; it is not an exception to boundary ordering.
+     if(!allowDecisions)return;
+-    processTradeBoundary(state);
+-    processPeaceBoundary(state); // Required responses and diplomacy gates precede proactive thought.
++    processTradeBoundary(state,undefined,true);
++    processPeaceBoundary(state,undefined,true); // Required responses and diplomacy gates precede proactive thought.
+     for(const op of activeOperations(state).filter(o=>o.action==='REINFORCE'&&o.phase==='physical')) {
+       const plan=op.plan;
+       if(plan?.action!=='REINFORCE')throw new Error('Reinforcement operation lost exact plan');
+       const problem=reinforcementProblem(state,plan,op.id);
+       if(problem || !op.initiationTimer) {
+         settleOperation(state,op.id,'failed',problem??'Missing reinforcement timer');
+-        invalidateProactiveInitiation(state,op.warlordId);
++        if(!op.responseContextId)invalidateProactiveInitiation(state,op.warlordId);
+         continue;
+       }
+       if(timerRemaining(state,op.initiationTimer)>0)continue;
+       if(!settleOperation(state,op.id,'completed','Exact local troop allocation completed'))throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE,'Timed allocation lost exact claim ownership');
+       resolutions.push({factionId:op.warlordId,commitmentId:op.id,action:op.action,outcome:'completed',success:true,worldTick:state.worldTick});
+     }
++    processNonProactiveBoundary(state,(plan,context)=>{
++      try { return startResponseIntervention(state,ctx,plan,context,inner=>{result.stateChanges.push(...inner.stateChanges);result.events.push(...inner.events);result.notifications.push(...inner.notifications);result.resourcesChanged.push(...inner.resourcesChanged);result.armiesChanged.push(...inner.armiesChanged);result.territoriesChanged.push(...inner.territoriesChanged);}); }
++      catch(error) { if(error instanceof OrchestrationError)return null;throw error; }
++    });
+     for(const id of [...state.allFactionIds].sort()) {
+       if(id===state.playerFactionId || isLevel1TutorialAiSuppressed(state,id))continue;
+       const inner=withRequestParameters(ctx.req,{warlordId:id},()=>handleAiDecide(state,ctx));
+@@ -670,6 +677,12 @@ export function progressProactiveThrough(state: GameState, ctx: HandlerContext,
+         if(resolved.errors)result.errors=[...(result.errors??[]),...resolved.errors];
+       }
+     }
++    // A just-started physical commitment is a material event at this instant.
++    // Schedule its recipients now, not at an arbitrary next receipt/chunk.
++    processNonProactiveBoundary(state,(plan,context)=>{
++      try {return startResponseIntervention(state,ctx,plan,context,inner=>{result.stateChanges.push(...inner.stateChanges);result.events.push(...inner.events);result.notifications.push(...inner.notifications);result.resourcesChanged.push(...inner.resourcesChanged);result.armiesChanged.push(...inner.armiesChanged);result.territoriesChanged.push(...inner.territoriesChanged);});}
++      catch(error){if(error instanceof OrchestrationError)return null;throw error;}
++    });
+   };
+   if(horizon<state.aiClock.nowMs)return result;
+   accrueProactiveClocks(state,state.aiClock.nowMs,authoritativePresence(state));
+@@ -777,14 +790,14 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
+     const op = draft.operations.get(selected.id) ?? operationFromSelection(selected, draft.worldTick);
+     if (op.plan?.action==='WAIT') throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Legacy WAIT operations cannot execute; WAIT requires a source-bound primary timer');
+     if (!op.plan) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Incomplete legacy reasoning cannot execute');
+-    const feasibility = assessConcretePlanFeasibility(op.plan, toDecisionEngineSnapshot(draft), op.id);
++    const feasibility = assessConcretePlanFeasibility(op.plan, toDecisionEngineSnapshot(draft), op.id,undefined,op.responseContextId);
+     if (!feasibility.feasible) {
+       const rejection = feasibility.rejections[0]!;
+       throw new OrchestrationError(rejection.kind === 'LEGALITY' ? ErrorCode.INVALID_TARGET : ErrorCode.ACTION_NOT_ALLOWED,
+         rejection.reason, { feasibility: feasibility.rejections,
+           ...(rejection.reason.includes('anchor') ? { reason: ANCHOR_PROTECTED_REASON, territoryId: planTargetId(op.plan) } : {}) });
+     }
+-    if(op.action==='REINFORCE'||op.action==='OFFER_PEACE'||op.action==='TRADE') {
++    if(!op.responseContextId&&(op.action==='REINFORCE'||op.action==='OFFER_PEACE'||op.action==='TRADE')) {
+       const primary=opportunity(draft,op.warlordId);
+       if(primary.primaryOperationId && primary.primaryOperationId!==op.id || primary.primary && primary.primaryOperationId!==op.id)
+         throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Primary proactive initiation busy');
+@@ -815,7 +828,7 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
+     if (typeof inner.payload.invasionId === 'string') op.links.invasionId = inner.payload.invasionId;
+     if(op.action==='REINFORCE'||op.action==='OFFER_PEACE'||op.action==='TRADE') {
+       const primary=opportunity(draft,op.warlordId);
+-      primary.primaryOperationId=op.id;
++      if(!op.responseContextId)primary.primaryOperationId=op.id;
+       const timing=op.action==='REINFORCE'?RECRUIT:op.action==='TRADE'?TRADE_TIMING:{initiationOnlineMs:PEACE_TIMING.initiationOnlineMs,initiationOfflineMs:PEACE_TIMING.initiationOfflineMs};
+       op.initiationTimer=startProactiveTimer(draft,op.warlordId,op.action.toLowerCase(),timing.initiationOnlineMs,timing.initiationOnlineMs,timing.initiationOfflineMs/timing.initiationOnlineMs);
+     } else finishDecisionInitiation(draft, op.id, true);
+@@ -824,6 +837,7 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
+       const battle = inner.payload.battleResult as { winner?: string } | undefined;
+       settleOperation(draft, op.id, battle?.winner === 'attacker' ? 'completed' : 'failed', `attacker result: ${battle?.winner ?? 'unknown'}`);
+     }
++    markResponseWorldChanged(draft);
+     inner.payload = { ...inner.payload, operationId: op.id, commitmentId: op.id,
+       commitmentOutcome: op.status, reassessmentRequired: op.terminal !== null };
+     return inner;
+@@ -836,7 +850,18 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
+  * This is not an additional autonomous deliberation thread.
+  */
+ export function handleStartAiOperation(state: GameState, ctx: HandlerContext): HandlerResult {
+-  const plan = ctx.req.parameters?.plan as AIConcretePlan;
++  return startExactPlan(state,ctx,ctx.req.parameters?.plan as AIConcretePlan);
++}
++export function startResponseIntervention(state:GameState,ctx:HandlerContext,plan:AIConcretePlan,context:AIResponseContext,onResult?:(result:HandlerResult)=>void):string {
++  const current=state.aiResponses.get(context.id);
++  if(!current||current.revision!==context.revision||current.materialSignature!==context.materialSignature||current.status!=='thinking'||!responseContextExists(state,current)||!reactivePlans(state,current).some(p=>p.id===plan.id))throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Response context changed before initiation');
++  if(current.selectedPlan?.id!==plan.id||context.selectedPlan?.id!==plan.id)throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Response must retain its selected exact plan');
++  const parameters=ctx.req.parameters;
++  try {
++    const result=startExactPlan(state,ctx,plan,current);onResult?.(result);return result.payload.operationId as string;
++  } finally {ctx.req.parameters=parameters;}
++}
++function startExactPlan(state:GameState,ctx:HandlerContext,plan:AIConcretePlan,response?:AIResponseContext):HandlerResult {
+   const problem = concretePlanProblem(plan);
+   if (problem) throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, problem);
+   if (state.playerFactionId === plan.factionId && !((plan.action==='OFFER_PEACE'&&ctx.req.commandId==='OFFER_PEACE')||(plan.action==='TRADE'&&['TRADE','COUNTEROFFER_TRADE'].includes(ctx.req.commandId)))) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'AI cannot control player forces');
+@@ -850,6 +875,10 @@ export function handleStartAiOperation(state: GameState, ctx: HandlerContext): H
+     targetId: planTargetId(plan), targetName: planTargetId(plan), status: 'committed', createdTurn: state.turn,
+     originatingGoalId: null, reason: ['exact integration plan'], priority: 0, score: 0,
+     confidence: 1, personalityBias: 0, ambitionInfluence: 0, factorBreakdown: [], statusReason: null }, state.worldTick);
++  if(response) {
++    if(response.factionId!==plan.factionId||response.status!=='thinking')throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Stale response owner');
++    selected.responseContextId=response.id;
++  }
+   // The increment is rolled back with the outer command on failure. It must
+   // precede nested invariant validation of the newly recorded ID.
+   return startOperation(state, ctx, selected, true);
+diff --git a/src/orchestration/transaction.ts b/src/orchestration/transaction.ts
+index 88800e7002bb5dcb293da10540fa7b0b0f67fa33..5938bf5cdf9f9991d9b5792d911b4986dd708397 100644
+--- a/src/orchestration/transaction.ts
++++ b/src/orchestration/transaction.ts
+@@ -1,3 +1,4 @@
++import { observeNonProactiveWork, settleReadyRequiredResponses } from '../engine/nonProactiveCognition';
+ import {refreshGoals} from '../cognition/goals';
+ import {processTradeBoundary} from '../gameplay/trade/trade';
+ import { cancelInvalidReinforcements } from '../engine/operations';
+@@ -16,14 +17,17 @@ export function runStateTransaction<T>(
+   apply: (draft: GameState) => T,
+ ): { state: GameState; result: T } {
+   const draft = cloneGameState(state);
+-  processTradeBoundary(draft);
+-  processPeaceBoundary(draft); // Earned diplomacy gates precede newly issued commands.
++  processTradeBoundary(draft,undefined,true);
++  processPeaceBoundary(draft,undefined,true); // Earned diplomacy gates precede newly issued commands.
++  settleReadyRequiredResponses(draft);
+   refreshGoals(draft);
+   const result = apply(draft);
+   cancelInvalidReinforcements(draft);
+-  processTradeBoundary(draft);
+-  processPeaceBoundary(draft);
++  processTradeBoundary(draft,undefined,true);
++  processPeaceBoundary(draft,undefined,true);
++  settleReadyRequiredResponses(draft);
+   refreshGoals(draft);
++  observeNonProactiveWork(draft);
+   const violations = checkGameStateInvariants(draft);
+   if (violations.length > 0) {
+     throw new OrchestrationError(
+diff --git a/src/persistence/versioning.ts b/src/persistence/versioning.ts
+index 96f4cc38089ede2b7e2c8036cc4dfb8644a43443..b8682b63feae019462b5ac9c83d9ad1b593c20ee 100644
+--- a/src/persistence/versioning.ts
++++ b/src/persistence/versioning.ts
+@@ -1,3 +1,4 @@
++import { registerRequiredResponse } from '../engine/nonProactiveCognition';
+ import {initializeCognition} from '../cognition/migration';
+ import { initializeRecruitment, simulationWork } from '../gameplay/recruitment/recruitment';
+ import { migratePeaceState } from './peaceMigration';
+@@ -363,6 +364,15 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
+   // No reconstructed fighting, casualties or historical Peace epochs.
+   if(schema<26){state.conflictLedger=new Map();state.conflictEventReceipts=new Map();}
+   else if(!(state.conflictLedger instanceof Map)||!(state.conflictEventReceipts instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 26 requires canonical conflict ledger and receipts');
++  if(schema<27){
++    state.aiResponses=new Map();
++    state.aiResponseScheduler={primaryByFaction:new Map(),lastBoundaryByFaction:new Map(),observedWorldTick:null,dirty:true};
++  } else if(!(state.aiResponses instanceof Map)||!state.aiResponseScheduler||typeof state.aiResponseScheduler!=='object')
++    throw new PersistenceError('persistence.corrupt','Schema 27 requires canonical non-proactive response contexts and scheduler');
++  if(schema<27){
++    for(const p of (state.peaceProposals as GameState['peaceProposals']).values())if(p.status==='pending')registerRequiredResponse(state as unknown as GameState,'peace',p.id);
++    for(const p of (state.tradeProposals as GameState['tradeProposals']).values())if(p.status==='pending')registerRequiredResponse(state as unknown as GameState,'trade',p.id);
++  }
+   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
+   return state;
+ }
+diff --git a/src/scoring/contextPlanComparison.ts b/src/scoring/contextPlanComparison.ts
+index e08e537bf80646930e66370e39c5a4254d81674a..9bff4240ac510c60f4e01cb46cabf89a9b31d688 100644
+--- a/src/scoring/contextPlanComparison.ts
++++ b/src/scoring/contextPlanComparison.ts
+@@ -49,7 +49,14 @@ export class ContextPlanComparator {
+     const comparisons=[...plans].sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>this.comparePlan(state,canonical,p,evaluators,view));
+     return {comparisons,evaluatorCalls:{...evaluators.calls},cacheHits:evaluators.cacheHits};
+   }
+-  private comparePlan(state:GameState,source:AISourceContext,plan:AIConcretePlan,evaluators:StrategicEvaluators,view:ReturnType<typeof factionDecisionView>):PlanComparison {
++  /** Non-proactive exact-plan comparison has no Pressure source and no WAIT.
++   * NO_ADDITIONAL_INTERVENTION is an implicit zero baseline, not an action. */
++  compareInterventions(state:GameState,contextId:string,factionId:string,plans:readonly AIConcretePlan[]):PlanComparison[] {
++    if(new Set(plans.map(p=>p.id)).size!==plans.length||plans.some(p=>p.factionId!==factionId||p.action==='WAIT'||concretePlanProblem(p)))throw new Error('Invalid response plans');
++    const evaluators=new StrategicEvaluators(new FactualSupport(state)),view=factionDecisionView(state,factionId);
++    return [...plans].sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>this.comparePlan(state,{id:contextId,kind:'COVERAGE_GAP',subjectId:''},p,evaluators,view));
++  }
++  private comparePlan(state:GameState,source:Pick<AISourceContext,'id'|'kind'|'subjectId'>,plan:AIConcretePlan,evaluators:StrategicEvaluators,view:ReturnType<typeof factionDecisionView>):PlanComparison {
+     const contributions:PlanContribution[]=[],assessments:EvaluatorAssessment[]=[];
+     const add=(causalKey:string,owner:PlanContribution['owner'],category:ComparisonCategory,value:number,explanation:string,confidence:PlanContribution['confidence']='high')=>{
+       addPlanContribution(contributions,causalKey,owner,category,value,explanation,confidence);
+@@ -163,3 +170,11 @@ export function comparisonScoredPlan(c:PlanComparison):ScoredConcretePlan {
+     factorBreakdown:c.contributions.map(x=>({factor:`${x.owner}:${x.causalKey}`,weight:1,contribution:(x.direction==='cost'?-1:1)*x.normalizedMagnitude})),
+     reasoning:c.contributions.map(x=>`${x.owner}: ${x.explanation}`)};
+ }
++
++/** Same qualified near-tie discipline, without manufacturing a WAIT plan. */
++export function selectInterventionComparison(comparisons:readonly PlanComparison[],rng:SeededRNG):PlanComparison|null {
++  if(new Set(comparisons.map(c=>c.sourceContextId)).size>1||comparisons.some(c=>!Number.isFinite(c.finalValue)))throw new Error('Invalid response comparison');
++  const sorted=comparisons.filter(c=>c.qualifies&&c.factualValue>0&&c.finalValue>=T.minimumCommitmentAdvantage).sort((a,b)=>b.finalValue-a.finalValue||comparePlanIds(a.plan.id,b.plan.id));
++  const near=sorted.filter(c=>c.finalValue>=sorted[0]!.finalValue-T.nearTieBand);
++  return near.length===0?null:near.length===1?near[0]!:near[Math.floor(rng.next()*near.length)]!;
++}
+diff --git a/src/state/cloneGameState.ts b/src/state/cloneGameState.ts
+index 049aa775c980b73a395f3ef72f675c12c20db44e..5e282eb7c59b110faadbc034750f78fb626f5654 100644
+--- a/src/state/cloneGameState.ts
++++ b/src/state/cloneGameState.ts
+@@ -1,3 +1,4 @@
++import { createResponseMap } from '../engine/responseRecords';
+ import {indexedTradeMap} from '../gameplay/trade/records';
+ import {proposalLive,shipmentLive} from '../gameplay/trade/trade';
+ import { cloneConcretePlan } from '../types/AIConcretePlan';
+@@ -248,6 +249,8 @@ export function adoptOwnedTransactionState(target: GameState, next: GameState):
+   target.lastAiDecisionTick = next.lastAiDecisionTick;
+   target.strategicAttention = next.strategicAttention;
+   target.aiDecisionOpportunities = next.aiDecisionOpportunities;
++  target.aiResponses = next.aiResponses;
++  target.aiResponseScheduler = next.aiResponseScheduler;
+   target.aiPressure = next.aiPressure;
+   target.aiClock = next.aiClock;
+   target.peaceRelationships = next.peaceRelationships;
+@@ -336,6 +339,8 @@ export function cloneGameState(state: GameState): GameState {
+     lastAiDecisionTick: new Map(state.lastAiDecisionTick),
+     strategicAttention: { ...state.strategicAttention },
+     aiDecisionOpportunities: cloneMap(state.aiDecisionOpportunities, opportunity => JSON.parse(JSON.stringify(opportunity))),
++    aiResponses: createResponseMap([...state.aiResponses].map(([id,c])=>[id,JSON.parse(JSON.stringify(c))] as const)),
++    aiResponseScheduler: {...state.aiResponseScheduler,primaryByFaction:new Map(state.aiResponseScheduler.primaryByFaction),lastBoundaryByFaction:new Map(state.aiResponseScheduler.lastBoundaryByFaction)},
+     aiPressure: cloneMap(state.aiPressure, source => ({ ...source, blockers: source.blockers.map(b => ({ plan: cloneConcretePlan(b.plan), reasons: b.reasons.map(r => ({ ...r })) })) })),
+     aiClock: { ...state.aiClock, worldAnchor: state.aiClock.worldAnchor ? { ...state.aiClock.worldAnchor } : null },
+     worldSeed: state.worldSeed,
+diff --git a/src/state/gameStateInvariants.ts b/src/state/gameStateInvariants.ts
+index e5a6b106357eee96c891c260fbc5c7bf3a4609c7..1b800b5a9a5dfb64d3c8288a0dffafa8054c39b3 100644
+--- a/src/state/gameStateInvariants.ts
++++ b/src/state/gameStateInvariants.ts
+@@ -1,3 +1,5 @@
++import { RESPONSE_POLICY } from '../constants/aiResponse';
++import {responseStateProblems} from './responseInvariants';
+ import {conflictStateProblems} from './conflictInvariants';
+ import {cognitionStateProblems} from './cognitionInvariants';
+ import {tradeStateProblems} from './tradeInvariants';
+@@ -87,6 +89,7 @@ function checkGameplaySessionLeases(
+ export function checkGameStateInvariants(state: GameState): GameStateInvariantViolation[] {
+   const violations: GameStateInvariantViolation[] = [];
+   const push = (code: string, message: string) => violations.push({ code, message });
++  for(const message of responseStateProblems(state))push('response.invalid_state',message);
+   for(const message of cognitionStateProblems(state))push('cognition.invalid_state',message);
+   for(const message of peaceStateProblems(state)) push('peace.invalid_state',message);
+   for(const message of pressureStateProblems(state)) push('pressure.invalid_state',message);
+@@ -393,7 +396,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
+   }
+ 
+   // ---- canonical operations and hard physical claims ----
+-  const attentionTotals = new Map<string, { ordinary: number; historical: number }>();
++  const attentionTotals = new Map<string, { ordinary: number; historical: number; emergency:number }>();
+   for (const [id, op] of state.operations) {
+     const validatedAt = op && validatedTerminals.get(op);
+     if (validatedAt !== undefined && state.worldTick >= validatedAt
+@@ -426,8 +429,11 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
+         if (['ATTACK','MOVE','RETREAT','BUILD','OFFER_PEACE','TRADE'].includes(op.action) && attention.cost === 0)
+           push('attention.missing_physical_cost', `Physical operation ${id} bypasses ordinary Attention`);
+         if (released !== null || (attention.cost > 0 && acquired === null)) push('attention.missing_charge', `Physical operation ${id} lacks its charge`);
+-        const totals = attentionTotals.get(op.warlordId) ?? { ordinary: 0, historical: 0 };
+-        totals[attention.grandfathered ? 'historical' : 'ordinary'] += attention.cost;
++        const totals = attentionTotals.get(op.warlordId) ?? { ordinary: 0, historical: 0, emergency:0 };
++        const emergency=attention.emergency?.overflow??0;
++        if(emergency){const context=state.aiResponses.get(attention.emergency!.contextId);if(!Number.isSafeInteger(emergency)||emergency<0||emergency>attention.cost||op.responseContextId!==context?.id||context?.factionId!==op.warlordId||context.lane!=='REACTIVE_EMERGENCY'||!Number.isSafeInteger(attention.emergency!.revision)||attention.emergency!.revision<0||attention.emergency!.revision>context.revision)push('attention.invalid_emergency',`Invalid emergency charge ${id}`);}
++        totals[attention.grandfathered ? 'historical' : 'ordinary'] += attention.cost-emergency;
++        totals.emergency+=emergency;
+         attentionTotals.set(op.warlordId, totals);
+       }
+     }
+@@ -487,6 +493,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
+       validatedTerminals.set(op, state.worldTick);
+   }
+   for (const [factionId, totals] of attentionTotals) {
++    if(totals.emergency>RESPONSE_POLICY.emergencyExtraCapacity)push('attention.emergency_over_capacity',`Faction ${factionId} exceeds narrow emergency allowance`);
+     if (totals.ordinary > state.strategicAttention?.capacity || (!totals.historical && totals.ordinary + totals.historical > state.strategicAttention?.capacity))
+       push('attention.ordinary_over_capacity', `Faction ${factionId} exceeds normal capacity without historical work`);
+   }
+diff --git a/src/types/AIOperation.ts b/src/types/AIOperation.ts
+index 760406dfd6794c8ce8a2e0994203d9b304d3577b..7402c416ce8737ba21b949b711d464c5e5de794c 100644
+--- a/src/types/AIOperation.ts
++++ b/src/types/AIOperation.ts
+@@ -4,6 +4,8 @@ import type { OperationAttention } from './AIStrategy';
+ /** Domain timing/state lives on the linked army/project/invasion, never here. */
+ export interface AIOperation extends AICommitment {
+   sourceContextId?: string;
++  /** Non-proactive provenance never earns source relief or proactive spacing. */
++  responseContextId?: string;
+   /** Exact opposing faction at hostile initiation, unaffected by later conquest. */
+   hostileCounterpartyId?: string;
+   initiationTimer?: import('./AIPressure').ProactiveTimer;
+diff --git a/src/types/AIStrategy.ts b/src/types/AIStrategy.ts
+index 983e8699b5518f5ae6c216ba32df14f809ad6f93..d626217979ca71fc02cfaf4803f92451e8fa3637 100644
+--- a/src/types/AIStrategy.ts
++++ b/src/types/AIStrategy.ts
+@@ -7,6 +7,8 @@ export interface OperationAttention {
+   releasedAtTick: number | null;
+   /** Historical work is preserved even when it exceeds newly introduced capacity. */
+   grandfathered: boolean;
++  /** Narrow, operation-owned critical allowance; cost itself is unchanged. */
++  emergency?: {contextId:string; revision:number; overflow:number};
+ }
+ /** One primary proactive selection/initiation thread, independent of physical work. */
+ export interface AIDecisionOpportunity {
+diff --git a/src/types/GameState.ts b/src/types/GameState.ts
+index 54a29df909119fe3f51d1277b7b9397dd543759d..5c6cd0f5b9cb0d8a18cd1a72052a20aaf3617b49 100644
+--- a/src/types/GameState.ts
++++ b/src/types/GameState.ts
+@@ -1,3 +1,4 @@
++import { createResponseMap } from '../engine/responseRecords';
+ import type { AIOperation, AIOperationClaim } from './AIOperation';
+ import type { StrategicAttentionState, AIDecisionOpportunity } from './AIStrategy';
+ import { STRATEGIC_ATTENTION_TUNING } from '../constants/strategicAttention';
+@@ -100,8 +101,9 @@ import { GameRewardResult } from '../rewards/types';
+  * 24 = Canonical Trade proposals, exact bank reservations and bilateral shipment custody (Phase I).
+  * 25 = Concrete Goal lifecycle and idempotent directed Opinion event receipts (Phase J).
+  * 26 = Canonical factual conflict episodes/aggregates and replay receipts (Phase K).
++ * 27 = Canonical non-proactive response contexts and primary response scheduler (Phase L).
+  */
+-export const GAME_STATE_SCHEMA_VERSION = 26;
++export const GAME_STATE_SCHEMA_VERSION = 27;
+ 
+ export type InvasionId = string;
+ 
+@@ -440,6 +442,8 @@ export interface GameState {
+   lastAiDecisionTick: Map<FactionId, number>;
+   /** Persisted common limit, applied independently to each faction's owned work. */
+   strategicAttention: StrategicAttentionState;
++  aiResponses: Map<string, import('./AIResponse').AIResponseContext>;
++  aiResponseScheduler: import('./AIResponse').AIResponseScheduler;
+   aiPressure: Map<string, import('./AIPressure').AISourceContext>;
+   aiClock: import('./AIPressure').AIClock;
+   aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
+@@ -603,6 +607,8 @@ export function emptyWorldClock(): {
+   lastFoodConsumptionTick: number;
+   lastAiDecisionTick: Map<FactionId, number>;
+   strategicAttention: StrategicAttentionState;
++  aiResponses: Map<string, import('./AIResponse').AIResponseContext>;
++  aiResponseScheduler: import('./AIResponse').AIResponseScheduler;
+   aiPressure: Map<string, import('./AIPressure').AISourceContext>;
+   aiClock: import('./AIPressure').AIClock;
+   aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
+@@ -618,6 +624,8 @@ export function emptyWorldClock(): {
+     lastFoodConsumptionTick: 0,
+     lastAiDecisionTick: new Map(),
+     strategicAttention: { capacity: STRATEGIC_ATTENTION_TUNING.capacity },
++    aiResponses: createResponseMap(),
++    aiResponseScheduler: {primaryByFaction:new Map(),lastBoundaryByFaction:new Map(),observedWorldTick:0,dirty:false},
+     aiPressure: new Map(),
+     aiClock: { nowMs: 0, worldAnchor: null },
+     aiDecisionOpportunities: new Map(),
+diff --git a/tests/aiCognition.ts b/tests/aiCognition.ts
+index 6cd37cac09fa7238fc766cbf28ba309ed98d557a..7a9ede16db3371235b7961752e43a6936157e744 100644
+--- a/tests/aiCognition.ts
++++ b/tests/aiCognition.ts
+@@ -91,7 +91,7 @@ export function registerAiCognitionTests({test,makeSelf,makeTerritory,cmdReq}:Ap
+   const pendingTrade=(s=world())=>{s.territories.get('safe')!.neighboring=['target'];s.territories.get('target')!.neighboring.push('safe');const p=makeConcretePlan({action:'TRADE',factionId:'me',counterpartyId:'spectator',offered:{wood:10},requested:{food:10},proposerSource:{kind:'faction_stock',factionId:'me',resources:{wood:10}},delivery:{proposerTerritoryId:tradeNode(s,'me')!,recipientTerritoryId:'safe'}});const o=new Orchestrator(s);assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:p})).success);const d=cloneGameState(o.getState());accrueProactiveClocks(d,60000,'OFFLINE');processTradeBoundary(d);assert.strictEqual(liveTradeProposals(d)[0]!.status,'pending');return d;};
+   test('Phase J: Trade response Opinion changes willingness, not RESOURCE_VALUE',()=>{const s=pendingTrade(),p=liveTradeProposals(s)[0]!,base=new StrategicEvaluators(new FactualSupport(s)).resourceValue('spectator','wood',10,'gain');const a=assessRequiredTradeResponse(s,p);directed(s,'spectator','me',-100);const b=assessRequiredTradeResponse(s,p);assert.ok('modifier' in a&&'modifier' in b&&b.modifier!<a.modifier!);assert.deepStrictEqual(new StrategicEvaluators(new FactualSupport(s)).resourceValue('spectator','wood',10,'gain'),base);});
+   test('Phase J: reload while Trade pending preserves exact cognition and response',()=>{const s=pendingTrade();assignGoal(s,'spectator','food',{kind:'RESOURCE_HOLDING',resource:'wood',quantity:10001});directed(s,'spectator','me',35);const d=reload(s);assert.deepStrictEqual(assessRequiredTradeResponse(d,liveTradeProposals(d)[0]!),assessRequiredTradeResponse(s,liveTradeProposals(s)[0]!));assert.deepStrictEqual(d.factions.get('spectator')!.goals,s.factions.get('spectator')!.goals);});
+-  test('Phase J: schema 24 migration archives ambiguous objectives without fabricating history',()=>{const s=world();s.schemaVersion=24;s.factions.get('me')!.goals=[{id:'legacy',type:'economic_growth',priority:70,targetFaction:null,targetTerritory:null,targetRegion:null,targetResource:null,progress:99,targetProgress:100,deadlineTurn:null,createdTurn:0}];directed(s,'me','enemy',-37);const d=reload(s);assert.strictEqual(d.schemaVersion,26);assert.strictEqual(d.factions.get('me')!.goals[0]!.lifecycle!.status,'INVALIDATED');assert.strictEqual(d.factions.get('me')!.goals[0]!.progress,99);assert.strictEqual(d.factions.get('me')!.diplomacy.get('enemy')!.opinion,-37);assert.strictEqual(d.opinionEvents.size,0);assert.deepStrictEqual(encodePersistable(reload(d)),encodePersistable(d));});
++  test('Phase J: schema 24 migration archives ambiguous objectives without fabricating history',()=>{const s=world();s.schemaVersion=24;s.factions.get('me')!.goals=[{id:'legacy',type:'economic_growth',priority:70,targetFaction:null,targetTerritory:null,targetRegion:null,targetResource:null,progress:99,targetProgress:100,deadlineTurn:null,createdTurn:0}];directed(s,'me','enemy',-37);const d=reload(s);assert.strictEqual(d.schemaVersion,27);assert.strictEqual(d.factions.get('me')!.goals[0]!.lifecycle!.status,'INVALIDATED');assert.strictEqual(d.factions.get('me')!.goals[0]!.progress,99);assert.strictEqual(d.factions.get('me')!.diplomacy.get('enemy')!.opinion,-37);assert.strictEqual(d.opinionEvents.size,0);assert.deepStrictEqual(encodePersistable(reload(d)),encodePersistable(d));});
+   test('Phase J: schema migration preserves operations/claims/Peace/Trade/recruitment IDs',()=>{const s=pendingTrade();s.schemaVersion=24;const before=encodePersistable({operations:s.operations,claims:s.operationClaims,peace:s.peaceRelationships,trade:s.tradeProposals,shipments:s.tradeShipments,recruit:s.territoryRecruitment,opportunity:s.aiDecisionOpportunities});const d=reload(s);assert.deepStrictEqual(encodePersistable({operations:d.operations,claims:d.operationClaims,peace:d.peaceRelationships,trade:d.tradeProposals,shipments:d.tradeShipments,recruit:d.territoryRecruitment,opportunity:d.aiDecisionOpportunities}),before);});
+   test('Phase J: current schema missing receipt authority is corrupt',()=>{const s=world();delete (s as Partial<GameState>).opinionEvents;assert.throws(()=>reload(s));});
+   test('Phase J: lifecycle, range and receipt invariants reject corruption',()=>{const s=world();assignGoal(s,'me','control',{kind:'CONTROL_TERRITORY',territoryId:'target'});s.factions.get('me')!.goals[0]!.lifecycle!.ownerId='enemy';directed(s,'me','enemy',101);assert.ok(cognitionStateProblems(s).length>=2);});
+diff --git a/tests/aiConflict.ts b/tests/aiConflict.ts
+index c2ed00eae59c00127f74a23a466c586c3a5af3db..4c19abe079c8f8ff0ef4371ad63f9c0e1efa861b 100644
+--- a/tests/aiConflict.ts
++++ b/tests/aiConflict.ts
+@@ -119,7 +119,7 @@ export function registerAiConflictTests({test,makeSelf,makeTerritory,cmdReq}:Api
+   test('Phase K: opponent B facts cannot pollute opponent C',()=>{const s=world(),other=war(s,'spectator');loss(s,'enemy-battle',1000,0);assert.deepStrictEqual(war(s,'spectator'),other);loss(s,'spectator-battle',0,1000,'spectator');assert.ok(war(s).facts.historyBalance<0);assert.ok(war(s,'spectator').facts.historyBalance>0);});
+   test('Phase K: ledger presence alone creates no new source or candidate',()=>{const s=world(),before=deriveSources(s,'me',0);loss(s,'battle',1000,0);assert.deepStrictEqual(deriveSources(s,'me',0),before);assert.ok(!deriveSources(s,'me',0).some(c=>c.domain==='DIPLOMACY_PEACE'));});
+   test('Phase K: attack comparison retains causal ownership and exact parameters',()=>{const s=world();loss(s,'history',100,0);observeSources(s,'me');const c=[...s.aiPressure.values()].find(c=>c.kind==='HOSTILE_OPPORTUNITY')!;const compared=new ContextPlanComparator().compare(s,c,sourceConcretePlans(s,c));for(const p of compared.comparisons){assert.strictEqual(new Set(p.contributions.map(x=>x.causalKey)).size,p.contributions.length);if(p.plan.action==='ATTACK')assert.strictEqual(p.plan.targetTerritoryId,'target');}});
+-  test('Phase K: schema 25 migration does not infer conflict facts from Memory Opinion or logs',()=>{const s=world();s.schemaVersion=25;s.factions.get('me')!.memory=[{id:'old',turn:0,type:'territory_lost',withFaction:'enemy',territory:'target',magnitude:100,details:{}}];delete (s as Partial<GameState>).conflictLedger;delete (s as Partial<GameState>).conflictEventReceipts;const d=reload(s);assert.strictEqual(d.schemaVersion,26);assert.strictEqual(d.conflictLedger.size,0);assert.strictEqual(d.conflictEventReceipts.size,0);assert.deepStrictEqual(d.factions.get('me')!.memory,s.factions.get('me')!.memory);});
++  test('Phase K: schema 25 migration does not infer conflict facts from Memory Opinion or logs',()=>{const s=world();s.schemaVersion=25;s.factions.get('me')!.memory=[{id:'old',turn:0,type:'territory_lost',withFaction:'enemy',territory:'target',magnitude:100,details:{}}];delete (s as Partial<GameState>).conflictLedger;delete (s as Partial<GameState>).conflictEventReceipts;const d=reload(s);assert.strictEqual(d.schemaVersion,27);assert.strictEqual(d.conflictLedger.size,0);assert.strictEqual(d.conflictEventReceipts.size,0);assert.deepStrictEqual(d.factions.get('me')!.memory,s.factions.get('me')!.memory);});
+   test('Phase K: current schema cannot silently recreate missing ledger authority',()=>{const s=world();delete (s as Partial<GameState>).conflictLedger;assert.throws(()=>reload(s));});
+   test('Phase K: corruption invariants cover counts windows pair and receipt ownership',()=>{const s=world();loss(s,'battle');const p=s.conflictLedger.values().next().value!,e=p.episodes.get(0)!;e.totals[0].troopsLost=-1;e.recent[0]!.sequence=999;s.conflictEventReceipts.values().next().value!.pairId='missing';assert.ok(conflictStateProblems(s).length>=3);});
+   test('Phase K: public DTO excludes ledger receipts and factual assessment details',()=>{const s=world();loss(s,'private-conflict');const r=new Orchestrator(s).execute(cmdReq('GET_GAME_STATE','player',{}));assert.ok(r.success);const json=JSON.stringify(r.payload);for(const key of ['conflictLedger','conflictEventReceipts','private-conflict','continuationBalance','historyBalance'])assert.ok(!json.includes(key));});
+diff --git a/tests/aiPeace.ts b/tests/aiPeace.ts
+index f8d52cdf5cf854b2a513010a16fccb631d97ce88..6727c267ce82c548258850d989884fe34df102a6 100644
+--- a/tests/aiPeace.ts
++++ b/tests/aiPeace.ts
+@@ -104,7 +104,7 @@ export function registerAiPeaceTests({test,makeSelf,makeTerritory,cmdReq}:Api):v
+   test('Phase H: captured hostile counterparty survives target ownership change',()=>{const s=world(),o=new Orchestrator(s);assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:attack()})).success);const d=cloneGameState(o.getState());d.territories.get('target')!.owner='spectator';assert.ok(hostileLifecyclesBetween(d,'me','enemy').length);assert.ok(!hostileLifecyclesBetween(d,'me','spectator').length);});
+   test('Phase H: Peace ends to WAR at provisional real-world expiry',()=>{const d=respond(pending());advance(d,40000);const r=[...d.peaceRelationships.values()][0]!;assert.strictEqual(r.expiresAtMs,40000+PEACE_TUNING.treatyDurationMs);d.aiClock.nowMs=r.expiresAtMs!;processPeaceBoundary(d);assert.strictEqual(relationshipBetween(d,'me','spectator'),'WAR');});
+   test('Phase H: legacy DECLARE_WAR command cannot terminate active Peace',()=>{const d=respond(pending()),o=new Orchestrator(d),before=encodePersistable(d);assert.ok(!o.execute(cmdReq('DECLARE_WAR','ai',{factionId:'me',targetFactionId:'spectator'})).success);assert.deepStrictEqual(encodePersistable(o.getState()),before);});
+-  test('Phase H: schema-22 sentiment does not migrate into Peace',()=>{const s=world();s.schemaVersion=22;s.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'allied',opinion:100,treaties:[],yearsAtPeace:100,yearsAtWar:0});const d=hydratePersistedPayload(encodePersistable(s));assert.strictEqual(d.schemaVersion,26);assert.strictEqual(d.peaceRelationships.size,0);assert.strictEqual(d.peaceProposals.size,0);});
++  test('Phase H: schema-22 sentiment does not migrate into Peace',()=>{const s=world();s.schemaVersion=22;s.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'allied',opinion:100,treaties:[],yearsAtPeace:100,yearsAtWar:0});const d=hydratePersistedPayload(encodePersistable(s));assert.strictEqual(d.schemaVersion,27);assert.strictEqual(d.peaceRelationships.size,0);assert.strictEqual(d.peaceProposals.size,0);});
+   test('Phase H: explicit unexpired treaty preserves authored turn expiry',()=>{const s=world();s.schemaVersion=22;s.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'neutral',opinion:0,treaties:[{type:'non_aggression',with:'enemy',signedTurn:0,expiresTurn:5,terms:{}}],yearsAtPeace:0,yearsAtWar:0});const d=hydratePersistedPayload(encodePersistable(s));assert.strictEqual(relationshipBetween(d,'me','enemy'),'PEACE');d.turn=5;processPeaceBoundary(d);assert.strictEqual(relationshipBetween(d,'me','enemy'),'WAR');});
+   test('Phase H: expired and unsigned/future historical treaties do not fabricate Peace',()=>{for(const t of [{signedTurn:0,expiresTurn:0},{signedTurn:2,expiresTurn:5}]){const s=world();s.schemaVersion=22;s.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'friendly',opinion:0,treaties:[{type:'non_aggression',with:'enemy',terms:{},...t}],yearsAtPeace:0,yearsAtWar:0});assert.strictEqual(hydratePersistedPayload(encodePersistable(s)).peaceRelationships.size,0);}});
+   test('Phase H: migrating treaty with staged attack preserves travel and enters clearance',()=>{const s=world(),o=new Orchestrator(s);assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:attack()})).success);const d=cloneGameState(o.getState());d.schemaVersion=22;d.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'neutral',opinion:0,treaties:[{type:'non_aggression',with:'enemy',signedTurn:0,expiresTurn:8,terms:{}}],yearsAtPeace:0,yearsAtWar:0});const e=hydratePersistedPayload(encodePersistable(d));assert.strictEqual(relationshipBetween(e,'me','enemy'),'PENDING_HOSTILITIES_CLEARANCE');assert.deepStrictEqual(e.armies.get('a')!.movement,d.armies.get('a')!.movement);assert.deepStrictEqual(e.operationClaims,d.operationClaims);assert.strictEqual(e.peaceProposals.size,0);});
+diff --git a/tests/aiRecruitment.ts b/tests/aiRecruitment.ts
+index c0669577dcbf206f6135574a4648f37ba1793329..c3c22e885fbe13259067344d5a55cc719c26098e 100644
+--- a/tests/aiRecruitment.ts
++++ b/tests/aiRecruitment.ts
+@@ -108,7 +108,7 @@ export function registerAiRecruitmentTests({test,makeSelf,makeTerritory,cmdReq}:
+   test('Phase G: source-scoped reinforcement candidates retain exact local quantities',()=>{const s=threatened();pool(s).troops=1000;observeSources(s,'me');const c=[...s.aiPressure.values()].find(s=>s.kind==='COVERAGE_GAP')!;const plans=sourceConcretePlans(s,c);assert.ok(plans.some(p=>p.action==='REINFORCE'));assert.ok(plans.every(p=>p.action==='REINFORCE'||p.action==='WAIT'));const copy=hydratePersistedPayload(encodePersistable(s));assert.deepStrictEqual(sourceConcretePlans(copy,copy.aiPressure.get(c.id)!).map(p=>p.id),plans.map(p=>p.id));});
+   test('Phase G: seven factual evaluators score allocation without a reinforcement evaluator',()=>{const s=threatened();pool(s).troops=1000;observeSources(s,'me');const c=[...s.aiPressure.values()].find(s=>s.kind==='COVERAGE_GAP')!,plans=sourceConcretePlans(s,c),comparison=new ContextPlanComparator().compare(s,c,plans);assert.strictEqual(STRATEGIC_EVALUATORS.length,7);assert.ok(comparison.comparisons.some(c=>c.plan.action==='REINFORCE'&&c.finalValue>0));for(const row of comparison.comparisons)assert.strictEqual(new Set(row.contributions.map(c=>c.causalKey)).size,row.contributions.length);});
+   test('Phase G: committed reserved troops are unavailable and not prematurely deployed in baseline',()=>{const s=world();pool(s).troops=100;const d=begin(s,plan(s,60,'b')),support=new FactualSupport(d);assert.deepStrictEqual(support.localPools.get('home'),{troops:100,available:40,reserved:60});assert.strictEqual(support.armies.get('b')!.soldiers,s.armies.get('b')!.soldiers);assert.ok(support.committed.some(e=>e.id===[...d.operations.keys()][0]));});
+-  test('Phase G: schema-21 migration adds no historical troops/fractions and preserves canonical AI state',()=>{const s=world();s.schemaVersion=21;delete (s as unknown as {territoryRecruitment?:unknown}).territoryRecruitment;s.worldTick=100;s.accruedTargetWorldTick=100;const before=encodePersistable({operations:s.operations,claims:s.operationClaims,attention:s.strategicAttention,pressure:s.aiPressure,opportunities:s.aiDecisionOpportunities});const loaded=hydratePersistedPayload(encodePersistable(s));assert.strictEqual(loaded.schemaVersion,26);for(const p of loaded.territoryRecruitment.values()){assert.strictEqual(p.troops,0);assert.strictEqual(p.fractionalWork,'0');assert.strictEqual(p.accruedThroughWork,(W*100n).toString());}assert.deepStrictEqual(encodePersistable({operations:loaded.operations,claims:loaded.operationClaims,attention:loaded.strategicAttention,pressure:loaded.aiPressure,opportunities:loaded.aiDecisionOpportunities}),before);});
++  test('Phase G: schema-21 migration adds no historical troops/fractions and preserves canonical AI state',()=>{const s=world();s.schemaVersion=21;delete (s as unknown as {territoryRecruitment?:unknown}).territoryRecruitment;s.worldTick=100;s.accruedTargetWorldTick=100;const before=encodePersistable({operations:s.operations,claims:s.operationClaims,attention:s.strategicAttention,pressure:s.aiPressure,opportunities:s.aiDecisionOpportunities});const loaded=hydratePersistedPayload(encodePersistable(s));assert.strictEqual(loaded.schemaVersion,27);for(const p of loaded.territoryRecruitment.values()){assert.strictEqual(p.troops,0);assert.strictEqual(p.fractionalWork,'0');assert.strictEqual(p.accruedThroughWork,(W*100n).toString());}assert.deepStrictEqual(encodePersistable({operations:loaded.operations,claims:loaded.operationClaims,attention:loaded.strategicAttention,pressure:loaded.aiPressure,opportunities:loaded.aiDecisionOpportunities}),before);});
+   test('Phase G: clone isolates pools, fractional work and initiation progress',()=>{const s=world();pool(s).troops=100;const d=begin(s),b=cloneGameState(d);pool(b).troops=20;[...b.operations.values()][0]!.initiationTimer!.progress.wholeTicks=999;assert.strictEqual(pool(d).troops,100);assert.notStrictEqual([...d.operations.values()][0]!.initiationTimer!.progress.wholeTicks,999);});
+   test('Phase G: corrupted over-reservation and fractional progress fail canonical invariants',()=>{const s=world();pool(s).troops=100;const d=begin(s);pool(d).troops=1;assert.ok(checkGameStateInvariants(d).some(v=>v.code==='recruitment.invalid_quantity'));pool(d).troops=100;pool(d).fractionalWork=W.toString();assert.ok(checkGameStateInvariants(d).some(v=>v.code==='recruitment.invalid_work'));});
+   test('Phase G: failed canonical transaction cannot leak pool, claim or timer mutations',()=>{const s=world();fund(s);const before=encodePersistable(s);assert.throws(()=>runStateTransaction(s,d=>{progressRecruitment(d,W);throw new Error('abort');}));assert.deepStrictEqual(encodePersistable(s),before);});
+diff --git a/tests/aiStrategicPressure.ts b/tests/aiStrategicPressure.ts
+index 10f66eb16555deb1b92f041b145ffb1519c0c95e..099b307622aabc79993f5cf9f4194d024e61f0e3 100644
+--- a/tests/aiStrategicPressure.ts
++++ b/tests/aiStrategicPressure.ts
+@@ -61,7 +61,7 @@ export function registerAiStrategicPressureTests({test,makeSelf,makeTerritory,cm
+   test('Phase E: direct WAIT operation is rejected and cannot bypass source/timer contract',()=>{const s=world();const c=military(s);const w=sourceConcretePlans(s,c).find(p=>p.action==='WAIT')!;const o=new Orchestrator(s);assert.strictEqual(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:w})).success,false);assert.deepStrictEqual(o.getState(),s);});
+   test('Phase E: same-boundary retries cannot create a second primary thought',()=>{const s=world(),c=military(s);c.pressure=T.ready;const o=new Orchestrator(s);for(let i=0;i<10;i++)assert.ok(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})).success);assert.strictEqual(opportunity(o.getState(),'me').nextTimerSequence,1);assert.strictEqual(o.getState().operations.size,0);});
+   test('Phase E: reversed Map order gives identical sources, candidates and chosen context',()=>{const a=world(),b=cloneGameState(a);b.armies=new Map([...b.armies].reverse());b.territories=new Map([...b.territories].reverse());b.factions=new Map([...b.factions].reverse());observeSources(a,'me');observeSources(b,'me');assert.deepStrictEqual([...a.aiPressure.keys()],[...b.aiPressure.keys()]);assert.deepStrictEqual(sourceConcretePlans(a,military(a)),sourceConcretePlans(b,military(b)));});
+-  test('Phase E: schema-20 migration preserves physical claims but archives contextless selections',()=>{const s=world();const plans=sourceConcretePlans(s,military(s));const o=new Orchestrator(s);const p=plans.find(p=>p.action==='MOVE')!;assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:p})).success);const old=cloneGameState(o.getState());old.schemaVersion=20;const before=encodePersistable(old.armies),claims=encodePersistable(old.operationClaims);const loaded=hydratePersistedPayload(encodePersistable(old));assert.strictEqual(loaded.schemaVersion,26);assert.deepStrictEqual(encodePersistable(loaded.armies),before);assert.deepStrictEqual(encodePersistable(loaded.operationClaims),claims);assert.strictEqual(loaded.aiPressure.size,0);});
++  test('Phase E: schema-20 migration preserves physical claims but archives contextless selections',()=>{const s=world();const plans=sourceConcretePlans(s,military(s));const o=new Orchestrator(s);const p=plans.find(p=>p.action==='MOVE')!;assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:p})).success);const old=cloneGameState(o.getState());old.schemaVersion=20;const before=encodePersistable(old.armies),claims=encodePersistable(old.operationClaims);const loaded=hydratePersistedPayload(encodePersistable(old));assert.strictEqual(loaded.schemaVersion,27);assert.deepStrictEqual(encodePersistable(loaded.armies),before);assert.deepStrictEqual(encodePersistable(loaded.operationClaims),claims);assert.strictEqual(loaded.aiPressure.size,0);});
+   test('Phase E: canonical pressure and primary clocks clone without aliasing',()=>{const s=waitState(),c=cloneGameState(s);c.aiPressure.values().next().value!.pressure++;opportunity(c,'me').primary!.timer!.progress.rationalRemainder=2;assert.notDeepStrictEqual(c.aiPressure,s.aiPressure);assert.strictEqual(opportunity(s,'me').primary!.timer!.progress.rationalRemainder,0);});
+   test('Phase E: corruption in source identity or duration clock is rejected',()=>{const s=waitState();[...s.aiPressure.values()][0]!.id='bad';assert.ok(checkGameStateInvariants(s).some(v=>v.code==='pressure.invalid_state'));});
+   test('Phase E: eliminated factions do not observe, deliberate or wait',()=>{const s=world();s.factions.get('me')!.territories=[];s.factions.get('me')!.armies=[];assert.strictEqual(prepareProactiveDecision(s,'me'),null);assert.strictEqual(s.aiPressure.size,0);assert.strictEqual(s.operations.size,0);});
+diff --git a/tests/aiTrade.ts b/tests/aiTrade.ts
+index 8c5d30a88e24fbf0edfee69eaa40cc382c7d9fd3..3d75352877bc8913f7622893aed752c88aa9a313 100644
+--- a/tests/aiTrade.ts
++++ b/tests/aiTrade.ts
+@@ -109,7 +109,7 @@ export function registerAiTradeTests({test,makeSelf,makeTerritory,cmdReq}:Api):v
+   test('Phase I: committed factual stocks exclude pending offers and accepted cargo',()=>{const d=pending();assert.strictEqual(new FactualSupport(d).stocks.get('me')!.wood,30);const e=respond(d);assert.strictEqual(new FactualSupport(e).stocks.get('me')!.wood,30);assert.strictEqual(new FactualSupport(e).stocks.get('me')!.food,100);});
+   test('Phase I: public view contains exact visible terms/status and no private cognition',()=>{const d=pending(),view=JSON.stringify(publicTradeState(d,'spectator'));assert.ok(view.includes('wood'));for(const word of ['pressure','personality','goals','memory','rng','score','acceptanceBounds','responseTimer','proposerSource'])assert.ok(!view.includes(word));assert.strictEqual(publicTradeState(d,'enemy').proposals.length,0);assert.strictEqual(publicTradeState(begin(),'spectator').proposals.length,0);});
+   test('Phase I: proposer estimate accepts only visible terms, no recipient private view',()=>{const p=plan(world()),a=tradeResponseEstimate({offered:p.offered,requested:p.requested});assert.deepStrictEqual(a.acceptanceBounds,[0,1]);assert.strictEqual(a.confidence,'limited');});
+-  test('Phase I: schema 23 migration creates no historical Trade or delivery',()=>{const s=pending();s.schemaVersion=23;delete (s as any).tradeProposals;delete (s as any).tradeShipments;s.operations.clear();s.operationClaims.clear();s.aiDecisionOpportunities.clear();const before=encodePersistable(s.peaceRelationships),e=reload(s);assert.strictEqual(e.schemaVersion,26);assert.strictEqual(e.tradeProposals.size,0);assert.strictEqual(e.tradeShipments.size,0);assert.deepStrictEqual(encodePersistable(e.peaceRelationships),before);});
++  test('Phase I: schema 23 migration creates no historical Trade or delivery',()=>{const s=pending();s.schemaVersion=23;delete (s as any).tradeProposals;delete (s as any).tradeShipments;s.operations.clear();s.operationClaims.clear();s.aiDecisionOpportunities.clear();const before=encodePersistable(s.peaceRelationships),e=reload(s);assert.strictEqual(e.schemaVersion,27);assert.strictEqual(e.tradeProposals.size,0);assert.strictEqual(e.tradeShipments.size,0);assert.deepStrictEqual(encodePersistable(e.peaceRelationships),before);});
+   test('Phase I: schema 24 corrupt missing Trade storage fails hydration',()=>{const s=world();delete (s as any).tradeShipments;assert.throws(()=>reload(s));});
+   test('Phase I: invariants reject missing bilateral shipment and altered accepted quantity',()=>{const d=respond(pending()),ids=proposal(d).shipmentIds;d.tradeShipments.delete(ids[0]!);assert.ok(checkGameStateInvariants(d).some(v=>v.code==='trade.invalid_state'));const e=respond(pending());[...e.tradeShipments.values()][0]!.cargo={wood:71};assert.ok(checkGameStateInvariants(e).some(v=>v.code==='trade.invalid_state'));});
+   test('Phase I: invariants reject over-reservation and terminal claim leakage',()=>{const d=pending();d.factions.get('me')!.resources.wood=69;assert.ok(checkGameStateInvariants(d).some(v=>v.code==='trade.invalid_state'));});
+diff --git a/tests/commandIdempotency.ts b/tests/commandIdempotency.ts
+index 4cdc57637d76da0265dcb6bbc4c0445dc8046dd3..918a7c9959f33e653914aa57224a17a2169840dd 100644
+--- a/tests/commandIdempotency.ts
++++ b/tests/commandIdempotency.ts
+@@ -309,7 +309,7 @@ export async function runCommandIdempotencyTests(
+     assert.strictEqual(read.success, true, read.errors[0]?.message);
+     assert.strictEqual(load(store, 'cmd_read').gameplaySessionLeases[0]!.lastCommandSequence, null);
+     assert.strictEqual(load(store, 'cmd_read').gameplaySessionLeases[0]!.lastCommandReceipt, null);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+   });
+ 
+   await report('many commands keep one command receipt', async () => {
+diff --git a/tests/economyFoundation.ts b/tests/economyFoundation.ts
+index 243824aae9813a754bc5c71b6452ac0a0e4310d1..2321f965c94092b2588e71a117c76423e3dc8c23 100644
+--- a/tests/economyFoundation.ts
++++ b/tests/economyFoundation.ts
+@@ -207,7 +207,7 @@ export function registerEconomyFoundationTests({ test }: EconomyFoundationTestAp
+   test('schema 15 seeds food clock at worldTick and empty infrastructure occupancy', () => {
+     const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'iron_kingdom' });
+     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(state.lastFoodConsumptionTick, state.worldTick);
+     assert.strictEqual(state.territoryInfrastructure.size, state.territories.size);
+     for (const territory of state.territories.values()) {
+diff --git a/tests/gameplaySessionLeases.ts b/tests/gameplaySessionLeases.ts
+index c317bf886962349d8cc900ea8c1773b815ec44bb..47687433332744b1fb4908610e9f30cfd55d62ad 100644
+--- a/tests/gameplaySessionLeases.ts
++++ b/tests/gameplaySessionLeases.ts
+@@ -74,7 +74,7 @@ export function registerGameplaySessionLeasePersistenceTests(api: GameplaySessio
+ 
+   test('a new world starts with no gameplay-session leases', () => {
+     const state = createGameState();
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+     assert.deepStrictEqual(state.gameplaySessionLeases, []);
+     assert.deepStrictEqual(checkGameStateInvariants(state), []);
+diff --git a/tests/gameplaySessionLifecycle.ts b/tests/gameplaySessionLifecycle.ts
+index 2cd57f3f5f37358c0cdc52cae72ec0d8226a167f..b999a27823f585ea5889db78e845bc78333e2aeb 100644
+--- a/tests/gameplaySessionLifecycle.ts
++++ b/tests/gameplaySessionLifecycle.ts
+@@ -55,7 +55,7 @@ export async function runGameplaySessionLifecycleTests(
+     assert.strictEqual(state.gameplaySessionLeases[0]!.sessionId, opened.sessionId);
+     assert.strictEqual(state.gameplaySessionLeases[0]!.openedByRequestId, 'open-1');
+     assert.deepStrictEqual(temporal(state), anchoredTemporal(1_700_000_000_000));
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+   });
+ 
+diff --git a/tests/invasionLifecycle.ts b/tests/invasionLifecycle.ts
+index 9b1aa282bb20607e6ab20f77d770100f5507a1b5..b4142cb85fd67852ba5bfbeab264f58a5ff36c2a 100644
+--- a/tests/invasionLifecycle.ts
++++ b/tests/invasionLifecycle.ts
+@@ -216,7 +216,7 @@ export function registerInvasionLifecycleTests(api: InvasionLifecycleTestApi): v
+   test('current schema and completion timeout is 12 hours, separate from the 30-minute response window', () => {
+     const state = playerState();
+     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(GAMEPLAY_CONFIG.playerProtectionMinutes, 1440);
+     assert.strictEqual(GAMEPLAY_CONFIG.defenseResponseMinutes, 30);
+     assert.strictEqual(GAMEPLAY_CONFIG.defenseWorkoutMaxDurationMinutes, 12 * 60);
+diff --git a/tests/leaseWorldAccrual.ts b/tests/leaseWorldAccrual.ts
+index 2a9cc9e3a953b307529c151cb6fc79a0bc275021..2b9f44d6e533ca8414ff91ed58a4ee4ca155c37a 100644
+--- a/tests/leaseWorldAccrual.ts
++++ b/tests/leaseWorldAccrual.ts
+@@ -34,7 +34,7 @@ export async function runLeaseWorldAccrualTests(
+     assert.strictEqual(state.accrualDivisionRemainder, 0);
+     assert.strictEqual(state.lastAccrualAtMs, 30 * MINUTE);
+     assert.strictEqual(state.lastProcessedAtMs, 1);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+   });
+ 
+diff --git a/tests/persistence.ts b/tests/persistence.ts
+index 06da6c02079f764460310b560db4ddf960c52b57..c47419c3c5255cc457b38b20d50cef909d96cc88 100644
+--- a/tests/persistence.ts
++++ b/tests/persistence.ts
+@@ -464,7 +464,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
+     const loaded = store.load(PLAYER_ID);
+     assert.ok(loaded.ok, loaded.ok ? '' : loaded.message);
+     assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(loaded.state.lastFoodConsumptionTick, 40);
+     assert.ok(loaded.state.territoryInfrastructure instanceof Map);
+     assert.strictEqual(loaded.state.territoryInfrastructure.size, 0);
+diff --git a/tests/presenceLeases.ts b/tests/presenceLeases.ts
+index dc8d63d43e5b0d360e4b5b7ae6f65c88bb8ba0ea..82ae923df9140075755fa27c800c644f47ab207e 100644
+--- a/tests/presenceLeases.ts
++++ b/tests/presenceLeases.ts
+@@ -58,7 +58,7 @@ export function registerPresenceLeaseTests(api: PresenceLeaseTestApi): void {
+     assert.strictEqual(BALANCE.temporal.presenceLeaseDurationMs, LEASE_MS);
+     assert.strictEqual(BALANCE.temporal.onlineRatePpm, 1_000_000);
+     assert.strictEqual(BALANCE.temporal.offlineRatePpm, 100_000);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'world', 'presenceLeases.ts'), 'utf8');
+     assert.ok(!src.includes('GameState'));
+     assert.ok(!src.includes('Math.'));
+diff --git a/tests/run.ts b/tests/run.ts
+index 662f9288216f53cf0c65192a8257f7a60331c50b..f644b0db5e1382ddbc19fb4c2b6ee2242d0e4d4a 100644
+--- a/tests/run.ts
++++ b/tests/run.ts
+@@ -1,3 +1,4 @@
++import {registerAiResponseTests} from './aiResponses';
+ import {registerAiConflictTests} from './aiConflict';
+ import {registerAiCognitionTests} from './aiCognition';
+ import {registerAiTradeTests} from './aiTrade';
+@@ -1660,7 +1661,7 @@ test('createGameState() contains the expected major state domains', () => {
+   const state = createGameState({ seed: 42 });
+   const keys = Object.keys(state).sort();
+   const expected = [
+-    'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'conflictLedger', 'conflictEventReceipts', 'opinionEvents', 'operationClaims', 'operations', 'constructions',
++    'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiResponses', 'aiResponseScheduler', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'conflictLedger', 'conflictEventReceipts', 'opinionEvents', 'operationClaims', 'operations', 'constructions',
+     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
+     'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'tradeProposals', 'tradeShipments', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
+     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
+@@ -3123,6 +3124,7 @@ registerAiPeaceTests({test,makeSelf,makeTerritory,cmdReq});
+ registerAiTradeTests({test,makeSelf,makeTerritory,cmdReq});
+ registerAiCognitionTests({test,makeSelf,makeTerritory,cmdReq});
+ registerAiConflictTests({test,makeSelf,makeTerritory,cmdReq});
++registerAiResponseTests({test,makeSelf,makeTerritory,cmdReq});
+ registerAiStrategicEvaluationTests({ test, makeSelf, makeTerritory, cmdReq });
+ 
+ registerFoundationHardeningTests({
+diff --git a/tests/sessionReplay.ts b/tests/sessionReplay.ts
+index fe95e0bc61c84ea16051c4935dec17fd51688fac..1163926a0a88e600dffb19148777e7e85192548e 100644
+--- a/tests/sessionReplay.ts
++++ b/tests/sessionReplay.ts
+@@ -146,7 +146,7 @@ export async function runSessionReplayTests(
+     const replay = await restarted.heartbeatGameplaySession('restart_replay', 'heartbeat-A', opened.sessionId, 1);
+     assert.strictEqual(replay.outcome, 'idempotent_replay');
+     assert.strictEqual(load(store, 'restart_replay').gameplaySessionLeases[0]!.expiresAtMs, 10_000 + LEASE_MS);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+   });
+ 
+   await report('replaying an open request recovers the same session', async () => {
+diff --git a/tests/temporalBoundaries.ts b/tests/temporalBoundaries.ts
+index a93afe38ecedd79ee7e0735bc436b644b369a310..4579af265925d1712be182dec356f77349d86483 100644
+--- a/tests/temporalBoundaries.ts
++++ b/tests/temporalBoundaries.ts
+@@ -93,7 +93,7 @@ export function registerTemporalBoundaryTests(api: TemporalBoundaryTestApi): voi
+     assert.strictEqual(accrueSimulationTime(emptyFixedPointAccrual(), 0, 'ONLINE').subTickMicroticks, 0);
+     assert.ok(accrueSimulationTime(emptyFixedPointAccrual(), 1, 'ONLINE').subTickMicroticks >= 1);
+     assert.strictEqual(realMillisecondsForSimulationWork(1, 0, 'OFFLINE'), 10 * MINUTE);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(BALANCE.temporal.onlineRatePpm, 1_000_000);
+     assert.strictEqual(BALANCE.temporal.offlineRatePpm, 100_000);
+     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'world', 'temporalBoundaries.ts'), 'utf8');

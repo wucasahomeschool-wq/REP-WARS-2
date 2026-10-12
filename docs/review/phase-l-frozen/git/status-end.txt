@@ -1,0 +1,47 @@
+ M src/army/movement.ts
+ M src/army/strategicAttack.ts
+ M src/engine/concretePlans.ts
+ M src/engine/decisionOpportunities.ts
+ M src/engine/operations.ts
+ M src/engine/proactiveCognition.ts
+ M src/engine/strategicAttention.ts
+ M src/gameplay/diplomacy/peace.ts
+ M src/gameplay/economy/ownership.ts
+ M src/gameplay/invasion/create.ts
+ M src/gameplay/recruitment/recruitment.ts
+ M src/gameplay/trade/trade.ts
+ M src/orchestration/applyBattle.ts
+ M src/orchestration/handlers.ts
+ M src/orchestration/transaction.ts
+ M src/persistence/versioning.ts
+ M src/scoring/contextPlanComparison.ts
+ M src/state/cloneGameState.ts
+ M src/state/gameStateInvariants.ts
+ M src/types/AIOperation.ts
+ M src/types/AIStrategy.ts
+ M src/types/GameState.ts
+ M tests/aiCognition.ts
+ M tests/aiConflict.ts
+ M tests/aiPeace.ts
+ M tests/aiRecruitment.ts
+ M tests/aiStrategicPressure.ts
+ M tests/aiTrade.ts
+ M tests/commandIdempotency.ts
+ M tests/economyFoundation.ts
+ M tests/gameplaySessionLeases.ts
+ M tests/gameplaySessionLifecycle.ts
+ M tests/invasionLifecycle.ts
+ M tests/leaseWorldAccrual.ts
+ M tests/persistence.ts
+ M tests/presenceLeases.ts
+ M tests/run.ts
+ M tests/sessionReplay.ts
+ M tests/temporalBoundaries.ts
+?? docs/AI_PHASE_L_NON_PROACTIVE_COGNITION.md
+?? docs/review/
+?? src/constants/aiResponse.ts
+?? src/engine/nonProactiveCognition.ts
+?? src/engine/responseRecords.ts
+?? src/state/responseInvariants.ts
+?? src/types/AIResponse.ts
+?? tests/aiResponses.ts

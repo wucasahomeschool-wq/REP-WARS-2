@@ -1,3 +1,4 @@
+import { notifyResponsePoolAvailability } from '../../engine/responseRecords';
 import type { GameState } from '../../types/GameState';
 import { BALANCE } from '../../constants/balance';
 import { WORLD_TICK_DURATION_MS } from '../../world/realtimeClock';
@@ -43,7 +44,8 @@ export function progressRecruitment(state:GameState,throughWork=BigInt(state.wor
     const work=BigInt(pool.fractionalWork)+elapsed*BigInt(T.troopsPerSimulationTick*multiplier);
     const generated=Math.min(affordable,Number(work/RECRUITMENT_WORK_PER_TICK));
     if(!Number.isSafeInteger(generated)||!Number.isSafeInteger(pool.troops+generated))throw new Error('Local recruitment exceeds safe troop storage');
-    pool.troops+=generated;
+    const troopsBefore=pool.troops;pool.troops+=generated;
+    notifyResponsePoolAvailability(state,t.id,troopsBefore,pool.troops);
     pool.fractionalWork=generated===affordable?'0':(work%RECRUITMENT_WORK_PER_TICK).toString();
     const consumed=generated*T.foodPerTroop;
     state.territoryEconomy.get(t.id)!.uncollected.food-=consumed;

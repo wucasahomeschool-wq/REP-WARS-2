@@ -1,0 +1,44 @@
+../../tmp/l-baseline/tests/armyMovement.ts(436,26): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'ArmyLike'.
+../../tmp/l-baseline/tests/commandIdempotency.ts(391,42): error TS2339: Property 'message' does not exist on type 'never'.
+../../tmp/l-baseline/tests/economyDevelopments.ts(96,15): error TS18048: 'baseFood' is possibly 'undefined'.
+../../tmp/l-baseline/tests/economyDevelopments.ts(102,36): error TS18048: 'baseFood' is possibly 'undefined'.
+../../tmp/l-baseline/tests/economyDevelopments.ts(138,50): error TS18048: 'base.food' is possibly 'undefined'.
+../../tmp/l-baseline/tests/economyDevelopments.ts(190,37): error TS18048: 'tile.resourceOutput.food' is possibly 'undefined'.
+../../tmp/l-baseline/tests/economyDevelopments.ts(190,71): error TS18048: 'tile.resourceOutput.food' is possibly 'undefined'.
+../../tmp/l-baseline/tests/fitnessEvidence.ts(373,52): error TS2339: Property 'error' does not exist on type 'EvaluationOpResult<FitnessEvidence>'.
+  Property 'error' does not exist on type '{ ok: true; value: FitnessEvidence; }'.
+../../tmp/l-baseline/tests/fitnessPersonalization.ts(155,75): error TS2339: Property 'repetitions' does not exist on type 'ExercisePrescription'.
+  Property 'repetitions' does not exist on type '{ kind: "duration"; durationSeconds: number; }'.
+../../tmp/l-baseline/tests/fitnessPersonalization.ts(374,7): error TS2322: Type '{ minMultiplier: number; maxMultiplier: number; personalizationVersion: "fitness-personalization.v1"; referenceLevel: 5; levelMin: 0; levelMax: 10; fitnessCompression: 1.15; maxFitnessShift: 0.2; ... 10 more ...; useBodySectionLevels: false; }' is not assignable to type 'Readonly<{ personalizationVersion: "fitness-personalization.v1"; referenceLevel: 5; levelMin: 0; levelMax: 10; fitnessCompression: 1.15; maxFitnessShift: 0.2; maxDifficultyShift: 0.24; minMultiplier: 0.82; ... 10 more ...; useBodySectionLevels: false; }>'.
+  Types of property 'minMultiplier' are incompatible.
+    Type 'number' is not assignable to type '0.82'.
+../../tmp/l-baseline/tests/fitnessPhysicalResult.ts(319,24): error TS2345: Argument of type 'PersonalizationOpResult<PrescribedWorkout>' is not assignable to parameter of type 'SessionOpResult<PrescribedWorkout> | EvaluationOpResult<PrescribedWorkout> | PhysicalResultOpResult<PrescribedWorkout>'.
+  Type '{ ok: false; error: FitnessPersonalizationError; }' is not assignable to type 'SessionOpResult<PrescribedWorkout> | EvaluationOpResult<PrescribedWorkout> | PhysicalResultOpResult<PrescribedWorkout>'.
+    Type '{ ok: false; error: FitnessPersonalizationError; }' is not assignable to type '{ ok: false; error: PhysicalResultError; } | { ok: false; error: WorkoutSessionError; } | { ok: false; error: FitnessEvaluationError; }'.
+      Type '{ ok: false; error: FitnessPersonalizationError; }' is not assignable to type '{ ok: false; error: FitnessEvaluationError; }'.
+        The types of 'error.code' are incompatible between these types.
+          Type '"personalization.invalid_player" | "personalization.invalid_estimate" | "personalization.player_mismatch" | "personalization.invalid_difficulty" | "personalization.invalid_workout" | "personalization.unknown_exercise" | "personalization.invalid_prescription" | "personalization.invalid_configuration"' is not assignable to type '"evaluation.invalid_ids" | "evaluation.invalid_exercise" | "evaluation.invalid_values" | "evaluation.malformed_record" | "evaluation.invalid_difficulty" | "evaluation.invalid_timestamp" | "evaluation.invalid_feedback" | "evaluation.not_eligible"'.
+            Type '"personalization.invalid_player"' is not assignable to type '"evaluation.invalid_ids" | "evaluation.invalid_exercise" | "evaluation.invalid_values" | "evaluation.malformed_record" | "evaluation.invalid_difficulty" | "evaluation.invalid_timestamp" | "evaluation.invalid_feedback" | "evaluation.not_eligible"'.
+../../tmp/l-baseline/tests/fitnessPhysicalResult.ts(324,25): error TS2345: Argument of type 'PersonalizationOpResult<PrescribedWorkout>' is not assignable to parameter of type 'SessionOpResult<PrescribedWorkout> | EvaluationOpResult<PrescribedWorkout> | PhysicalResultOpResult<PrescribedWorkout>'.
+  Type '{ ok: false; error: FitnessPersonalizationError; }' is not assignable to type 'SessionOpResult<PrescribedWorkout> | EvaluationOpResult<PrescribedWorkout> | PhysicalResultOpResult<PrescribedWorkout>'.
+    Type '{ ok: false; error: FitnessPersonalizationError; }' is not assignable to type '{ ok: false; error: PhysicalResultError; } | { ok: false; error: WorkoutSessionError; } | { ok: false; error: FitnessEvaluationError; }'.
+      Type '{ ok: false; error: FitnessPersonalizationError; }' is not assignable to type '{ ok: false; error: FitnessEvaluationError; }'.
+        The types of 'error.code' are incompatible between these types.
+          Type '"personalization.invalid_player" | "personalization.invalid_estimate" | "personalization.player_mismatch" | "personalization.invalid_difficulty" | "personalization.invalid_workout" | "personalization.unknown_exercise" | "personalization.invalid_prescription" | "personalization.invalid_configuration"' is not assignable to type '"evaluation.invalid_ids" | "evaluation.invalid_exercise" | "evaluation.invalid_values" | "evaluation.malformed_record" | "evaluation.invalid_difficulty" | "evaluation.invalid_timestamp" | "evaluation.invalid_feedback" | "evaluation.not_eligible"'.
+            Type '"personalization.invalid_player"' is not assignable to type '"evaluation.invalid_ids" | "evaluation.invalid_exercise" | "evaluation.invalid_values" | "evaluation.malformed_record" | "evaluation.invalid_difficulty" | "evaluation.invalid_timestamp" | "evaluation.invalid_feedback" | "evaluation.not_eligible"'.
+../../tmp/l-baseline/tests/gameRewards.ts(248,47): error TS2322: Type '-1' is not assignable to type '10'.
+../../tmp/l-baseline/tests/gameplaySessionLeases.ts(45,42): error TS2339: Property 'message' does not exist on type 'never'.
+../../tmp/l-baseline/tests/gameplaySessionLifecycle.ts(651,42): error TS2339: Property 'message' does not exist on type 'never'.
+../../tmp/l-baseline/tests/gate1VerticalSliceWorkout.ts(203,52): error TS2339: Property 'personalization' does not exist on type 'SessionPrescribedWorkout'.
+../../tmp/l-baseline/tests/leaseWorldAccrual.ts(563,42): error TS2339: Property 'message' does not exist on type 'never'.
+../../tmp/l-baseline/tests/level1Production.ts(146,15): error TS2532: Object is possibly 'undefined'.
+../../tmp/l-baseline/tests/persistence.ts(855,59): error TS18048: 'until' is possibly 'undefined'.
+../../tmp/l-baseline/tests/run.ts(831,24): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'ArmyLike'.
+../../tmp/l-baseline/tests/sessionReplay.ts(351,42): error TS2339: Property 'message' does not exist on type 'never'.
+../../tmp/l-baseline/tests/strategicAttack.ts(403,26): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'ArmyLike'.
+../../tmp/l-baseline/tests/temporalBoundaries.ts(313,82): error TS2365: Operator '<' cannot be applied to types 'string | number | Date' and 'number'.
+../../tmp/l-baseline/tests/temporalBoundaries.ts(315,9): error TS2365: Operator '>' cannot be applied to types 'string | number | Date' and 'number'.
+../../tmp/l-baseline/tests/temporalBoundaries.ts(320,18): error TS2365: Operator '<' cannot be applied to types 'string | number | Date' and 'number'.
+../../tmp/l-baseline/tests/workoutProgression.ts(194,28): error TS18046: 'selection.payload.prescribedWorkout' is of type 'unknown'.
+../../tmp/l-baseline/tests/workoutSelection.ts(278,24): error TS18046: 'selection.payload.prescribedWorkout' is of type 'unknown'.
+../../tmp/l-baseline/tests/workoutSelection.ts(302,24): error TS18046: 'selection.payload.constraints' is of type 'unknown'.

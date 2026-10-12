@@ -1,3 +1,4 @@
+import { markResponseWorldChanged } from '../../engine/responseRecords';
 import { activeOperations, settleOperation } from '../../engine/operations';
 import { FactionId, TerritoryId, Resources } from '../../types';
 import { GameState } from '../../types/GameState';
@@ -86,6 +87,7 @@ export function settleTerritoryOwnershipChange(
   newOwner: FactionId | null,
   previousOwner: FactionId | null = null,
 ): TerritoryDestructionReport {
+  markResponseWorldChanged(state);
   const report = snapshotTerritoryDestruction(state, territoryId, newOwner, previousOwner);
   for(const op of activeOperations(state).filter(op=>op.plan?.action==='REINFORCE'&&op.plan.territoryId===territoryId))
     settleOperation(state,op.id,'failed','Local reinforcement source ownership changed');

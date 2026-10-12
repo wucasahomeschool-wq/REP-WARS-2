@@ -1,3 +1,6 @@
+import { markResponseWorldChanged } from '../engine/responseRecords';
+import { processNonProactiveBoundary, reactivePlans, responseContextExists } from '../engine/nonProactiveCognition';
+import type { AIResponseContext } from '../types/AIResponse';
 import {beginTradeProposal,processTradeBoundary,settleTradeProposal,acceptanceProblem} from '../gameplay/trade/trade';
 import {TRADE_TIMING} from '../constants/trade';
 import { REINFORCE_INITIATION as RECRUIT } from '../constants/recruitment';
@@ -637,21 +640,25 @@ export function progressProactiveThrough(state: GameState, ctx: HandlerContext, 
     // completions apply. WAIT's feasibility revalidation must see those effects
     // just like ordinary cognition; it is not an exception to boundary ordering.
     if(!allowDecisions)return;
-    processTradeBoundary(state);
-    processPeaceBoundary(state); // Required responses and diplomacy gates precede proactive thought.
+    processTradeBoundary(state,undefined,true);
+    processPeaceBoundary(state,undefined,true); // Required responses and diplomacy gates precede proactive thought.
     for(const op of activeOperations(state).filter(o=>o.action==='REINFORCE'&&o.phase==='physical')) {
       const plan=op.plan;
       if(plan?.action!=='REINFORCE')throw new Error('Reinforcement operation lost exact plan');
       const problem=reinforcementProblem(state,plan,op.id);
       if(problem || !op.initiationTimer) {
         settleOperation(state,op.id,'failed',problem??'Missing reinforcement timer');
-        invalidateProactiveInitiation(state,op.warlordId);
+        if(!op.responseContextId)invalidateProactiveInitiation(state,op.warlordId);
         continue;
       }
       if(timerRemaining(state,op.initiationTimer)>0)continue;
       if(!settleOperation(state,op.id,'completed','Exact local troop allocation completed'))throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE,'Timed allocation lost exact claim ownership');
       resolutions.push({factionId:op.warlordId,commitmentId:op.id,action:op.action,outcome:'completed',success:true,worldTick:state.worldTick});
     }
+    processNonProactiveBoundary(state,(plan,context)=>{
+      try { return startResponseIntervention(state,ctx,plan,context,inner=>{result.stateChanges.push(...inner.stateChanges);result.events.push(...inner.events);result.notifications.push(...inner.notifications);result.resourcesChanged.push(...inner.resourcesChanged);result.armiesChanged.push(...inner.armiesChanged);result.territoriesChanged.push(...inner.territoriesChanged);}); }
+      catch(error) { if(error instanceof OrchestrationError)return null;throw error; }
+    });
     for(const id of [...state.allFactionIds].sort()) {
       if(id===state.playerFactionId || isLevel1TutorialAiSuppressed(state,id))continue;
       const inner=withRequestParameters(ctx.req,{warlordId:id},()=>handleAiDecide(state,ctx));
@@ -670,6 +677,12 @@ export function progressProactiveThrough(state: GameState, ctx: HandlerContext, 
         if(resolved.errors)result.errors=[...(result.errors??[]),...resolved.errors];
       }
     }
+    // A just-started physical commitment is a material event at this instant.
+    // Schedule its recipients now, not at an arbitrary next receipt/chunk.
+    processNonProactiveBoundary(state,(plan,context)=>{
+      try {return startResponseIntervention(state,ctx,plan,context,inner=>{result.stateChanges.push(...inner.stateChanges);result.events.push(...inner.events);result.notifications.push(...inner.notifications);result.resourcesChanged.push(...inner.resourcesChanged);result.armiesChanged.push(...inner.armiesChanged);result.territoriesChanged.push(...inner.territoriesChanged);});}
+      catch(error){if(error instanceof OrchestrationError)return null;throw error;}
+    });
   };
   if(horizon<state.aiClock.nowMs)return result;
   accrueProactiveClocks(state,state.aiClock.nowMs,authoritativePresence(state));
@@ -777,14 +790,14 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
     const op = draft.operations.get(selected.id) ?? operationFromSelection(selected, draft.worldTick);
     if (op.plan?.action==='WAIT') throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Legacy WAIT operations cannot execute; WAIT requires a source-bound primary timer');
     if (!op.plan) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Incomplete legacy reasoning cannot execute');
-    const feasibility = assessConcretePlanFeasibility(op.plan, toDecisionEngineSnapshot(draft), op.id);
+    const feasibility = assessConcretePlanFeasibility(op.plan, toDecisionEngineSnapshot(draft), op.id,undefined,op.responseContextId);
     if (!feasibility.feasible) {
       const rejection = feasibility.rejections[0]!;
       throw new OrchestrationError(rejection.kind === 'LEGALITY' ? ErrorCode.INVALID_TARGET : ErrorCode.ACTION_NOT_ALLOWED,
         rejection.reason, { feasibility: feasibility.rejections,
           ...(rejection.reason.includes('anchor') ? { reason: ANCHOR_PROTECTED_REASON, territoryId: planTargetId(op.plan) } : {}) });
     }
-    if(op.action==='REINFORCE'||op.action==='OFFER_PEACE'||op.action==='TRADE') {
+    if(!op.responseContextId&&(op.action==='REINFORCE'||op.action==='OFFER_PEACE'||op.action==='TRADE')) {
       const primary=opportunity(draft,op.warlordId);
       if(primary.primaryOperationId && primary.primaryOperationId!==op.id || primary.primary && primary.primaryOperationId!==op.id)
         throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Primary proactive initiation busy');
@@ -815,7 +828,7 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
     if (typeof inner.payload.invasionId === 'string') op.links.invasionId = inner.payload.invasionId;
     if(op.action==='REINFORCE'||op.action==='OFFER_PEACE'||op.action==='TRADE') {
       const primary=opportunity(draft,op.warlordId);
-      primary.primaryOperationId=op.id;
+      if(!op.responseContextId)primary.primaryOperationId=op.id;
       const timing=op.action==='REINFORCE'?RECRUIT:op.action==='TRADE'?TRADE_TIMING:{initiationOnlineMs:PEACE_TIMING.initiationOnlineMs,initiationOfflineMs:PEACE_TIMING.initiationOfflineMs};
       op.initiationTimer=startProactiveTimer(draft,op.warlordId,op.action.toLowerCase(),timing.initiationOnlineMs,timing.initiationOnlineMs,timing.initiationOfflineMs/timing.initiationOnlineMs);
     } else finishDecisionInitiation(draft, op.id, true);
@@ -824,6 +837,7 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
       const battle = inner.payload.battleResult as { winner?: string } | undefined;
       settleOperation(draft, op.id, battle?.winner === 'attacker' ? 'completed' : 'failed', `attacker result: ${battle?.winner ?? 'unknown'}`);
     }
+    markResponseWorldChanged(draft);
     inner.payload = { ...inner.payload, operationId: op.id, commitmentId: op.id,
       commitmentOutcome: op.status, reassessmentRequired: op.terminal !== null };
     return inner;
@@ -836,7 +850,18 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
  * This is not an additional autonomous deliberation thread.
  */
 export function handleStartAiOperation(state: GameState, ctx: HandlerContext): HandlerResult {
-  const plan = ctx.req.parameters?.plan as AIConcretePlan;
+  return startExactPlan(state,ctx,ctx.req.parameters?.plan as AIConcretePlan);
+}
+export function startResponseIntervention(state:GameState,ctx:HandlerContext,plan:AIConcretePlan,context:AIResponseContext,onResult?:(result:HandlerResult)=>void):string {
+  const current=state.aiResponses.get(context.id);
+  if(!current||current.revision!==context.revision||current.materialSignature!==context.materialSignature||current.status!=='thinking'||!responseContextExists(state,current)||!reactivePlans(state,current).some(p=>p.id===plan.id))throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Response context changed before initiation');
+  if(current.selectedPlan?.id!==plan.id||context.selectedPlan?.id!==plan.id)throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Response must retain its selected exact plan');
+  const parameters=ctx.req.parameters;
+  try {
+    const result=startExactPlan(state,ctx,plan,current);onResult?.(result);return result.payload.operationId as string;
+  } finally {ctx.req.parameters=parameters;}
+}
+function startExactPlan(state:GameState,ctx:HandlerContext,plan:AIConcretePlan,response?:AIResponseContext):HandlerResult {
   const problem = concretePlanProblem(plan);
   if (problem) throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, problem);
   if (state.playerFactionId === plan.factionId && !((plan.action==='OFFER_PEACE'&&ctx.req.commandId==='OFFER_PEACE')||(plan.action==='TRADE'&&['TRADE','COUNTEROFFER_TRADE'].includes(ctx.req.commandId)))) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'AI cannot control player forces');
@@ -850,6 +875,10 @@ export function handleStartAiOperation(state: GameState, ctx: HandlerContext): H
     targetId: planTargetId(plan), targetName: planTargetId(plan), status: 'committed', createdTurn: state.turn,
     originatingGoalId: null, reason: ['exact integration plan'], priority: 0, score: 0,
     confidence: 1, personalityBias: 0, ambitionInfluence: 0, factorBreakdown: [], statusReason: null }, state.worldTick);
+  if(response) {
+    if(response.factionId!==plan.factionId||response.status!=='thinking')throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Stale response owner');
+    selected.responseContextId=response.id;
+  }
   // The increment is rolled back with the outer command on failure. It must
   // precede nested invariant validation of the newly recorded ID.
   return startOperation(state, ctx, selected, true);

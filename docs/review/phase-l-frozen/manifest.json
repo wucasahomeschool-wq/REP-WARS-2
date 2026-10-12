@@ -1,0 +1,333 @@
+{
+  "base": "7b6cf00a639b6ed1b17302713ef13ad6d2ea195f",
+  "counts": {
+    "modified": 39,
+    "new": 7,
+    "deleted": 0,
+    "total": 46
+  },
+  "files": [
+    {
+      "path": "docs/AI_PHASE_L_NON_PROACTIVE_COGNITION.md",
+      "change": "NEW",
+      "role": "docs",
+      "bytes": 18557,
+      "sha256": "509864511d016f241f12e48e3ff050df4b4225861b1293659d36094e4705a251"
+    },
+    {
+      "path": "src/army/movement.ts",
+      "change": "MODIFIED",
+      "role": "exact-plan execution",
+      "bytes": 8956,
+      "sha256": "2e4f2993f1d5395690b1711cb2ec6aaccd7646dc7c6d7cfbd4788bfc63c4a06c"
+    },
+    {
+      "path": "src/army/strategicAttack.ts",
+      "change": "MODIFIED",
+      "role": "exact-plan execution",
+      "bytes": 27577,
+      "sha256": "2ed171ef73d2c684d8112d45e7fc3f19f7c0917e5bf53f7c96e98a20a8ecc525"
+    },
+    {
+      "path": "src/constants/aiResponse.ts",
+      "change": "NEW",
+      "role": "scheduler",
+      "bytes": 776,
+      "sha256": "3a56c995094ce113a4b4f6a890bf901db3da407c4f0adc60eb5ab789031f998c"
+    },
+    {
+      "path": "src/engine/concretePlans.ts",
+      "change": "MODIFIED",
+      "role": "exact-plan execution",
+      "bytes": 12839,
+      "sha256": "8e72d690253df53b2b8a83d648701877ed60b7e7db0af485aaf31880e6fbb59e"
+    },
+    {
+      "path": "src/engine/decisionOpportunities.ts",
+      "change": "MODIFIED",
+      "role": "scheduler",
+      "bytes": 2253,
+      "sha256": "6ba0e739100853b550b873c6887b16ae695ac51c890b239bc542dc3afa142826"
+    },
+    {
+      "path": "src/engine/nonProactiveCognition.ts",
+      "change": "NEW",
+      "role": "response lane",
+      "bytes": 22521,
+      "sha256": "416f36053364ac89f6af8ce40dd00d943d5c894098fea62b1e94933d6ed233c9"
+    },
+    {
+      "path": "src/engine/operations.ts",
+      "change": "MODIFIED",
+      "role": "state",
+      "bytes": 14422,
+      "sha256": "cc10d70a964a450e9650f91a49c34dd806cfef3383cb2fd6e3f5e2fe948a1b3f"
+    },
+    {
+      "path": "src/engine/proactiveCognition.ts",
+      "change": "MODIFIED",
+      "role": "scheduler",
+      "bytes": 9451,
+      "sha256": "33447df39ed8adb2c2335619f354c93b10d2a1c60eda6f44dbcf770dc14bfacc"
+    },
+    {
+      "path": "src/engine/responseRecords.ts",
+      "change": "NEW",
+      "role": "state",
+      "bytes": 4190,
+      "sha256": "6ab3049ff5f4e88d09a5ac7eb0fe621b0a1cd14d834d5f3769cf3e2cf6f83645"
+    },
+    {
+      "path": "src/engine/strategicAttention.ts",
+      "change": "MODIFIED",
+      "role": "Attention",
+      "bytes": 3030,
+      "sha256": "25c8aa214bc1e03a142436b88c8e873393f060038238f33763c8c183549ca603"
+    },
+    {
+      "path": "src/gameplay/diplomacy/peace.ts",
+      "change": "MODIFIED",
+      "role": "response lane",
+      "bytes": 10805,
+      "sha256": "6e5d50f394f8453e7dca448c22767a2481fe175787427883b8ab1fd524680a1a"
+    },
+    {
+      "path": "src/gameplay/economy/ownership.ts",
+      "change": "MODIFIED",
+      "role": "state",
+      "bytes": 4779,
+      "sha256": "ba99948d880dc2b45b95e7b49005271acaa4b96960a150cf94b1446f990063a1"
+    },
+    {
+      "path": "src/gameplay/invasion/create.ts",
+      "change": "MODIFIED",
+      "role": "state",
+      "bytes": 8093,
+      "sha256": "736ea0e8c722fbc60a46a01c10b7126fa04fd2370d9ceb8986e41024b27862a0"
+    },
+    {
+      "path": "src/gameplay/recruitment/recruitment.ts",
+      "change": "MODIFIED",
+      "role": "state",
+      "bytes": 5486,
+      "sha256": "999f42d5dcf31b3b58f6f99570c21971ecd89a9a52df04d9d5e1cfd87cb68286"
+    },
+    {
+      "path": "src/gameplay/trade/trade.ts",
+      "change": "MODIFIED",
+      "role": "response lane",
+      "bytes": 13913,
+      "sha256": "56397560344d11ffbf61ccd2060957fbb1a9c5d2ffb9d65328aa4af638caa20c"
+    },
+    {
+      "path": "src/orchestration/applyBattle.ts",
+      "change": "MODIFIED",
+      "role": "state",
+      "bytes": 14830,
+      "sha256": "d1c262b4c1a0217bb3752ad279e0eb22967dc413a6b1eee32a1f5139c45890e8"
+    },
+    {
+      "path": "src/orchestration/handlers.ts",
+      "change": "MODIFIED",
+      "role": "exact-plan execution",
+      "bytes": 50950,
+      "sha256": "c2a0a2f72bcdbc894a9cefccbd28cfa2b25958831729f8235c4be35281f7a72f"
+    },
+    {
+      "path": "src/orchestration/transaction.ts",
+      "change": "MODIFIED",
+      "role": "state",
+      "bytes": 1660,
+      "sha256": "7bfc736b4bdeb57758d0f0923f230e892feda0f10bd21e722def562970e54363"
+    },
+    {
+      "path": "src/persistence/versioning.ts",
+      "change": "MODIFIED",
+      "role": "persistence",
+      "bytes": 18233,
+      "sha256": "37d72c0fee03d05868e198e2cdee2aa3951dd6f9068e3c6e8a4c47a47dc8f657"
+    },
+    {
+      "path": "src/scoring/contextPlanComparison.ts",
+      "change": "MODIFIED",
+      "role": "cognition",
+      "bytes": 18258,
+      "sha256": "44d9d2096bfec25329f73f3fab8dd30c7d976326542e638760560004eadf4c66"
+    },
+    {
+      "path": "src/state/cloneGameState.ts",
+      "change": "MODIFIED",
+      "role": "persistence",
+      "bytes": 17494,
+      "sha256": "976cd3709892b000ae401d4cbadcb7ffc08b9b60a1b5d65c0b36451c0125fd80"
+    },
+    {
+      "path": "src/state/gameStateInvariants.ts",
+      "change": "MODIFIED",
+      "role": "invariants",
+      "bytes": 56087,
+      "sha256": "30c7e3d20e8e079a33b9a7af1459249aeff2c8df15a6f70dd3f6160461e65a9f"
+    },
+    {
+      "path": "src/state/responseInvariants.ts",
+      "change": "NEW",
+      "role": "invariants",
+      "bytes": 3740,
+      "sha256": "84ff57707316f9fcb9727665b943d661bf3ad34ec74f909ac3f6f52b7b09d271"
+    },
+    {
+      "path": "src/types/AIOperation.ts",
+      "change": "MODIFIED",
+      "role": "schema/types",
+      "bytes": 1713,
+      "sha256": "71e1fe33238cd1a7c851eec75c2fe27720b6830f6c4fb1b9f43cf3d902edfe54"
+    },
+    {
+      "path": "src/types/AIResponse.ts",
+      "change": "NEW",
+      "role": "schema/types",
+      "bytes": 2148,
+      "sha256": "509a599307bca644d7b2efa40c41e1ba2c2d72b81cb2f86cddf5a4da95ba24d9"
+    },
+    {
+      "path": "src/types/AIStrategy.ts",
+      "change": "MODIFIED",
+      "role": "schema/types",
+      "bytes": 1096,
+      "sha256": "0f9b59a5825df576c492233e65314a5c8ab8f831b967e777c37ac2802ca89df6"
+    },
+    {
+      "path": "src/types/GameState.ts",
+      "change": "MODIFIED",
+      "role": "schema/types",
+      "bytes": 30707,
+      "sha256": "3dca10f10410fde6ba4cedb17b3ec3bf6a45cd1efe84a2cb65c0750f56ee15d5"
+    },
+    {
+      "path": "tests/aiCognition.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 51797,
+      "sha256": "8a99d4d0c1fad8c1401fc2548d0df9be10f2d2d974c137ea2336543327233f0d"
+    },
+    {
+      "path": "tests/aiConflict.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 41707,
+      "sha256": "6eca0915cc08c345581ce8399b295c5360019ed11eb674c675c5567e2d41ffc4"
+    },
+    {
+      "path": "tests/aiPeace.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 53762,
+      "sha256": "1244b3bedafb90263f7f18bc5a3a80d7277f9937dc870fec6e043da6643becd3"
+    },
+    {
+      "path": "tests/aiRecruitment.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 47149,
+      "sha256": "3dd155becb2dc5b9e94cffb1f3dc76632f32c4e22133696c486a80f0d1b98a4e"
+    },
+    {
+      "path": "tests/aiResponses.ts",
+      "change": "NEW",
+      "role": "tests",
+      "bytes": 33433,
+      "sha256": "6e78a7e3b4f2ee41ca407aed21234ffed85868c389d919148711df99c97f1ecd"
+    },
+    {
+      "path": "tests/aiStrategicPressure.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 35165,
+      "sha256": "067dfad78cadd1dd744a398f854a0a110c929c481261b37cffa4a813d985f7a0"
+    },
+    {
+      "path": "tests/aiTrade.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 47048,
+      "sha256": "1723fcd91a5e60986553ffdd1497dfa400b4914b37ba092e7ce36ace30859502"
+    },
+    {
+      "path": "tests/commandIdempotency.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 23725,
+      "sha256": "2c61d4ba41f757fd62005be267eeb344a7f1147de9b7560ae65becc65dde20ce"
+    },
+    {
+      "path": "tests/economyFoundation.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 18895,
+      "sha256": "76dd9b5c688c2da54dc8d520843453abbc538599b07fdcfc2672efa5963c0111"
+    },
+    {
+      "path": "tests/gameplaySessionLeases.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 11690,
+      "sha256": "a7dee9bc3c433a50f3d631bc293939a730e38d8e346fb9a7ab081c5fdca7110d"
+    },
+    {
+      "path": "tests/gameplaySessionLifecycle.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 33548,
+      "sha256": "c415ba69e6dcaae5838c5c7dcf83158d47798117c53d6bea1b65c909e418c411"
+    },
+    {
+      "path": "tests/invasionLifecycle.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 30042,
+      "sha256": "4704c9fa9c94c6852ce4387bf9b142e2bf95e3034b21f255082260f690c8d9f6"
+    },
+    {
+      "path": "tests/leaseWorldAccrual.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 26790,
+      "sha256": "03be8b4ca88df70d87a7f2a9791a3569e4ab39c9d32197da71d6568ac77a6ebe"
+    },
+    {
+      "path": "tests/persistence.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 46643,
+      "sha256": "0fe5381f68e925d96515b776d1f9143af1b47afd11191ed50ec86a391ca644c2"
+    },
+    {
+      "path": "tests/presenceLeases.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 15324,
+      "sha256": "d8670cdad9104a3f8b5a89ebd3da8fcbd88b691c219e0f125ba97e447ea0e09f"
+    },
+    {
+      "path": "tests/run.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 166434,
+      "sha256": "529513a9dab2c3e5cfa55b9683f6afdbc434ebdb07368f2df0be360484d24571"
+    },
+    {
+      "path": "tests/sessionReplay.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 16658,
+      "sha256": "5bddbae7b106f34f10a9df6546e5da62c14765bc21c4153717fe3d2f6c6d2f86"
+    },
+    {
+      "path": "tests/temporalBoundaries.ts",
+      "change": "MODIFIED",
+      "role": "tests",
+      "bytes": 25291,
+      "sha256": "93d8f83d02da57a87f174b32f1ba8539794c61438b479a2e5f0422044f6748d2"
+    }
+  ]
+}

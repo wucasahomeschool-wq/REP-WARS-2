@@ -1,3 +1,4 @@
+import { markResponseWorldChanged } from '../../engine/responseRecords';
 import {applyOpinionEvent} from '../../cognition/opinion';
 import {recordConflictFact,hostileFactIdentity} from '../../conflict/ledger';
 import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
@@ -90,6 +91,7 @@ export function beginInvasionAgainstPlayer(
   });
   invasion.conflictFactId=hostileFactIdentity(state,params.territoryId,params.armies.map(a=>a.id),params.commitmentId,params.requestId);
   state.activeInvasions.set(invasion.id, invasion);
+  markResponseWorldChanged(state);
   for(const kind of ['ATTACK_COMMITTED','HOSTILE_ARRIVAL'] as const)recordConflictFact(state,invasion.conflictFactId,
     {kind,actor:invasion.attackerFactionId,target:invasion.defenderFactionId,territoryId:invasion.territoryId});
   applyOpinionEvent(state,invasion.id,invasion.defenderFactionId,invasion.attackerFactionId,'attack_received',COGNITION.eventDelta.attack_received);

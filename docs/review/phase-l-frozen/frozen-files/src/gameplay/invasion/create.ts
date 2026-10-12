@@ -1,0 +1,195 @@
+import { markResponseWorldChanged } from '../../engine/responseRecords';
+import {applyOpinionEvent} from '../../cognition/opinion';
+import {recordConflictFact,hostileFactIdentity} from '../../conflict/ledger';
+import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
+import { isArmyMoving } from '../../army/movement';
+import { assertHostilityAllowed } from '../diplomacy/relationships';
+import { assertClaimAvailable } from '../../engine/operations';
+import { Army } from '../../types';
+import { ActiveInvasion, createActiveInvasion, GameState } from '../../types/GameState';
+import { listImmediateAttackingArmies } from '../../army/strategicAttack';
+import { deriveBattleSeed, requireTerritory } from '../../orchestration/helpers';
+import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
+import { HandlerResult } from '../../orchestration/protocol';
+import { defenseResponseTicks } from '../config';
+import { canAiAttackPlayer, isPlayerEmpirePaused } from './eligibility';
+import { isOpenInvasion } from './deadlines';
+import { assertAnchorAttackAllowed } from '../anchors';
+
+function empty(): HandlerResult {
+  return {
+    stateChanges: [],
+    events: [],
+    notifications: [],
+    presentation: null,
+    resourcesChanged: [],
+    territoriesChanged: [],
+    armiesChanged: [],
+    newlyAvailableActions: [],
+    payload: {},
+  };
+}
+
+export function beginInvasionAgainstPlayer(
+  state: GameState,
+  params: {
+    attackerId: string;
+    territoryId: string;
+    armies: Army[];
+    commitmentId?: string | null;
+    /** Existing authoritative command identity; only the factual chain uses it. */
+    requestId?: string;
+    battleSeed?: number;
+    /** Tutorial/scripted invasions skip 24h protection and attacker cooldown. Pause still blocks. */
+    bypassPlayerDefenseGates?: boolean;
+  },
+): HandlerResult {
+  if (!state.playerFactionId) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'No player faction to invade');
+  }
+  if (params.bypassPlayerDefenseGates) {
+    if (isPlayerEmpirePaused(state)) {
+      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Player empire is paused');
+    }
+  } else if (!canAiAttackPlayer(state, params.attackerId)) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Player is protected, paused, or attacker is on cooldown');
+  }
+  const target = requireTerritory(state, params.territoryId);
+  if (target.owner !== state.playerFactionId) {
+    throw new OrchestrationError(ErrorCode.INVALID_TARGET, 'Invasion defender must be the local player');
+  }
+  assertHostilityAllowed(state,params.attackerId,target.owner,target.id,params.armies.map(a=>a.id));
+  assertAnchorAttackAllowed(state, params.territoryId);
+  for (const existing of state.activeInvasions.values()) {
+    if (existing.territoryId === params.territoryId && isOpenInvasion(existing)) {
+      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'An active invasion already targets this territory');
+    }
+  }
+  assertClaimAvailable(state, 'engagement_target', params.territoryId, params.commitmentId, params.attackerId);
+  assertClaimAvailable(state, 'invasion_target', params.territoryId, params.commitmentId);
+  for (const army of params.armies) assertClaimAvailable(state, 'force', army.id, params.commitmentId);
+  for (const army of params.armies) {
+    const live = state.armies.get(army.id);
+    if (!live || live.owner !== params.attackerId || isArmyMoving(live)
+      || (live.attackIntent && (live.attackIntent.targetTerritoryId !== params.territoryId
+        || live.attackIntent.commitmentId !== (params.commitmentId ?? null) || !!live.attackIntent.holdForInvasionId))) {
+      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Invasion force is unavailable or belongs to another physical lifecycle');
+    }
+  }
+  const notifiedAtTick = state.worldTick;
+  const invasion = createActiveInvasion({
+    id: `inv_${params.attackerId}_${params.territoryId}_${state.worldTick}`,
+    defenderFactionId: state.playerFactionId,
+    attackerFactionId: params.attackerId,
+    territoryId: params.territoryId,
+    startedAtTick: state.worldTick,
+    notifiedAtTick,
+    responseDeadlineTick: notifiedAtTick + defenseResponseTicks(),
+    attackingArmyIds: params.armies.map((a) => a.id),
+    battleSeed: params.battleSeed ?? deriveBattleSeed(state.worldSeed, state.turn, params.attackerId, state.playerFactionId, params.territoryId),
+    commitmentId: params.commitmentId ?? null,
+  });
+  invasion.conflictFactId=hostileFactIdentity(state,params.territoryId,params.armies.map(a=>a.id),params.commitmentId,params.requestId);
+  state.activeInvasions.set(invasion.id, invasion);
+  markResponseWorldChanged(state);
+  for(const kind of ['ATTACK_COMMITTED','HOSTILE_ARRIVAL'] as const)recordConflictFact(state,invasion.conflictFactId,
+    {kind,actor:invasion.attackerFactionId,target:invasion.defenderFactionId,territoryId:invasion.territoryId});
+  applyOpinionEvent(state,invasion.id,invasion.defenderFactionId,invasion.attackerFactionId,'attack_received',COGNITION.eventDelta.attack_received);
+  if (invasion.commitmentId) {
+    const op = state.operations.get(invasion.commitmentId);
+    if (op) op.links.invasionId = invasion.id;
+  }
+  for (const army of params.armies) {
+    const live = state.armies.get(army.id);
+    if (!live) continue;
+    live.attackIntent = {
+      conflictFactId: invasion.conflictFactId,
+      targetTerritoryId: params.territoryId,
+      targetFactionId: target.owner,
+      stagingTerritoryId: live.location,
+      createdAtTick: state.worldTick,
+      status: 'ready',
+      commitmentId: params.commitmentId ?? null,
+      battleSeed: invasion.battleSeed ?? 0,
+      holdForInvasionId: invasion.id,
+      onlyArmyId: live.id,
+    };
+  }
+  return {
+    ...empty(),
+    stateChanges: [{
+      entity: 'territory',
+      id: params.territoryId,
+      summary: `Invasion ${invasion.id} notified against ${params.territoryId}`,
+    }],
+    notifications: [{
+      severity: 'warning',
+      title: 'Invasion',
+      body: `Defend ${params.territoryId} before tick ${invasion.responseDeadlineTick}`,
+    }],
+    payload: {
+      attackOutcome: 'invasion_created',
+      invasionId: invasion.id,
+      responseDeadlineTick: invasion.responseDeadlineTick,
+      notifiedAtTick: invasion.notifiedAtTick,
+      arrivalPending: true,
+      skipped: true,
+    },
+  };
+}
+
+export function armiesForImmediateInvasion(
+  state: GameState,
+  attackerId: string,
+  territoryId: string,
+): Army[] {
+  return listImmediateAttackingArmies(state, attackerId, territoryId);
+}
+
+export function existingInvasionForAttack(
+  state: GameState,
+  attackerId: string,
+  territoryId: string,
+): ActiveInvasion | undefined {
+  return [...state.activeInvasions.values()].find((invasion) => (
+    isOpenInvasion(invasion)
+    && invasion.attackerFactionId === attackerId
+    && invasion.territoryId === territoryId
+  ));
+}
+
+/**
+ * If this is an AI attack against the local player, create or hold an
+ * ActiveInvasion instead of resolving BattleEngine immediately.
+ * Returns null when the normal strategic-attack path should continue
+ * (player attacker, AI-vs-AI, or delayed hop with no staging army yet).
+ */
+export function maybeHoldAttackAsInvasion(
+  state: GameState,
+  params: {
+    attackerId: string;
+    territoryId: string;
+    armies: Army[];
+    commitmentId?: string | null;
+    requestId?: string;
+    battleSeed?: number;
+  },
+): HandlerResult | null {
+  if (!state.playerFactionId || params.attackerId === state.playerFactionId) return null;
+  const target = state.territories.get(params.territoryId);
+  if (!target || target.owner !== state.playerFactionId) return null;
+  const existing = existingInvasionForAttack(state, params.attackerId, params.territoryId);
+  if (existing) {
+    return {
+      ...empty(),
+      payload: {
+        attackOutcome: 'awaiting_defense',
+        invasionId: existing.id,
+        skipped: true,
+        arrivalPending: true,
+      },
+    };
+  }
+  if (params.armies.length === 0) return null;
+  return beginInvasionAgainstPlayer(state, params);
+}

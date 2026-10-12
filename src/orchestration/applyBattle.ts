@@ -1,3 +1,4 @@
+import { markResponseWorldChanged } from '../engine/responseRecords';
 import {applyOpinionEvent} from '../cognition/opinion';
 import {recordConflictFact,conflictEventId} from '../conflict/ledger';
 import {COGNITION_TUNING as COGNITION} from '../constants/cognition';
@@ -71,6 +72,7 @@ function eliminateArmies(state: GameState, armies: Army[], armyChanges: ArmyChan
     if (operationId) settleOperation(state, operationId, 'failed', 'claimed force destroyed in battle');
     armyChanges.push({ armyId: a.id, eliminated: true });
   }
+  markResponseWorldChanged(state);
   refreshGoals(state);
 }
 
@@ -137,6 +139,7 @@ function transferTerritory(
   if (oldOwner && oldOwner === state.playerFactionId) {
     events.push(...applyPlayerTerritoryLoss(state, territory.id));
   }
+  markResponseWorldChanged(state);
   refreshGoals(state);
   if (newOwner === state.playerFactionId) {
     events.push(...applyWorldCompletionCheck(state));

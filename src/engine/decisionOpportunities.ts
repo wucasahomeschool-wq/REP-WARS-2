@@ -25,7 +25,7 @@ export function attachDecisionInitiation(state: GameState, factionId: string, op
  */
 export function finishDecisionInitiation(state: GameState, operationId: string, successful: boolean): void {
   const op = state.operations.get(operationId);
-  if (!op) return;
+  if (!op || op.responseContextId) return;
   const opportunity = state.aiDecisionOpportunities.get(op.warlordId);
   if (opportunity?.primaryOperationId !== operationId) return;
   opportunity.primaryOperationId = null;

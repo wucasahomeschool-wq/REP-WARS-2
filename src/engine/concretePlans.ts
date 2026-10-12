@@ -89,7 +89,7 @@ export function validateConcretePlan(plan: AIConcretePlan, state: GameStateSnaps
 export type PlanRejectionKind = 'LEGALITY' | 'CLAIM' | 'COMPATIBILITY' | 'ATTENTION';
 /** Independent diagnostic dimensions; no strategic decision is made here. */
 export function assessConcretePlanFeasibility(plan: AIConcretePlan, snapshot: GameStateSnapshot,
-  operationId?: string, compatibilityRules?: readonly StrategicCompatibilityRule[]) {
+  operationId?: string, compatibilityRules?: readonly StrategicCompatibilityRule[], responseContextId?:string) {
   const rejections: { kind: PlanRejectionKind; reason: string }[] = [];
   const shapeProblem = concretePlanProblem(plan);
   if (shapeProblem) return { feasible: false, rejections: [{ kind: 'LEGALITY' as const, reason: shapeProblem }] };
@@ -105,7 +105,7 @@ export function assessConcretePlanFeasibility(plan: AIConcretePlan, snapshot: Ga
     }
     const compatibility = assessStrategicCompatibility(plan, state, compatibilityRules);
     for (const reason of compatibility.reasons) rejections.push({ kind: 'COMPATIBILITY', reason });
-    const attention = assessAttention(state, plan, operationId);
+    const attention = assessAttention(state, plan, operationId,responseContextId);
     if (!attention.available) rejections.push({ kind: 'ATTENTION', reason: `Ordinary Attention ${attention.occupied} + ${attention.cost} exceeds capacity ${attention.capacity}` });
   }
   return { feasible: rejections.length === 0, rejections };

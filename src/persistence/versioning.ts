@@ -1,3 +1,4 @@
+import { registerRequiredResponse } from '../engine/nonProactiveCognition';
 import {initializeCognition} from '../cognition/migration';
 import { initializeRecruitment, simulationWork } from '../gameplay/recruitment/recruitment';
 import { migratePeaceState } from './peaceMigration';
@@ -363,6 +364,15 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   // No reconstructed fighting, casualties or historical Peace epochs.
   if(schema<26){state.conflictLedger=new Map();state.conflictEventReceipts=new Map();}
   else if(!(state.conflictLedger instanceof Map)||!(state.conflictEventReceipts instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 26 requires canonical conflict ledger and receipts');
+  if(schema<27){
+    state.aiResponses=new Map();
+    state.aiResponseScheduler={primaryByFaction:new Map(),lastBoundaryByFaction:new Map(),observedWorldTick:null,dirty:true};
+  } else if(!(state.aiResponses instanceof Map)||!state.aiResponseScheduler||typeof state.aiResponseScheduler!=='object')
+    throw new PersistenceError('persistence.corrupt','Schema 27 requires canonical non-proactive response contexts and scheduler');
+  if(schema<27){
+    for(const p of (state.peaceProposals as GameState['peaceProposals']).values())if(p.status==='pending')registerRequiredResponse(state as unknown as GameState,'peace',p.id);
+    for(const p of (state.tradeProposals as GameState['tradeProposals']).values())if(p.status==='pending')registerRequiredResponse(state as unknown as GameState,'trade',p.id);
+  }
   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
   return state;
 }

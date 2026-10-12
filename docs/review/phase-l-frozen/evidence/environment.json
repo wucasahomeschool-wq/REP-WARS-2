@@ -1,0 +1,8 @@
+{
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "node": "v24.19.0",
+  "typescript": "Version 5.9.3",
+  "logical_cpu_count": 5,
+  "memory_total": "MemTotal:       34906040 kB",
+  "measurement_context": "Environment captured at freeze; earlier 3152-ms log does not separately record hardware. Container host availability/load can vary."
+}

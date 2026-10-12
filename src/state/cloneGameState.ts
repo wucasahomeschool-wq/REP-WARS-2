@@ -1,3 +1,4 @@
+import { createResponseMap } from '../engine/responseRecords';
 import {indexedTradeMap} from '../gameplay/trade/records';
 import {proposalLive,shipmentLive} from '../gameplay/trade/trade';
 import { cloneConcretePlan } from '../types/AIConcretePlan';
@@ -248,6 +249,8 @@ export function adoptOwnedTransactionState(target: GameState, next: GameState): 
   target.lastAiDecisionTick = next.lastAiDecisionTick;
   target.strategicAttention = next.strategicAttention;
   target.aiDecisionOpportunities = next.aiDecisionOpportunities;
+  target.aiResponses = next.aiResponses;
+  target.aiResponseScheduler = next.aiResponseScheduler;
   target.aiPressure = next.aiPressure;
   target.aiClock = next.aiClock;
   target.peaceRelationships = next.peaceRelationships;
@@ -336,6 +339,8 @@ export function cloneGameState(state: GameState): GameState {
     lastAiDecisionTick: new Map(state.lastAiDecisionTick),
     strategicAttention: { ...state.strategicAttention },
     aiDecisionOpportunities: cloneMap(state.aiDecisionOpportunities, opportunity => JSON.parse(JSON.stringify(opportunity))),
+    aiResponses: createResponseMap([...state.aiResponses].map(([id,c])=>[id,JSON.parse(JSON.stringify(c))] as const)),
+    aiResponseScheduler: {...state.aiResponseScheduler,primaryByFaction:new Map(state.aiResponseScheduler.primaryByFaction),lastBoundaryByFaction:new Map(state.aiResponseScheduler.lastBoundaryByFaction)},
     aiPressure: cloneMap(state.aiPressure, source => ({ ...source, blockers: source.blockers.map(b => ({ plan: cloneConcretePlan(b.plan), reasons: b.reasons.map(r => ({ ...r })) })) })),
     aiClock: { ...state.aiClock, worldAnchor: state.aiClock.worldAnchor ? { ...state.aiClock.worldAnchor } : null },
     worldSeed: state.worldSeed,
