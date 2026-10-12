@@ -63,6 +63,18 @@ namespace RepWars.WorldPresentation.Tests
         }
 
         [Test]
+        public void SlotTieMatchesTheSlotAndStaysCapped()
+        {
+            Assert.AreEqual(0, RepWarsWorldSorting.TieIndex(0));
+            Assert.AreEqual(4, RepWarsWorldSorting.TieIndex(4));
+            Assert.AreEqual(RepWarsWorldSorting.TieIndexMin, RepWarsWorldSorting.TieIndex(-3));
+            Assert.AreEqual(RepWarsWorldSorting.TieIndexMax, RepWarsWorldSorting.TieIndex(1000));
+            Assert.AreEqual(0f, RepWarsWorldSorting.TieOffsetZ(0), 1e-8f);
+            Assert.AreEqual(4f * RepWarsWorldSorting.TieEpsilon, RepWarsWorldSorting.TieOffsetZ(4), 1e-8f);
+            Assert.LessOrEqual(RepWarsWorldSorting.TieOffsetZ(1000), RepWarsWorldSorting.MaxTieOffset);
+        }
+
+        [Test]
         public void TieOffsetStaysBelowMeaningfulY()
         {
             Assert.AreEqual(0f, RepWarsWorldSorting.TieOffsetZ("missing") - RepWarsWorldSorting.TieIndex("missing") * RepWarsWorldSorting.TieEpsilon, 1e-8f);

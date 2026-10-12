@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using RepWars.WorldPresentation;
 using UnityEngine;
 
 namespace RepWars
@@ -51,8 +52,7 @@ namespace RepWars
                 camera.backgroundColor = Sea;
                 camera.orthographic = true;
                 camera.clearFlags = CameraClearFlags.SolidColor;
-                camera.transparencySortMode = TransparencySortMode.CustomAxis;
-                camera.transparencySortAxis = new Vector3(0f, 1f, -0.2f);
+                BindWorldSort(camera);
             }
             EnsureHud();
             hud.text = status;
@@ -235,7 +235,7 @@ namespace RepWars
                 groundRenderer.sharedMaterial = plains != null
                     ? PlainsMaterial(plains)
                     : TerritoryMaterial(TerrainColor(territory.terrain));
-                groundRenderer.sortingOrder = 0;
+                RepWarsWorldSorting.ApplyOrdered(groundRenderer, RepWarsWorldSorting.LayerGround, RepWarsWorldSorting.GroundOrder.Terrain);
                 var outline = piece.AddComponent<LineRenderer>();
                 outline.positionCount = territory.ring.Count;
                 outline.loop = true;
@@ -244,7 +244,7 @@ namespace RepWars
                 outline.startColor = Border;
                 outline.endColor = Border;
                 outline.useWorldSpace = false;
-                outline.sortingOrder = 4;
+                RepWarsWorldSorting.ApplyOrdered(outline, RepWarsWorldSorting.LayerGroundOverlay, RepWarsWorldSorting.GroundOverlayOrder.Border);
                 var view = piece.AddComponent<RepWarsTerritoryView>();
                 view.territoryId = territory.id;
                 view.outline = outline;
@@ -301,7 +301,7 @@ namespace RepWars
                 label.color = new Color(Ink.r, Ink.g, Ink.b, 0.82f);
                 label.text = region.name;
                 var labelRenderer = label.GetComponent<MeshRenderer>();
-                labelRenderer.sortingOrder = 30;
+                RepWarsWorldSorting.ApplyOrdered(labelRenderer, RepWarsWorldSorting.LayerWorldOverlay, RepWarsWorldSorting.WorldOverlayOrder.RegionLabel);
             }
         }
 
@@ -336,6 +336,7 @@ namespace RepWars
             var size = Mathf.Max(framed.extents.y, framed.extents.x / aspect) * 1.22f;
             mapCamera = camera.GetComponent<RepWarsMapCamera>();
             if (mapCamera == null) mapCamera = camera.gameObject.AddComponent<RepWarsMapCamera>();
+            BindWorldSort(camera);
             mapCamera.Frame(framed.center, size, aspect);
         }
 
@@ -375,7 +376,7 @@ namespace RepWars
                 label.characterSize = 0.7f;
                 label.anchor = TextAnchor.MiddleCenter;
                 label.color = Ink;
-                label.GetComponent<MeshRenderer>().sortingOrder = 14;
+                RepWarsWorldSorting.ApplyOrdered(label.GetComponent<MeshRenderer>(), RepWarsWorldSorting.LayerWorldOverlay, RepWarsWorldSorting.WorldOverlayOrder.LocationLabel);
             }
         }
 
@@ -404,10 +405,11 @@ namespace RepWars
             var projected = MapProjection.Project(prop.position);
             marker.transform.SetPositionAndRotation(new Vector3(projected.x, projected.y, 0f), rotation);
             marker.transform.localScale = new Vector3(prop.scale, prop.scale, 1f);
-            var renderer = marker.AddComponent<SpriteRenderer>();
-            renderer.sprite = sprite;
+            var renderer = RepWarsPropPlacement.AttachSortedSprite(
+                marker.transform,
+                sprite,
+                RepWarsPropPlacement.TieId(prop.instanceId, prop.assetId));
             renderer.sharedMaterial = PropMaterial();
-            renderer.sortingOrder = RepWarsPropPlacement.SortingOrder(prop.depth);
             return true;
         }
 
@@ -630,6 +632,13 @@ namespace RepWars
             var material = new Material(shader);
             material.color = color;
             return material;
+        }
+
+        static void BindWorldSort(Camera camera)
+        {
+            if (camera == null) return;
+            if (camera.GetComponent<WorldSortingCameraBinding>() == null)
+                camera.gameObject.AddComponent<WorldSortingCameraBinding>();
         }
 
         static Color Hex(byte r, byte g, byte b)

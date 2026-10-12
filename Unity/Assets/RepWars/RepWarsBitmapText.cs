@@ -11,6 +11,7 @@ namespace RepWars
     {
         public float characterScale = 0.14f;
         public float spacing = 0.04f;
+        public string sortingLayerName;
         public int sortingOrder = 18;
 
         readonly List<SpriteRenderer> slots = new List<SpriteRenderer>();
@@ -50,7 +51,7 @@ namespace RepWars
                 var glyph = new GameObject("Glyph");
                 glyph.transform.SetParent(transform, false);
                 var renderer = glyph.AddComponent<SpriteRenderer>();
-                renderer.sortingOrder = sortingOrder;
+                ApplySorting(renderer);
                 slots.Add(renderer);
             }
 
@@ -66,12 +67,18 @@ namespace RepWars
                 }
                 renderer.enabled = true;
                 renderer.sprite = sprites[i];
-                renderer.sortingOrder = sortingOrder;
+                ApplySorting(renderer);
                 var width = widths[i];
                 renderer.transform.localScale = new Vector3(characterScale, characterScale, 1f);
                 renderer.transform.localPosition = new Vector3(cursor + width * 0.5f, 0f, 0f);
                 cursor += width + spacing;
             }
+        }
+
+        void ApplySorting(SpriteRenderer renderer)
+        {
+            renderer.sortingOrder = sortingOrder;
+            if (!string.IsNullOrEmpty(sortingLayerName)) renderer.sortingLayerName = sortingLayerName;
         }
     }
 }

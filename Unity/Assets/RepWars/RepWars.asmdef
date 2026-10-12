@@ -2,7 +2,8 @@
   "name": "RepWars",
   "rootNamespace": "RepWars",
   "references": [
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "RepWars.WorldPresentation.Sorting"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

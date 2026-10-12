@@ -1,16 +1,18 @@
+using RepWars.WorldPresentation;
 using UnityEngine;
 
 namespace RepWars
 {
     /// <summary>
     /// A small visible group standing in for one backend army.
-    /// The troop count stays the backend number. VisibleCount is only how many sprites to show.
+    /// Soldiers sort independently. This root has no sorting group.
+    /// The troop count stays the backend number and is a world-anchored overlay.
+    /// VisibleCount is only how many sprites to show.
     /// </summary>
     public class RepWarsArmyVisual : MonoBehaviour
     {
         public const int BattalionSize = 5;
         public const float SoldierScale = 0.085f;
-        public const int SoldierSortingOrder = 10;
 
         static readonly Vector2[] Slots =
         {
@@ -66,7 +68,7 @@ namespace RepWars
                 body.transform.localScale = new Vector3(SoldierScale, SoldierScale, 1f);
                 var visual = body.AddComponent<RepWarsSoldierVisual>();
                 var phase = (i * 0.73f) % Mathf.Max(0.01f, idleFrames.Length);
-                visual.Bind(idleFrames, phase, factionTint, SoldierSortingOrder);
+                visual.Bind(idleFrames, phase, factionTint, i);
                 soldiers[i] = visual;
                 if (slot.y > highest) highest = slot.y;
             }
@@ -78,7 +80,8 @@ namespace RepWars
             count = label.AddComponent<RepWarsBitmapText>();
             count.characterScale = 0.13f;
             count.spacing = 0.03f;
-            count.sortingOrder = 32;
+            count.sortingLayerName = RepWarsWorldSorting.LayerWorldOverlay;
+            count.sortingOrder = RepWarsWorldSorting.WorldOverlayOrder.TroopMarker;
             count.SetText(troops.ToString());
         }
 

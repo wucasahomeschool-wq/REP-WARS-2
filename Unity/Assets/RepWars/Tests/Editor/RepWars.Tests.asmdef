@@ -3,6 +3,7 @@
     "rootNamespace": "RepWars.Tests",
     "references": [
         "RepWars",
+        "RepWars.WorldPresentation.Sorting",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

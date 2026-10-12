@@ -102,13 +102,39 @@ namespace RepWars.WorldPresentation
         }
 
         /// <summary>
+        /// Slot ties stay on the slot index. Values outside 0..63 clamp so the offset cannot grow.
+        /// </summary>
+        public static int TieIndex(int slotIndex)
+        {
+            if (slotIndex <= TieIndexMin) return TieIndexMin;
+            if (slotIndex >= TieIndexMax) return TieIndexMax;
+            return slotIndex;
+        }
+
+        public static float TieOffsetZ(int slotIndex)
+        {
+            return TieIndex(slotIndex) * TieEpsilon;
+        }
+
+        /// <summary>
         /// Writes only local z. Call this on a presentation child, not on a gameplay transform.
         /// </summary>
         public static void ApplyTieOffset(Transform presentation, string stableId)
         {
             if (presentation == null) return;
+            WriteTieZ(presentation, TieOffsetZ(stableId));
+        }
+
+        public static void ApplyTieOffset(Transform presentation, int slotIndex)
+        {
+            if (presentation == null) return;
+            WriteTieZ(presentation, TieOffsetZ(slotIndex));
+        }
+
+        static void WriteTieZ(Transform presentation, float z)
+        {
             var local = presentation.localPosition;
-            local.z = TieOffsetZ(stableId);
+            local.z = z;
             presentation.localPosition = local;
         }
 

@@ -1,28 +1,35 @@
+using RepWars.WorldPresentation;
 using UnityEngine;
 
 namespace RepWars
 {
     /// <summary>
     /// Places one authored composition instance in the projected map.
+    /// The prop root stays on the projected position. A presentation child carries the cosmetic tie z.
     /// Each imported sprite pivot is the bottom-center of its visible opaque pixels.
-    /// The SpriteRenderer transform sits on the projected authored position.
-    /// Authored scale is the transform scale. Pixels per unit stay at 100.
+    /// Authored scale is the root scale. Pixels per unit stay at 100.
+    /// Authored depth remains in the world definition and does not choose sorting order.
     /// </summary>
     public static class RepWarsPropPlacement
     {
-        /// <summary>
-        /// Authored depth is painter order: a larger depth draws in front of a smaller one.
-        /// Territory fill uses sortingOrder 0 and 1, borders use 4, and army markers use 20.
-        /// This origin plus the rounded depth puts Level 1 depth 5 at sortingOrder 10,
-        /// above the land and below troop labels.
-        /// Sprites that share a sortingOrder are ordered by the map camera axis (0, 1, -0.2),
-        /// so a prop higher on the map draws behind one lower on the map.
-        /// </summary>
-        public const int SortingOrigin = 5;
-
-        public static int SortingOrder(float depth)
+        public static string TieId(string instanceId, string assetId)
         {
-            return SortingOrigin + Mathf.RoundToInt(depth);
+            if (!string.IsNullOrEmpty(instanceId)) return instanceId;
+            return assetId ?? "";
+        }
+
+        /// <summary>
+        /// Sprite sits on a presentation child at the root. The root position is unchanged.
+        /// </summary>
+        public static SpriteRenderer AttachSortedSprite(Transform propRoot, Sprite sprite, string stableId)
+        {
+            var presentation = new GameObject("Presentation");
+            presentation.transform.SetParent(propRoot, false);
+            RepWarsWorldSorting.ApplyTieOffset(presentation.transform, stableId ?? "");
+            var renderer = presentation.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+            RepWarsWorldSorting.ApplyWorldEntity(renderer);
+            return renderer;
         }
 
         /// <summary>
