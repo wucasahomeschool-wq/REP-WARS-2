@@ -67,6 +67,82 @@ namespace RepWars.Tests
             Object.DestroyImmediate(army.gameObject);
         }
 
+        [Test]
+        public void SelectionUsesOneHighlightAndOneMarkerWithoutTouchingTheBorderOrCollider()
+        {
+            var first = Triangle("a", new Vector2(0f, 0f), new Vector2(3f, 0f), new Vector2(0f, 3f));
+            var second = Triangle("b", new Vector2(10f, 10f), new Vector2(12f, 10f), new Vector2(10f, 13f));
+            var collider = first.GetComponent<PolygonCollider2D>();
+            var before = collider.GetPath(0);
+            var presentation = RepWarsSelectionPresentation.Create(null);
+
+            presentation.Show(first);
+            AssertSelection(presentation, first, new Vector3(1f, 1f, 0f));
+            Assert.AreEqual(0.35f, first.outline.widthMultiplier, 0.001f);
+            Assert.AreEqual(RepWarsWorldSorting.GroundOverlayOrder.Border, first.outline.sortingOrder);
+            Assert.AreEqual(RepWarsWorldSorting.LayerGroundOverlay, first.outline.sortingLayerName);
+            CollectionAssert.AreEqual(before, collider.GetPath(0));
+
+            presentation.Show(second);
+            AssertSelection(presentation, second, new Vector3(32f / 3f, 11f, 0f));
+            Assert.AreEqual(1, Object.FindObjectsByType<RepWarsSelectionPresentation>().Length);
+            Assert.AreEqual(2, presentation.transform.childCount);
+
+            for (var i = 0; i < 4; i++)
+            {
+                presentation.Show(i % 2 == 0 ? first : second);
+                presentation.Hide();
+            }
+            Assert.IsFalse(presentation.IsShown);
+            Assert.IsNull(presentation.ShownTerritoryId);
+            Assert.IsFalse(presentation.Highlight.enabled);
+            Assert.IsFalse(presentation.Marker.enabled);
+            Assert.AreEqual(2, presentation.transform.childCount);
+            Assert.AreEqual(before.Length, collider.GetPath(0).Length);
+
+            Object.DestroyImmediate(presentation.gameObject);
+            Object.DestroyImmediate(first.gameObject);
+            Object.DestroyImmediate(second.gameObject);
+        }
+
+        static void AssertSelection(RepWarsSelectionPresentation presentation, RepWarsTerritoryView view, Vector3 centroid)
+        {
+            Assert.IsTrue(presentation.IsShown);
+            Assert.AreEqual(view.territoryId, presentation.ShownTerritoryId);
+            Assert.AreEqual(RepWarsWorldSorting.LayerGroundOverlay, presentation.Highlight.sortingLayerName);
+            Assert.AreEqual(RepWarsWorldSorting.GroundOverlayOrder.Selection, presentation.Highlight.sortingOrder);
+            Assert.AreEqual(view.outline.positionCount, presentation.Highlight.positionCount);
+            Assert.AreEqual(RepWarsWorldSorting.LayerWorldOverlay, presentation.Marker.sortingLayerName);
+            Assert.AreEqual(RepWarsWorldSorting.WorldOverlayOrder.SelectionMarker, presentation.Marker.sortingOrder);
+            Assert.AreEqual(centroid.x, presentation.Marker.transform.position.x, 0.001f);
+            Assert.AreEqual(centroid.y, presentation.Marker.transform.position.y, 0.001f);
+            Assert.AreEqual(0f, presentation.Marker.transform.position.z, 0.001f);
+            Assert.Less(RepWarsWorldSorting.GroundOverlayOrder.Border, presentation.Highlight.sortingOrder);
+            Assert.Greater(RepWarsWorldSorting.WorldOverlayOrder.SelectionMarker, RepWarsWorldSorting.WorldOverlayOrder.TroopMarker);
+            Assert.Greater(RepWarsWorldSorting.WorldOverlayOrder.SelectionMarker, RepWarsWorldSorting.WorldOverlayOrder.LocationLabel);
+            Assert.Greater(RepWarsWorldSorting.WorldOverlayOrder.SelectionMarker, RepWarsWorldSorting.WorldOverlayOrder.RegionLabel);
+        }
+
+        static RepWarsTerritoryView Triangle(string id, Vector2 a, Vector2 b, Vector2 c)
+        {
+            var piece = new GameObject("Territory_" + id);
+            var outline = piece.AddComponent<LineRenderer>();
+            outline.positionCount = 3;
+            outline.loop = true;
+            outline.useWorldSpace = false;
+            outline.widthMultiplier = 0.35f;
+            outline.SetPosition(0, a);
+            outline.SetPosition(1, b);
+            outline.SetPosition(2, c);
+            RepWarsWorldSorting.ApplyOrdered(outline, RepWarsWorldSorting.LayerGroundOverlay, RepWarsWorldSorting.GroundOverlayOrder.Border);
+            var view = piece.AddComponent<RepWarsTerritoryView>();
+            view.territoryId = id;
+            view.outline = outline;
+            var collider = piece.AddComponent<PolygonCollider2D>();
+            collider.SetPath(0, new[] { a, b, c });
+            return view;
+        }
+
         static Sprite TinySprite()
         {
             var texture = new Texture2D(4, 8, TextureFormat.RGBA32, false);

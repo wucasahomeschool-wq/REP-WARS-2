@@ -154,13 +154,47 @@ namespace RepWars.PlayModeTests
             var view = army.GetComponentInParent<RepWarsTerritoryView>();
             Physics2D.SyncTransforms();
             var inside = Inside(view.GetComponent<PolygonCollider2D>());
+            var path = view.GetComponent<PolygonCollider2D>().GetPath(0);
             screen.PickWorldPoint(inside);
             Assert.AreEqual(view.territoryId, screen.SelectedTerritoryId);
-            Assert.AreEqual(view.selectedWidth, view.outline.widthMultiplier, 0.001f);
+            Assert.AreEqual(view.normalWidth, view.outline.widthMultiplier, 0.001f);
             Assert.AreEqual(RepWarsWorldSorting.LayerGroundOverlay, view.outline.sortingLayerName);
+            Assert.AreEqual(RepWarsWorldSorting.GroundOverlayOrder.Border, view.outline.sortingOrder);
+            var shown = UnityEngine.Object.FindAnyObjectByType<RepWarsSelectionPresentation>();
+            Assert.AreEqual(view.territoryId, shown.ShownTerritoryId);
+            Assert.AreEqual(RepWarsWorldSorting.LayerGroundOverlay, shown.Highlight.sortingLayerName);
+            Assert.AreEqual(RepWarsWorldSorting.GroundOverlayOrder.Selection, shown.Highlight.sortingOrder);
+            Assert.AreEqual(RepWarsWorldSorting.LayerWorldOverlay, shown.Marker.sortingLayerName);
+            Assert.AreEqual(RepWarsWorldSorting.WorldOverlayOrder.SelectionMarker, shown.Marker.sortingOrder);
+            Assert.AreEqual(path.Length, view.GetComponent<PolygonCollider2D>().GetPath(0).Length);
+
+            RepWarsTerritoryView other = null;
+            foreach (var candidate in UnityEngine.Object.FindObjectsByType<RepWarsTerritoryView>())
+            {
+                if (candidate != view) { other = candidate; break; }
+            }
+            Assert.IsNotNull(other);
+            screen.PickWorldPoint(Inside(other.GetComponent<PolygonCollider2D>()));
+            Assert.AreEqual(other.territoryId, screen.SelectedTerritoryId);
+            Assert.AreEqual(other.territoryId, shown.ShownTerritoryId);
+            Assert.AreEqual(1, UnityEngine.Object.FindObjectsByType<RepWarsSelectionPresentation>().Length);
+
+            camera.enabled = false;
+            yield return SelectionOcclusion(shown, camera.orthographicSize);
+            camera.enabled = true;
+
             screen.PickWorldPoint(new Vector2(-10000f, -10000f));
             Assert.IsNull(screen.SelectedTerritoryId);
+            Assert.IsFalse(shown.IsShown);
             Assert.AreEqual(view.normalWidth, view.outline.widthMultiplier, 0.001f);
+            Assert.AreEqual(other.normalWidth, other.outline.widthMultiplier, 0.001f);
+
+            screen.PresentAuthoritative(screen.LiveState, null);
+            Own(GameObject.Find("Level1Map"));
+            Assert.IsNull(screen.SelectedTerritoryId);
+            var rebuilt = UnityEngine.Object.FindAnyObjectByType<RepWarsSelectionPresentation>();
+            Assert.IsNotNull(rebuilt);
+            Assert.IsFalse(rebuilt.IsShown);
             yield return null;
         }
 
@@ -292,6 +326,47 @@ namespace RepWars.PlayModeTests
             Assert.Greater(pixel.r, 0.6f);
             Assert.Greater(pixel.g, 0.5f);
             Assert.Less(pixel.b, 0.4f);
+        }
+
+        IEnumerator SelectionOcclusion(RepWarsSelectionPresentation shown, float mapSize)
+        {
+            PrepareProbe();
+            var edge = (shown.Highlight.GetPosition(0) + shown.Highlight.GetPosition(1)) * 0.5f;
+            var outward = edge - shown.Marker.transform.position;
+            if (outward.sqrMagnitude < 0.0001f) outward = Vector3.up;
+            outward.Normalize();
+            var outside = edge + outward * (RepWarsSelectionPresentation.HighlightWidth * 0.42f);
+            var cover = Band("selection-cover", Color.red, outside - new Vector3(0f, 1f, 0f));
+            RepWarsWorldSorting.ApplyWorldEntity(cover);
+            LookAt(outside.x, outside.y);
+            _camera.orthographicSize = 0.04f;
+            yield return null;
+            yield return new WaitForEndOfFrame();
+            var covered = Center(Read());
+            Assert.Greater(covered.r, covered.g + 0.15f, "A World sprite may cover the ground selection highlight.");
+            cover.enabled = false;
+
+            var stroke = shown.Marker.transform.TransformPoint(new Vector3(
+                RepWarsSelectionPresentation.MarkerHalfExtent * 0.5f,
+                RepWarsSelectionPresentation.MarkerHalfExtent * 0.5f,
+                0f));
+            var scenery = Band("selection-scenery", Color.blue, shown.Marker.transform.position - new Vector3(0f, 1f, 0f));
+            RepWarsWorldSorting.ApplyWorldEntity(scenery);
+            LookAt(stroke.x, stroke.y);
+            _camera.orthographicSize = 0.05f;
+            yield return null;
+            yield return new WaitForEndOfFrame();
+            var marker = Center(Read());
+            Assert.Greater(marker.r, 0.55f, "The selection marker stays readable over World scenery.");
+            Assert.Greater(marker.g, 0.45f);
+            Assert.Greater(marker.r, marker.b);
+
+            var span = RepWarsSelectionPresentation.MarkerHalfExtent * 2f;
+            var normalPixels = span / (mapSize * 2f) * 1080f;
+            var farPixels = span / (mapSize * 2.5f) * 1080f;
+            Assert.Greater(normalPixels, 12f, "The marker should remain visible at the framed map zoom.");
+            Assert.Greater(farPixels, 8f, "The marker should remain visible at the map's maximum zoom-out.");
+            Assert.Less(normalPixels, 80f, "The marker should stay a small confirmation, not a fill.");
         }
 
         GameObject ProductionTree()

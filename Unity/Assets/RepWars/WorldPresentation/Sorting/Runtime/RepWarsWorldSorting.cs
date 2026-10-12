@@ -9,8 +9,8 @@ namespace RepWars.WorldPresentation
     /// Depth-aware entities use the World layer at order 0. Their order comes from the
     /// shared custom transparency axis and the sprite pivot (feet / base), not from sortingOrder.
     /// A cosmetic z tie lives on a presentation child so the authoritative position stays put.
-    /// Territory selection stays a GroundOverlay highlight. A WorldOverlay selection marker
-    /// at <see cref="WorldOverlayOrder.SelectionMarker"/> is reserved and is not implemented here.
+    /// Territory selection uses a GroundOverlay highlight at <see cref="GroundOverlayOrder.Selection"/>
+    /// and a world-anchored marker at <see cref="WorldOverlayOrder.SelectionMarker"/>.
     /// </summary>
     public static class RepWarsWorldSorting
     {
@@ -79,7 +79,6 @@ namespace RepWars.WorldPresentation
             public const int RegionLabel = 0;
             public const int LocationLabel = 10;
             public const int TroopMarker = 20;
-            /// <summary>Reserved. Production selection is not wired in this phase.</summary>
             public const int SelectionMarker = 30;
         }
 

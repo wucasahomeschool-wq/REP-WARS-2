@@ -30,7 +30,6 @@ namespace RepWars
         static readonly Color Sea = Hex(0x1b, 0x1f, 0x24);
         static readonly Color Border = Hex(0x2a, 0x30, 0x38);
         static readonly Color Ink = Hex(0xf0, 0xe6, 0xc8);
-        static readonly Color Highlight = Hex(0xf0, 0xe6, 0xc8);
 
         PublicGameState gameState;
         AuthoredWorld world;
@@ -41,6 +40,7 @@ namespace RepWars
         TextMesh hud;
         TextMesh territoryInfo;
         RepWarsMapCamera mapCamera;
+        RepWarsSelectionPresentation selection;
         RepWarsTerritoryView selected;
         public bool suppressMapInput;
 
@@ -141,9 +141,12 @@ namespace RepWars
 
         void Select(RepWarsTerritoryView view)
         {
-            if (selected != null && selected != view) selected.SetSelected(false);
             selected = view;
-            if (selected != null) selected.SetSelected(true);
+            if (selection != null)
+            {
+                if (view == null) selection.Hide();
+                else selection.Show(view);
+            }
             if (territoryInfo != null) territoryInfo.text = "";
             Debug.Log("[RepWars] select " + (selected == null ? "none" : selected.territoryId));
         }
@@ -249,7 +252,6 @@ namespace RepWars
                 view.territoryId = territory.id;
                 view.outline = outline;
                 view.normalColor = Border;
-                view.selectedColor = Highlight;
                 var collider = piece.AddComponent<PolygonCollider2D>();
                 collider.SetPath(0, OpenRing(ring));
                 PlaceArmies(piece.transform, territory, ring, owner);
@@ -264,6 +266,7 @@ namespace RepWars
                     else bounds.Encapsulate(ring[i]);
                 }
             }
+            selection = RepWarsSelectionPresentation.Create(root.transform);
             PlaceAuthoredVisuals(root.transform);
             LabelRegions(root.transform, bounds, hasBounds);
             if (hasBounds)
