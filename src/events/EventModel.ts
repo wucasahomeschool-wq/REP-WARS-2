@@ -165,6 +165,8 @@ export interface HistoryEntry {
 }
 
 export interface WorldStepInput {
+  /** Disposable canonical claim projection; never a second stock authority. */
+  reservedResources?: Map<FactionId, Partial<Resources>>;
   turn: number;
   territories: Map<TerritoryId, Territory>;
   factions: Map<FactionId, WarlordSnapshot>;
@@ -186,7 +188,17 @@ export interface WorldStepInput {
   seed: number;
 }
 
+/** Explicit authored social consequence, not a snapshot-derived stance.
+ * IDs belong to the event instance/phase/consequence, so retries are safe. */
+export interface AuthoredOpinionEffect {
+  id: string;
+  observer: FactionId;
+  target: FactionId;
+  delta: number;
+}
+
 export interface WorldStepOutput {
+  opinionEffects?: AuthoredOpinionEffect[];
   newActiveEvents: ActiveEvent[];
   newEventHistory: HistoryEntry[];
   triggeredEvents: TriggeredEvent[];

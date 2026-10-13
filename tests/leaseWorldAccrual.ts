@@ -34,8 +34,8 @@ export async function runLeaseWorldAccrualTests(
     assert.strictEqual(state.accrualDivisionRemainder, 0);
     assert.strictEqual(state.lastAccrualAtMs, 30 * MINUTE);
     assert.strictEqual(state.lastProcessedAtMs, 1);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 16);
-    assert.strictEqual(state.schemaVersion, 16);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+    assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
   });
 
   await report('online 60 seconds earns one target tick', async () => {
@@ -481,7 +481,7 @@ export async function runLeaseWorldAccrualTests(
     assert.strictEqual(state.accruedTargetWorldTick, 81);
   });
 
-  await report('gameplay commands and reads do not observe accrual', async () => {
+  await report('mutating commands observe trusted receipts while reads remain non-mutating', async () => {
     const { host, clock, store } = harness();
     clock.set(1_000);
     const opened = await host.openGameplaySession('command', 'open-1');
@@ -510,7 +510,9 @@ export async function runLeaseWorldAccrualTests(
     const state = load(store, 'command');
     assert.strictEqual(state.playerEmpirePause.paused, true);
     assert.strictEqual(state.gameplaySessionLeases[0]!.expiresAtMs, MINUTE + BALANCE.temporal.presenceLeaseDurationMs);
-    assert.strictEqual(state.lastAccrualAtMs, 1_000);
+    assert.strictEqual(state.lastAccrualAtMs, MINUTE);
+    assert.strictEqual(state.subTickMicroticks,983_333);
+    assert.strictEqual(state.accrualDivisionRemainder,20_000);
     assert.strictEqual(state.accruedTargetWorldTick, 0);
     assert.strictEqual(state.worldTick, 0);
     assert.strictEqual(store.load('command').ok, true);

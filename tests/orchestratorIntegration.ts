@@ -76,7 +76,7 @@ export function registerOrchestratorIntegrationTests(api: OrchestratorIntegratio
   test('command catalog matches routed handlers', () => {
     const implemented = COMMAND_INDEX.filter((c) => c.status === 'implemented');
     const unsupported = COMMAND_INDEX.filter((c) => c.status === 'unsupported');
-    assert.deepStrictEqual(unsupported.map((c) => c.commandId).sort(), ['OFFER_PEACE', 'TRADE']);
+    assert.deepStrictEqual(unsupported.map((c) => c.commandId).sort(), ['DECLARE_WAR', 'NEGOTIATE']);
     for (const def of implemented) {
       if (!def.changesState) {
         assert.ok(READ_ONLY_HANDLERS[def.commandId], `missing read handler ${def.commandId}`);
@@ -115,7 +115,7 @@ export function registerOrchestratorIntegrationTests(api: OrchestratorIntegratio
     const state = createGameState({ seed: 4 });
     const before = cloneGameState(state);
     const orch = new Orchestrator(state);
-    const peace = orch.execute(cmd('OFFER_PEACE', { targetFactionId: 'f_ai_01' }));
+    const peace = orch.execute(cmd('DECLARE_WAR', { targetFactionId: 'f_ai_01' }));
     assert.strictEqual(peace.success, false);
     assert.strictEqual(peace.errors[0]!.code, ErrorCode.FEATURE_NOT_IMPLEMENTED);
     assert.deepStrictEqual(

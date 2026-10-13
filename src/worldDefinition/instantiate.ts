@@ -1,3 +1,5 @@
+import {initializeCognition} from '../cognition/migration';
+import { createOperationMap } from '../engine/operations';
 import { Army, DiplomaticRelationship, FactionId, Personality, Territory, WarlordSnapshot } from '../types';
 import {
   GAME_STATE_SCHEMA_VERSION,
@@ -185,14 +187,13 @@ export function createGameStateFromWorld(
       knownFactions: [...factionIds],
       knownTerritories: [...allTerritoryIds],
       lastActions: [],
+      nextAiCommitmentSequence: 0,
       reputation: 50,
       stability: 70,
     };
     factions.set(spec.id, snapshot);
   }
 
-  const commitments = new Map<FactionId, null>();
-  for (const fid of factionIds) commitments.set(fid, null);
 
   const playerFactionId = options.playerFactionId === undefined
     ? definition.playerFactionId
@@ -213,7 +214,8 @@ export function createGameStateFromWorld(
     regions,
     territories,
     armies,
-    commitments,
+    operations: createOperationMap(),
+    operationClaims: new Map(),
     activeEvents: [],
     eventHistory: [],
     ...emptyRewardApplicationState(),
@@ -223,6 +225,7 @@ export function createGameStateFromWorld(
   bindLevelAnchors(state, definition);
   bindLevel1Tutorial(state);
   assertWorldIdentity(state, definition);
+  initializeCognition(state);
   return state;
 }
 

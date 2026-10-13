@@ -1,3 +1,5 @@
+import {refreshGoals} from '../../cognition/goals';
+import { settleOperation } from '../../engine/operations';
 import { ConstructionProject, GameState } from '../../types/GameState';
 import { getConstructionProjectDefinition } from './definitions';
 
@@ -9,4 +11,6 @@ export function completeConstruction(state: GameState, project: ConstructionProj
   project.lastProgressTick = state.worldTick;
   project.status = 'completed';
   project.completedAtTick = state.worldTick;
+  refreshGoals(state,project.factionId);
+  if (project.aiOperationId) settleOperation(state, project.aiOperationId, 'completed', 'construction completed');
 }

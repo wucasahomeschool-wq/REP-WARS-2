@@ -1008,52 +1008,42 @@ function emitSuccess(builder: ObservationBuilder, observation: CommandObservatio
     case 'AI_DECIDE': {
       const warlordId = str(parameters.warlordId);
       const commitments = Array.isArray(payload.commitments) ? payload.commitments : [];
-      if (warlordId) {
-        const match = commitments.find((row) => {
-          const rec = asRecord(row);
-          return rec.factionId === warlordId;
-        });
-        const rec = asRecord(match);
-        const commitment = asRecord(rec.commitment);
-        const commitmentId = str(commitment.id);
-        builder.emit({
-          eventType: 'ai.decision_selected',
-          correlationId: commitmentId ?? `ai:${warlordId}`,
-          sourceSystem: 'ai',
-          factionId: warlordId,
-          payload: omitUndefined({
-            factionId: warlordId,
-            commitmentId,
-            action: str(commitment.action),
-            targetId: str(commitment.targetId),
-            status: str(commitment.status),
-          }),
-        });
+      const selected = new Set(Array.isArray(payload.selectedOperationIds) ? payload.selectedOperationIds : []);
+      const relevant = commitments.filter(row => !warlordId || asRecord(row).factionId === warlordId);
+      const newlySelected = relevant.filter(row => selected.has(asRecord(asRecord(row).commitment).id));
+      if (warlordId && newlySelected.length) {
+        for (const row of newlySelected) {
+          const commitment = asRecord(asRecord(row).commitment);
+          builder.emit({
+            eventType: 'ai.decision_selected',
+            correlationId: str(commitment.id) ?? `ai:${warlordId}`,
+            sourceSystem: 'ai', factionId: warlordId,
+            payload: omitUndefined({ factionId: warlordId, commitmentId: str(commitment.id),
+              action: str(commitment.action), targetId: str(commitment.targetId), status: str(commitment.status) }),
+          });
+        }
       } else {
         builder.emit({
-          eventType: 'ai.decision_cycle',
-          correlationId: requestCorr,
-          sourceSystem: 'ai',
+          eventType: 'ai.decision_cycle', correlationId: requestCorr, sourceSystem: 'ai',
+          factionId: warlordId,
           payload: {
-            commitmentCount: commitments.length,
-            actions: commitments.map((row) => {
-              const rec = asRecord(row);
-              const commitment = asRecord(rec.commitment);
-              return {
-                factionId: str(rec.factionId) ?? null,
-                action: str(commitment.action) ?? null,
-                targetId: str(commitment.targetId) ?? null,
-                commitmentId: str(commitment.id) ?? null,
-              };
+            commitmentCount: relevant.length,
+            operationIds: relevant.map(row => str(asRecord(asRecord(row).commitment).id) ?? null),
+            selectedOperationIds: newlySelected.map(row => str(asRecord(asRecord(row).commitment).id) ?? null),
+            actions: relevant.map(row => {
+              const rec=asRecord(row),op=asRecord(rec.commitment);
+              return { factionId: str(rec.factionId) ?? null, action: str(op.action) ?? null,
+                targetId: str(op.targetId) ?? null, commitmentId: str(op.id) ?? null };
             }),
           },
         });
       }
       return;
     }
+    case 'START_AI_OPERATION':
     case 'RESOLVE_COMMITMENT': {
-      const factionId = actingFaction;
-      const live = factionId ? observation.state.commitments.get(factionId) : undefined;
+      const live = str(payload.operationId) ? observation.state.operations.get(str(payload.operationId)!) : undefined;
+      const factionId = live?.warlordId ?? actingFaction;
       const commitmentId = str(payload.commitmentId) ?? live?.id;
       const corr = commitmentId ?? `ai:${factionId ?? requestCorr}`;
       builder.emit({
@@ -1063,10 +1053,10 @@ function emitSuccess(builder: ObservationBuilder, observation: CommandObservatio
         factionId,
         payload: omitUndefined({
           commitmentOutcome: str(payload.commitmentOutcome),
-          action: str(payload.action),
-          targetId: str(payload.targetId),
+          action: live?.action ?? str(payload.action),
+          targetId: live?.targetId ?? str(payload.targetId),
           attackOutcome: str(payload.attackOutcome),
-          success: payload.commitmentOutcome !== 'failed',
+          success: live?.terminal ? live.terminal.outcome === 'completed' : undefined,
         }),
       });
       if (str(payload.attackOutcome)) {

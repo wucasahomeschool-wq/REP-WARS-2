@@ -33,6 +33,14 @@ export interface OrchestrationErrorBody {
   details?: Record<string, unknown>;
 }
 
+/** Internal diagnostics remain available to server callers/telemetry. Only the
+ * client boundary uses this projection; expected domain validation stays intact. */
+export function publicOrchestrationError(body:OrchestrationErrorBody):OrchestrationErrorBody {
+  return body.code===ErrorCode.INVALID_GAME_STATE||body.code===ErrorCode.ENGINE_ERROR
+    ? {code:body.code,message:'Internal game consistency error. Please retry.'}
+    : body;
+}
+
 export class OrchestrationError extends Error {
   readonly code: ErrorCode;
   readonly details?: Record<string, unknown>;

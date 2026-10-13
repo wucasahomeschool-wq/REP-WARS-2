@@ -1,3 +1,5 @@
+import {availableResource} from '../trade/resources';
+import { assertClaimAvailable } from '../../engine/operations';
 import { ConstructionProject, ConstructionProjectType, GameState } from '../../types/GameState';
 import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
 import { requireFactionSnapshot } from '../../orchestration/helpers';
@@ -16,8 +18,10 @@ export function startConstruction(
     territoryId: string;
     projectType?: ConstructionProjectType;
     projectId?: string;
+    operationId?: string;
   },
 ): ConstructionProject {
+  assertClaimAvailable(state, 'construction_site', params.territoryId, params.operationId);
   const faction = requireFactionSnapshot(state, params.factionId);
   const projectType: ConstructionProjectType = params.projectType ?? 'FORTIFICATION';
   const definition = getConstructionProjectDefinition(projectType);
@@ -33,7 +37,7 @@ export function startConstruction(
   const { cost, durationTicks } = definition;
   const charges = constructionCostEntries(cost);
   for (const { resource, amount } of charges) {
-    if (faction.resources[resource] < amount) {
+    if (availableResource(state,params.factionId,resource) < amount) {
       throw new OrchestrationError(ErrorCode.INSUFFICIENT_RESOURCES, 'Insufficient resources to start construction');
     }
   }
@@ -58,6 +62,7 @@ export function startConstruction(
     remainingTicks: durationTicks,
     status: 'in_progress',
     completedAtTick: null,
+    ...(params.operationId ? { aiOperationId: params.operationId } : {}),
   };
   state.constructions.set(id, project);
   return project;

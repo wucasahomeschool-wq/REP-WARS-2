@@ -1,3 +1,12 @@
+import { registerRequiredResponse } from '../engine/nonProactiveCognition';
+import {initializeCognition} from '../cognition/migration';
+import { initializeRecruitment, simulationWork } from '../gameplay/recruitment/recruitment';
+import { migratePeaceState } from './peaceMigration';
+import { migratePressureState } from './pressureMigration';
+import { migrateLegacyOperations } from './operationMigration';
+import { migrateStrategicState } from './strategyMigration';
+import { GameState } from '../types/GameState';
+import { AICommitment } from '../types';
 import {
   GAME_STATE_SCHEMA_VERSION,
   emptyLevelDefeatState,
@@ -8,6 +17,7 @@ import {
 import { coerceLevel1TutorialState } from '../gameplay/tutorial/level1';
 import { coercePlayerProgressionState } from '../fitness/progression/types';
 import { PersistenceError } from './errors';
+import { recordedAiCommitmentSequenceFloors } from '../engine/commitmentIdentity';
 
 export const MIN_SUPPORTED_GAME_STATE_SCHEMA = 5;
 export const CURRENT_GAME_STATE_SCHEMA = GAME_STATE_SCHEMA_VERSION;
@@ -207,6 +217,9 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   state.lastAiDecisionTick = coerceMap(state.lastAiDecisionTick);
   state.territories = coerceMap(state.territories);
   state.armies = coerceMap(state.armies);
+  // Schema 18 adds exact plans. Missing historical plans remain missing: the old
+  // action/target records never persisted a force, route, quantity or build type.
+  // The resolver has an explicit legacy branch; migration must not invent plans.
   state.commitments = coerceMap(state.commitments);
   reviveNestedCollections(state);
 
@@ -230,10 +243,26 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   }
 
   const factions = state.factions as Map<unknown, unknown>;
+  const identityReferences = {
+    commitments: state.commitments as Map<unknown, unknown>,
+    operations: coerceMap(state.operations),
+    armies: state.armies as Map<unknown, unknown>,
+    activeInvasions: coerceMap(state.activeInvasions),
+  };
+  const identityFloors = recordedAiCommitmentSequenceFloors(identityReferences);
   for (const faction of factions.values()) {
     if (!faction || typeof faction !== 'object') continue;
     const rec = faction as Record<string, unknown>;
     rec.knownTerritories = [...allTerritoryIds];
+    if (schema < 17) {
+      // Recover the old runtime counter without lowering any persisted high-water
+      // mark or reusing IDs referenced by a physical operation.
+      const existing = rec.nextAiCommitmentSequence;
+      rec.nextAiCommitmentSequence = Math.max(
+        typeof existing === 'number' && Number.isSafeInteger(existing) && existing >= 0 ? existing : 0,
+        (identityFloors.get(rec.id) ?? 0),
+      );
+    }
   }
 
   if (!state.playerRewards) state.playerRewards = emptyPlayerRewardState();
@@ -306,6 +335,44 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   if (!Array.isArray(state.activeEvents)) state.activeEvents = [];
   if (!Array.isArray(state.eventHistory)) state.eventHistory = [];
 
+  if (schema >= 19 && (!(state.operations instanceof Map) || !(state.operationClaims instanceof Map))) {
+    throw new PersistenceError('persistence.corrupt', 'Schema 19 requires canonical operation and claim maps');
+  }
+  if (schema < 19 && !(state.operations instanceof Map)) {
+    migrateLegacyOperations(state as unknown as GameState, state.commitments as Map<string, AICommitment | null>);
+  } else {
+    state.operations = coerceMap(state.operations);
+    state.operationClaims = coerceMap(state.operationClaims);
+  }
+  delete state.commitments;
+  if (schema < 20) migrateStrategicState(state as unknown as GameState);
+  else if (!(state.aiDecisionOpportunities instanceof Map) || !state.strategicAttention || typeof state.strategicAttention !== 'object') {
+    throw new PersistenceError('persistence.corrupt', 'Schema 20 requires canonical Attention and decision opportunities');
+  }
+  if (schema < 21) migratePressureState(state as unknown as GameState);
+  else if (!(state.aiPressure instanceof Map) || !state.aiClock || typeof state.aiClock !== 'object')
+    throw new PersistenceError('persistence.corrupt','Schema 21 requires canonical source pressure and temporal cursor');
+  if (schema < 22) initializeRecruitment(state as unknown as GameState, simulationWork({wholeTicks:state.accruedTargetWorldTick as number,subTickMicroticks:state.subTickMicroticks as number,accrualDivisionRemainder:state.accrualDivisionRemainder as number}));
+  else if (!(state.territoryRecruitment instanceof Map)) throw new PersistenceError('persistence.corrupt', 'Schema 22 requires local recruitment pools');
+  if(schema<23)migratePeaceState(state as unknown as GameState);
+  else if(!(state.peaceRelationships instanceof Map)||!(state.peaceProposals instanceof Map)||!(state.peaceProposalThreads instanceof Map))
+    throw new PersistenceError('persistence.corrupt','Schema 23 requires canonical Peace relationships, proposals and threads');
+  if(schema<24){state.tradeProposals=new Map();state.tradeShipments=new Map();}
+  else if(!(state.tradeProposals instanceof Map)||!(state.tradeShipments instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 24 requires Trade proposals and shipments');
+  if(schema<25)initializeCognition(state as unknown as GameState);
+  else if(!(state.opinionEvents instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 25 requires Opinion event receipts');
+  // No reconstructed fighting, casualties or historical Peace epochs.
+  if(schema<26){state.conflictLedger=new Map();state.conflictEventReceipts=new Map();}
+  else if(!(state.conflictLedger instanceof Map)||!(state.conflictEventReceipts instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 26 requires canonical conflict ledger and receipts');
+  if(schema<27){
+    state.aiResponses=new Map();
+    state.aiResponseScheduler={primaryByFaction:new Map(),lastBoundaryByFaction:new Map(),observedWorldTick:null,dirty:true};
+  } else if(!(state.aiResponses instanceof Map)||!state.aiResponseScheduler||typeof state.aiResponseScheduler!=='object')
+    throw new PersistenceError('persistence.corrupt','Schema 27 requires canonical non-proactive response contexts and scheduler');
+  if(schema<27){
+    for(const p of (state.peaceProposals as GameState['peaceProposals']).values())if(p.status==='pending')registerRequiredResponse(state as unknown as GameState,'peace',p.id);
+    for(const p of (state.tradeProposals as GameState['tradeProposals']).values())if(p.status==='pending')registerRequiredResponse(state as unknown as GameState,'trade',p.id);
+  }
   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
   return state;
 }

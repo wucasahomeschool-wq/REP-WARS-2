@@ -1,0 +1,16 @@
+const fs=require('fs'),ts=require(process.cwd()+'/node_modules/typescript'),Module=require('module');
+const tree=ts.createSourceFile('run.ts',fs.readFileSync('tests/run.ts','utf8'),ts.ScriptTarget.Latest,true);
+let body=`import {PersonalitySystem} from '../src/personality/PersonalitySystem';let reqCounter=0,reqSeq=0;\n`;
+for(const st of tree.statements)if(ts.isFunctionDeclaration(st)&&['makeSelf','makeTerritory','makeCmt','cmdReq'].includes(st.name?.text))body+=st.getText(tree)+'\n';
+if(process.argv[2]==='focus'){
+body+=`const tasks:any[]=[];const test=(name:string,fn:()=>unknown)=>tasks.push([name,fn]);\n`;
+for(const [file,fn,extra]of [['aiCanonicalReasoning','registerAiCanonicalReasoningTests','test'],['aiConcretePlans','registerAiConcretePlanTests','test,makeSelf,makeTerritory,makeCmt,cmdReq'],['aiOperations','registerAiOperationTests','test,makeSelf,makeTerritory,makeCmt,cmdReq'],['aiStrategyConcurrency','registerAiStrategyConcurrencyTests','test,makeSelf,makeTerritory,makeCmt,cmdReq'],['aiStrategicPressure','registerAiStrategicPressureTests','test,makeSelf,makeTerritory,cmdReq'],['aiStrategicEvaluation','registerAiStrategicEvaluationTests','test,makeSelf,makeTerritory,cmdReq'],['aiRecruitment','registerAiRecruitmentTests','test,makeSelf,makeTerritory,cmdReq'],['aiPeace','registerAiPeaceTests','test,makeSelf,makeTerritory,cmdReq'],['aiTrade','registerAiTradeTests','test,makeSelf,makeTerritory,cmdReq'],['aiCognition','registerAiCognitionTests','test,makeSelf,makeTerritory,cmdReq'],['aiConflict','registerAiConflictTests','test,makeSelf,makeTerritory,cmdReq'],['aiResponses','registerAiResponseTests','test,makeSelf,makeTerritory,cmdReq']])body+=`require('./${file}').${fn}({${extra}});tasks.push(['GROUP ${file}',()=>{}]);\n`;
+body+=`(async()=>{let passed=0,failed=0;for(const[n,fn]of tasks){if(n.startsWith('GROUP')){console.log(n,passed,failed);continue;}try{await fn();passed++;console.log('PASS',n);}catch(e){failed++;console.error('FAIL',n,e);}}console.log('TOTAL',passed,failed);if(failed)process.exitCode=1;})();`;
+}else{
+const t=ts.createSourceFile('test.ts',fs.readFileSync('tests/'+process.argv[2]+'.ts','utf8'),ts.ScriptTarget.Latest,true);
+for(const st of t.statements)if(ts.isImportDeclaration(st))body+=st.getText(t)+'\n';
+const fn=t.statements.find(st=>ts.isFunctionDeclaration(st)&&st.name.text.startsWith('register'));
+for(const st of fn.body.statements)if(ts.isVariableStatement(st)||ts.isFunctionDeclaration(st)||ts.isClassDeclaration(st))body+=st.getText(t)+'\n';
+body+=fs.readFileSync(process.argv[3],'utf8');
+}
+const m=new Module(process.cwd()+'/tests/.virtual-l-driver.ts');m.filename=process.cwd()+'/tests/.virtual-l-driver.ts';m.paths=Module._nodeModulePaths(process.cwd()+'/tests');m._compile(ts.transpileModule(body,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText,m.filename);

@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import { getAttackFeasibility, isMoveDestinationFeasible } from '../src/engine/feasibility';
 import { DecisionEngine, isFactionEliminated, WarlordState } from '../src/engine/DecisionEngine';
@@ -209,8 +210,7 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     const scorer = new ActionScorer();
     const scored = scorer.scoreAllActions(scorerInputFor(self, gameState));
     const move = scored.find((s) => s.action === 'MOVE');
-    assert.ok(move);
-    assert.notStrictEqual(move!.targetId, 'dest_busy');
+    assert.strictEqual(move, undefined, 'no fake null-target MOVE when all forces are busy');
   });
 
   console.log('Phase 16 — faction elimination');
@@ -235,14 +235,14 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     const ghost = makeSelf('ghost_empire', { territories: [], armies: [] });
     state.factions.set('ghost_empire', ghost);
     state.allFactionIds.push('ghost_empire');
-    state.commitments.set('ghost_empire', null);
+    fixtureCommitments(state).set('ghost_empire', null);
     const orch = new Orchestrator(state);
     assert.strictEqual(isFactionEliminated(orch.getState().factions.get('ghost_empire')!), true);
     const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 20 }));
     assert.strictEqual(res.success, true);
     const advance = res.payload.worldAdvance as WorldAdvanceResult;
     assert.ok(!advance.aiDecisions.some((d) => d.factionId === 'ghost_empire'));
-    assert.strictEqual(orch.getState().commitments.get('ghost_empire'), null);
+    assert.strictEqual(fixtureCommitments(orch.getState()).get('ghost_empire'), null);
   });
 
   console.log('Phase 16 — AI decision lastActions bookkeeping (WAIT anti-repetition wiring)');
@@ -272,7 +272,7 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     return { state, self };
   }
 
-  test('applyCommitmentOutcomeFeedback: successful ATTACK with an originating goal records progress on the canonical GameState', () => {
+  test('applyCommitmentOutcomeFeedback: successful ATTACK feedback cannot fabricate Goal progress without achieved canonical facts', () => {
     const { state } = stateWithSelf({ goals: [{
       id: 'goal_0', type: 'destroy_rival', priority: 80, targetFaction: ENEMY, targetTerritory: null,
       targetRegion: null, targetResource: null, progress: 0, targetProgress: 100, deadlineTurn: null, createdTurn: 0,
@@ -280,7 +280,7 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     const commitment = makeCmt({ warlordId: ME, action: 'ATTACK', targetId: 'target', originatingGoalId: 'goal_0' });
     applyCommitmentOutcomeFeedback(state, ME, commitment, 'completed');
     const goal = state.factions.get(ME)!.goals.find((g) => g.id === 'goal_0')!;
-    assert.ok(goal.progress > 0, 'goal progress should increase after a successful ATTACK');
+    assert.strictEqual(goal.progress,0, 'Feedback alone cannot establish an achieved objective');
   });
 
   test('applyCommitmentOutcomeFeedback: failed action does not record goal progress', () => {
@@ -302,10 +302,10 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     const commitment = makeCmt({ warlordId: ME, action: 'ATTACK', targetId: 'target', originatingGoalId: 'goal_0' });
     applyCommitmentOutcomeFeedback(state, ME, commitment, 'completed');
     const cloned = cloneGameState(state);
-    assert.strictEqual(cloned.factions.get(ME)!.goals.find((g) => g.id === 'goal_0')!.progress, 15);
+    assert.strictEqual(cloned.factions.get(ME)!.goals.find((g) => g.id === 'goal_0')!.progress, 0);
     // cloned goal object must be independent of the source.
     cloned.factions.get(ME)!.goals[0]!.progress = 99;
-    assert.strictEqual(state.factions.get(ME)!.goals.find((g) => g.id === 'goal_0')!.progress, 15);
+    assert.strictEqual(state.factions.get(ME)!.goals.find((g) => g.id === 'goal_0')!.progress, 0);
   });
 
   test('applyCommitmentOutcomeFeedback: failed ATTACK/EXPAND/MOVE records an action_failed memory entry', () => {
@@ -365,9 +365,9 @@ export function registerAiRuntimeTests(api: AiRuntimeTestApi): void {
     state.cities = new Map();
     state.territoryEconomy = new Map();
     state.territoryInfrastructure = new Map();
-    state.commitments = new Map([[ME, makeCmt({
+    fixtureCommitments(state).replaceWith(new Map([[ME, makeCmt({
       warlordId: ME, action: 'ATTACK', targetId: 'target', status: 'committed', originatingGoalId: 'goal_x',
-    })], [ENEMY, null]]);
+    })], [ENEMY, null]]));
     const orch = new Orchestrator(state);
     const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'p', { factionId: ME }));
     assert.strictEqual(res.success, true);

@@ -1,8 +1,11 @@
+import { AIConcretePlan, cloneConcretePlan, makeConcretePlan, comparePlanIds } from '../types/AIConcretePlan';
 import { BALANCE } from '../constants/balance';
 import { SeededRNG } from '../utils/SeededRNG';
 import { MemorySystem } from '../memory/MemorySystem';
 import { GoalSystem } from '../goals/GoalSystem';
 import { ActionScorer, ScorerInput, ScoringHelpers } from '../scoring/ActionScorer';
+import { ContextPlanComparator, selectContextComparison, comparisonScoredPlan } from '../scoring/contextPlanComparison';
+import type { AISourceContext } from '../types/AIPressure';
 import {
   WarlordSnapshot,
   GameStateSnapshot,
@@ -43,20 +46,32 @@ export class WarlordState {
   snapshot: WarlordSnapshot;
   memory: MemorySystem;
   goals: GoalSystem;
-  /** AI-owned; not world state. The future Orchestrator reads this, it does not live on territories/armies. */
+  /** Disposable working/output copy of the existing canonical commitment. */
   activeCommitment: AICommitment | null = null;
   lastTerminalCommitment: AICommitment | null = null;
-  private commitmentSeq = 0;
 
   constructor(snapshot: WarlordSnapshot, memory?: MemorySystem, goals?: GoalSystem) {
     this.snapshot = snapshot;
     this.memory = memory ?? new MemorySystem();
-    this.goals = goals ?? new GoalSystem(this.snapshot.goals);
-    this.memory.mergeFrom(this.snapshot.memory);
+    this.goals = goals ?? new GoalSystem(snapshot.goals.map((goal) => ({ ...goal })));
+    this.memory.mergeFrom(snapshot.memory.map((entry) => ({ ...entry, details: structuredClone(entry.details) })));
   }
 
   nextCommitmentSeq(): number {
-    return this.commitmentSeq++;
+    const sequence = this.snapshot.nextAiCommitmentSequence;
+    if (!Number.isSafeInteger(sequence) || sequence < 0 || sequence >= Number.MAX_SAFE_INTEGER) {
+      throw new Error(`Invalid AI commitment sequence for ${this.snapshot.id}`);
+    }
+    this.snapshot.nextAiCommitmentSequence = sequence + 1;
+    return sequence;
+  }
+
+  /** Rebuild disposable reasoning helpers; never merge retained cognition into canonical data. */
+  refreshReasoning(snapshot: WarlordSnapshot): void {
+    this.snapshot = snapshot;
+    this.memory = new MemorySystem();
+    this.memory.mergeFrom(snapshot.memory.map((entry) => ({ ...entry, details: structuredClone(entry.details) })));
+    this.goals = new GoalSystem(snapshot.goals.map((goal) => ({ ...goal })));
   }
 
   static buildContext(self: WarlordSnapshot, gameState: GameStateSnapshot): ActionContext {
@@ -165,6 +180,7 @@ export function isFactionEliminated(snapshot: WarlordSnapshot): boolean {
 export function cloneCommitment(c: AICommitment): AICommitment {
   return {
     ...c,
+    ...(c.plan !== undefined ? { plan: cloneConcretePlan(c.plan) } : {}),
     reason: [...c.reason],
     factorBreakdown: c.factorBreakdown.map((f) => ({ ...f })),
   };
@@ -226,11 +242,10 @@ export function validateCommitmentTarget(
 }
 
 export class DecisionEngine {
-  private scorer: ActionScorer;
+  private scorer?: ActionScorer;
   private rng: SeededRNG;
 
   constructor(seed?: number) {
-    this.scorer = new ActionScorer();
     this.rng = new SeededRNG(seed ?? BALANCE.simulate.defaultSeed);
   }
 
@@ -242,7 +257,25 @@ export class DecisionEngine {
     return this.rng;
   }
 
-  decide(warlord: WarlordState, gameState: GameStateSnapshot, turn: number): Decision {
+  /** Canonical production entry: one current source, exact feasible plans.
+   * No ActionScorer fallback exists on this path. */
+  decideForSource(warlord:WarlordState,gameState:GameStateSnapshot,source:AISourceContext,plans:readonly AIConcretePlan[],opportunityId:string):Decision {
+    if(!gameState.canonicalState||source.factionId!==warlord.snapshot.id)throw new Error('Canonical source decision requires current transaction state');
+    return this.decide(warlord,gameState,gameState.turn,plans,opportunityId,source);
+  }
+
+  /** Legacy standalone tools/tests compatibility when source is omitted.
+   * Canonical handlers exclusively call decideForSource. */
+  decide(warlord: WarlordState, gameState: GameStateSnapshot, turn: number, plans?: readonly AIConcretePlan[], opportunityId?: string, source?:AISourceContext): Decision {
+    if(!source&&gameState.canonicalState?.aiDecisionOpportunities.get(warlord.snapshot.id)?.primary)throw new Error('Canonical proactive thread requires source-local evaluation');
+    const canonicalFaction = gameState.factions.get(warlord.snapshot.id);
+    if (!canonicalFaction) throw new Error(`Unknown AI faction ${warlord.snapshot.id}`);
+    warlord.refreshReasoning(canonicalFaction);
+    if (gameState.canonicalState) {
+      // Authoritative opportunity/thread control belongs to the transaction
+      // boundary. Existing physical work never occupies this cognition DTO.
+      warlord.activeCommitment = null;
+    }
     const existing = warlord.activeCommitment;
     if (existing && isActiveCommitmentStatus(existing.status)) {
       const validity = validateCommitmentTarget(existing, gameState);
@@ -255,19 +288,25 @@ export class DecisionEngine {
     warlord.goals.invalidateMissingTargets(gameState.factions.keys(), gameState.territories.keys());
 
     const self = warlord.snapshot;
-    const ctx = WarlordState.buildContext(self, gameState);
-    const factionRNG = this.rng.fork(hashFactionId(self.id) ^ turn);
-    const scorerInput: ScorerInput = {
-      ctx,
+    const factionRNG = this.rng.fork(hashFactionId(self.id) ^ turn ^ (opportunityId ? hashFactionId(opportunityId) : 0));
+    // Legacy snapshot-derived scoring context is not built on production path.
+    const scorerInput: ScorerInput | null = source ? null : {
+      ctx:WarlordState.buildContext(self, gameState),
       turn,
       rng: factionRNG,
       memory: warlord.memory,
       goals: warlord.goals,
     };
-    const allScored = this.scorer.scoreAllActions(scorerInput);
+    const comparison=source?new ContextPlanComparator().compare(gameState.canonicalState!,source,plans!):null;
+    const comparisonSelection=comparison?selectContextComparison(comparison.comparisons,factionRNG):null;
+    // Even constructing the deprecated scorer is confined to standalone tools.
+    const legacyScorer=comparison?null:(this.scorer??=new ActionScorer());
+    const allScored = comparison ? comparison.comparisons.map(comparisonScoredPlan)
+      : plans ? legacyScorer!.scorePlans([...plans], scorerInput!) : legacyScorer!.scoreAllActions(scorerInput!);
     if (allScored.length === 0) {
       const commitment = this.createCommitment(warlord, {
         action: 'WAIT',
+        plan: makeConcretePlan({ action: 'WAIT', factionId: self.id, opportunityTurn: turn }),
         targetId: null,
         targetName: null,
         turn,
@@ -283,7 +322,9 @@ export class DecisionEngine {
       recordLastAction(warlord.snapshot, turn, commitment.action, commitment.targetId);
       return this.decisionFromCommitment(warlord, commitment, turn, gameState, true);
     }
-    const { selected, alternatives, confidence } = this.selectWithRandomness(allScored, factionRNG);
+    const { selected, alternatives, confidence } = comparisonSelection ? {
+      selected:comparisonScoredPlan(comparisonSelection.selected),alternatives:comparisonSelection.alternatives.map(comparisonScoredPlan),confidence:comparisonSelection.confidence,
+    } : this.selectWithRandomness(allScored, factionRNG);
     const finalReasoning = [...selected.reasoning];
     if (finalReasoning.length === 0) {
       finalReasoning.push('default strategy');
@@ -292,9 +333,10 @@ export class DecisionEngine {
     const ambitionInfluence =
       factorSum(selected.factorBreakdown, 'Ambition (goal persistence)')
       + factorSum(selected.factorBreakdown, 'Ambition (strategic push)');
-    const originatingGoalId = this.originatingGoalId(warlord, selected, gameState, turn);
+    const originatingGoalId = comparisonSelection ? comparisonSelection.selected.goalIds[0]??null : this.originatingGoalId(warlord, selected, gameState, turn);
     const commitment = this.createCommitment(warlord, {
       action: selected.action,
+      plan: selected.plan!,
       targetId: selected.targetId,
       targetName: selected.targetName,
       turn,
@@ -310,6 +352,7 @@ export class DecisionEngine {
     recordLastAction(warlord.snapshot, turn, commitment.action, commitment.targetId);
     const decision = this.decisionFromCommitment(warlord, commitment, turn, gameState, true);
     decision.topAlternatives = alternatives.slice(0, 5);
+    if(comparison&&comparisonSelection)decision.planComparisonDiagnostics={...comparison,resolution:comparisonSelection.resolution};
     return decision;
   }
 
@@ -354,6 +397,7 @@ export class DecisionEngine {
 
   private createCommitment(warlord: WarlordState, params: {
     action: ActionType;
+    plan: AIConcretePlan;
     targetId: string | null;
     targetName: string | null;
     turn: number;
@@ -378,6 +422,7 @@ export class DecisionEngine {
       id,
       warlordId: warlord.snapshot.id,
       action: params.action,
+      plan: cloneConcretePlan(params.plan),
       targetId: params.targetId,
       targetName: params.targetName,
       status: 'committed',
@@ -472,7 +517,7 @@ export class DecisionEngine {
     // very action that had just been selected, listed as if it were a
     // distinct alternative. Fixed by tracking the chosen INDEX into
     // `sorted` instead of relying on copied-object identity.
-    const sorted = [...scored].sort((a, b) => b.score - a.score);
+    const sorted = [...scored].sort((a, b) => b.score - a.score || comparePlanIds(a.plan?.id ?? '', b.plan?.id ?? ''));
     const maxScore = sorted[0]!.score;
     const minScore = sorted[sorted.length - 1]!.score;
     const spread = Math.max(1, maxScore - minScore);
@@ -613,7 +658,7 @@ function inferTargets(
   return { targetFaction: null, targetTerritory: null };
 }
 
-function makeCommitmentId(
+export function makeCommitmentId(
   seed: number,
   warlordId: string,
   turn: number,
@@ -625,7 +670,9 @@ function makeCommitmentId(
   const facPart = hashFactionId(warlordId).toString(36);
   const seqPart = seq.toString(36);
   const tgt = (targetId ?? 'none').replace(/[^a-zA-Z0-9_-]/g, '_');
-  return `cmt_${seedPart}_${facPart}_${turn}_${seqPart}_${action}_${tgt}`;
+  // Keep the historical prefix/sequence parseable, but distinguish faction
+  // IDs even when their compact hashes collide (for example "Aa" and "BB").
+  return `cmt_${seedPart}_${facPart}_${turn}_${seqPart}_${action}_${tgt}|${JSON.stringify(warlordId)}`;
 }
 
 function hashFactionId(id: string): number {

@@ -1,3 +1,9 @@
+import { markResponseWorldChanged } from '../engine/responseRecords';
+import {applyOpinionEvent} from '../cognition/opinion';
+import {hostileFactIdentity,recordConflictFact} from '../conflict/ledger';
+import {COGNITION_TUNING as COGNITION} from '../constants/cognition';
+import { assertClaimAvailable, settleOperation } from '../engine/operations';
+import { assertHostilityAllowed } from '../gameplay/diplomacy/relationships';
 import { BALANCE } from '../constants/balance';
 import { BattleEngine, BattleInput } from '../battle/BattleEngine';
 import { Army, FactionId, GameStateSnapshot, RelationshipState, StrategicAttackIntent, TerritoryId } from '../types';
@@ -47,6 +53,8 @@ export interface StrategicAttackParams {
   commitmentId?: string | null;
   /** Restrict the operation to this army (banked troop commitment). */
   onlyArmyId?: string | null;
+  /** Exact preselected staging for concrete AI plans; omitted by legacy/player callers. */
+  stagingTerritoryId?: string;
 }
 
 export interface DelayedAttackPlan {
@@ -230,12 +238,16 @@ export function invalidateStaleAttackIntents(state: GameState): StaleAttackInval
   for (const army of armies) {
     if (!isActiveAttackIntent(army)) continue;
     const intent = army.attackIntent!;
+    // An open invasion owns its force until the invasion domain resolves.
+    if (intent.holdForInvasionId && state.activeInvasions.has(intent.holdForInvasionId)) continue;
     const target = state.territories.get(intent.targetTerritoryId);
     let reason: string | null = null;
     if (!target) {
       reason = 'attack target is no longer a known territory';
     } else if (!target.owner || target.owner === army.owner) {
       reason = 'attack target is no longer a foreign-owned territory';
+    } else if (intent.targetFactionId && target.owner!==intent.targetFactionId) {
+      reason = 'attack target now belongs to a different opposing faction';
     } else if (isPlayerAnchorProtected(state, intent.targetTerritoryId)) {
       reason = 'player anchor is protected while the player still owns other territories';
     } else if (!isLegalStagingTerritory(state, army.owner, intent.stagingTerritoryId, intent.targetTerritoryId)) {
@@ -249,10 +261,11 @@ export function invalidateStaleAttackIntents(state: GameState): StaleAttackInval
       reason,
     });
     clearAttackIntent(army);
-    if (isArmyMoving(army)) {
-      army.movement = null;
-    }
+    // Preserve consumed travel. The operation reducer retains its force claim
+    // until the existing movement system reaches arrival/interruption.
+    if (intent.commitmentId) settleOperation(state, intent.commitmentId, 'failed', reason);
   }
+  if(out.length)markResponseWorldChanged(state);
   return out;
 }
 
@@ -271,6 +284,7 @@ function resolveStrategicBattle(
   attackerId: FactionId,
   attackingArmies: Army[],
   plannedBattleSeed?: number,
+  operationId?: string | null,
 ): HandlerResult {
   const target = requireTerritory(state, targetId);
   if (!target.owner || target.owner === attackerId) {
@@ -278,6 +292,9 @@ function resolveStrategicBattle(
   }
   assertAnchorAttackAllowed(state, target.id);
   const defenderId = target.owner;
+  const conflictId=hostileFactIdentity(state,target.id,attackingArmies.map(a=>a.id),operationId,host.req.requestId);
+  recordConflictFact(state,conflictId,{kind:'ATTACK_COMMITTED',actor:attackerId,target:defenderId,territoryId:target.id});
+  recordConflictFact(state,conflictId,{kind:'HOSTILE_ARRIVAL',actor:attackerId,target:defenderId,territoryId:target.id});
   const attackerSnap = requireFactionSnapshot(state, attackerId);
   const defenderSnap = requireFactionSnapshot(state, defenderId);
   const defendingArmies = armiesInTerritory(state, target.id).filter((a) => a.owner === defenderId);
@@ -288,19 +305,10 @@ function resolveStrategicBattle(
 
   pushMemory(attackerSnap, state.turn, 'attack_made', defenderId, target.id, 8, { target: target.id });
   pushMemory(defenderSnap, state.turn, 'attack_received', attackerId, target.id, 10, { attacker: attackerSnap.name });
-  const rel = defenderSnap.diplomacy.get(attackerId);
-  if (rel) {
-    rel.opinion = Math.max(-100, rel.opinion + BALANCE.diplomacy.opinionAttackImpact);
-    rel.state = (rel.state === 'allied' ? 'at_war' : rel.state === 'friendly' ? 'hostile' : rel.state === 'neutral' ? 'tense' : 'at_war') as RelationshipState;
-  }
-  const myRel = attackerSnap.diplomacy.get(defenderId);
-  if (myRel) {
-    myRel.opinion = Math.max(-100, myRel.opinion - 10);
-    if (myRel.state !== 'at_war' && myRel.state !== 'hostile') myRel.state = 'tense';
-  }
+  applyOpinionEvent(state,`attack:${JSON.stringify([operationId??null,state.worldTick,target.id,attackerId,attackingArmies.map(a=>a.id).sort()])}`,defenderId,attackerId,'attack_received',COGNITION.eventDelta.attack_received);
 
   if (defenderField + target.garrison <= 0) {
-    const applied = applyUnopposedOccupationToGameState(state, target, attackerId, attackingArmies, state.turn);
+    const applied = applyUnopposedOccupationToGameState(state, target, attackerId, attackingArmies, state.turn,conflictId);
     for (const a of attackingArmies) {
       const live = state.armies.get(a.id);
       if (live) {
@@ -309,6 +317,7 @@ function resolveStrategicBattle(
       }
     }
     clearAttackIntentsForTarget(state, target.id, attackerId);
+    if(!operationId)recordConflictFact(state,conflictId,{kind:'ATTACK_TERMINAL',actor:attackerId,target:defenderId,outcome:'completed'});
     const remainingSoldiers = attackingArmies.reduce((sum, army) => sum + army.soldiers, 0);
     const remainingKnights = attackingArmies.reduce((sum, army) => sum + army.knights, 0);
     const remainingSiege = attackingArmies.reduce((sum, army) => sum + army.siegeEngines, 0);
@@ -381,7 +390,7 @@ function resolveStrategicBattle(
     throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, validation.errors.join('; '), { errors: validation.errors });
   }
   const result = battle.resolve(input);
-  const applied = applyBattleResultToGameState(state, result, attackingArmies, defendingArmies, state.turn);
+  const applied = applyBattleResultToGameState(state, result, attackingArmies, defendingArmies, state.turn,conflictId);
   for (const a of attackingArmies) {
     const live = state.armies.get(a.id);
     if (live) {
@@ -390,6 +399,7 @@ function resolveStrategicBattle(
     }
   }
   clearAttackIntentsForTarget(state, target.id, attackerId);
+  if(!operationId)recordConflictFact(state,conflictId,{kind:'ATTACK_TERMINAL',actor:attackerId,target:defenderId,outcome:result.winner==='attacker'?'completed':'failed'});
   const events: GameEvent[] = [{
     kind: 'battle',
     id: `battle_${state.turn}_${target.id}`,
@@ -441,6 +451,10 @@ export function startStrategicAttack(
   if (commitmentId && isStrategicAttackInFlight(state, commitmentId)) {
     const marching = findArmyForAttackCommitment(state, commitmentId)!;
     const intent = marching.attackIntent!;
+    if (params.onlyArmyId && (marching.id !== params.onlyArmyId || intent.targetTerritoryId !== target.id
+      || (params.stagingTerritoryId && intent.stagingTerritoryId !== params.stagingTerritoryId))) {
+      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'In-flight attack differs from selected force or route');
+    }
     return {
       ...emptyResult(),
       payload: {
@@ -457,6 +471,7 @@ export function startStrategicAttack(
     };
   }
 
+  assertHostilityAllowed(state,attackerId,target.owner,target.id);
   const alreadyPending = sortedFactionArmies(state, attackerId).find((a) => (
     isActiveAttackIntent(a) && a.attackIntent!.targetTerritoryId === target.id
   ));
@@ -467,13 +482,28 @@ export function startStrategicAttack(
     );
   }
 
+  assertClaimAvailable(state, 'engagement_target', target.id, commitmentId, attackerId);
+  assertClaimAvailable(state, 'invasion_target', target.id, commitmentId);
+  if (params.onlyArmyId) assertClaimAvailable(state, 'force', params.onlyArmyId, commitmentId);
   const immediate = listImmediateAttackingArmies(state, attackerId, target.id)
-    .filter((a) => !params.onlyArmyId || a.id === params.onlyArmyId);
+    .filter((a) => (!params.onlyArmyId || a.id === params.onlyArmyId)
+      && (!params.stagingTerritoryId || a.location === params.stagingTerritoryId));
+  for (const army of immediate) assertClaimAvailable(state, 'force', army.id, commitmentId);
   if (immediate.length > 0) {
-    return resolveStrategicBattle(state, host, target.id, attackerId, immediate);
+    return resolveStrategicBattle(state, host, target.id, attackerId, immediate,undefined,commitmentId);
   }
 
-  const delayed = selectDelayedAttackPlan(state, attackerId, target.id);
+  const selectedArmy = params.onlyArmyId ? state.armies.get(params.onlyArmyId) : undefined;
+  if (params.stagingTerritoryId && (!selectedArmy || selectedArmy.owner !== attackerId
+    || armyHasActiveStrategicOperation(selectedArmy) || !isEligibleAttackForce(selectedArmy)
+    || !isLegalStagingTerritory(state, attackerId, params.stagingTerritoryId, target.id)
+    || !isAdjacent(state, selectedArmy.location, params.stagingTerritoryId))) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Selected attack staging plan is no longer legal');
+  }
+  const delayed = params.stagingTerritoryId && selectedArmy
+    ? { armyId: selectedArmy.id, originTerritoryId: selectedArmy.location, stagingTerritoryId: params.stagingTerritoryId,
+        durationTicks: calculateMovementDuration({ origin: requireTerritory(state, selectedArmy.location), destination: requireTerritory(state, params.stagingTerritoryId) }) }
+    : selectDelayedAttackPlan(state, attackerId, target.id);
   const delayedArmyOk = delayed && (!params.onlyArmyId || delayed.armyId === params.onlyArmyId);
   if (!delayedArmyOk) {
     const busyOnStaging = sortedFactionArmies(state, attackerId).some((a) => (
@@ -501,9 +531,15 @@ export function startStrategicAttack(
     commitmentId,
   });
   const defenderId = target.owner;
+  // Direct player attacks need the same physical clearance ownership as AI
+  // operations even when their strategic intent invalidates during this march.
+  army.movement!.hostileCounterpartyId = defenderId;
   const battleSeed = paramNumber(host.req, 'seed')
     ?? deriveBattleSeed(state.worldSeed, state.turn, attackerId, defenderId, target.id);
+  const conflictFactId=hostileFactIdentity(state,target.id,[army.id],commitmentId,host.req.requestId);
   const intent: StrategicAttackIntent = {
+    conflictFactId,
+    targetFactionId: defenderId,
     targetTerritoryId: target.id,
     stagingTerritoryId: delayed.stagingTerritoryId,
     createdAtTick: state.worldTick,
@@ -513,6 +549,8 @@ export function startStrategicAttack(
     onlyArmyId: params.onlyArmyId ?? delayed.armyId,
   };
   army.attackIntent = intent;
+  markResponseWorldChanged(state);
+  recordConflictFact(state,conflictFactId,{kind:'ATTACK_COMMITTED',actor:attackerId,target:defenderId,territoryId:target.id});
   const armyChanges: ArmyChange[] = [
     ...moved.armiesChanged,
     { armyId: army.id, field: 'attackIntent', from: null, to: { ...intent } },
@@ -575,6 +613,7 @@ export function executeReadyStrategicAttack(
     return { ...emptyResult(), payload: { attackOutcome: 'skipped', skipped: true } };
   }
   const intent = army.attackIntent!;
+  if (isArmyMoving(army)) return { ...emptyResult(), payload: { attackOutcome: 'skipped', skipped: true, arrivalPending: true } };
   intent.status = 'ready';
   const fail = (code: ErrorCode, message: string, details?: Record<string, unknown>): HandlerResult => {
     clearAttackIntent(army);
@@ -587,9 +626,6 @@ export function executeReadyStrategicAttack(
       return { ...emptyResult(), payload: { attackOutcome: 'awaiting_defense', skipped: true, invasionId: invasion.id, arrivalPending: true } };
     }
   }
-  if (isArmyMoving(army)) {
-    return fail(ErrorCode.ACTION_NOT_ALLOWED, 'Pending attack cannot resolve while the army is still moving');
-  }
   if (army.location !== intent.stagingTerritoryId) {
     return fail(ErrorCode.ACTION_NOT_ALLOWED, 'Army did not arrive at its attack staging territory');
   }
@@ -600,6 +636,7 @@ export function executeReadyStrategicAttack(
   if (!target.owner || target.owner === army.owner) {
     return fail(ErrorCode.INVALID_TARGET, 'Attack target is no longer a foreign-owned territory');
   }
+  if(intent.targetFactionId&&target.owner!==intent.targetFactionId)return fail(ErrorCode.INVALID_TARGET,'Attack target now belongs to a different opposing faction');
   if (!state.factions.has(army.owner)) {
     return fail(ErrorCode.INVALID_FACTION, 'Attacking faction no longer exists');
   }
@@ -620,7 +657,7 @@ export function executeReadyStrategicAttack(
     const restricted = intent.onlyArmyId
       ? (attackers.some((a) => a.id === intent.onlyArmyId) ? attackers.filter((a) => a.id === intent.onlyArmyId) : [army])
       : (attackers.some((a) => a.id === army.id) ? attackers : [army, ...attackers]);
-    return resolveStrategicBattle(state, host, intent.targetTerritoryId, army.owner, restricted, intent.battleSeed);
+    return resolveStrategicBattle(state, host, intent.targetTerritoryId, army.owner, restricted, intent.battleSeed,intent.commitmentId);
   } catch (err) {
     clearAttackIntent(army);
     if (err instanceof OrchestrationError) {

@@ -1,0 +1,8 @@
+{
+  "baseline_count": 28,
+  "current_count": 28,
+  "new": [],
+  "removed": [],
+  "comparison": "repository-relative file / TS code / full diagnostic text; normalize exported baseline root and ignore source line and column",
+  "exit_code": 2
+}

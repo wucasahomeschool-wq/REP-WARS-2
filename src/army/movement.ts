@@ -1,3 +1,6 @@
+import { markResponseWorldChanged } from '../engine/responseRecords';
+import {refreshGoals} from '../cognition/goals';
+import { assertClaimAvailable } from '../engine/operations';
 import { BALANCE } from '../constants/balance';
 import { Army, ArmyMovement, ArmyMovementStatus, FactionId, Territory, TerritoryId } from '../types';
 import { GameState } from '../types/GameState';
@@ -34,11 +37,11 @@ export function cloneArmyMovement(movement: ArmyMovement | null | undefined): Ar
 }
 
 export function isArmyMoving(army: Army): boolean {
-  return army.movement?.status === 'moving';
+  return army.movement?.status === 'moving' || army.movement?.status === 'blocked';
 }
 
 export function movementTicksRemaining(movement: ArmyMovement, worldTick: number): number {
-  return Math.max(0, movement.startedAtTick + movement.durationTicks - worldTick);
+  return Math.max(0, movement.startedAtTick + movement.durationTicks - (movement.haltedAtTick ?? worldTick));
 }
 
 /**
@@ -55,7 +58,7 @@ export function calculateMovementDuration(input: MovementDurationInput): number 
 
 export function findMovingArmyForCommitment(state: GameState, commitmentId: string): Army | undefined {
   const armies = [...state.armies.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return armies.find((a) => a.movement?.status === 'moving' && a.movement.commitmentId === commitmentId);
+  return armies.find((a) => isArmyMoving(a) && a.movement!.commitmentId === commitmentId);
 }
 
 export function isMovementCommitmentInFlight(state: GameState, commitmentId: string): boolean {
@@ -67,6 +70,7 @@ export function isMovementCommitmentInFlight(state: GameState, commitmentId: str
  * and does not change territory ownership.
  */
 export function beginArmyMovement(state: GameState, params: BeginArmyMovementParams): HandlerResult {
+  assertClaimAvailable(state, 'force', params.armyId, params.commitmentId);
   const army = requireArmy(state, params.armyId);
   requireFactionSnapshot(state, params.factionId);
   if (army.owner !== params.factionId) {
@@ -97,6 +101,7 @@ export function beginArmyMovement(state: GameState, params: BeginArmyMovementPar
     commitmentId: params.commitmentId ?? null,
   };
   army.movement = movement;
+  markResponseWorldChanged(state);
   const armyChanges: ArmyChange[] = [{
     armyId: army.id,
     field: 'movement',
@@ -145,7 +150,10 @@ function interruptArmy(army: Army, worldTick: number, reason: string): MovementT
     commitmentId: movement.commitmentId,
     reason,
   };
-  army.movement = null;
+  // No defined spatial recovery policy exists. Preserve route, elapsed travel
+  // and force unavailability; never turn a broken edge into a return to origin.
+  movement.status = 'blocked'; movement.haltedAtTick = worldTick;
+  movement.interruptionReason = reason;
   army.attackIntent = null;
   return result;
 }
@@ -163,6 +171,7 @@ export function progressArmyMovements(state: GameState, worldTick: number): Move
 
   for (const army of moving) {
     const movement = army.movement!;
+    if (movement.status === 'blocked') continue; // Requires an explicit future domain policy.
     if (!state.factions.has(army.owner)) {
       results.push(interruptArmy(army, worldTick, 'owning faction no longer exists'));
       continue;
@@ -187,6 +196,7 @@ export function progressArmyMovements(state: GameState, worldTick: number): Move
     const from = army.location;
     army.location = dest.id;
     army.movement = null;
+    refreshGoals(state,army.owner);
     results.push({
       armyId: army.id,
       owner: army.owner,
@@ -197,6 +207,7 @@ export function progressArmyMovements(state: GameState, worldTick: number): Move
       commitmentId: movement.commitmentId,
     });
   }
+  if(results.length)markResponseWorldChanged(state);
   return results;
 }
 

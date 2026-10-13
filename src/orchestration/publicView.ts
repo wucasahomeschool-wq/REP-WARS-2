@@ -1,3 +1,7 @@
+import {publicTradeState} from '../gameplay/trade/trade';
+import { activeOperations } from '../engine/operations';
+import { publicPeaceState } from '../gameplay/diplomacy/peace';
+import { isArmyMoving } from '../army/movement';
 import { Army, FactionId, Territory } from '../types';
 import { GameState } from '../types/GameState';
 import { peekCollectibleResources } from '../gameplay/economy/accrual';
@@ -71,9 +75,9 @@ function serializeArmyForViewer(army: Army, viewerFactionId: FactionId): Record<
     location: army.location,
     troops: own ? troops : Math.round(troops / 50) * 50,
     morale: own ? army.morale : null,
-    moving: own ? army.movement?.status === 'moving' : false,
-    destinationTerritoryId: own && army.movement?.status === 'moving'
-      ? army.movement.destinationTerritoryId
+    moving: own ? isArmyMoving(army) : false,
+    destinationTerritoryId: own && isArmyMoving(army)
+      ? army.movement!.destinationTerritoryId
       : null,
     pendingAttackTargetId: own ? army.attackIntent?.targetTerritoryId ?? null : null,
     pendingAttackStagingId: own ? army.attackIntent?.stagingTerritoryId ?? null : null,
@@ -134,6 +138,8 @@ export function serializePublicGameState(state: GameState, viewerFactionId: Fact
     : undefined;
   return {
     schemaVersion: state.schemaVersion,
+    diplomacy: publicPeaceState(state,viewerFactionId),
+    trade:publicTradeState(state,viewerFactionId),
     turn: state.turn,
     worldTick: state.worldTick,
     lastProcessedAtMs: state.lastProcessedAtMs,
@@ -150,7 +156,9 @@ export function serializePublicGameState(state: GameState, viewerFactionId: Fact
     territories,
     armies,
     activeEventCount: state.activeEvents.filter((e) => e.status === 'active').length,
-    commitmentCount: [...state.commitments.values()].filter((c) => c !== null).length,
+    operationCount: activeOperations(state).length,
+    // Compatibility summary name; derived from operations, never a faction slot.
+    commitmentCount: activeOperations(state).length,
     currentWorldFullyVisible: true,
     worldCompletion: evaluateWorldCompletion(state),
     worldTransition: evaluateWorldTransition(state),

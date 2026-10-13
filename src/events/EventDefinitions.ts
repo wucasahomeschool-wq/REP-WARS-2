@@ -682,7 +682,8 @@ const REBELLION: EventDefinition = {
     switch (choiceId) {
       case 'crush': {
         choiceTakenMessage = 'The rebellion is crushed under iron heel.';
-        const garrisonLoss = -1 * scale(sev, BC.rebellionGarrisonDeltaPerSeverity);
+        // Authored casualty delta is already negative; never turn losses into recruits.
+        const garrisonLoss = scale(sev, BC.rebellionGarrisonDeltaPerSeverity);
         consequences.push({ factionId: owner, territoryId: loc, delta: { garrisonDeltaAbs: garrisonLoss, stabilityDelta: -4 }, message: 'Garrison suffers losses pacifying rebels' });
         shortenDurationBy = 5;
         break;
@@ -709,7 +710,7 @@ const REBELLION: EventDefinition = {
       reasons: ['Long-simmering grievances boil over'],
       consequences: [
         { territoryId: loc, factionId: owner, delta: { stabilityDelta: Math.round(BC.rebellionStabilityDeltaPerSeverity * scaleVal) }, message: 'Authority collapses in region' },
-        { territoryId: loc, delta: { garrisonDeltaAbs: -1 * scale(sev, BC.rebellionGarrisonDeltaPerSeverity) }, message: 'Garrison engaged, suffers casualties' },
+        { territoryId: loc, delta: { garrisonDeltaAbs: scale(sev, BC.rebellionGarrisonDeltaPerSeverity) }, message: 'Garrison engaged, suffers casualties' },
         { territoryId: loc, delta: { populationDeltaAbs: -3 * scale(sev, BC.rebellionGarrisonDeltaPerSeverity) }, message: 'Civilians swept into rebel ranks or flight' },
       ],
     };

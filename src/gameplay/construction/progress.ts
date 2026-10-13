@@ -30,13 +30,13 @@ export function progressConstruction(state: GameState, project: ConstructionProj
 }
 
 export function progressAllConstructions(state: GameState): void {
-  for (const project of state.constructions.values()) {
+  for (const project of [...state.constructions.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) {
     progressConstruction(state, project);
   }
 }
 
 export function progressConstructionsOnTerritory(state: GameState, territoryId: string): void {
-  for (const project of state.constructions.values()) {
+  for (const project of [...state.constructions.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) {
     if (project.territoryId === territoryId) {
       progressConstruction(state, project);
     }

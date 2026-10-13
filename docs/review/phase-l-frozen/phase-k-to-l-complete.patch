@@ -1,0 +1,1918 @@
+diff --git a/src/army/movement.ts b/src/army/movement.ts
+index 1ea872a5ffba1b3eeb2577c5c8125cb7b517a164..1ebc30dde6c5291d1f29b1aa7dcc3bfea5a3d353 100644
+--- a/src/army/movement.ts
++++ b/src/army/movement.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from '../engine/responseRecords';
+ import {refreshGoals} from '../cognition/goals';
+ import { assertClaimAvailable } from '../engine/operations';
+ import { BALANCE } from '../constants/balance';
+@@ -100,6 +101,7 @@ export function beginArmyMovement(state: GameState, params: BeginArmyMovementPar
+     commitmentId: params.commitmentId ?? null,
+   };
+   army.movement = movement;
++  markResponseWorldChanged(state);
+   const armyChanges: ArmyChange[] = [{
+     armyId: army.id,
+     field: 'movement',
+@@ -205,6 +207,7 @@ export function progressArmyMovements(state: GameState, worldTick: number): Move
+       commitmentId: movement.commitmentId,
+     });
+   }
++  if(results.length)markResponseWorldChanged(state);
+   return results;
+ }
+ 
+diff --git a/src/army/strategicAttack.ts b/src/army/strategicAttack.ts
+index 2c48d545f4f8a927275e84d516d3cccbf22e0fa3..8f3136e72da4b37e75a137bf046eb62f113d5b51 100644
+--- a/src/army/strategicAttack.ts
++++ b/src/army/strategicAttack.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from '../engine/responseRecords';
+ import {applyOpinionEvent} from '../cognition/opinion';
+ import {hostileFactIdentity,recordConflictFact} from '../conflict/ledger';
+ import {COGNITION_TUNING as COGNITION} from '../constants/cognition';
+@@ -264,6 +265,7 @@ export function invalidateStaleAttackIntents(state: GameState): StaleAttackInval
+     // until the existing movement system reaches arrival/interruption.
+     if (intent.commitmentId) settleOperation(state, intent.commitmentId, 'failed', reason);
+   }
++  if(out.length)markResponseWorldChanged(state);
+   return out;
+ }
+ 
+@@ -547,6 +549,7 @@ export function startStrategicAttack(
+     onlyArmyId: params.onlyArmyId ?? delayed.armyId,
+   };
+   army.attackIntent = intent;
++  markResponseWorldChanged(state);
+   recordConflictFact(state,conflictFactId,{kind:'ATTACK_COMMITTED',actor:attackerId,target:defenderId,territoryId:target.id});
+   const armyChanges: ArmyChange[] = [
+     ...moved.armiesChanged,
+diff --git a/src/engine/concretePlans.ts b/src/engine/concretePlans.ts
+index cde55226de0f74f5ca24039bce2dc2389629c6b5..d5b541afa2a24e739cfea0d7f7f706a5fa8c5b51 100644
+--- a/src/engine/concretePlans.ts
++++ b/src/engine/concretePlans.ts
+@@ -89,7 +89,7 @@ export function validateConcretePlan(plan: AIConcretePlan, state: GameStateSnaps
+ export type PlanRejectionKind = 'LEGALITY' | 'CLAIM' | 'COMPATIBILITY' | 'ATTENTION';
+ /** Independent diagnostic dimensions; no strategic decision is made here. */
+ export function assessConcretePlanFeasibility(plan: AIConcretePlan, snapshot: GameStateSnapshot,
+-  operationId?: string, compatibilityRules?: readonly StrategicCompatibilityRule[]) {
++  operationId?: string, compatibilityRules?: readonly StrategicCompatibilityRule[], responseContextId?:string) {
+   const rejections: { kind: PlanRejectionKind; reason: string }[] = [];
+   const shapeProblem = concretePlanProblem(plan);
+   if (shapeProblem) return { feasible: false, rejections: [{ kind: 'LEGALITY' as const, reason: shapeProblem }] };
+@@ -105,7 +105,7 @@ export function assessConcretePlanFeasibility(plan: AIConcretePlan, snapshot: Ga
+     }
+     const compatibility = assessStrategicCompatibility(plan, state, compatibilityRules);
+     for (const reason of compatibility.reasons) rejections.push({ kind: 'COMPATIBILITY', reason });
+-    const attention = assessAttention(state, plan, operationId);
++    const attention = assessAttention(state, plan, operationId,responseContextId);
+     if (!attention.available) rejections.push({ kind: 'ATTENTION', reason: `Ordinary Attention ${attention.occupied} + ${attention.cost} exceeds capacity ${attention.capacity}` });
+   }
+   return { feasible: rejections.length === 0, rejections };
+diff --git a/src/engine/decisionOpportunities.ts b/src/engine/decisionOpportunities.ts
+index 69845b884e06e39e0d6730080d9e1d2adbf9e69b..fab062a1338fe8bb046ac9e57c4f9a04e1484a92 100644
+--- a/src/engine/decisionOpportunities.ts
++++ b/src/engine/decisionOpportunities.ts
+@@ -25,7 +25,7 @@ export function attachDecisionInitiation(state: GameState, factionId: string, op
+  */
+ export function finishDecisionInitiation(state: GameState, operationId: string, successful: boolean): void {
+   const op = state.operations.get(operationId);
+-  if (!op) return;
++  if (!op || op.responseContextId) return;
+   const opportunity = state.aiDecisionOpportunities.get(op.warlordId);
+   if (opportunity?.primaryOperationId !== operationId) return;
+   opportunity.primaryOperationId = null;
+diff --git a/src/engine/operations.ts b/src/engine/operations.ts
+index 8e26ad669a5dc00928f7ef8eb48e6aa951df5bc6..92f5ef715e5c7520a89bf43bc27e4904b6b7ad48 100644
+--- a/src/engine/operations.ts
++++ b/src/engine/operations.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from './responseRecords';
+ import {settleTradeProposal} from '../gameplay/trade/trade';
+ import {recordConflictFact} from '../conflict/ledger';
+ import {tradeResourceClaims,availableResource} from '../gameplay/trade/resources';
+@@ -25,7 +26,7 @@ function freezeTerminal(op: AIOperation): AIOperation {
+   if(op.initiationTimer){Object.freeze(op.initiationTimer.progress);Object.freeze(op.initiationTimer);}
+   Object.freeze(op.reason);
+   op.factorBreakdown.forEach(Object.freeze); Object.freeze(op.factorBreakdown);
+-  Object.freeze(op.claimIds); Object.freeze(op.links); Object.freeze(op.terminal); Object.freeze(op.attention);
++  Object.freeze(op.claimIds); Object.freeze(op.links); Object.freeze(op.terminal); if(op.attention.emergency)Object.freeze(op.attention.emergency); Object.freeze(op.attention);
+   Object.freeze(op); immutableTerminals.add(op);
+   return op;
+ }
+@@ -37,7 +38,7 @@ export function cloneOperation(op: AIOperation): AIOperation {
+   const copy = { ...op, ...(op.plan !== undefined ? { plan: cloneConcretePlan(op.plan) } : {}),
+     ...(op.initiationTimer ? { initiationTimer: { ...op.initiationTimer, progress: { ...op.initiationTimer.progress } } } : {}),
+     reason: [...op.reason], factorBreakdown: op.factorBreakdown.map(f => ({ ...f })),
+-    claimIds: [...op.claimIds], links: { ...op.links }, attention: { ...op.attention }, terminal: op.terminal ? { ...op.terminal } : null };
++    claimIds: [...op.claimIds], links: { ...op.links }, attention: { ...op.attention, ...(op.attention.emergency?{emergency:{...op.attention.emergency}}:{}) }, terminal: op.terminal ? { ...op.terminal } : null };
+   return copy.terminal ? freezeTerminal(copy) : copy;
+ }
+ export function operationFromSelection(c: AICommitment, tick: number): AIOperation {
+@@ -157,6 +158,7 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
+     if (!army) {
+       // The army may be destroyed by another battle. Release only the extinct
+       // force; the invasion domain still owns its existing response/deadline.
++      if(op.objective!=='invalid'||op.phase!=='recovery')markResponseWorldChanged(state);
+       op.objective = 'invalid'; op.phase = 'recovery'; op.status = 'executing'; op.statusReason = reason;
+       for (const claimId of [...op.claimIds]) {
+         const c = state.operationClaims.get(claimId);
+@@ -169,6 +171,7 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
+   }
+   if (army?.movement && ['moving', 'blocked'].includes(army.movement.status) && army.movement.commitmentId === id) {
+     if (outcome === 'completed') return false;
++    if(op.objective!=='invalid'||op.phase!=='recovery')markResponseWorldChanged(state);
+     op.objective = 'invalid'; op.phase = 'recovery'; op.status = 'executing'; op.statusReason = reason;
+     // The objective target no longer needs an engagement slot; keep the force.
+     for (const claimId of [...op.claimIds]) {
+@@ -187,6 +190,7 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
+     allocateReinforcement(state,op.plan,id);
+     finishDecisionInitiation(state,id,true);
+   }
++  markResponseWorldChanged(state);
+   op.status = outcome; op.phase = 'terminal'; op.statusReason = reason;
+   if(op.action==='ATTACK'&&op.hostileCounterpartyId)recordConflictFact(state,op.id,
+     {kind:'ATTACK_TERMINAL',actor:op.warlordId,target:op.hostileCounterpartyId,outcome});
+diff --git a/src/engine/proactiveCognition.ts b/src/engine/proactiveCognition.ts
+index 55e99fa98f8bd04e1639d06f822399a016014c94..97d612aa97fda42d889bbe1658f3608a68e02773 100644
+--- a/src/engine/proactiveCognition.ts
++++ b/src/engine/proactiveCognition.ts
+@@ -1,7 +1,8 @@
++import { nonProactiveOwnsThought, nextResponseBoundary, accrueResponseClocks } from './nonProactiveCognition';
+ import {refreshGoals} from '../cognition/goals';
+-import {accrueTradeTimers,nextTradeBoundary,hasRequiredTradeResponse} from '../gameplay/trade/trade';
++import {accrueTradeTimers,nextTradeBoundary} from '../gameplay/trade/trade';
+ import { progressRecruitmentThroughReceipt } from '../gameplay/recruitment/recruitment';
+-import { accruePeaceTimers, nextPeaceBoundary, hasRequiredPeaceResponse } from '../gameplay/diplomacy/peace';
++import { accruePeaceTimers, nextPeaceBoundary } from '../gameplay/diplomacy/peace';
+ import { activeOperations } from './operations';
+ import type { GameState } from '../types/GameState';
+ import type { AISourceContext, AIPressureMetrics, ProactiveTimer } from '../types/AIPressure';
+@@ -66,7 +67,7 @@ export function prepareProactiveDecision(state:GameState,fid:string,metrics?:AIP
+   const o=opportunity(state,fid);
+   // Completed spacing cannot stay as a 1-ms wake while required work owns cognition.
+   if(o.spacing&&timerRemaining(state,o.spacing)===0)o.spacing=null;
+-  if((hasRequiredPeaceResponse(state,fid)||hasRequiredTradeResponse(state,fid))&&(!o.primary||o.primary.phase==='deliberating')) {
++  if(nonProactiveOwnsThought(state,fid)&&(!o.primary||o.primary.phase==='deliberating')) {
+     if(o.primary){o.primary=null;o.lastBoundaryMs=state.aiClock.nowMs;}
+     return null; // Required lane preempts unfinished thought, never committed initiation.
+   }
+@@ -96,7 +97,7 @@ export function invalidateProactiveInitiation(state:GameState,fid:string):void {
+ /** Next meaningful temporal boundary, not a poll. Blocked contexts have no
+  * pressure-triggered wake. Saturation and physical completion do not spawn cognition. */
+ export function nextProactiveBoundary(state:GameState,horizon:number,presence:TemporalPresence):number {
+-  let next=nextTradeBoundary(state,nextPeaceBoundary(state,horizon,presence),presence);
++  let next=nextResponseBoundary(state,nextTradeBoundary(state,nextPeaceBoundary(state,horizon,presence),presence),presence);
+   for(const op of activeOperations(state))if(op.initiationTimer)next=Math.min(next,state.aiClock.nowMs+Math.max(1,durationRemainingMs(op.initiationTimer.progress,op.initiationTimer.onlineDurationMs,presence)));
+   for(const [fid,o] of state.aiDecisionOpportunities) {
+     if(!factionCanObserve(state,fid))continue;
+@@ -116,6 +117,7 @@ export function accrueProactiveClocks(state:GameState,atMs:number,presence:Tempo
+   const elapsed=atMs-state.aiClock.nowMs;if(elapsed<0)throw new Error('AI clock cannot rewind');
+   progressRecruitmentThroughReceipt(state,atMs);
+   accrueSourcePressure(state,elapsed,presence);
++  accrueResponseClocks(state,atMs,presence);
+   accruePeaceTimers(state,atMs,presence);
+   accrueTradeTimers(state,atMs,presence);
+   for(const o of state.aiDecisionOpportunities.values()) {
+diff --git a/src/engine/strategicAttention.ts b/src/engine/strategicAttention.ts
+index 487c6a1ea8a45b128ca59e3a5c9b29a8326c92ac..b0fa05972cd45d4c165bb8285cdd5df0659a1d85 100644
+--- a/src/engine/strategicAttention.ts
++++ b/src/engine/strategicAttention.ts
+@@ -1,3 +1,4 @@
++import { RESPONSE_POLICY } from '../constants/aiResponse';
+ import { STRATEGIC_ATTENTION_TUNING } from '../constants/strategicAttention';
+ import type { AIConcretePlan } from '../types/AIConcretePlan';
+ import type { GameState } from '../types/GameState';
+@@ -13,19 +14,24 @@ export function occupiedAttention(state: GameState, factionId: string, excluding
+   return activeOperations(state, factionId).reduce((total, op) => total +
+     (op.id !== excludingOperationId && op.attention.acquiredAtTick !== null && op.attention.releasedAtTick === null ? op.attention.cost : 0), 0);
+ }
+-export function assessAttention(state: GameState, plan: AIConcretePlan, excludingOperationId?: string) {
++export function assessAttention(state: GameState, plan: AIConcretePlan, excludingOperationId?: string, responseContextId?:string) {
+   // A persisted common capacity applies independently to every faction;
+   // occupied budgets are never shared between factions.
+   const capacity = state.strategicAttention.capacity;
+   const cost = attentionCost(plan);
+   const occupied = occupiedAttention(state, plan.factionId, excludingOperationId);
+-  return { capacity, cost, occupied, available: capacity !== undefined && (cost === 0 || occupied + cost <= capacity) };
++  const context=responseContextId?state.aiResponses.get(responseContextId):undefined;
++  const allowance=context&&context.factionId===plan.factionId&&context.lane==='REACTIVE_EMERGENCY'&&context.severity==='CRITICAL'&&['queued','thinking','blocked'].includes(context.status)?RESPONSE_POLICY.emergencyExtraCapacity:0;
++  const reservedOverflow=activeOperations(state,plan.factionId).filter(o=>o.id!==excludingOperationId).reduce((n,o)=>n+(o.attention.emergency?.overflow??0),0);
++  const overflow=Math.max(0,occupied+cost-capacity);
++  return { capacity, cost, occupied, allowance, available: capacity !== undefined && (cost === 0 || occupied + cost <= capacity || allowance>0&&overflow<=allowance-reservedOverflow) };
+ }
+ /** Called only inside the atomic domain-start transaction after feasibility checks. */
+ export function acquireAttention(state: GameState, op: AIOperation): void {
+   if (!op.plan) throw new Error('Attention acquisition requires an exact plan');
+-  const result = assessAttention(state, op.plan, op.id);
++  const result = assessAttention(state, op.plan, op.id, op.responseContextId);
+   if (!result.available) throw new Error('Insufficient ordinary Strategic Attention');
+   op.attention = { factionId: op.warlordId, cost: result.cost,
+-    acquiredAtTick: result.cost ? state.worldTick : null, releasedAtTick: null, grandfathered: false };
++    acquiredAtTick: result.cost ? state.worldTick : null, releasedAtTick: null, grandfathered: false,
++    ...(result.occupied+result.cost>result.capacity?{emergency:{contextId:op.responseContextId!,revision:state.aiResponses.get(op.responseContextId!)!.revision,overflow:Math.min(result.cost,result.occupied+result.cost-result.capacity)}}:{}) };
+ }
+diff --git a/src/gameplay/diplomacy/peace.ts b/src/gameplay/diplomacy/peace.ts
+index bef24a800ffb19de3bf225b499f525db42044ef1..35a76edaf0ea09b3cafe40d72547e83a93469d88 100644
+--- a/src/gameplay/diplomacy/peace.ts
++++ b/src/gameplay/diplomacy/peace.ts
+@@ -1,3 +1,5 @@
++import { registerRequiredResponse, settleReadyRequiredResponses } from '../../engine/nonProactiveCognition';
++import { invalidateProposalResponse } from '../../engine/responseRecords';
+ import {applyOpinionEvent} from '../../cognition/opinion';
+ import {recordConflictFact} from '../../conflict/ledger';
+ import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
+@@ -12,7 +14,6 @@ import { finishDecisionInitiation } from '../../engine/decisionOpportunities';
+ import { accrueDurationProgress, durationRemainingMs } from '../../world/timeToTick';
+ import type { TemporalPresence } from '../../world/timeToTick';
+ import { PEACE_TIMING as TIME, PEACE_TUNING } from '../../constants/peace';
+-import { assessRequiredPeaceResponse } from '../../scoring/peaceAssessment';
+ import { peacePairId, factionPair, relationshipBetween, activeDiplomacyFaction, hostileLifecyclesBetween } from './relationships';
+ 
+ export function livePeaceProposals(state:GameState):PeaceProposal[] {
+@@ -47,6 +48,7 @@ export function beginPeaceProposal(state:GameState,plan:OfferPeacePlan,operation
+ export function settlePeaceProposal(state:GameState,id:string,status:Exclude<PeaceProposalStatus,'initiating'|'pending'>,metrics?:PeaceMetrics):boolean {
+   const p=state.peaceProposals.get(id);if(!p||!['initiating','pending'].includes(p.status))return false;
+   if(status==='accepted'&&p.status!=='pending')return false;
++  invalidateProposalResponse(state,'peace',id);
+   p.status=status;p.resolvedAtMs=state.aiClock.nowMs;p.responseTimer=null;
+   if(state.peaceProposalThreads.get(p.pairId)===id)state.peaceProposalThreads.delete(p.pairId);
+   if(status==='accepted') {
+@@ -76,7 +78,7 @@ export function nextPeaceBoundary(state:GameState,horizon:number,presence:Tempor
+ /** Completion/arrival calls this after physical consequences. The required
+  * lane then runs before ordinary proactive cognition, independently of Attention
+  * and spacing. No pair-wide full-AI polling, no recursive counterparty model. */
+-export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics):void {
++export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics,deferResponses=false):void {
+   for(const p of livePeaceProposals(state)) {
+     if(!activeDiplomacyFaction(state,p.proposer)||!activeDiplomacyFaction(state,p.recipient)||relationshipBetween(state,p.proposer,p.recipient)!=='WAR') {
+       settlePeaceProposal(state,p.id,'invalidated',metrics);continue;
+@@ -88,24 +90,15 @@ export function processPeaceBoundary(state:GameState,metrics?:PeaceMetrics):void
+       const player=p.recipient===state.playerFactionId;
+       p.responseTimer=startProactiveTimer(state,p.recipient,`peace-response:${p.id}`,player?TIME.playerResponseOnlineMs:TIME.responseOnlineMinMs,
+         player?TIME.playerResponseOnlineMs:TIME.responseOnlineMaxMs,player?TIME.playerResponseOfflineMs/TIME.playerResponseOnlineMs:TIME.responseOfflineDivisor);
++      registerRequiredResponse(state,'peace',p.id);
+       delete op.initiationTimer;
+       finishDecisionInitiation(state,op.id,true);
+       record(state,p.id,'offered',p.proposer,p.recipient,metrics);
+     }
+   }
+-  // Deadline urgency, then creation boundary, then stable semantic identity.
+-  const pending=livePeaceProposals(state).filter(p=>p.status==='pending').sort((a,b)=>
+-    timerRemaining(state,a.responseTimer!)-timerRemaining(state,b.responseTimer!)||a.pendingAtMs!-b.pendingAtMs!||comparePlanIds(a.id,b.id));
+-  for(const p of pending)if(timerRemaining(state,p.responseTimer!)===0) {
+-    if(p.recipient===state.playerFactionId)settlePeaceProposal(state,p.id,'expired',metrics);
+-    else {
+-      const o=state.aiDecisionOpportunities.get(p.recipient);
+-      if(o?.primary?.phase==='deliberating'){o.primary=null;o.lastBoundaryMs=state.aiClock.nowMs;}
+-      if(metrics)metrics.requiredDeliberations++;
+-      const response=assessRequiredPeaceResponse(state,p.recipient,p.proposer);
+-      settlePeaceProposal(state,p.id,response.outcome==='ACCEPT_PEACE'?'accepted':'declined',metrics);
+-    }
+-  }
++  // Player expiry is a domain gate, never synthetic AI cognition.
++  for(const p of livePeaceProposals(state))if(p.status==='pending'&&p.recipient===state.playerFactionId&&timerRemaining(state,p.responseTimer!)===0)settlePeaceProposal(state,p.id,'expired',metrics);
++  if(!deferResponses){const before=livePeaceProposals(state).filter(p=>p.status==='pending'&&p.recipient!==state.playerFactionId).length;settleReadyRequiredResponses(state,'peace');if(metrics){const done=before-livePeaceProposals(state).filter(p=>p.status==='pending'&&p.recipient!==state.playerFactionId).length;metrics.requiredDeliberations+=done;metrics.responses+=done;}}
+   for(const [id,r]of [...state.peaceRelationships].sort(([a],[b])=>comparePlanIds(a,b))) {
+     if(r.state==='PEACE'||r.factions.some(f=>!activeDiplomacyFaction(state,f))||(r.legacyExpiresTurn!=null&&state.turn>=r.legacyExpiresTurn)) {
+       if((r.expiresAtMs!==null&&state.aiClock.nowMs>=r.expiresAtMs)||(r.legacyExpiresTurn!=null&&state.turn>=r.legacyExpiresTurn)
+diff --git a/src/gameplay/economy/ownership.ts b/src/gameplay/economy/ownership.ts
+index 8eb9749d21f3f39c659e19b1f31cbd5297562c61..a4a1741952a09a9127857d58e9afce7cf83748f0 100644
+--- a/src/gameplay/economy/ownership.ts
++++ b/src/gameplay/economy/ownership.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from '../../engine/responseRecords';
+ import { activeOperations, settleOperation } from '../../engine/operations';
+ import { FactionId, TerritoryId, Resources } from '../../types';
+ import { GameState } from '../../types/GameState';
+@@ -86,6 +87,7 @@ export function settleTerritoryOwnershipChange(
+   newOwner: FactionId | null,
+   previousOwner: FactionId | null = null,
+ ): TerritoryDestructionReport {
++  markResponseWorldChanged(state);
+   const report = snapshotTerritoryDestruction(state, territoryId, newOwner, previousOwner);
+   for(const op of activeOperations(state).filter(op=>op.plan?.action==='REINFORCE'&&op.plan.territoryId===territoryId))
+     settleOperation(state,op.id,'failed','Local reinforcement source ownership changed');
+diff --git a/src/gameplay/invasion/create.ts b/src/gameplay/invasion/create.ts
+index 8cc352a1f511f441b61928c0cf8f50ef4d8c5139..d2d84c689ac8136b04b9f092c625c9a7f86c03fc 100644
+--- a/src/gameplay/invasion/create.ts
++++ b/src/gameplay/invasion/create.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from '../../engine/responseRecords';
+ import {applyOpinionEvent} from '../../cognition/opinion';
+ import {recordConflictFact,hostileFactIdentity} from '../../conflict/ledger';
+ import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
+@@ -90,6 +91,7 @@ export function beginInvasionAgainstPlayer(
+   });
+   invasion.conflictFactId=hostileFactIdentity(state,params.territoryId,params.armies.map(a=>a.id),params.commitmentId,params.requestId);
+   state.activeInvasions.set(invasion.id, invasion);
++  markResponseWorldChanged(state);
+   for(const kind of ['ATTACK_COMMITTED','HOSTILE_ARRIVAL'] as const)recordConflictFact(state,invasion.conflictFactId,
+     {kind,actor:invasion.attackerFactionId,target:invasion.defenderFactionId,territoryId:invasion.territoryId});
+   applyOpinionEvent(state,invasion.id,invasion.defenderFactionId,invasion.attackerFactionId,'attack_received',COGNITION.eventDelta.attack_received);
+diff --git a/src/gameplay/recruitment/recruitment.ts b/src/gameplay/recruitment/recruitment.ts
+index f8e606185e2dc0978e1b8b1e048f6b982e572304..d401dec0e483a67f1acfbef8b3150a5be2396a09 100644
+--- a/src/gameplay/recruitment/recruitment.ts
++++ b/src/gameplay/recruitment/recruitment.ts
+@@ -1,3 +1,4 @@
++import { notifyResponsePoolAvailability } from '../../engine/responseRecords';
+ import type { GameState } from '../../types/GameState';
+ import { BALANCE } from '../../constants/balance';
+ import { WORLD_TICK_DURATION_MS } from '../../world/realtimeClock';
+@@ -43,7 +44,8 @@ export function progressRecruitment(state:GameState,throughWork=BigInt(state.wor
+     const work=BigInt(pool.fractionalWork)+elapsed*BigInt(T.troopsPerSimulationTick*multiplier);
+     const generated=Math.min(affordable,Number(work/RECRUITMENT_WORK_PER_TICK));
+     if(!Number.isSafeInteger(generated)||!Number.isSafeInteger(pool.troops+generated))throw new Error('Local recruitment exceeds safe troop storage');
+-    pool.troops+=generated;
++    const troopsBefore=pool.troops;pool.troops+=generated;
++    notifyResponsePoolAvailability(state,t.id,troopsBefore,pool.troops);
+     pool.fractionalWork=generated===affordable?'0':(work%RECRUITMENT_WORK_PER_TICK).toString();
+     const consumed=generated*T.foodPerTroop;
+     state.territoryEconomy.get(t.id)!.uncollected.food-=consumed;
+diff --git a/src/gameplay/trade/trade.ts b/src/gameplay/trade/trade.ts
+index 6b5ef9b1afb5035a064eceaac477c01edacddf2e..4983210d5700fc24c2620c72a48f02e2cbd7865a 100644
+--- a/src/gameplay/trade/trade.ts
++++ b/src/gameplay/trade/trade.ts
+@@ -1,3 +1,5 @@
++import { registerRequiredResponse, settleReadyRequiredResponses } from '../../engine/nonProactiveCognition';
++import { invalidateProposalResponse, markResponseWorldChanged } from '../../engine/responseRecords';
+ import {applyOpinionEvent} from '../../cognition/opinion';
+ import {COGNITION_TUNING as COGNITION} from '../../constants/cognition';
+ import {refreshGoals} from '../../cognition/goals';
+@@ -15,7 +17,6 @@ import {startProactiveTimer,timerRemaining} from '../../engine/proactiveCognitio
+ import {finishDecisionInitiation} from '../../engine/decisionOpportunities';
+ import {accrueDurationProgress,durationRemainingMs,TemporalPresence} from '../../world/timeToTick';
+ import {calculateMovementDuration} from '../../army/movement';
+-import {assessRequiredTradeResponse} from '../../scoring/tradeAssessment';
+ export const proposalLive=(p:TradeProposal)=>p.status==='initiating'||p.status==='pending';
+ export const shipmentLive=(s:TradeShipment)=>s.phase!=='delivered';
+ export const liveTradeProposals=(s:GameState)=>liveTradeRecords(s.tradeProposals,proposalLive);
+@@ -75,6 +76,7 @@ export function settleTradeProposal(s:GameState,id:string,status:Exclude<TradePr
+     if(m){m.shipments+=2;m.accepts++;}
+     record(s,outgoing.id,'shipment_created',p.proposer,p.recipient,m);record(s,incoming.id,'shipment_created',p.proposer,p.recipient,m);
+   }
++  invalidateProposalResponse(s,'trade',id);
+   p.status=status;p.resolvedAtMs=s.aiClock.nowMs;p.responseTimer=null;
+   const released=tradeResourceClaims(p.plan,p.operationId).length;
+   if(!settleOperation(s,p.operationId,status==='accepted'?'completed':'failed',`Trade proposal ${status}`))throw new Error('Trade proposal lost owning operation');
+@@ -93,7 +95,7 @@ export function nextTradeBoundary(s:GameState,horizon:number,presence:TemporalPr
+     if(timer)next=Math.min(next,s.aiClock.nowMs+Math.max(1,durationRemainingMs(timer.progress,timer.onlineDurationMs,presence)));}
+   return next;
+ }
+-function block(s:GameState,sh:TradeShipment,reason:string):void {sh.phase='blocked';sh.blockedReason=reason;sh.blockedAtTick=s.worldTick;/* Retain cargo, elapsed leg and exact route. No recovery doctrine invented. */}
++function block(s:GameState,sh:TradeShipment,reason:string):void {markResponseWorldChanged(s);sh.phase='blocked';sh.blockedReason=reason;sh.blockedAtTick=s.worldTick;/* Retain cargo, elapsed leg and exact route. No recovery doctrine invented. */}
+ function beginLeg(s:GameState,sh:TradeShipment):void {
+   const from=s.territories.get(sh.route[sh.legIndex]!),to=s.territories.get(sh.route[sh.legIndex+1]!);
+   if(!from||!to||!from.neighboring.includes(to.id)){block(s,sh,'Route unavailable; physical custody preserved');return;}
+@@ -116,7 +118,7 @@ export function progressTradeShipments(s:GameState,m?:TradeMetrics):void {
+       if(timerRemaining(s,sh.timer!)>0)continue;
+       if(bundleEntries(sh.cargo).some(([r,n])=>!Number.isSafeInteger(s.factions.get(sh.recipient)!.resources[r]+n))){block(s,sh,'Receiving bank cannot represent exact quantity; cargo preserved');continue;}
+       for(const [r,n]of bundleEntries(sh.cargo))s.factions.get(sh.recipient)!.resources[r]+=n;
+-      sh.phase='delivered';sh.deliveredAtMs=s.aiClock.nowMs;sh.timer=null;s.tradeShipments.set(sh.id,sh);
++      markResponseWorldChanged(s);sh.phase='delivered';sh.deliveredAtMs=s.aiClock.nowMs;sh.timer=null;s.tradeShipments.set(sh.id,sh);
+       applyOpinionEvent(s,sh.id,sh.recipient,sh.sender,'trade_completed',COGNITION.eventDelta.trade_completed);
+       refreshGoals(s,sh.recipient);
+       record(s,sh.id,'delivered',sh.sender,sh.recipient,m);if(m)m.deliveries++;
+@@ -125,7 +127,7 @@ export function progressTradeShipments(s:GameState,m?:TradeMetrics):void {
+ }
+ /** Domain delivery occurs before required responses, which precede proactive
+  * cognition. Only live indexes are examined; no full history scan/pair polling. */
+-export function processTradeBoundary(s:GameState,m?:TradeMetrics):void {
++export function processTradeBoundary(s:GameState,m?:TradeMetrics,deferResponses=false):void {
+   progressTradeShipments(s,m);
+   for(const p of liveTradeProposals(s)) {
+     const problem=tradePlanProblem(s,p.plan,p.operationId);
+@@ -136,16 +138,11 @@ export function processTradeBoundary(s:GameState,m?:TradeMetrics):void {
+     p.status='pending';p.pendingAtMs=s.aiClock.nowMs;delete op.initiationTimer;finishDecisionInitiation(s,op.id,true);
+     const player=p.recipient===s.playerFactionId;
+     p.responseTimer=startProactiveTimer(s,p.recipient,`trade-response:${p.id}`,player?RESPONSE.playerOnlineMs:RESPONSE.onlineMinMs,player?RESPONSE.playerOnlineMs:RESPONSE.onlineMaxMs,player?RESPONSE.playerOfflineMs/RESPONSE.playerOnlineMs:RESPONSE.offlineDivisor);
++    registerRequiredResponse(s,'trade',p.id);
+     record(s,p.id,'offered',p.proposer,p.recipient,m);
+   }
+-  const pending=liveTradeProposals(s).filter(p=>p.status==='pending').sort((a,b)=>timerRemaining(s,a.responseTimer!)-timerRemaining(s,b.responseTimer!)||a.pendingAtMs!-b.pendingAtMs!||comparePlanIds(a.id,b.id));
+-  for(const p of pending)if(timerRemaining(s,p.responseTimer!)===0) {
+-    if(p.recipient===s.playerFactionId){settleTradeProposal(s,p.id,'expired',m);continue;}
+-    const o=s.aiDecisionOpportunities.get(p.recipient);if(o?.primary?.phase==='deliberating'){o.primary=null;o.lastBoundaryMs=s.aiClock.nowMs;}
+-    if(m)m.requiredResponses++;
+-    const response=assessRequiredTradeResponse(s,p);
+-    settleTradeProposal(s,p.id,response.outcome==='ACCEPT_TRADE'?'accepted':'declined',m);
+-  }
++  for(const p of liveTradeProposals(s))if(p.status==='pending'&&p.recipient===s.playerFactionId&&timerRemaining(s,p.responseTimer!)===0)settleTradeProposal(s,p.id,'expired',m);
++  if(!deferResponses){const before=liveTradeProposals(s).filter(p=>p.status==='pending'&&p.recipient!==s.playerFactionId).length;settleReadyRequiredResponses(s,'trade');if(m)m.requiredResponses+=before-liveTradeProposals(s).filter(p=>p.status==='pending'&&p.recipient!==s.playerFactionId).length;}
+ }
+ export function publicTradeState(s:GameState,viewer:string|null) {
+   return {proposals:[...s.tradeProposals.values()].filter(p=>p.pendingAtMs!==null&&(p.proposer===viewer||p.recipient===viewer)).sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>({id:p.id,proposer:p.proposer,recipient:p.recipient,offered:{...p.plan.offered},requested:{...p.plan.requested},status:p.status,remainingResponseMs:p.status==='pending'&&p.recipient===s.playerFactionId?timerRemaining(s,p.responseTimer!):null})),
+diff --git a/src/orchestration/applyBattle.ts b/src/orchestration/applyBattle.ts
+index 708d44ae620cfb1a67470c95c4c150f9c309a33c..57a672432b18eb1ba1a603773ac22a1593c44d33 100644
+--- a/src/orchestration/applyBattle.ts
++++ b/src/orchestration/applyBattle.ts
+@@ -1,3 +1,4 @@
++import { markResponseWorldChanged } from '../engine/responseRecords';
+ import {applyOpinionEvent} from '../cognition/opinion';
+ import {recordConflictFact,conflictEventId} from '../conflict/ledger';
+ import {COGNITION_TUNING as COGNITION} from '../constants/cognition';
+@@ -71,6 +72,7 @@ function eliminateArmies(state: GameState, armies: Army[], armyChanges: ArmyChan
+     if (operationId) settleOperation(state, operationId, 'failed', 'claimed force destroyed in battle');
+     armyChanges.push({ armyId: a.id, eliminated: true });
+   }
++  markResponseWorldChanged(state);
+   refreshGoals(state);
+ }
+ 
+@@ -137,6 +139,7 @@ function transferTerritory(
+   if (oldOwner && oldOwner === state.playerFactionId) {
+     events.push(...applyPlayerTerritoryLoss(state, territory.id));
+   }
++  markResponseWorldChanged(state);
+   refreshGoals(state);
+   if (newOwner === state.playerFactionId) {
+     events.push(...applyWorldCompletionCheck(state));
+diff --git a/src/orchestration/handlers.ts b/src/orchestration/handlers.ts
+index 7be9eed5409051e379e664f323e636bc8495c261..803e4eb2c614a6299e82aea129c36c599196a0c6 100644
+--- a/src/orchestration/handlers.ts
++++ b/src/orchestration/handlers.ts
+@@ -1,3 +1,6 @@
++import { markResponseWorldChanged } from '../engine/responseRecords';
++import { processNonProactiveBoundary, reactivePlans, responseContextExists } from '../engine/nonProactiveCognition';
++import type { AIResponseContext } from '../types/AIResponse';
+ import {beginTradeProposal,processTradeBoundary,settleTradeProposal,acceptanceProblem} from '../gameplay/trade/trade';
+ import {TRADE_TIMING} from '../constants/trade';
+ import { REINFORCE_INITIATION as RECRUIT } from '../constants/recruitment';
+@@ -637,21 +640,25 @@ export function progressProactiveThrough(state: GameState, ctx: HandlerContext,
+     // completions apply. WAIT's feasibility revalidation must see those effects
+     // just like ordinary cognition; it is not an exception to boundary ordering.
+     if(!allowDecisions)return;
+-    processTradeBoundary(state);
+-    processPeaceBoundary(state); // Required responses and diplomacy gates precede proactive thought.
++    processTradeBoundary(state,undefined,true);
++    processPeaceBoundary(state,undefined,true); // Required responses and diplomacy gates precede proactive thought.
+     for(const op of activeOperations(state).filter(o=>o.action==='REINFORCE'&&o.phase==='physical')) {
+       const plan=op.plan;
+       if(plan?.action!=='REINFORCE')throw new Error('Reinforcement operation lost exact plan');
+       const problem=reinforcementProblem(state,plan,op.id);
+       if(problem || !op.initiationTimer) {
+         settleOperation(state,op.id,'failed',problem??'Missing reinforcement timer');
+-        invalidateProactiveInitiation(state,op.warlordId);
++        if(!op.responseContextId)invalidateProactiveInitiation(state,op.warlordId);
+         continue;
+       }
+       if(timerRemaining(state,op.initiationTimer)>0)continue;
+       if(!settleOperation(state,op.id,'completed','Exact local troop allocation completed'))throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE,'Timed allocation lost exact claim ownership');
+       resolutions.push({factionId:op.warlordId,commitmentId:op.id,action:op.action,outcome:'completed',success:true,worldTick:state.worldTick});
+     }
++    processNonProactiveBoundary(state,(plan,context)=>{
++      try { return startResponseIntervention(state,ctx,plan,context,inner=>{result.stateChanges.push(...inner.stateChanges);result.events.push(...inner.events);result.notifications.push(...inner.notifications);result.resourcesChanged.push(...inner.resourcesChanged);result.armiesChanged.push(...inner.armiesChanged);result.territoriesChanged.push(...inner.territoriesChanged);}); }
++      catch(error) { if(error instanceof OrchestrationError)return null;throw error; }
++    });
+     for(const id of [...state.allFactionIds].sort()) {
+       if(id===state.playerFactionId || isLevel1TutorialAiSuppressed(state,id))continue;
+       const inner=withRequestParameters(ctx.req,{warlordId:id},()=>handleAiDecide(state,ctx));
+@@ -670,6 +677,12 @@ export function progressProactiveThrough(state: GameState, ctx: HandlerContext,
+         if(resolved.errors)result.errors=[...(result.errors??[]),...resolved.errors];
+       }
+     }
++    // A just-started physical commitment is a material event at this instant.
++    // Schedule its recipients now, not at an arbitrary next receipt/chunk.
++    processNonProactiveBoundary(state,(plan,context)=>{
++      try {return startResponseIntervention(state,ctx,plan,context,inner=>{result.stateChanges.push(...inner.stateChanges);result.events.push(...inner.events);result.notifications.push(...inner.notifications);result.resourcesChanged.push(...inner.resourcesChanged);result.armiesChanged.push(...inner.armiesChanged);result.territoriesChanged.push(...inner.territoriesChanged);});}
++      catch(error){if(error instanceof OrchestrationError)return null;throw error;}
++    });
+   };
+   if(horizon<state.aiClock.nowMs)return result;
+   accrueProactiveClocks(state,state.aiClock.nowMs,authoritativePresence(state));
+@@ -777,14 +790,14 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
+     const op = draft.operations.get(selected.id) ?? operationFromSelection(selected, draft.worldTick);
+     if (op.plan?.action==='WAIT') throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Legacy WAIT operations cannot execute; WAIT requires a source-bound primary timer');
+     if (!op.plan) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Incomplete legacy reasoning cannot execute');
+-    const feasibility = assessConcretePlanFeasibility(op.plan, toDecisionEngineSnapshot(draft), op.id);
++    const feasibility = assessConcretePlanFeasibility(op.plan, toDecisionEngineSnapshot(draft), op.id,undefined,op.responseContextId);
+     if (!feasibility.feasible) {
+       const rejection = feasibility.rejections[0]!;
+       throw new OrchestrationError(rejection.kind === 'LEGALITY' ? ErrorCode.INVALID_TARGET : ErrorCode.ACTION_NOT_ALLOWED,
+         rejection.reason, { feasibility: feasibility.rejections,
+           ...(rejection.reason.includes('anchor') ? { reason: ANCHOR_PROTECTED_REASON, territoryId: planTargetId(op.plan) } : {}) });
+     }
+-    if(op.action==='REINFORCE'||op.action==='OFFER_PEACE'||op.action==='TRADE') {
++    if(!op.responseContextId&&(op.action==='REINFORCE'||op.action==='OFFER_PEACE'||op.action==='TRADE')) {
+       const primary=opportunity(draft,op.warlordId);
+       if(primary.primaryOperationId && primary.primaryOperationId!==op.id || primary.primary && primary.primaryOperationId!==op.id)
+         throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Primary proactive initiation busy');
+@@ -815,7 +828,7 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
+     if (typeof inner.payload.invasionId === 'string') op.links.invasionId = inner.payload.invasionId;
+     if(op.action==='REINFORCE'||op.action==='OFFER_PEACE'||op.action==='TRADE') {
+       const primary=opportunity(draft,op.warlordId);
+-      primary.primaryOperationId=op.id;
++      if(!op.responseContextId)primary.primaryOperationId=op.id;
+       const timing=op.action==='REINFORCE'?RECRUIT:op.action==='TRADE'?TRADE_TIMING:{initiationOnlineMs:PEACE_TIMING.initiationOnlineMs,initiationOfflineMs:PEACE_TIMING.initiationOfflineMs};
+       op.initiationTimer=startProactiveTimer(draft,op.warlordId,op.action.toLowerCase(),timing.initiationOnlineMs,timing.initiationOnlineMs,timing.initiationOfflineMs/timing.initiationOnlineMs);
+     } else finishDecisionInitiation(draft, op.id, true);
+@@ -824,6 +837,7 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
+       const battle = inner.payload.battleResult as { winner?: string } | undefined;
+       settleOperation(draft, op.id, battle?.winner === 'attacker' ? 'completed' : 'failed', `attacker result: ${battle?.winner ?? 'unknown'}`);
+     }
++    markResponseWorldChanged(draft);
+     inner.payload = { ...inner.payload, operationId: op.id, commitmentId: op.id,
+       commitmentOutcome: op.status, reassessmentRequired: op.terminal !== null };
+     return inner;
+@@ -836,7 +850,18 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
+  * This is not an additional autonomous deliberation thread.
+  */
+ export function handleStartAiOperation(state: GameState, ctx: HandlerContext): HandlerResult {
+-  const plan = ctx.req.parameters?.plan as AIConcretePlan;
++  return startExactPlan(state,ctx,ctx.req.parameters?.plan as AIConcretePlan);
++}
++export function startResponseIntervention(state:GameState,ctx:HandlerContext,plan:AIConcretePlan,context:AIResponseContext,onResult?:(result:HandlerResult)=>void):string {
++  const current=state.aiResponses.get(context.id);
++  if(!current||current.revision!==context.revision||current.materialSignature!==context.materialSignature||current.status!=='thinking'||!responseContextExists(state,current)||!reactivePlans(state,current).some(p=>p.id===plan.id))throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Response context changed before initiation');
++  if(current.selectedPlan?.id!==plan.id||context.selectedPlan?.id!==plan.id)throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Response must retain its selected exact plan');
++  const parameters=ctx.req.parameters;
++  try {
++    const result=startExactPlan(state,ctx,plan,current);onResult?.(result);return result.payload.operationId as string;
++  } finally {ctx.req.parameters=parameters;}
++}
++function startExactPlan(state:GameState,ctx:HandlerContext,plan:AIConcretePlan,response?:AIResponseContext):HandlerResult {
+   const problem = concretePlanProblem(plan);
+   if (problem) throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, problem);
+   if (state.playerFactionId === plan.factionId && !((plan.action==='OFFER_PEACE'&&ctx.req.commandId==='OFFER_PEACE')||(plan.action==='TRADE'&&['TRADE','COUNTEROFFER_TRADE'].includes(ctx.req.commandId)))) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'AI cannot control player forces');
+@@ -850,6 +875,10 @@ export function handleStartAiOperation(state: GameState, ctx: HandlerContext): H
+     targetId: planTargetId(plan), targetName: planTargetId(plan), status: 'committed', createdTurn: state.turn,
+     originatingGoalId: null, reason: ['exact integration plan'], priority: 0, score: 0,
+     confidence: 1, personalityBias: 0, ambitionInfluence: 0, factorBreakdown: [], statusReason: null }, state.worldTick);
++  if(response) {
++    if(response.factionId!==plan.factionId||response.status!=='thinking')throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Stale response owner');
++    selected.responseContextId=response.id;
++  }
+   // The increment is rolled back with the outer command on failure. It must
+   // precede nested invariant validation of the newly recorded ID.
+   return startOperation(state, ctx, selected, true);
+diff --git a/src/orchestration/transaction.ts b/src/orchestration/transaction.ts
+index 88800e7002bb5dcb293da10540fa7b0b0f67fa33..5938bf5cdf9f9991d9b5792d911b4986dd708397 100644
+--- a/src/orchestration/transaction.ts
++++ b/src/orchestration/transaction.ts
+@@ -1,3 +1,4 @@
++import { observeNonProactiveWork, settleReadyRequiredResponses } from '../engine/nonProactiveCognition';
+ import {refreshGoals} from '../cognition/goals';
+ import {processTradeBoundary} from '../gameplay/trade/trade';
+ import { cancelInvalidReinforcements } from '../engine/operations';
+@@ -16,14 +17,17 @@ export function runStateTransaction<T>(
+   apply: (draft: GameState) => T,
+ ): { state: GameState; result: T } {
+   const draft = cloneGameState(state);
+-  processTradeBoundary(draft);
+-  processPeaceBoundary(draft); // Earned diplomacy gates precede newly issued commands.
++  processTradeBoundary(draft,undefined,true);
++  processPeaceBoundary(draft,undefined,true); // Earned diplomacy gates precede newly issued commands.
++  settleReadyRequiredResponses(draft);
+   refreshGoals(draft);
+   const result = apply(draft);
+   cancelInvalidReinforcements(draft);
+-  processTradeBoundary(draft);
+-  processPeaceBoundary(draft);
++  processTradeBoundary(draft,undefined,true);
++  processPeaceBoundary(draft,undefined,true);
++  settleReadyRequiredResponses(draft);
+   refreshGoals(draft);
++  observeNonProactiveWork(draft);
+   const violations = checkGameStateInvariants(draft);
+   if (violations.length > 0) {
+     throw new OrchestrationError(
+diff --git a/src/persistence/versioning.ts b/src/persistence/versioning.ts
+index 96f4cc38089ede2b7e2c8036cc4dfb8644a43443..b8682b63feae019462b5ac9c83d9ad1b593c20ee 100644
+--- a/src/persistence/versioning.ts
++++ b/src/persistence/versioning.ts
+@@ -1,3 +1,4 @@
++import { registerRequiredResponse } from '../engine/nonProactiveCognition';
+ import {initializeCognition} from '../cognition/migration';
+ import { initializeRecruitment, simulationWork } from '../gameplay/recruitment/recruitment';
+ import { migratePeaceState } from './peaceMigration';
+@@ -363,6 +364,15 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
+   // No reconstructed fighting, casualties or historical Peace epochs.
+   if(schema<26){state.conflictLedger=new Map();state.conflictEventReceipts=new Map();}
+   else if(!(state.conflictLedger instanceof Map)||!(state.conflictEventReceipts instanceof Map))throw new PersistenceError('persistence.corrupt','Schema 26 requires canonical conflict ledger and receipts');
++  if(schema<27){
++    state.aiResponses=new Map();
++    state.aiResponseScheduler={primaryByFaction:new Map(),lastBoundaryByFaction:new Map(),observedWorldTick:null,dirty:true};
++  } else if(!(state.aiResponses instanceof Map)||!state.aiResponseScheduler||typeof state.aiResponseScheduler!=='object')
++    throw new PersistenceError('persistence.corrupt','Schema 27 requires canonical non-proactive response contexts and scheduler');
++  if(schema<27){
++    for(const p of (state.peaceProposals as GameState['peaceProposals']).values())if(p.status==='pending')registerRequiredResponse(state as unknown as GameState,'peace',p.id);
++    for(const p of (state.tradeProposals as GameState['tradeProposals']).values())if(p.status==='pending')registerRequiredResponse(state as unknown as GameState,'trade',p.id);
++  }
+   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
+   return state;
+ }
+diff --git a/src/scoring/contextPlanComparison.ts b/src/scoring/contextPlanComparison.ts
+index e08e537bf80646930e66370e39c5a4254d81674a..9bff4240ac510c60f4e01cb46cabf89a9b31d688 100644
+--- a/src/scoring/contextPlanComparison.ts
++++ b/src/scoring/contextPlanComparison.ts
+@@ -49,7 +49,14 @@ export class ContextPlanComparator {
+     const comparisons=[...plans].sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>this.comparePlan(state,canonical,p,evaluators,view));
+     return {comparisons,evaluatorCalls:{...evaluators.calls},cacheHits:evaluators.cacheHits};
+   }
+-  private comparePlan(state:GameState,source:AISourceContext,plan:AIConcretePlan,evaluators:StrategicEvaluators,view:ReturnType<typeof factionDecisionView>):PlanComparison {
++  /** Non-proactive exact-plan comparison has no Pressure source and no WAIT.
++   * NO_ADDITIONAL_INTERVENTION is an implicit zero baseline, not an action. */
++  compareInterventions(state:GameState,contextId:string,factionId:string,plans:readonly AIConcretePlan[]):PlanComparison[] {
++    if(new Set(plans.map(p=>p.id)).size!==plans.length||plans.some(p=>p.factionId!==factionId||p.action==='WAIT'||concretePlanProblem(p)))throw new Error('Invalid response plans');
++    const evaluators=new StrategicEvaluators(new FactualSupport(state)),view=factionDecisionView(state,factionId);
++    return [...plans].sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>this.comparePlan(state,{id:contextId,kind:'COVERAGE_GAP',subjectId:''},p,evaluators,view));
++  }
++  private comparePlan(state:GameState,source:Pick<AISourceContext,'id'|'kind'|'subjectId'>,plan:AIConcretePlan,evaluators:StrategicEvaluators,view:ReturnType<typeof factionDecisionView>):PlanComparison {
+     const contributions:PlanContribution[]=[],assessments:EvaluatorAssessment[]=[];
+     const add=(causalKey:string,owner:PlanContribution['owner'],category:ComparisonCategory,value:number,explanation:string,confidence:PlanContribution['confidence']='high')=>{
+       addPlanContribution(contributions,causalKey,owner,category,value,explanation,confidence);
+@@ -163,3 +170,11 @@ export function comparisonScoredPlan(c:PlanComparison):ScoredConcretePlan {
+     factorBreakdown:c.contributions.map(x=>({factor:`${x.owner}:${x.causalKey}`,weight:1,contribution:(x.direction==='cost'?-1:1)*x.normalizedMagnitude})),
+     reasoning:c.contributions.map(x=>`${x.owner}: ${x.explanation}`)};
+ }
++
++/** Same qualified near-tie discipline, without manufacturing a WAIT plan. */
++export function selectInterventionComparison(comparisons:readonly PlanComparison[],rng:SeededRNG):PlanComparison|null {
++  if(new Set(comparisons.map(c=>c.sourceContextId)).size>1||comparisons.some(c=>!Number.isFinite(c.finalValue)))throw new Error('Invalid response comparison');
++  const sorted=comparisons.filter(c=>c.qualifies&&c.factualValue>0&&c.finalValue>=T.minimumCommitmentAdvantage).sort((a,b)=>b.finalValue-a.finalValue||comparePlanIds(a.plan.id,b.plan.id));
++  const near=sorted.filter(c=>c.finalValue>=sorted[0]!.finalValue-T.nearTieBand);
++  return near.length===0?null:near.length===1?near[0]!:near[Math.floor(rng.next()*near.length)]!;
++}
+diff --git a/src/state/cloneGameState.ts b/src/state/cloneGameState.ts
+index 049aa775c980b73a395f3ef72f675c12c20db44e..5e282eb7c59b110faadbc034750f78fb626f5654 100644
+--- a/src/state/cloneGameState.ts
++++ b/src/state/cloneGameState.ts
+@@ -1,3 +1,4 @@
++import { createResponseMap } from '../engine/responseRecords';
+ import {indexedTradeMap} from '../gameplay/trade/records';
+ import {proposalLive,shipmentLive} from '../gameplay/trade/trade';
+ import { cloneConcretePlan } from '../types/AIConcretePlan';
+@@ -248,6 +249,8 @@ export function adoptOwnedTransactionState(target: GameState, next: GameState):
+   target.lastAiDecisionTick = next.lastAiDecisionTick;
+   target.strategicAttention = next.strategicAttention;
+   target.aiDecisionOpportunities = next.aiDecisionOpportunities;
++  target.aiResponses = next.aiResponses;
++  target.aiResponseScheduler = next.aiResponseScheduler;
+   target.aiPressure = next.aiPressure;
+   target.aiClock = next.aiClock;
+   target.peaceRelationships = next.peaceRelationships;
+@@ -336,6 +339,8 @@ export function cloneGameState(state: GameState): GameState {
+     lastAiDecisionTick: new Map(state.lastAiDecisionTick),
+     strategicAttention: { ...state.strategicAttention },
+     aiDecisionOpportunities: cloneMap(state.aiDecisionOpportunities, opportunity => JSON.parse(JSON.stringify(opportunity))),
++    aiResponses: createResponseMap([...state.aiResponses].map(([id,c])=>[id,JSON.parse(JSON.stringify(c))] as const)),
++    aiResponseScheduler: {...state.aiResponseScheduler,primaryByFaction:new Map(state.aiResponseScheduler.primaryByFaction),lastBoundaryByFaction:new Map(state.aiResponseScheduler.lastBoundaryByFaction)},
+     aiPressure: cloneMap(state.aiPressure, source => ({ ...source, blockers: source.blockers.map(b => ({ plan: cloneConcretePlan(b.plan), reasons: b.reasons.map(r => ({ ...r })) })) })),
+     aiClock: { ...state.aiClock, worldAnchor: state.aiClock.worldAnchor ? { ...state.aiClock.worldAnchor } : null },
+     worldSeed: state.worldSeed,
+diff --git a/src/state/gameStateInvariants.ts b/src/state/gameStateInvariants.ts
+index e5a6b106357eee96c891c260fbc5c7bf3a4609c7..1b800b5a9a5dfb64d3c8288a0dffafa8054c39b3 100644
+--- a/src/state/gameStateInvariants.ts
++++ b/src/state/gameStateInvariants.ts
+@@ -1,3 +1,5 @@
++import { RESPONSE_POLICY } from '../constants/aiResponse';
++import {responseStateProblems} from './responseInvariants';
+ import {conflictStateProblems} from './conflictInvariants';
+ import {cognitionStateProblems} from './cognitionInvariants';
+ import {tradeStateProblems} from './tradeInvariants';
+@@ -87,6 +89,7 @@ function checkGameplaySessionLeases(
+ export function checkGameStateInvariants(state: GameState): GameStateInvariantViolation[] {
+   const violations: GameStateInvariantViolation[] = [];
+   const push = (code: string, message: string) => violations.push({ code, message });
++  for(const message of responseStateProblems(state))push('response.invalid_state',message);
+   for(const message of cognitionStateProblems(state))push('cognition.invalid_state',message);
+   for(const message of peaceStateProblems(state)) push('peace.invalid_state',message);
+   for(const message of pressureStateProblems(state)) push('pressure.invalid_state',message);
+@@ -393,7 +396,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
+   }
+ 
+   // ---- canonical operations and hard physical claims ----
+-  const attentionTotals = new Map<string, { ordinary: number; historical: number }>();
++  const attentionTotals = new Map<string, { ordinary: number; historical: number; emergency:number }>();
+   for (const [id, op] of state.operations) {
+     const validatedAt = op && validatedTerminals.get(op);
+     if (validatedAt !== undefined && state.worldTick >= validatedAt
+@@ -426,8 +429,11 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
+         if (['ATTACK','MOVE','RETREAT','BUILD','OFFER_PEACE','TRADE'].includes(op.action) && attention.cost === 0)
+           push('attention.missing_physical_cost', `Physical operation ${id} bypasses ordinary Attention`);
+         if (released !== null || (attention.cost > 0 && acquired === null)) push('attention.missing_charge', `Physical operation ${id} lacks its charge`);
+-        const totals = attentionTotals.get(op.warlordId) ?? { ordinary: 0, historical: 0 };
+-        totals[attention.grandfathered ? 'historical' : 'ordinary'] += attention.cost;
++        const totals = attentionTotals.get(op.warlordId) ?? { ordinary: 0, historical: 0, emergency:0 };
++        const emergency=attention.emergency?.overflow??0;
++        if(emergency){const context=state.aiResponses.get(attention.emergency!.contextId);if(!Number.isSafeInteger(emergency)||emergency<0||emergency>attention.cost||op.responseContextId!==context?.id||context?.factionId!==op.warlordId||context.lane!=='REACTIVE_EMERGENCY'||!Number.isSafeInteger(attention.emergency!.revision)||attention.emergency!.revision<0||attention.emergency!.revision>context.revision)push('attention.invalid_emergency',`Invalid emergency charge ${id}`);}
++        totals[attention.grandfathered ? 'historical' : 'ordinary'] += attention.cost-emergency;
++        totals.emergency+=emergency;
+         attentionTotals.set(op.warlordId, totals);
+       }
+     }
+@@ -487,6 +493,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
+       validatedTerminals.set(op, state.worldTick);
+   }
+   for (const [factionId, totals] of attentionTotals) {
++    if(totals.emergency>RESPONSE_POLICY.emergencyExtraCapacity)push('attention.emergency_over_capacity',`Faction ${factionId} exceeds narrow emergency allowance`);
+     if (totals.ordinary > state.strategicAttention?.capacity || (!totals.historical && totals.ordinary + totals.historical > state.strategicAttention?.capacity))
+       push('attention.ordinary_over_capacity', `Faction ${factionId} exceeds normal capacity without historical work`);
+   }
+diff --git a/src/types/AIOperation.ts b/src/types/AIOperation.ts
+index 760406dfd6794c8ce8a2e0994203d9b304d3577b..7402c416ce8737ba21b949b711d464c5e5de794c 100644
+--- a/src/types/AIOperation.ts
++++ b/src/types/AIOperation.ts
+@@ -4,6 +4,8 @@ import type { OperationAttention } from './AIStrategy';
+ /** Domain timing/state lives on the linked army/project/invasion, never here. */
+ export interface AIOperation extends AICommitment {
+   sourceContextId?: string;
++  /** Non-proactive provenance never earns source relief or proactive spacing. */
++  responseContextId?: string;
+   /** Exact opposing faction at hostile initiation, unaffected by later conquest. */
+   hostileCounterpartyId?: string;
+   initiationTimer?: import('./AIPressure').ProactiveTimer;
+diff --git a/src/types/AIStrategy.ts b/src/types/AIStrategy.ts
+index 983e8699b5518f5ae6c216ba32df14f809ad6f93..d626217979ca71fc02cfaf4803f92451e8fa3637 100644
+--- a/src/types/AIStrategy.ts
++++ b/src/types/AIStrategy.ts
+@@ -7,6 +7,8 @@ export interface OperationAttention {
+   releasedAtTick: number | null;
+   /** Historical work is preserved even when it exceeds newly introduced capacity. */
+   grandfathered: boolean;
++  /** Narrow, operation-owned critical allowance; cost itself is unchanged. */
++  emergency?: {contextId:string; revision:number; overflow:number};
+ }
+ /** One primary proactive selection/initiation thread, independent of physical work. */
+ export interface AIDecisionOpportunity {
+diff --git a/src/types/GameState.ts b/src/types/GameState.ts
+index 54a29df909119fe3f51d1277b7b9397dd543759d..5c6cd0f5b9cb0d8a18cd1a72052a20aaf3617b49 100644
+--- a/src/types/GameState.ts
++++ b/src/types/GameState.ts
+@@ -1,3 +1,4 @@
++import { createResponseMap } from '../engine/responseRecords';
+ import type { AIOperation, AIOperationClaim } from './AIOperation';
+ import type { StrategicAttentionState, AIDecisionOpportunity } from './AIStrategy';
+ import { STRATEGIC_ATTENTION_TUNING } from '../constants/strategicAttention';
+@@ -100,8 +101,9 @@ import { GameRewardResult } from '../rewards/types';
+  * 24 = Canonical Trade proposals, exact bank reservations and bilateral shipment custody (Phase I).
+  * 25 = Concrete Goal lifecycle and idempotent directed Opinion event receipts (Phase J).
+  * 26 = Canonical factual conflict episodes/aggregates and replay receipts (Phase K).
++ * 27 = Canonical non-proactive response contexts and primary response scheduler (Phase L).
+  */
+-export const GAME_STATE_SCHEMA_VERSION = 26;
++export const GAME_STATE_SCHEMA_VERSION = 27;
+ 
+ export type InvasionId = string;
+ 
+@@ -440,6 +442,8 @@ export interface GameState {
+   lastAiDecisionTick: Map<FactionId, number>;
+   /** Persisted common limit, applied independently to each faction's owned work. */
+   strategicAttention: StrategicAttentionState;
++  aiResponses: Map<string, import('./AIResponse').AIResponseContext>;
++  aiResponseScheduler: import('./AIResponse').AIResponseScheduler;
+   aiPressure: Map<string, import('./AIPressure').AISourceContext>;
+   aiClock: import('./AIPressure').AIClock;
+   aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
+@@ -603,6 +607,8 @@ export function emptyWorldClock(): {
+   lastFoodConsumptionTick: number;
+   lastAiDecisionTick: Map<FactionId, number>;
+   strategicAttention: StrategicAttentionState;
++  aiResponses: Map<string, import('./AIResponse').AIResponseContext>;
++  aiResponseScheduler: import('./AIResponse').AIResponseScheduler;
+   aiPressure: Map<string, import('./AIPressure').AISourceContext>;
+   aiClock: import('./AIPressure').AIClock;
+   aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
+@@ -618,6 +624,8 @@ export function emptyWorldClock(): {
+     lastFoodConsumptionTick: 0,
+     lastAiDecisionTick: new Map(),
+     strategicAttention: { capacity: STRATEGIC_ATTENTION_TUNING.capacity },
++    aiResponses: createResponseMap(),
++    aiResponseScheduler: {primaryByFaction:new Map(),lastBoundaryByFaction:new Map(),observedWorldTick:0,dirty:false},
+     aiPressure: new Map(),
+     aiClock: { nowMs: 0, worldAnchor: null },
+     aiDecisionOpportunities: new Map(),
+diff --git a/tests/aiCognition.ts b/tests/aiCognition.ts
+index 6cd37cac09fa7238fc766cbf28ba309ed98d557a..7a9ede16db3371235b7961752e43a6936157e744 100644
+--- a/tests/aiCognition.ts
++++ b/tests/aiCognition.ts
+@@ -91,7 +91,7 @@ export function registerAiCognitionTests({test,makeSelf,makeTerritory,cmdReq}:Ap
+   const pendingTrade=(s=world())=>{s.territories.get('safe')!.neighboring=['target'];s.territories.get('target')!.neighboring.push('safe');const p=makeConcretePlan({action:'TRADE',factionId:'me',counterpartyId:'spectator',offered:{wood:10},requested:{food:10},proposerSource:{kind:'faction_stock',factionId:'me',resources:{wood:10}},delivery:{proposerTerritoryId:tradeNode(s,'me')!,recipientTerritoryId:'safe'}});const o=new Orchestrator(s);assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:p})).success);const d=cloneGameState(o.getState());accrueProactiveClocks(d,60000,'OFFLINE');processTradeBoundary(d);assert.strictEqual(liveTradeProposals(d)[0]!.status,'pending');return d;};
+   test('Phase J: Trade response Opinion changes willingness, not RESOURCE_VALUE',()=>{const s=pendingTrade(),p=liveTradeProposals(s)[0]!,base=new StrategicEvaluators(new FactualSupport(s)).resourceValue('spectator','wood',10,'gain');const a=assessRequiredTradeResponse(s,p);directed(s,'spectator','me',-100);const b=assessRequiredTradeResponse(s,p);assert.ok('modifier' in a&&'modifier' in b&&b.modifier!<a.modifier!);assert.deepStrictEqual(new StrategicEvaluators(new FactualSupport(s)).resourceValue('spectator','wood',10,'gain'),base);});
+   test('Phase J: reload while Trade pending preserves exact cognition and response',()=>{const s=pendingTrade();assignGoal(s,'spectator','food',{kind:'RESOURCE_HOLDING',resource:'wood',quantity:10001});directed(s,'spectator','me',35);const d=reload(s);assert.deepStrictEqual(assessRequiredTradeResponse(d,liveTradeProposals(d)[0]!),assessRequiredTradeResponse(s,liveTradeProposals(s)[0]!));assert.deepStrictEqual(d.factions.get('spectator')!.goals,s.factions.get('spectator')!.goals);});
+-  test('Phase J: schema 24 migration archives ambiguous objectives without fabricating history',()=>{const s=world();s.schemaVersion=24;s.factions.get('me')!.goals=[{id:'legacy',type:'economic_growth',priority:70,targetFaction:null,targetTerritory:null,targetRegion:null,targetResource:null,progress:99,targetProgress:100,deadlineTurn:null,createdTurn:0}];directed(s,'me','enemy',-37);const d=reload(s);assert.strictEqual(d.schemaVersion,26);assert.strictEqual(d.factions.get('me')!.goals[0]!.lifecycle!.status,'INVALIDATED');assert.strictEqual(d.factions.get('me')!.goals[0]!.progress,99);assert.strictEqual(d.factions.get('me')!.diplomacy.get('enemy')!.opinion,-37);assert.strictEqual(d.opinionEvents.size,0);assert.deepStrictEqual(encodePersistable(reload(d)),encodePersistable(d));});
++  test('Phase J: schema 24 migration archives ambiguous objectives without fabricating history',()=>{const s=world();s.schemaVersion=24;s.factions.get('me')!.goals=[{id:'legacy',type:'economic_growth',priority:70,targetFaction:null,targetTerritory:null,targetRegion:null,targetResource:null,progress:99,targetProgress:100,deadlineTurn:null,createdTurn:0}];directed(s,'me','enemy',-37);const d=reload(s);assert.strictEqual(d.schemaVersion,27);assert.strictEqual(d.factions.get('me')!.goals[0]!.lifecycle!.status,'INVALIDATED');assert.strictEqual(d.factions.get('me')!.goals[0]!.progress,99);assert.strictEqual(d.factions.get('me')!.diplomacy.get('enemy')!.opinion,-37);assert.strictEqual(d.opinionEvents.size,0);assert.deepStrictEqual(encodePersistable(reload(d)),encodePersistable(d));});
+   test('Phase J: schema migration preserves operations/claims/Peace/Trade/recruitment IDs',()=>{const s=pendingTrade();s.schemaVersion=24;const before=encodePersistable({operations:s.operations,claims:s.operationClaims,peace:s.peaceRelationships,trade:s.tradeProposals,shipments:s.tradeShipments,recruit:s.territoryRecruitment,opportunity:s.aiDecisionOpportunities});const d=reload(s);assert.deepStrictEqual(encodePersistable({operations:d.operations,claims:d.operationClaims,peace:d.peaceRelationships,trade:d.tradeProposals,shipments:d.tradeShipments,recruit:d.territoryRecruitment,opportunity:d.aiDecisionOpportunities}),before);});
+   test('Phase J: current schema missing receipt authority is corrupt',()=>{const s=world();delete (s as Partial<GameState>).opinionEvents;assert.throws(()=>reload(s));});
+   test('Phase J: lifecycle, range and receipt invariants reject corruption',()=>{const s=world();assignGoal(s,'me','control',{kind:'CONTROL_TERRITORY',territoryId:'target'});s.factions.get('me')!.goals[0]!.lifecycle!.ownerId='enemy';directed(s,'me','enemy',101);assert.ok(cognitionStateProblems(s).length>=2);});
+diff --git a/tests/aiConflict.ts b/tests/aiConflict.ts
+index c2ed00eae59c00127f74a23a466c586c3a5af3db..4c19abe079c8f8ff0ef4371ad63f9c0e1efa861b 100644
+--- a/tests/aiConflict.ts
++++ b/tests/aiConflict.ts
+@@ -119,7 +119,7 @@ export function registerAiConflictTests({test,makeSelf,makeTerritory,cmdReq}:Api
+   test('Phase K: opponent B facts cannot pollute opponent C',()=>{const s=world(),other=war(s,'spectator');loss(s,'enemy-battle',1000,0);assert.deepStrictEqual(war(s,'spectator'),other);loss(s,'spectator-battle',0,1000,'spectator');assert.ok(war(s).facts.historyBalance<0);assert.ok(war(s,'spectator').facts.historyBalance>0);});
+   test('Phase K: ledger presence alone creates no new source or candidate',()=>{const s=world(),before=deriveSources(s,'me',0);loss(s,'battle',1000,0);assert.deepStrictEqual(deriveSources(s,'me',0),before);assert.ok(!deriveSources(s,'me',0).some(c=>c.domain==='DIPLOMACY_PEACE'));});
+   test('Phase K: attack comparison retains causal ownership and exact parameters',()=>{const s=world();loss(s,'history',100,0);observeSources(s,'me');const c=[...s.aiPressure.values()].find(c=>c.kind==='HOSTILE_OPPORTUNITY')!;const compared=new ContextPlanComparator().compare(s,c,sourceConcretePlans(s,c));for(const p of compared.comparisons){assert.strictEqual(new Set(p.contributions.map(x=>x.causalKey)).size,p.contributions.length);if(p.plan.action==='ATTACK')assert.strictEqual(p.plan.targetTerritoryId,'target');}});
+-  test('Phase K: schema 25 migration does not infer conflict facts from Memory Opinion or logs',()=>{const s=world();s.schemaVersion=25;s.factions.get('me')!.memory=[{id:'old',turn:0,type:'territory_lost',withFaction:'enemy',territory:'target',magnitude:100,details:{}}];delete (s as Partial<GameState>).conflictLedger;delete (s as Partial<GameState>).conflictEventReceipts;const d=reload(s);assert.strictEqual(d.schemaVersion,26);assert.strictEqual(d.conflictLedger.size,0);assert.strictEqual(d.conflictEventReceipts.size,0);assert.deepStrictEqual(d.factions.get('me')!.memory,s.factions.get('me')!.memory);});
++  test('Phase K: schema 25 migration does not infer conflict facts from Memory Opinion or logs',()=>{const s=world();s.schemaVersion=25;s.factions.get('me')!.memory=[{id:'old',turn:0,type:'territory_lost',withFaction:'enemy',territory:'target',magnitude:100,details:{}}];delete (s as Partial<GameState>).conflictLedger;delete (s as Partial<GameState>).conflictEventReceipts;const d=reload(s);assert.strictEqual(d.schemaVersion,27);assert.strictEqual(d.conflictLedger.size,0);assert.strictEqual(d.conflictEventReceipts.size,0);assert.deepStrictEqual(d.factions.get('me')!.memory,s.factions.get('me')!.memory);});
+   test('Phase K: current schema cannot silently recreate missing ledger authority',()=>{const s=world();delete (s as Partial<GameState>).conflictLedger;assert.throws(()=>reload(s));});
+   test('Phase K: corruption invariants cover counts windows pair and receipt ownership',()=>{const s=world();loss(s,'battle');const p=s.conflictLedger.values().next().value!,e=p.episodes.get(0)!;e.totals[0].troopsLost=-1;e.recent[0]!.sequence=999;s.conflictEventReceipts.values().next().value!.pairId='missing';assert.ok(conflictStateProblems(s).length>=3);});
+   test('Phase K: public DTO excludes ledger receipts and factual assessment details',()=>{const s=world();loss(s,'private-conflict');const r=new Orchestrator(s).execute(cmdReq('GET_GAME_STATE','player',{}));assert.ok(r.success);const json=JSON.stringify(r.payload);for(const key of ['conflictLedger','conflictEventReceipts','private-conflict','continuationBalance','historyBalance'])assert.ok(!json.includes(key));});
+diff --git a/tests/aiPeace.ts b/tests/aiPeace.ts
+index f8d52cdf5cf854b2a513010a16fccb631d97ce88..6727c267ce82c548258850d989884fe34df102a6 100644
+--- a/tests/aiPeace.ts
++++ b/tests/aiPeace.ts
+@@ -104,7 +104,7 @@ export function registerAiPeaceTests({test,makeSelf,makeTerritory,cmdReq}:Api):v
+   test('Phase H: captured hostile counterparty survives target ownership change',()=>{const s=world(),o=new Orchestrator(s);assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:attack()})).success);const d=cloneGameState(o.getState());d.territories.get('target')!.owner='spectator';assert.ok(hostileLifecyclesBetween(d,'me','enemy').length);assert.ok(!hostileLifecyclesBetween(d,'me','spectator').length);});
+   test('Phase H: Peace ends to WAR at provisional real-world expiry',()=>{const d=respond(pending());advance(d,40000);const r=[...d.peaceRelationships.values()][0]!;assert.strictEqual(r.expiresAtMs,40000+PEACE_TUNING.treatyDurationMs);d.aiClock.nowMs=r.expiresAtMs!;processPeaceBoundary(d);assert.strictEqual(relationshipBetween(d,'me','spectator'),'WAR');});
+   test('Phase H: legacy DECLARE_WAR command cannot terminate active Peace',()=>{const d=respond(pending()),o=new Orchestrator(d),before=encodePersistable(d);assert.ok(!o.execute(cmdReq('DECLARE_WAR','ai',{factionId:'me',targetFactionId:'spectator'})).success);assert.deepStrictEqual(encodePersistable(o.getState()),before);});
+-  test('Phase H: schema-22 sentiment does not migrate into Peace',()=>{const s=world();s.schemaVersion=22;s.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'allied',opinion:100,treaties:[],yearsAtPeace:100,yearsAtWar:0});const d=hydratePersistedPayload(encodePersistable(s));assert.strictEqual(d.schemaVersion,26);assert.strictEqual(d.peaceRelationships.size,0);assert.strictEqual(d.peaceProposals.size,0);});
++  test('Phase H: schema-22 sentiment does not migrate into Peace',()=>{const s=world();s.schemaVersion=22;s.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'allied',opinion:100,treaties:[],yearsAtPeace:100,yearsAtWar:0});const d=hydratePersistedPayload(encodePersistable(s));assert.strictEqual(d.schemaVersion,27);assert.strictEqual(d.peaceRelationships.size,0);assert.strictEqual(d.peaceProposals.size,0);});
+   test('Phase H: explicit unexpired treaty preserves authored turn expiry',()=>{const s=world();s.schemaVersion=22;s.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'neutral',opinion:0,treaties:[{type:'non_aggression',with:'enemy',signedTurn:0,expiresTurn:5,terms:{}}],yearsAtPeace:0,yearsAtWar:0});const d=hydratePersistedPayload(encodePersistable(s));assert.strictEqual(relationshipBetween(d,'me','enemy'),'PEACE');d.turn=5;processPeaceBoundary(d);assert.strictEqual(relationshipBetween(d,'me','enemy'),'WAR');});
+   test('Phase H: expired and unsigned/future historical treaties do not fabricate Peace',()=>{for(const t of [{signedTurn:0,expiresTurn:0},{signedTurn:2,expiresTurn:5}]){const s=world();s.schemaVersion=22;s.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'friendly',opinion:0,treaties:[{type:'non_aggression',with:'enemy',terms:{},...t}],yearsAtPeace:0,yearsAtWar:0});assert.strictEqual(hydratePersistedPayload(encodePersistable(s)).peaceRelationships.size,0);}});
+   test('Phase H: migrating treaty with staged attack preserves travel and enters clearance',()=>{const s=world(),o=new Orchestrator(s);assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:attack()})).success);const d=cloneGameState(o.getState());d.schemaVersion=22;d.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'neutral',opinion:0,treaties:[{type:'non_aggression',with:'enemy',signedTurn:0,expiresTurn:8,terms:{}}],yearsAtPeace:0,yearsAtWar:0});const e=hydratePersistedPayload(encodePersistable(d));assert.strictEqual(relationshipBetween(e,'me','enemy'),'PENDING_HOSTILITIES_CLEARANCE');assert.deepStrictEqual(e.armies.get('a')!.movement,d.armies.get('a')!.movement);assert.deepStrictEqual(e.operationClaims,d.operationClaims);assert.strictEqual(e.peaceProposals.size,0);});
+diff --git a/tests/aiRecruitment.ts b/tests/aiRecruitment.ts
+index c0669577dcbf206f6135574a4648f37ba1793329..c3c22e885fbe13259067344d5a55cc719c26098e 100644
+--- a/tests/aiRecruitment.ts
++++ b/tests/aiRecruitment.ts
+@@ -108,7 +108,7 @@ export function registerAiRecruitmentTests({test,makeSelf,makeTerritory,cmdReq}:
+   test('Phase G: source-scoped reinforcement candidates retain exact local quantities',()=>{const s=threatened();pool(s).troops=1000;observeSources(s,'me');const c=[...s.aiPressure.values()].find(s=>s.kind==='COVERAGE_GAP')!;const plans=sourceConcretePlans(s,c);assert.ok(plans.some(p=>p.action==='REINFORCE'));assert.ok(plans.every(p=>p.action==='REINFORCE'||p.action==='WAIT'));const copy=hydratePersistedPayload(encodePersistable(s));assert.deepStrictEqual(sourceConcretePlans(copy,copy.aiPressure.get(c.id)!).map(p=>p.id),plans.map(p=>p.id));});
+   test('Phase G: seven factual evaluators score allocation without a reinforcement evaluator',()=>{const s=threatened();pool(s).troops=1000;observeSources(s,'me');const c=[...s.aiPressure.values()].find(s=>s.kind==='COVERAGE_GAP')!,plans=sourceConcretePlans(s,c),comparison=new ContextPlanComparator().compare(s,c,plans);assert.strictEqual(STRATEGIC_EVALUATORS.length,7);assert.ok(comparison.comparisons.some(c=>c.plan.action==='REINFORCE'&&c.finalValue>0));for(const row of comparison.comparisons)assert.strictEqual(new Set(row.contributions.map(c=>c.causalKey)).size,row.contributions.length);});
+   test('Phase G: committed reserved troops are unavailable and not prematurely deployed in baseline',()=>{const s=world();pool(s).troops=100;const d=begin(s,plan(s,60,'b')),support=new FactualSupport(d);assert.deepStrictEqual(support.localPools.get('home'),{troops:100,available:40,reserved:60});assert.strictEqual(support.armies.get('b')!.soldiers,s.armies.get('b')!.soldiers);assert.ok(support.committed.some(e=>e.id===[...d.operations.keys()][0]));});
+-  test('Phase G: schema-21 migration adds no historical troops/fractions and preserves canonical AI state',()=>{const s=world();s.schemaVersion=21;delete (s as unknown as {territoryRecruitment?:unknown}).territoryRecruitment;s.worldTick=100;s.accruedTargetWorldTick=100;const before=encodePersistable({operations:s.operations,claims:s.operationClaims,attention:s.strategicAttention,pressure:s.aiPressure,opportunities:s.aiDecisionOpportunities});const loaded=hydratePersistedPayload(encodePersistable(s));assert.strictEqual(loaded.schemaVersion,26);for(const p of loaded.territoryRecruitment.values()){assert.strictEqual(p.troops,0);assert.strictEqual(p.fractionalWork,'0');assert.strictEqual(p.accruedThroughWork,(W*100n).toString());}assert.deepStrictEqual(encodePersistable({operations:loaded.operations,claims:loaded.operationClaims,attention:loaded.strategicAttention,pressure:loaded.aiPressure,opportunities:loaded.aiDecisionOpportunities}),before);});
++  test('Phase G: schema-21 migration adds no historical troops/fractions and preserves canonical AI state',()=>{const s=world();s.schemaVersion=21;delete (s as unknown as {territoryRecruitment?:unknown}).territoryRecruitment;s.worldTick=100;s.accruedTargetWorldTick=100;const before=encodePersistable({operations:s.operations,claims:s.operationClaims,attention:s.strategicAttention,pressure:s.aiPressure,opportunities:s.aiDecisionOpportunities});const loaded=hydratePersistedPayload(encodePersistable(s));assert.strictEqual(loaded.schemaVersion,27);for(const p of loaded.territoryRecruitment.values()){assert.strictEqual(p.troops,0);assert.strictEqual(p.fractionalWork,'0');assert.strictEqual(p.accruedThroughWork,(W*100n).toString());}assert.deepStrictEqual(encodePersistable({operations:loaded.operations,claims:loaded.operationClaims,attention:loaded.strategicAttention,pressure:loaded.aiPressure,opportunities:loaded.aiDecisionOpportunities}),before);});
+   test('Phase G: clone isolates pools, fractional work and initiation progress',()=>{const s=world();pool(s).troops=100;const d=begin(s),b=cloneGameState(d);pool(b).troops=20;[...b.operations.values()][0]!.initiationTimer!.progress.wholeTicks=999;assert.strictEqual(pool(d).troops,100);assert.notStrictEqual([...d.operations.values()][0]!.initiationTimer!.progress.wholeTicks,999);});
+   test('Phase G: corrupted over-reservation and fractional progress fail canonical invariants',()=>{const s=world();pool(s).troops=100;const d=begin(s);pool(d).troops=1;assert.ok(checkGameStateInvariants(d).some(v=>v.code==='recruitment.invalid_quantity'));pool(d).troops=100;pool(d).fractionalWork=W.toString();assert.ok(checkGameStateInvariants(d).some(v=>v.code==='recruitment.invalid_work'));});
+   test('Phase G: failed canonical transaction cannot leak pool, claim or timer mutations',()=>{const s=world();fund(s);const before=encodePersistable(s);assert.throws(()=>runStateTransaction(s,d=>{progressRecruitment(d,W);throw new Error('abort');}));assert.deepStrictEqual(encodePersistable(s),before);});
+diff --git a/tests/aiStrategicPressure.ts b/tests/aiStrategicPressure.ts
+index 10f66eb16555deb1b92f041b145ffb1519c0c95e..099b307622aabc79993f5cf9f4194d024e61f0e3 100644
+--- a/tests/aiStrategicPressure.ts
++++ b/tests/aiStrategicPressure.ts
+@@ -61,7 +61,7 @@ export function registerAiStrategicPressureTests({test,makeSelf,makeTerritory,cm
+   test('Phase E: direct WAIT operation is rejected and cannot bypass source/timer contract',()=>{const s=world();const c=military(s);const w=sourceConcretePlans(s,c).find(p=>p.action==='WAIT')!;const o=new Orchestrator(s);assert.strictEqual(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:w})).success,false);assert.deepStrictEqual(o.getState(),s);});
+   test('Phase E: same-boundary retries cannot create a second primary thought',()=>{const s=world(),c=military(s);c.pressure=T.ready;const o=new Orchestrator(s);for(let i=0;i<10;i++)assert.ok(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})).success);assert.strictEqual(opportunity(o.getState(),'me').nextTimerSequence,1);assert.strictEqual(o.getState().operations.size,0);});
+   test('Phase E: reversed Map order gives identical sources, candidates and chosen context',()=>{const a=world(),b=cloneGameState(a);b.armies=new Map([...b.armies].reverse());b.territories=new Map([...b.territories].reverse());b.factions=new Map([...b.factions].reverse());observeSources(a,'me');observeSources(b,'me');assert.deepStrictEqual([...a.aiPressure.keys()],[...b.aiPressure.keys()]);assert.deepStrictEqual(sourceConcretePlans(a,military(a)),sourceConcretePlans(b,military(b)));});
+-  test('Phase E: schema-20 migration preserves physical claims but archives contextless selections',()=>{const s=world();const plans=sourceConcretePlans(s,military(s));const o=new Orchestrator(s);const p=plans.find(p=>p.action==='MOVE')!;assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:p})).success);const old=cloneGameState(o.getState());old.schemaVersion=20;const before=encodePersistable(old.armies),claims=encodePersistable(old.operationClaims);const loaded=hydratePersistedPayload(encodePersistable(old));assert.strictEqual(loaded.schemaVersion,26);assert.deepStrictEqual(encodePersistable(loaded.armies),before);assert.deepStrictEqual(encodePersistable(loaded.operationClaims),claims);assert.strictEqual(loaded.aiPressure.size,0);});
++  test('Phase E: schema-20 migration preserves physical claims but archives contextless selections',()=>{const s=world();const plans=sourceConcretePlans(s,military(s));const o=new Orchestrator(s);const p=plans.find(p=>p.action==='MOVE')!;assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:p})).success);const old=cloneGameState(o.getState());old.schemaVersion=20;const before=encodePersistable(old.armies),claims=encodePersistable(old.operationClaims);const loaded=hydratePersistedPayload(encodePersistable(old));assert.strictEqual(loaded.schemaVersion,27);assert.deepStrictEqual(encodePersistable(loaded.armies),before);assert.deepStrictEqual(encodePersistable(loaded.operationClaims),claims);assert.strictEqual(loaded.aiPressure.size,0);});
+   test('Phase E: canonical pressure and primary clocks clone without aliasing',()=>{const s=waitState(),c=cloneGameState(s);c.aiPressure.values().next().value!.pressure++;opportunity(c,'me').primary!.timer!.progress.rationalRemainder=2;assert.notDeepStrictEqual(c.aiPressure,s.aiPressure);assert.strictEqual(opportunity(s,'me').primary!.timer!.progress.rationalRemainder,0);});
+   test('Phase E: corruption in source identity or duration clock is rejected',()=>{const s=waitState();[...s.aiPressure.values()][0]!.id='bad';assert.ok(checkGameStateInvariants(s).some(v=>v.code==='pressure.invalid_state'));});
+   test('Phase E: eliminated factions do not observe, deliberate or wait',()=>{const s=world();s.factions.get('me')!.territories=[];s.factions.get('me')!.armies=[];assert.strictEqual(prepareProactiveDecision(s,'me'),null);assert.strictEqual(s.aiPressure.size,0);assert.strictEqual(s.operations.size,0);});
+diff --git a/tests/aiTrade.ts b/tests/aiTrade.ts
+index 8c5d30a88e24fbf0edfee69eaa40cc382c7d9fd3..3d75352877bc8913f7622893aed752c88aa9a313 100644
+--- a/tests/aiTrade.ts
++++ b/tests/aiTrade.ts
+@@ -109,7 +109,7 @@ export function registerAiTradeTests({test,makeSelf,makeTerritory,cmdReq}:Api):v
+   test('Phase I: committed factual stocks exclude pending offers and accepted cargo',()=>{const d=pending();assert.strictEqual(new FactualSupport(d).stocks.get('me')!.wood,30);const e=respond(d);assert.strictEqual(new FactualSupport(e).stocks.get('me')!.wood,30);assert.strictEqual(new FactualSupport(e).stocks.get('me')!.food,100);});
+   test('Phase I: public view contains exact visible terms/status and no private cognition',()=>{const d=pending(),view=JSON.stringify(publicTradeState(d,'spectator'));assert.ok(view.includes('wood'));for(const word of ['pressure','personality','goals','memory','rng','score','acceptanceBounds','responseTimer','proposerSource'])assert.ok(!view.includes(word));assert.strictEqual(publicTradeState(d,'enemy').proposals.length,0);assert.strictEqual(publicTradeState(begin(),'spectator').proposals.length,0);});
+   test('Phase I: proposer estimate accepts only visible terms, no recipient private view',()=>{const p=plan(world()),a=tradeResponseEstimate({offered:p.offered,requested:p.requested});assert.deepStrictEqual(a.acceptanceBounds,[0,1]);assert.strictEqual(a.confidence,'limited');});
+-  test('Phase I: schema 23 migration creates no historical Trade or delivery',()=>{const s=pending();s.schemaVersion=23;delete (s as any).tradeProposals;delete (s as any).tradeShipments;s.operations.clear();s.operationClaims.clear();s.aiDecisionOpportunities.clear();const before=encodePersistable(s.peaceRelationships),e=reload(s);assert.strictEqual(e.schemaVersion,26);assert.strictEqual(e.tradeProposals.size,0);assert.strictEqual(e.tradeShipments.size,0);assert.deepStrictEqual(encodePersistable(e.peaceRelationships),before);});
++  test('Phase I: schema 23 migration creates no historical Trade or delivery',()=>{const s=pending();s.schemaVersion=23;delete (s as any).tradeProposals;delete (s as any).tradeShipments;s.operations.clear();s.operationClaims.clear();s.aiDecisionOpportunities.clear();const before=encodePersistable(s.peaceRelationships),e=reload(s);assert.strictEqual(e.schemaVersion,27);assert.strictEqual(e.tradeProposals.size,0);assert.strictEqual(e.tradeShipments.size,0);assert.deepStrictEqual(encodePersistable(e.peaceRelationships),before);});
+   test('Phase I: schema 24 corrupt missing Trade storage fails hydration',()=>{const s=world();delete (s as any).tradeShipments;assert.throws(()=>reload(s));});
+   test('Phase I: invariants reject missing bilateral shipment and altered accepted quantity',()=>{const d=respond(pending()),ids=proposal(d).shipmentIds;d.tradeShipments.delete(ids[0]!);assert.ok(checkGameStateInvariants(d).some(v=>v.code==='trade.invalid_state'));const e=respond(pending());[...e.tradeShipments.values()][0]!.cargo={wood:71};assert.ok(checkGameStateInvariants(e).some(v=>v.code==='trade.invalid_state'));});
+   test('Phase I: invariants reject over-reservation and terminal claim leakage',()=>{const d=pending();d.factions.get('me')!.resources.wood=69;assert.ok(checkGameStateInvariants(d).some(v=>v.code==='trade.invalid_state'));});
+diff --git a/tests/commandIdempotency.ts b/tests/commandIdempotency.ts
+index 4cdc57637d76da0265dcb6bbc4c0445dc8046dd3..918a7c9959f33e653914aa57224a17a2169840dd 100644
+--- a/tests/commandIdempotency.ts
++++ b/tests/commandIdempotency.ts
+@@ -309,7 +309,7 @@ export async function runCommandIdempotencyTests(
+     assert.strictEqual(read.success, true, read.errors[0]?.message);
+     assert.strictEqual(load(store, 'cmd_read').gameplaySessionLeases[0]!.lastCommandSequence, null);
+     assert.strictEqual(load(store, 'cmd_read').gameplaySessionLeases[0]!.lastCommandReceipt, null);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+   });
+ 
+   await report('many commands keep one command receipt', async () => {
+diff --git a/tests/economyFoundation.ts b/tests/economyFoundation.ts
+index 243824aae9813a754bc5c71b6452ac0a0e4310d1..2321f965c94092b2588e71a117c76423e3dc8c23 100644
+--- a/tests/economyFoundation.ts
++++ b/tests/economyFoundation.ts
+@@ -207,7 +207,7 @@ export function registerEconomyFoundationTests({ test }: EconomyFoundationTestAp
+   test('schema 15 seeds food clock at worldTick and empty infrastructure occupancy', () => {
+     const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'iron_kingdom' });
+     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(state.lastFoodConsumptionTick, state.worldTick);
+     assert.strictEqual(state.territoryInfrastructure.size, state.territories.size);
+     for (const territory of state.territories.values()) {
+diff --git a/tests/gameplaySessionLeases.ts b/tests/gameplaySessionLeases.ts
+index c317bf886962349d8cc900ea8c1773b815ec44bb..47687433332744b1fb4908610e9f30cfd55d62ad 100644
+--- a/tests/gameplaySessionLeases.ts
++++ b/tests/gameplaySessionLeases.ts
+@@ -74,7 +74,7 @@ export function registerGameplaySessionLeasePersistenceTests(api: GameplaySessio
+ 
+   test('a new world starts with no gameplay-session leases', () => {
+     const state = createGameState();
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+     assert.deepStrictEqual(state.gameplaySessionLeases, []);
+     assert.deepStrictEqual(checkGameStateInvariants(state), []);
+diff --git a/tests/gameplaySessionLifecycle.ts b/tests/gameplaySessionLifecycle.ts
+index 2cd57f3f5f37358c0cdc52cae72ec0d8226a167f..b999a27823f585ea5889db78e845bc78333e2aeb 100644
+--- a/tests/gameplaySessionLifecycle.ts
++++ b/tests/gameplaySessionLifecycle.ts
+@@ -55,7 +55,7 @@ export async function runGameplaySessionLifecycleTests(
+     assert.strictEqual(state.gameplaySessionLeases[0]!.sessionId, opened.sessionId);
+     assert.strictEqual(state.gameplaySessionLeases[0]!.openedByRequestId, 'open-1');
+     assert.deepStrictEqual(temporal(state), anchoredTemporal(1_700_000_000_000));
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+   });
+ 
+diff --git a/tests/invasionLifecycle.ts b/tests/invasionLifecycle.ts
+index 9b1aa282bb20607e6ab20f77d770100f5507a1b5..b4142cb85fd67852ba5bfbeab264f58a5ff36c2a 100644
+--- a/tests/invasionLifecycle.ts
++++ b/tests/invasionLifecycle.ts
+@@ -216,7 +216,7 @@ export function registerInvasionLifecycleTests(api: InvasionLifecycleTestApi): v
+   test('current schema and completion timeout is 12 hours, separate from the 30-minute response window', () => {
+     const state = playerState();
+     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(GAMEPLAY_CONFIG.playerProtectionMinutes, 1440);
+     assert.strictEqual(GAMEPLAY_CONFIG.defenseResponseMinutes, 30);
+     assert.strictEqual(GAMEPLAY_CONFIG.defenseWorkoutMaxDurationMinutes, 12 * 60);
+diff --git a/tests/leaseWorldAccrual.ts b/tests/leaseWorldAccrual.ts
+index 2a9cc9e3a953b307529c151cb6fc79a0bc275021..2b9f44d6e533ca8414ff91ed58a4ee4ca155c37a 100644
+--- a/tests/leaseWorldAccrual.ts
++++ b/tests/leaseWorldAccrual.ts
+@@ -34,7 +34,7 @@ export async function runLeaseWorldAccrualTests(
+     assert.strictEqual(state.accrualDivisionRemainder, 0);
+     assert.strictEqual(state.lastAccrualAtMs, 30 * MINUTE);
+     assert.strictEqual(state.lastProcessedAtMs, 1);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+   });
+ 
+diff --git a/tests/persistence.ts b/tests/persistence.ts
+index 06da6c02079f764460310b560db4ddf960c52b57..c47419c3c5255cc457b38b20d50cef909d96cc88 100644
+--- a/tests/persistence.ts
++++ b/tests/persistence.ts
+@@ -464,7 +464,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
+     const loaded = store.load(PLAYER_ID);
+     assert.ok(loaded.ok, loaded.ok ? '' : loaded.message);
+     assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(loaded.state.lastFoodConsumptionTick, 40);
+     assert.ok(loaded.state.territoryInfrastructure instanceof Map);
+     assert.strictEqual(loaded.state.territoryInfrastructure.size, 0);
+diff --git a/tests/presenceLeases.ts b/tests/presenceLeases.ts
+index dc8d63d43e5b0d360e4b5b7ae6f65c88bb8ba0ea..82ae923df9140075755fa27c800c644f47ab207e 100644
+--- a/tests/presenceLeases.ts
++++ b/tests/presenceLeases.ts
+@@ -58,7 +58,7 @@ export function registerPresenceLeaseTests(api: PresenceLeaseTestApi): void {
+     assert.strictEqual(BALANCE.temporal.presenceLeaseDurationMs, LEASE_MS);
+     assert.strictEqual(BALANCE.temporal.onlineRatePpm, 1_000_000);
+     assert.strictEqual(BALANCE.temporal.offlineRatePpm, 100_000);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'world', 'presenceLeases.ts'), 'utf8');
+     assert.ok(!src.includes('GameState'));
+     assert.ok(!src.includes('Math.'));
+diff --git a/tests/run.ts b/tests/run.ts
+index 662f9288216f53cf0c65192a8257f7a60331c50b..f644b0db5e1382ddbc19fb4c2b6ee2242d0e4d4a 100644
+--- a/tests/run.ts
++++ b/tests/run.ts
+@@ -1,3 +1,4 @@
++import {registerAiResponseTests} from './aiResponses';
+ import {registerAiConflictTests} from './aiConflict';
+ import {registerAiCognitionTests} from './aiCognition';
+ import {registerAiTradeTests} from './aiTrade';
+@@ -1660,7 +1661,7 @@ test('createGameState() contains the expected major state domains', () => {
+   const state = createGameState({ seed: 42 });
+   const keys = Object.keys(state).sort();
+   const expected = [
+-    'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'conflictLedger', 'conflictEventReceipts', 'opinionEvents', 'operationClaims', 'operations', 'constructions',
++    'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiResponses', 'aiResponseScheduler', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'conflictLedger', 'conflictEventReceipts', 'opinionEvents', 'operationClaims', 'operations', 'constructions',
+     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
+     'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'tradeProposals', 'tradeShipments', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
+     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
+@@ -3123,6 +3124,7 @@ registerAiPeaceTests({test,makeSelf,makeTerritory,cmdReq});
+ registerAiTradeTests({test,makeSelf,makeTerritory,cmdReq});
+ registerAiCognitionTests({test,makeSelf,makeTerritory,cmdReq});
+ registerAiConflictTests({test,makeSelf,makeTerritory,cmdReq});
++registerAiResponseTests({test,makeSelf,makeTerritory,cmdReq});
+ registerAiStrategicEvaluationTests({ test, makeSelf, makeTerritory, cmdReq });
+ 
+ registerFoundationHardeningTests({
+diff --git a/tests/sessionReplay.ts b/tests/sessionReplay.ts
+index fe95e0bc61c84ea16051c4935dec17fd51688fac..1163926a0a88e600dffb19148777e7e85192548e 100644
+--- a/tests/sessionReplay.ts
++++ b/tests/sessionReplay.ts
+@@ -146,7 +146,7 @@ export async function runSessionReplayTests(
+     const replay = await restarted.heartbeatGameplaySession('restart_replay', 'heartbeat-A', opened.sessionId, 1);
+     assert.strictEqual(replay.outcome, 'idempotent_replay');
+     assert.strictEqual(load(store, 'restart_replay').gameplaySessionLeases[0]!.expiresAtMs, 10_000 + LEASE_MS);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+   });
+ 
+   await report('replaying an open request recovers the same session', async () => {
+diff --git a/tests/temporalBoundaries.ts b/tests/temporalBoundaries.ts
+index a93afe38ecedd79ee7e0735bc436b644b369a310..4579af265925d1712be182dec356f77349d86483 100644
+--- a/tests/temporalBoundaries.ts
++++ b/tests/temporalBoundaries.ts
+@@ -93,7 +93,7 @@ export function registerTemporalBoundaryTests(api: TemporalBoundaryTestApi): voi
+     assert.strictEqual(accrueSimulationTime(emptyFixedPointAccrual(), 0, 'ONLINE').subTickMicroticks, 0);
+     assert.ok(accrueSimulationTime(emptyFixedPointAccrual(), 1, 'ONLINE').subTickMicroticks >= 1);
+     assert.strictEqual(realMillisecondsForSimulationWork(1, 0, 'OFFLINE'), 10 * MINUTE);
+-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 26);
++    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+     assert.strictEqual(BALANCE.temporal.onlineRatePpm, 1_000_000);
+     assert.strictEqual(BALANCE.temporal.offlineRatePpm, 100_000);
+     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'world', 'temporalBoundaries.ts'), 'utf8');
+diff --git a/docs/AI_PHASE_L_NON_PROACTIVE_COGNITION.md b/docs/AI_PHASE_L_NON_PROACTIVE_COGNITION.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..3057a667726ae2bcff36cc00487bae410f546421
+--- /dev/null
++++ b/docs/AI_PHASE_L_NON_PROACTIVE_COGNITION.md
+@@ -0,0 +1,313 @@
++# Phase L — non-proactive cognition and physical recovery
++
++## Baseline and authority
++
++Implementation began on clean branch `work`, HEAD
++`7b6cf00a639b6ed1b17302713ef13ad6d2ea195f` (`AI: conflict ledger and war value trajectory`).
++The final `REP_WARS_AI_Decision_Engine_Source_of_Truth_v1.0.md` remains the product authority;
++this document records implementation and limitations, not new product doctrine.
++Schema advances from 26 to **27**. No checkpoint or push is authorized for this implementation.
++
++## Audit before implementation
++
++* **IMPLEMENTED:** canonical exact operations, physical claims, operation-owned Attention,
++  pressure/source cognition, persistent duration clocks, local recruitment, Peace, Trade,
++  Goal/Opinion and factual conflict history. These systems were reused.
++* **PARTIAL:** Peace and Trade each scheduled their own required responses in
++  `processPeaceBoundary` / `processTradeBoundary`. They canceled proactive thought only
++  at response completion. There was no shared priority/thread authority.
++* **IMPLEMENTED:** `settleOperation` preserved unfinished attack travel and force claims;
++  `progressArmyMovements` preserved a blocked march with its origin, destination,
++  elapsed duration and halt boundary. Trade preserved interrupted cargo in custody.
++* **MISSING:** shared emergency/recovery context lifecycle, canonical response priority,
++  one bounded non-proactive thread, event-driven recovery observation, and critical
++  Attention overflow ownership.
++* **UNRESOLVED:** spatial recovery, blocked-cargo remedy, general construction remedies,
++  and broader final battle timing/participant lifecycle. This phase does not invent them.
++
++## Canonical authority and indexes
++
++`GameState.aiResponses` stores `AIResponseContext` by exact semantic identity.
++`aiResponseScheduler` stores the faction's primary response context, scheduling boundary,
++dirty notification and next material hostile-arrival threshold. Physical world facts
++remain in armies, operations, invasions, projects and cargo; contexts contain references.
++
++`NON_PROACTIVE_LANES` contains exactly `REACTIVE_EMERGENCY`, `REQUIRED_RESPONSE`, and
++`OPERATION_RECOVERY`. These are cognition lanes, not actions or pressure domains.
++The proactive action vocabulary remains eight; factual evaluators remain seven.
++
++`responseContextId` uses full JSON-encoded faction/subject identity. Hostile contexts
++include the actual conflict-chain/commitment identity and defended territory, so a later
++attack by the same army is a different problem. Unidentified historical physical intents
++remain explicit legacy references; no historical identity is fabricated. IDs never use
++hash truncation, insertion order, process counters or wall-clock sampling.
++
++`createResponseMap` maintains derived live, ready and territory indexes. They contain
++keys only, are rebuilt during cloning/hydration, and are never serialized as authority.
++Queue/Attention feasibility does not scan terminal operation/context history.
++`cloneGameState` deep-copies mutable context, timer, plan and scheduler data.
++
++## Shared required response scheduling
++
++Publication calls `registerRequiredResponse` for the exact proposal. Withdrawal,
++invalidation and terminal settlement call `invalidateProposalResponse`. Required work
++does not need Pressure, proactive spacing or free normal Attention.
++
++`settleReadyRequiredResponses` owns the shared fresh-recipient assessment boundary.
++Peace delegates to `assessRequiredPeaceResponse` and `settlePeaceProposal`; Trade delegates
++to `assessRequiredTradeResponse` and `settleTradeProposal`. Acceptance continues to use
++the existing atomic bilateral resource/cargo transition. Counteroffer replacement stays
++in the existing exact command/domain path; autonomous AI counteroffer strategy is absent.
++
++Response-window progress remains owned by the proposal's existing persisted timer.
++Windows can advance independently; full assessment/settlement is serialized on one
++canonical response thread. Deadline-ready work temporarily takes that thread and restores
++an interrupted emergency's already-earned progress. It cannot starve behind physical
++operations or an unrelated low-priority context. This preserves Phase H/I window semantics
++without inventing a second response timeout or extending deadlines because of processing latency.
++
++Peace and Trade retain independently owned AI 3–8 / 30–80 second response policies and
++player expiry windows. Player expiry is a domain deadline gate, not fabricated AI cognition.
++Proposal disappearance, faction loss and hard invalidation cancel cognition without fake
++decline. Pending Trade still reserves only the proposer, rechecks recipient holdings at
++ACCEPT, and releases diplomatic Attention before physical shipment.
++
++## Emergencies, materiality and bounded plans
++
++`observeNonProactiveWork` detects actual committed hostile approaches and current invasions.
++WAR, Goals, Opinion, raw Memory, ledger history, army idleness and pool existence alone do
++not create an emergency. Only surviving eligible non-player factions perform optional thought;
++the existing Level 1 tutorial suppression is respected.
++
++The observer runs on domain-change notifications or scheduled arrival-urgency thresholds,
++not every tick. Movement start/arrival/interruption, attack initiation/invalidation,
++ownership/battle consequences, operation transitions, invasion creation and cargo blocking
++notify it. Recruitment uses the territory index and exact blocked quantity thresholds;
++increments below a relevant prerequisite do not wake cognition. Quiet tick progression
++does not scan operations, proposals, invasions or terminal history for Phase L.
++
++`reactivePlans` declares this complete bounded scope: stationary owned forces on the
++threatened tile and its immediate owned neighbors; one adjacent support/withdrawal hop;
++counterattack on the actual hostile force's territory where legal; and the existing three
++meaningful local-pool reinforcement batches. Every plan uses Phase B feasibility, claims,
++compatibility and Attention. It cannot build an unrelated farm, negotiate, create an army,
++reinforce remotely or allocate into a battle/invasion-held force.
++
++Current territory threats ordinarily yield MOVE, applicable ATTACK and local REINFORCE.
++RETREAT retains its existing off-owned-ground legality; this phase does not manufacture
++an otherwise nonexistent exposed-force combat event to force a RETREAT candidate.
++
++Stable material signatures describe the same problem's force/support class, relevant
++route and complete feasible alternatives. AND prerequisites belong to one exact plan;
++alternative plans form an OR. Unrelated freed forces/routes and partial prerequisite
++restoration do not supply a complete alternative. Urgency escalation, a new hostile
++commitment, material support loss or newly meaningful local quantity may rearm. ETA
++decrement, +1 resource and pressure growth alone cannot restart handled cognition.
++
++Critical deliberation samples **1–2 seconds online / 5–10 offline**; urgent samples
++**2–5 / 20–50**. Samples/progress persist using the existing duration kernel and canonical
++timer sequence. Promotion is permitted, demotion forbidden, and reload does not reroll.
++Queued emergency progress is not credited as active thought. The next independent thought
++begins at the preceding thought's completion boundary, without a receipt/chunk gap.
++
++Urgent/critical work cancels unfinished proactive deliberation. It does not cancel WAIT or
++other committed initiation, clear physical movement, rewind RNG, relieve Pressure or start
++proactive spacing. Proactive cognition later observes fresh canonical facts.
++
++## Comparison and exact execution
++
++`ContextPlanComparator.compareInterventions` reuses the same seven factual evaluators,
++normalization, causal contribution ownership and bounded own Goal/Opinion/Risk modifiers.
++It has no Pressure source and never manufactures a WAIT plan. Its implicit zero baseline
++is `NO_ADDITIONAL_INTERVENTION`. Only qualified near ties reach seeded variation;
++inferior plans cannot be rescued by randomness or modifiers.
++
++`startResponseIntervention` verifies canonical context revision, existence, selected plan
++identity and current scoped feasibility. It calls the existing `startExactPlan` /
++`startOperation` nested transaction and shared domain handlers. Claim, Attention,
++sequence and domain mutations succeed together or roll back. Returned physical changes,
++events and notifications are retained. Execution never substitutes an army, quantity,
++target, route or destination. `responseContextId` is private operation provenance;
++`finishDecisionInitiation` excludes it from proactive relief/spacing.
++
++Central operation settlement remains the exactly-once owner of claims, Attention and
++domain feedback. Reaction itself writes no invented casualty, conquest, Opinion or Goal
++reward. Real domain consequences continue through the Phase J/K event paths.
++
++## Recovery and truthful non-action
++
++Blocked movement, invalid attack objectives and blocked cargo link a stable recovery
++context to their existing operation/shipment. Current domain mechanics expose no authorized
++spatial reroute, return destination, cargo refund or replacement project choice. Such a
++context immediately records dormant `NO_ADDITIONAL_INTERVENTION`: no evaluator suite,
++WAIT, relief, spacing, new operation or repeated retries.
++
++Movement keeps its exact origin/destination, elapsed work/halt boundary, force claim and
++Attention until the domain reaches a physical terminal state. Cargo keeps exact ownership
++and quantity in custody without diplomatic Attention. A changed route alone cannot invent
++a remedy; recovery only cancels/rearms when authoritative domain feasibility actually
++changes. Resumed/terminal physical work invalidates its stale recovery reference.
++Construction completion/destruction retains existing settlement; no cancellation/refund
++or new `AWAITING_MATERIALS` architecture is implemented.
++
++## Attention, priority and provisional policies
++
++**PROVISIONAL IMPLEMENTATION POLICY — PRODUCT CONFIRMATION REQUIRED:** all numeric
++emergency/materiality/priority/overflow choices live in `constants/aiResponse.ts`.
++
++| Surface | Current implementation | Classification |
++| --- | --- | --- |
++| Severity order | critical, urgent, required, recovery | Provisional priority policy |
++| Within severity | deadline, irreversibility, creation boundary, exact ID | Deterministic policy; no unrelated-context RNG |
++| Imminence | critical at <=1 remaining world tick; urgent at <=3 | Provisional detection against existing physical timing |
++| Force/support materiality | 50-troop classes; exact complete feasible alternatives | Provisional thresholds, not balance doctrine |
++| Irreversibility | incoming physical threats precede otherwise equal reversible work | Provisional binary weight |
++| Critical overflow | at most 2 additional Attention units | Provisional finite allowance |
++| Reactive physical cost | ordinary action cost, operation-owned until physical settlement | No free military actions |
++| Recovery retry | no choice => dormant; actual domain change => reassessment/cancellation | No speculative remedy |
++| Context aging | none | No invented timeout/decay |
++
++Overflow records its authorizing context/revision and exact charge on the operation.
++It cannot override troops/routes/claims or grant another operation's capacity. Ordinary
++positive-cost initiation remains blocked over capacity. Reload preserves occupancy;
++terminal settlement releases it exactly once. Historical over-cap operations are untouched.
++
++## Persistence, invariants, privacy and unresolved contracts
++
++Schema 26→27 preserves all A–K world state, IDs, claims, Attention, recruitment, Peace,
++Trade, history and sequences. It creates an empty response authority and derives only
++references to currently pending required proposals. Physical recovery/threat discovery
++uses current domain truth on first observation; no historical emergency, action, sample,
++relief or conflict fact is reconstructed.
++
++`responseStateProblems` checks exact identity/ownership, lane/subject binding, lifecycle,
++timer validity, exclusive primary ownership, exact plans, operation provenance and dormant
++timer absence. Existing invariants additionally enforce finite emergency occupancy and
++canonical claims. Pending overdue material boundaries are earned work to process, not
++permission to rewind physical state.
++
++`inspectNonProactiveWork` supplies server-only priority, trigger reference, timing, chosen
++plan, physical blockage and feasibility diagnostics. Public serializers/Unity and
++counterparty views exclude contexts, priority, modifiers, timer/RNG state and deliberation.
++Diagnostics/history are never re-read as authority.
++
++**UNRESOLVED / DEFERRED:** the repository's current world-tick army movement and immediate
++AI battle prototype do not implement all broader final Temporal V2 battle rules (120/1800
++post-arrival battle/window, guaranteed defense finalization, frozen participant/virtual
++survivor lifecycle). Those are existing physical-domain integration gaps, not repaired by
++changing battle math or timing here. Spatial recovery and cargo remedies remain undefined.
++Existing required-response policies remain independently provisional. Large retained
++history still participates in persistence/cloning/invariant costs; no compaction policy
++is invented. No final hysteresis/repetition or later-phase tuning is included.
++
++## Validation and diagnostics
++
++Focused results: A 17, B 28, C 60, D 41, E 55, F 73, G 78, H 85, I 90, J 83,
++K 84, **L 60**; **754 passed, zero failed**. New tests cover queue identity/priority,
++bounded primary thread, preemption, exact shared execution, claim/CAS rollback,
++critical overflow/release, required freshness/privacy, blocked custody, reload,
++coarse/fine equivalence and event-driven observer hot paths. Prior invariant assertions
++remain; schema and documented state-domain expectations advance to 27.
++
++Anchors/movement/strategic attack/invasion/economy/persistence/temporal/session/replay
++integration suite: **319 passed, zero failed**. Full suite and final static results are
++recorded below. Test-inclusive compilation retains the identical
++28 existing diagnostics, compared by file/code/message with an exported Phase K baseline;
++production compilation introduces none.
++
++Diagnostics used actual domain handlers and canonical fixture authoring. Quiet fixtures
++have no forces, no useful unbuilt structure/resource source and no response event. Stress
++proposal/cargo fixtures are valid independently identified exact operations/claims; no
++fictional cargo is appended to acceptance. Timings are host measurements, not policy.
++
++| Fixture | ms | Full thoughts | Plans evaluated | Starts | Context result |
++| --- | ---: | ---: | ---: | ---: | --- |
++| 12 factions / 10,000 no-source ticks | 3,152 | 0 | 0 | 0 | 0 observer scans, contexts, history rows |
++| 100 required Trades | 56 | 100 required | existing recipient assessments | 0 | 100 settled; no queued remainder |
++| 200 physical emergency contexts | 64 | 200 | 0 | 0 | 200 handled once; 1,000 unchanged calls add no thought |
++| 200 blocked cargo recoveries | 22 | 0 | 0 | 0 | 200 dormant, conserved; 1,000 calls add no thought |
++| Critical + required + blocked movement | 21 | 2 | 4 | 0 | required response settles; inferior intervention rejected |
++| 25 reload + coarse/fine replays | 185 | 50 | 100 | 0 | exact equivalent canonical states |
++| Actionable local defensive REINFORCE | 6 | 1 | 5 | 1 | exact initiation/allocation; no proactive deliberation |
++
++Comparable Phase K quiet baseline: **2,930 ms**, same 12-faction/10,000-tick fixture,
++zero operations/history. Phase L: **3,152 ms** (~7.6% difference in this measurement).
++Quiet fixture queue checks: 40,000 cheap empty-index checks at existing world/completion
++boundaries; no Phase L timer wakes, physical/recovery scans, context creation or evaluation.
++Other fixture queue checks: required 2, emergency burst 1,201, cargo burst 1,000, mixed 8,
++reload/fine-coarse 951, actionable reinforcement 8. Domain observer scans respectively:
++0 / 1 / 2 / 2 / 6 / 1 / 3.
++
++Classification: bounded expected bookkeeping; no significant quiet-world regression.
++The review removed the initial per-world-tick observer rescan, a Phase-L-local performance
++defect. No tuning, physical timing change, weakened determinism or history deletion was used.
++
++## Final verification record
++
++**Final validation passed:** full suite **1,833 passed / 0 failed**; A–L focused
++**754 passed / 0 failed**; affected integration suite **319 passed / 0 failed**.
++Production TypeScript `--noEmit` passes. Test-inclusive TypeScript has exactly the same
++28 baseline diagnostics, zero new/removed file/code/message identities. `git diff --check`
++passes. Final scope is 46 files (39 modified, 7 new), all unstaged/uncommitted.
++HEAD remains `7b6cf00a639b6ed1b17302713ef13ad6d2ea195f` on `work`.
++No commit was created, nothing was pushed, and no later phase was started.
++
++## File manifest
++
++46 intended files: 39 modified and 7 new. Domain-file changes are notification hooks only; battle mathematics, travel/construction durations, recruitment arithmetic/tuning, Unity, fitness and package/project configuration remain unchanged.
++
++New:
++
++```text
++docs/AI_PHASE_L_NON_PROACTIVE_COGNITION.md
++src/constants/aiResponse.ts
++src/engine/nonProactiveCognition.ts
++src/engine/responseRecords.ts
++src/state/responseInvariants.ts
++src/types/AIResponse.ts
++tests/aiResponses.ts
++```
++
++Modified:
++
++```text
++src/army/movement.ts
++src/army/strategicAttack.ts
++src/engine/concretePlans.ts
++src/engine/decisionOpportunities.ts
++src/engine/operations.ts
++src/engine/proactiveCognition.ts
++src/engine/strategicAttention.ts
++src/gameplay/diplomacy/peace.ts
++src/gameplay/economy/ownership.ts
++src/gameplay/invasion/create.ts
++src/gameplay/recruitment/recruitment.ts
++src/gameplay/trade/trade.ts
++src/orchestration/applyBattle.ts
++src/orchestration/handlers.ts
++src/orchestration/transaction.ts
++src/persistence/versioning.ts
++src/scoring/contextPlanComparison.ts
++src/state/cloneGameState.ts
++src/state/gameStateInvariants.ts
++src/types/AIOperation.ts
++src/types/AIStrategy.ts
++src/types/GameState.ts
++tests/aiCognition.ts
++tests/aiConflict.ts
++tests/aiPeace.ts
++tests/aiRecruitment.ts
++tests/aiStrategicPressure.ts
++tests/aiTrade.ts
++tests/commandIdempotency.ts
++tests/economyFoundation.ts
++tests/gameplaySessionLeases.ts
++tests/gameplaySessionLifecycle.ts
++tests/invasionLifecycle.ts
++tests/leaseWorldAccrual.ts
++tests/persistence.ts
++tests/presenceLeases.ts
++tests/run.ts
++tests/sessionReplay.ts
++tests/temporalBoundaries.ts
++```
+diff --git a/src/constants/aiResponse.ts b/src/constants/aiResponse.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..b9a5c21ea17120b20a648ae2739f6a162525585b
+--- /dev/null
++++ b/src/constants/aiResponse.ts
+@@ -0,0 +1,14 @@
++/** Locked cognition authoring ranges (Source of Truth §19). */
++export const RESPONSE_TIMING=Object.freeze({critical:[1000,2000,5],urgent:[2000,5000,10]} as const);
++/** PROVISIONAL IMPLEMENTATION POLICY — PRODUCT CONFIRMATION REQUIRED.
++ * INITIAL IMPLEMENTATION TUNING — NOT LOCKED DESIGN.
++ * Severity/meaningfulness are factual thresholds, not preference scores.
++ * Required thought bypasses capacity; a CRITICAL survival intervention may
++ * temporarily occupy at most two additional units, owned by its operation.
++ */
++export const RESPONSE_POLICY=Object.freeze({
++  emergencyExtraCapacity:2,
++  criticalArrivalTicks:1, urgentArrivalTicks:3, materialTroopBatch:50,
++  severityOrder:{CRITICAL:0,URGENT:1,REQUIRED:2,RECOVERY:3},
++  irreversibility:{incoming:1,routine:0},
++});
+diff --git a/src/engine/nonProactiveCognition.ts b/src/engine/nonProactiveCognition.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..4e52efc217adf12aa57bb7012dd90e88191c8312
+--- /dev/null
++++ b/src/engine/nonProactiveCognition.ts
+@@ -0,0 +1,293 @@
++import { isLevel1TutorialAiSuppressed } from '../gameplay/tutorial/level1';
++import type { GameState } from '../types/GameState';
++import type { AIResponseContext, ResponseMetrics, ResponseSubject } from '../types/AIResponse';
++import type { AIConcretePlan } from '../types/AIConcretePlan';
++import { makeConcretePlan, comparePlanIds } from '../types/AIConcretePlan';
++import { RESPONSE_POLICY as P, RESPONSE_TIMING } from '../constants/aiResponse';
++import { activeOperations } from './operations';
++import { liveTradeShipments, tradePlanProblem } from '../gameplay/trade/trade';
++import { activeDiplomacyFaction, relationshipBetween } from '../gameplay/diplomacy/relationships';
++import { reinforcementQuantities } from '../gameplay/recruitment/reinforcement';
++import { recruitmentPoolId } from '../gameplay/recruitment/recruitment';
++import { armyHasActiveStrategicOperation } from '../army/strategicAttack';
++import { assessConcretePlanFeasibility } from './concretePlans';
++import { toDecisionEngineSnapshot } from '../state/gameStateAdapters';
++import { startProactiveTimer, timerRemaining } from './proactiveCognition';
++import { accrueDurationProgress, durationRemainingMs, TemporalPresence } from '../world/timeToTick';
++import { ContextPlanComparator, selectInterventionComparison } from '../scoring/contextPlanComparison';
++import { assessRequiredPeaceResponse } from '../scoring/peaceAssessment';
++import { assessRequiredTradeResponse } from '../scoring/tradeAssessment';
++import { settlePeaceProposal } from '../gameplay/diplomacy/peace';
++import { settleTradeProposal } from '../gameplay/trade/trade';
++import { SeededRNG } from '../utils/SeededRNG';
++import { closeResponseContext, responseContextId, liveResponseContexts, readyResponseContexts, responseContextLive } from './responseRecords';
++
++const canThink=(s:GameState,fid:string)=>fid!==s.playerFactionId&&activeDiplomacyFaction(s,fid)&&!isLevel1TutorialAiSuppressed(s,fid);
++const bucket=(n:number)=>Math.floor(n/P.materialTroopBatch);
++function upsert(s:GameState,fid:string,subject:ResponseSubject,lane:AIResponseContext['lane'],severity:AIResponseContext['severity'],signature:string,m?:ResponseMetrics):AIResponseContext {
++  const id=responseContextId(fid,subject),old=s.aiResponses.get(id);
++  if(old&&responseContextLive(old)) {
++    if(old.materialSignature!==signature) {
++      old.revision++;old.materialSignature=signature;old.severity=severity;
++      // Material change invalidates unfinished reasoning. Blocked recovery has
++      // no authorized intervention policy; changed quantities cannot invent one.
++      if(lane!=='OPERATION_RECOVERY') {
++        old.status='queued';old.timer=null;old.selectedPlan=null;old.outcome=null;old.blockers=[];
++        if(s.aiResponseScheduler.primaryByFaction.get(fid)===id)s.aiResponseScheduler.primaryByFaction.delete(fid);
++        if(m)m.materialRearms++;
++      }
++    }
++    s.aiResponses.set(id,old);return old;
++  }
++  // A resolved unchanged threat cannot repeatedly trigger. A real material
++  // transformation reuses semantic identity with a persisted new revision.
++  if(old&&old.materialSignature===signature)return old;
++  const c:AIResponseContext={id,factionId:fid,lane,subject,severity,irreversibility:lane==='REACTIVE_EMERGENCY'?P.irreversibility.incoming:P.irreversibility.routine,
++    createdAtMs:s.aiClock.nowMs,revision:old?old.revision+1:0,materialSignature:signature,status:'queued',timer:null,
++    outcome:null,selectedPlan:null,operationId:null,blockers:[]};
++  s.aiResponses.set(id,c);if(m)m.contextsCreated++;return c;
++}
++/** Publication is the event. No all-pairs scan or pressure trigger. Domain
++ * response windows remain the sole timing authority for required responses. */
++export function registerRequiredResponse(s:GameState,kind:'peace'|'trade',id:string,m?:ResponseMetrics):void {
++  const p=kind==='peace'?s.peaceProposals.get(id):s.tradeProposals.get(id);
++  if(!p||p.status!=='pending'||!canThink(s,p.recipient))return;
++  upsert(s,p.recipient,{kind,id},'REQUIRED_RESPONSE','REQUIRED',JSON.stringify([p.id,p.pendingAtMs]),m);
++}
++export function requiredResponseTimer(s:GameState,c:AIResponseContext) {
++  return c.subject.kind==='peace'?s.peaceProposals.get(c.subject.id)?.responseTimer:
++    c.subject.kind==='trade'?s.tradeProposals.get(c.subject.id)?.responseTimer:null;
++}
++export function responseContextExists(s:GameState,c:AIResponseContext):boolean {
++  if(!canThink(s,c.factionId))return false;
++  const x=c.subject;
++  if(x.kind==='peace'||x.kind==='trade') {
++    const p=x.kind==='peace'?s.peaceProposals.get(x.id):s.tradeProposals.get(x.id);
++    return !!p&&p.status==='pending'&&p.recipient===c.factionId&&activeDiplomacyFaction(s,p.proposer)&&(x.kind==='peace'?relationshipBetween(s,p.proposer,p.recipient)==='WAR':!tradePlanProblem(s,s.tradeProposals.get(x.id)!.plan,p.operationId));
++  }
++  if(x.kind==='operation') {
++    const op=s.operations.get(x.id),army=op?.links.armyId?s.armies.get(op.links.armyId):undefined;
++    return !!op&&!op.terminal&&(op.phase==='recovery'||army?.movement?.status==='blocked');
++  }
++  if(x.kind==='cargo')return s.tradeShipments.get(x.id)?.phase==='blocked';
++  if(s.territories.get(x.territoryId)?.owner!==c.factionId)return false;
++  if(x.kind==='invasion')return s.activeInvasions.get(x.id)?.defenderFactionId===c.factionId;
++  const a=s.armies.get(x.id),intent=a?.attackIntent;
++  return !!a&&!!intent&&intent.targetTerritoryId===x.territoryId&&(!intent.targetFactionId||intent.targetFactionId===c.factionId)&&(x.hostileCommitmentId??'legacy-unidentified')===(intent.conflictFactId??intent.commitmentId??'legacy-unidentified')&&a.soldiers+a.knights>0&&relationshipBetween(s,a.owner,c.factionId)!=='PEACE';
++}
++/** Declared scope: stationary friendly forces on the threatened tile and its
++ * immediate owned neighbors; one adjacent support/withdrawal hop, a counterattack
++ * on the actual hostile force's tile, and the existing three local-pool batches.
++ * No empire enumeration, new force, battle-held allocation or strategic reroute. */
++export function reactivePlans(s:GameState,c:AIResponseContext,feasibleOnly=true):AIConcretePlan[] {
++  if(c.lane!=='REACTIVE_EMERGENCY'||!responseContextExists(s,c)||!('territoryId'in c.subject))return [];
++  const t=s.territories.get(c.subject.territoryId)!;
++  const hostile=c.subject.kind==='hostile_force'?s.armies.get(c.subject.id):undefined;
++  const scope=new Set([t.id,...t.neighboring.filter(id=>s.territories.get(id)?.owner===c.factionId)]);
++  const plans:AIConcretePlan[]=[];
++  const forces=[...s.armies.values()].filter(a=>a.owner===c.factionId&&scope.has(a.location)&&!armyHasActiveStrategicOperation(a))
++    .sort((a,b)=>comparePlanIds(a.id,b.id));
++  for(const a of forces) {
++    const origin=s.territories.get(a.location);if(!origin)continue;
++    const destinations=a.location===t.id?origin.neighboring.filter(id=>s.territories.get(id)?.owner===c.factionId):[t.id];
++    for(const id of [...destinations].sort(comparePlanIds))plans.push(makeConcretePlan({action:origin.owner===c.factionId?'MOVE':'RETREAT',factionId:c.factionId,armyId:a.id,originTerritoryId:origin.id,
++      ...(origin.owner===c.factionId?{destinationTerritoryId:id}:{fallbackTerritoryId:id}),route:[origin.id,id]} as import('../types/AIConcretePlan').PlanDraft));
++    if(hostile&&s.territories.get(hostile.location)?.owner===hostile.owner&&origin.neighboring.includes(hostile.location))
++      plans.push(makeConcretePlan({action:'ATTACK',factionId:c.factionId,armyId:a.id,originTerritoryId:origin.id,stagingTerritoryId:origin.id,targetTerritoryId:hostile.location,route:[origin.id,hostile.location]}));
++  }
++  const incoming=c.subject.kind==='hostile_force'?(hostile?.soldiers??0)+(hostile?.knights??0):
++    (s.activeInvasions.get(c.subject.id)?.attackingArmyIds??[]).reduce((n,id)=>n+(s.armies.get(id)?.soldiers??0)+(s.armies.get(id)?.knights??0),0);
++  const local=forces.filter(a=>a.location===t.id).reduce((n,a)=>n+a.soldiers+a.knights,0);
++  const need=Math.max(0,incoming-t.garrison-local);
++  for(const quantity of reinforcementQuantities(need)) {
++    const destinations:import('../types/AIConcretePlan').ReinforcePlan['destination'][]=[{kind:'garrison',territoryId:t.id},...forces.filter(a=>a.location===t.id).map(a=>({kind:'army' as const,armyId:a.id,territoryId:t.id}))];
++    for(const destination of destinations)plans.push(makeConcretePlan({action:'REINFORCE',factionId:c.factionId,territoryId:t.id,sourcePoolId:recruitmentPoolId(t.id),quantity,destination}));
++  }
++  const snapshot=toDecisionEngineSnapshot(s);
++  return [...new Map(plans.map(p=>[p.id,p])).values()].filter(p=>!feasibleOnly||assessConcretePlanFeasibility(p,snapshot,undefined,undefined,c.id).feasible).sort((a,b)=>comparePlanIds(a.id,b.id));
++}
++/** Physical/change boundaries only. All historical terminal records are excluded
++ * by keyed live indexes. ETA progress is not a material revision. */
++export function observeNonProactiveWork(s:GameState,m?:ResponseMetrics):void {
++  const scheduler=s.aiResponseScheduler;
++  if(!scheduler.dirty&&(scheduler.nextThreatBoundaryTick==null||s.worldTick<scheduler.nextThreatBoundaryTick))return;
++  scheduler.dirty=false;scheduler.observedWorldTick=s.worldTick;if(m)m.observations++;
++  scheduler.nextThreatBoundaryTick=null;
++  const seen=new Set<string>();
++  for(const inv of [...s.activeInvasions.values()].sort((a,b)=>comparePlanIds(a.id,b.id)))if(canThink(s,inv.defenderFactionId)) {
++    const c=upsert(s,inv.defenderFactionId,{kind:'invasion',id:inv.id,territoryId:inv.territoryId},'REACTIVE_EMERGENCY','CRITICAL',JSON.stringify([inv.status,[...inv.attackingArmyIds].sort(comparePlanIds)]),m);seen.add(c.id);
++  }
++  for(const a of [...s.armies.values()].sort((a,b)=>comparePlanIds(a.id,b.id))) {
++    const intent=a.attackIntent;if(!intent||a.soldiers+a.knights===0)continue;
++    const t=s.territories.get(intent.targetTerritoryId),fid=t?.owner;
++    if(!t||!fid||!canThink(s,fid)||fid===a.owner||intent.targetFactionId&&intent.targetFactionId!==fid||relationshipBetween(s,a.owner,fid)==='PEACE')continue;
++    const remaining=a.movement?.status==='moving'?Math.max(0,a.movement.startedAtTick+a.movement.durationTicks-s.worldTick):intent.status==='ready'?0:Infinity;
++    if(Number.isFinite(remaining)&&remaining>P.criticalArrivalTicks) {
++      const until=remaining>P.urgentArrivalTicks?remaining-P.urgentArrivalTicks:remaining-P.criticalArrivalTicks;
++      scheduler.nextThreatBoundaryTick=Math.min(scheduler.nextThreatBoundaryTick??Infinity,s.worldTick+until);
++    }
++    if(remaining>P.urgentArrivalTicks)continue;
++    // Actual incoming commitment, not WAR, dislike, idle capability or reachability.
++    const support=[...s.armies.values()].filter(f=>f.owner===fid&&f.location===t.id&&!armyHasActiveStrategicOperation(f)).reduce((n,f)=>n+f.soldiers+f.knights,0);
++    if(a.soldiers+a.knights<=t.garrison+support)continue;
++    const subject:ResponseSubject={kind:'hostile_force',id:a.id,territoryId:t.id,hostileCommitmentId:intent.conflictFactId??intent.commitmentId??'legacy-unidentified'};
++    const shell={id:responseContextId(fid,subject),factionId:fid,lane:'REACTIVE_EMERGENCY',subject} as AIResponseContext;
++    const wasMissing=!s.aiResponses.has(shell.id);
++    if(wasMissing)upsert(s,fid,subject,'REACTIVE_EMERGENCY',remaining<=P.criticalArrivalTicks?'CRITICAL':'URGENT','',m);
++    const candidateIds=reactivePlans(s,shell).map(p=>p.action==='REINFORCE'?JSON.stringify(['REINFORCE',p.territoryId,p.destination,bucket(p.quantity)]):p.id);
++    const signature=JSON.stringify([a.owner,bucket(a.soldiers+a.knights),bucket(t.garrison+support),a.movement?.destinationTerritoryId??null,candidateIds]);
++    if(wasMissing)s.aiResponses.get(shell.id)!.materialSignature=signature;
++    const c=upsert(s,fid,subject,'REACTIVE_EMERGENCY',remaining<=P.criticalArrivalTicks?'CRITICAL':'URGENT',signature,m);seen.add(c.id);
++    // Urgency escalation is meaningful even though ordinary ETA decrement isn't.
++    if(c.severity==='URGENT'&&remaining<=P.criticalArrivalTicks&&responseContextLive(c)){c.severity='CRITICAL';c.revision++;c.status='queued';c.timer=null;c.outcome=null;c.blockers=[];s.aiResponses.set(c.id,c);scheduler.primaryByFaction.delete(fid);if(m)m.materialRearms++;}
++  }
++  for(const op of activeOperations(s)) {
++    const army=op.links.armyId?s.armies.get(op.links.armyId):undefined;
++    if(canThink(s,op.warlordId)&&(op.phase==='recovery'||army?.movement?.status==='blocked')) {
++      const c=upsert(s,op.warlordId,{kind:'operation',id:op.id},'OPERATION_RECOVERY','RECOVERY',JSON.stringify([op.objective,army?.movement?.status??null,army?.movement?.interruptionReason??null]),m);seen.add(c.id);
++    }
++  }
++  for(const sh of liveTradeShipments(s))if(sh.phase==='blocked'&&canThink(s,sh.sender)) {
++    const c=upsert(s,sh.sender,{kind:'cargo',id:sh.id},'OPERATION_RECOVERY','RECOVERY',JSON.stringify([sh.blockedReason]),m);seen.add(c.id);
++  }
++  for(const fid of s.aiResponseScheduler.primaryByFaction.keys())if(!canThink(s,fid))s.aiResponseScheduler.primaryByFaction.delete(fid);
++  for(const c of liveResponseContexts(s)) {
++    if(c.lane==='REQUIRED_RESPONSE'? !responseContextExists(s,c):!seen.has(c.id)) {closeResponseContext(s,c,'CONTEXT_INVALIDATED');if(m)m.invalidations++;}
++  }
++}
++function deadline(s:GameState,c:AIResponseContext):number {
++  const t=requiredResponseTimer(s,c);return t?s.aiClock.nowMs+timerRemaining(s,t):Infinity;
++}
++export function orderedResponseContexts(s:GameState,fid?:string):AIResponseContext[] {
++  return readyResponseContexts(s).filter(c=>(!fid||c.factionId===fid)&&c.status!=='blocked').sort((a,b)=>
++    P.severityOrder[a.severity]-P.severityOrder[b.severity]||deadline(s,a)-deadline(s,b)||b.irreversibility-a.irreversibility||a.createdAtMs-b.createdAtMs||comparePlanIds(a.id,b.id));
++}
++export function preemptProactiveThought(s:GameState,fid:string,m?:ResponseMetrics):void {
++  const o=s.aiDecisionOpportunities.get(fid);
++  if(o?.primary?.phase==='deliberating'){o.primary=null;o.lastBoundaryMs=s.aiClock.nowMs;if(m)m.preemptions++;}
++}
++export function nonProactiveOwnsThought(s:GameState,fid:string):boolean {
++  return !!s.aiResponseScheduler.primaryByFaction.get(fid)||orderedResponseContexts(s,fid).some(c=>c.status==='queued');
++}
++export function accrueResponseClocks(s:GameState,at:number,presence:TemporalPresence):void {
++  for(const id of s.aiResponseScheduler.primaryByFaction.values()) {
++    const c=s.aiResponses.get(id);if(c?.timer)c.timer.progress=accrueDurationProgress(c.timer.progress,at,presence);
++  }
++}
++export function nextResponseBoundary(s:GameState,horizon:number,presence:TemporalPresence):number {
++  let next=horizon;
++  for(const id of s.aiResponseScheduler.primaryByFaction.values()) {
++    const c=s.aiResponses.get(id);if(c?.timer)next=Math.min(next,s.aiClock.nowMs+Math.max(1,durationRemainingMs(c.timer.progress,c.timer.onlineDurationMs,presence)));
++  }
++  return next;
++}
++/** Server-only derived explanation. Public/Unity serializers never call this;
++ * diagnostics are not persisted or fed back into selection. */
++export function inspectNonProactiveWork(s:GameState,fid:string) {
++  const order=orderedResponseContexts(s,fid).map(c=>c.id);
++  return liveResponseContexts(s).filter(c=>c.factionId===fid).map(c=>({
++    id:c.id,lane:c.lane,subject:{...c.subject},revision:c.revision,severity:c.severity,
++    priority:order.indexOf(c.id),status:c.status,outcome:c.outcome,
++    remainingCognitionMs:c.timer?timerRemaining(s,c.timer):null,
++    remainingRequiredWindowMs:requiredResponseTimer(s,c)?timerRemaining(s,requiredResponseTimer(s,c)!):null,
++    selectedPlanId:c.selectedPlan?.id??null,operationId:c.operationId,
++    physicalBlock:c.subject.kind==='operation'?s.operations.get(c.subject.id)?.statusReason??null:
++      c.subject.kind==='cargo'?s.tradeShipments.get(c.subject.id)?.blockedReason??null:null,
++    blockers:c.blockers.map(p=>({planId:p.id,rejections:assessConcretePlanFeasibility(p,toDecisionEngineSnapshot(s),undefined,undefined,c.id).rejections})),
++  }));
++}
++/** Required windows are earned in the domain clock; this sole response reducer
++ * chooses/settles fresh actual-recipient assessment. No second selection draw. */
++export function settleReadyRequiredResponses(s:GameState,kind?:'peace'|'trade',m?:ResponseMetrics):void {
++  const contexts=orderedResponseContexts(s).filter(c=>c.lane==='REQUIRED_RESPONSE'&&(!kind||c.subject.kind===kind));
++  for(const c of contexts) {
++    if(!responseContextExists(s,c)){
++      const proposal=c.subject.kind==='peace'?s.peaceProposals.get(c.subject.id):s.tradeProposals.get(c.subject.id);
++      if(proposal?.status==='pending'){if(c.subject.kind==='peace')settlePeaceProposal(s,c.subject.id,'invalidated');else settleTradeProposal(s,c.subject.id,'invalidated');}
++      closeResponseContext(s,c,'CONTEXT_INVALIDATED');continue;
++    }
++    const timer=requiredResponseTimer(s,c);if(!timer||timerRemaining(s,timer)>0)continue;
++    // Deadline-ready work cannot starve behind an unrelated physical operation.
++    // Deliberation/settlement is serialized on this canonical transaction.
++    preemptProactiveThought(s,c.factionId,m);
++    const previous=s.aiResponses.get(s.aiResponseScheduler.primaryByFaction.get(c.factionId)??'');
++    if(previous&&previous.id!==c.id){previous.status='queued';s.aiResponses.set(previous.id,previous);}
++    c.status='thinking';s.aiResponses.set(c.id,c);s.aiResponseScheduler.primaryByFaction.set(c.factionId,c.id);
++    if(m){m.deliberations++;m.requiredResponses++;}
++    const outcome=c.subject.kind==='peace'?assessRequiredPeaceResponse(s,c.factionId,s.peaceProposals.get(c.subject.id)!.proposer).outcome:
++      assessRequiredTradeResponse(s,s.tradeProposals.get(c.subject.id)!).outcome;
++    const accepted=outcome==='ACCEPT_PEACE'||outcome==='ACCEPT_TRADE';
++    if(c.subject.kind==='peace')settlePeaceProposal(s,c.subject.id,accepted?'accepted':'declined');
++    else settleTradeProposal(s,c.subject.id,accepted?'accepted':'declined');
++    // Domain terminal hook may already have invalidated the queue reference.
++    c.status='resolved';c.outcome='RESPONSE_SETTLED';c.timer=null;s.aiResponses.set(c.id,c);
++    if(s.aiResponseScheduler.primaryByFaction.get(c.factionId)===c.id)s.aiResponseScheduler.primaryByFaction.delete(c.factionId);
++    if(previous&&previous.id!==c.id&&responseContextExists(s,previous)) {
++      previous.status='thinking';s.aiResponses.set(previous.id,previous);s.aiResponseScheduler.primaryByFaction.set(previous.factionId,previous.id);
++    }
++  }
++}
++export type StartResponseIntervention=(plan:AIConcretePlan,context:AIResponseContext)=>string|null;
++function activateResponse(s:GameState,c:AIResponseContext,m?:ResponseMetrics):void {
++  if(c.lane==='OPERATION_RECOVERY')throw new Error('No authoritative recovery choice/timing policy exists');
++  c.status='thinking';
++  if(c.timer)c.timer.progress={...c.timer.progress,accruedThroughMs:s.aiClock.nowMs};
++  if(c.lane!=='REQUIRED_RESPONSE'&&!c.timer) {
++    const t=c.severity==='CRITICAL'?RESPONSE_TIMING.critical:RESPONSE_TIMING.urgent;
++    c.timer=startProactiveTimer(s,c.factionId,`response:${c.id}:${c.revision}`,t[0],t[1],t[2]);
++  }
++  s.aiResponses.set(c.id,c);
++  s.aiResponseScheduler.primaryByFaction.set(c.factionId,c.id);
++  s.aiResponseScheduler.lastBoundaryByFaction.set(c.factionId,s.aiClock.nowMs);
++  preemptProactiveThought(s,c.factionId,m);
++}
++/** No default executor: all physical interventions use the Orchestrator's
++ * existing exact-plan atomic initiation boundary. A failed validation never
++ * triggers substitute selection. */
++export function processNonProactiveBoundary(s:GameState,start?:StartResponseIntervention,m?:ResponseMetrics):void {
++  observeNonProactiveWork(s,m);
++  settleReadyRequiredResponses(s,undefined,m);
++  for(const fid of [...s.allFactionIds].sort(comparePlanIds)) {
++    if(!canThink(s,fid))continue;
++    let current=s.aiResponses.get(s.aiResponseScheduler.primaryByFaction.get(fid)??'');
++    if(current&&!responseContextExists(s,current)){closeResponseContext(s,current,'CONTEXT_INVALIDATED');current=undefined;}
++    for(const c of readyResponseContexts(s))if(c.factionId===fid&&c.lane==='OPERATION_RECOVERY'&&c.status==='queued'){
++      c.status='blocked';c.outcome='NO_ADDITIONAL_INTERVENTION';c.timer=null;s.aiResponses.set(c.id,c);if(m)m.noIntervention++;
++    }
++    const next=orderedResponseContexts(s,fid)[0];
++    if(current&&next&&P.severityOrder[next.severity]<P.severityOrder[current.severity]) {
++      // Required domain response-window work is never lost. Reactive sampled
++      // progress is retained on queueing; restart does not reroll it.
++      current.status='queued';s.aiResponses.set(current.id,current);s.aiResponseScheduler.primaryByFaction.delete(fid);current=undefined;
++    }
++    if(!current) {
++      if(!next)continue;
++      current=next;activateResponse(s,current,m);
++    }
++    if(current.lane==='REQUIRED_RESPONSE')continue;
++    if(!current.timer||timerRemaining(s,current.timer)>0)continue;
++    if(m)m.deliberations++;
++    const plans=reactivePlans(s,current);if(m)m.candidatePlans+=plans.length;
++    const comparisons=plans.length?new ContextPlanComparator().compareInterventions(s,current.id,fid,plans):[];
++    // Identity, revision and canonical seed define only the final near-tie draw.
++    const rng=new SeededRNG(s.worldSeed).fork([...`${current.id}:${current.revision}`].reduce((n,ch)=>Math.imul(n^ch.charCodeAt(0),16777619)>>>0,2166136261));
++    const selected=selectInterventionComparison(comparisons,rng);
++    current.selectedPlan=selected?.plan??null;
++    const operationId=selected&&start?start(selected.plan,current):null;
++    // Nested transaction adoption may replace the context object.
++    current=s.aiResponses.get(current.id)!;
++    current.selectedPlan=selected?.plan??null;
++    if(operationId){current.operationId=operationId;closeResponseContext(s,current,'INTERVENTION_STARTED');if(m)m.interventions++;}
++    else {
++      current.status='blocked';current.outcome='NO_ADDITIONAL_INTERVENTION';current.timer=null;
++      current.blockers=current.lane==='REACTIVE_EMERGENCY'?reactivePlans(s,current,false):[];
++      s.aiResponseScheduler.primaryByFaction.delete(fid);s.aiResponses.set(current.id,current);if(m)m.noIntervention++;
++    }
++    s.aiResponseScheduler.lastBoundaryByFaction.set(fid,s.aiClock.nowMs);
++    // Begin the next bounded thought at this earned boundary. Its strictly
++    // positive sampled timer prevents zero-duration recursion and avoids an
++    // idle receipt/chunk gap between independently queued urgent problems.
++    const following=orderedResponseContexts(s,fid)[0];
++    if(following)activateResponse(s,following,m);
++  }
++}
+diff --git a/src/engine/responseRecords.ts b/src/engine/responseRecords.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..be1c7700782658b907989a9fcfd2ad40c11993ca
+--- /dev/null
++++ b/src/engine/responseRecords.ts
+@@ -0,0 +1,47 @@
++import type { GameState } from '../types/GameState';
++import type { AIResponseContext } from '../types/AIResponse';
++import { comparePlanIds } from '../types/AIConcretePlan';
++
++export const responseContextLive=(c:AIResponseContext)=>!['resolved','invalidated'].includes(c.status);
++const indexes=new WeakMap<Map<string,AIResponseContext>,{live:Set<string>;ready:Set<string>;territories:Map<string,Set<string>>}>();
++/** Derived indexes only. Canonical entries are the only serialized authority. */
++export function createResponseMap(entries?:Iterable<readonly [string,AIResponseContext]>):Map<string,AIResponseContext> {
++  const map=new Map<string,AIResponseContext>(),index={live:new Set<string>(),ready:new Set<string>(),territories:new Map<string,Set<string>>()};indexes.set(map,index);
++  Object.defineProperties(map,{
++    set:{value:function(id:string,c:AIResponseContext){Map.prototype.set.call(this,id,c);responseContextLive(c)?index.live.add(id):index.live.delete(id);['queued','thinking'].includes(c.status)?index.ready.add(id):index.ready.delete(id);if('territoryId'in c.subject){let keys=index.territories.get(c.subject.territoryId);if(!keys){keys=new Set();index.territories.set(c.subject.territoryId,keys);}responseContextLive(c)?keys.add(id):keys.delete(id);}return this;}},
++    delete:{value:function(id:string){const c=this.get(id);if(c&&'territoryId'in c.subject)index.territories.get(c.subject.territoryId)?.delete(id);index.live.delete(id);index.ready.delete(id);return Map.prototype.delete.call(this,id);}},
++    clear:{value:function(){index.live.clear();index.ready.clear();index.territories.clear();Map.prototype.clear.call(this);}},
++  });
++  if(entries)for(const [id,c]of entries)map.set(id,c);return map;
++}
++function indexed(s:GameState,ready:boolean):AIResponseContext[] {
++  const index=indexes.get(s.aiResponses),keys=index?(ready?index.ready:index.live):null;
++  return (keys?[...keys].map(id=>s.aiResponses.get(id)!):[...s.aiResponses.values()].filter(c=>ready?['queued','thinking'].includes(c.status):responseContextLive(c))).sort((a,b)=>comparePlanIds(a.id,b.id));
++}
++export function liveResponseContexts(s:GameState):AIResponseContext[] {
++  return indexed(s,false);
++}
++export function readyResponseContexts(s:GameState):AIResponseContext[]{return indexed(s,true);}
++export function responseContextId(factionId:string,subject:AIResponseContext['subject']):string {
++  return `response:v1:${JSON.stringify([factionId,subject.kind,subject.id,'territoryId' in subject?subject.territoryId:null,...(subject.kind==='hostile_force'?[subject.hostileCommitmentId??null]:[])])}`;
++}
++export function closeResponseContext(s:GameState,c:AIResponseContext,outcome:NonNullable<AIResponseContext['outcome']>):void {
++  if(!responseContextLive(c))return;
++  c.outcome=outcome;c.status=outcome==='CONTEXT_INVALIDATED'?'invalidated':'resolved';c.timer=null;c.blockers=[];
++  if(s.aiResponseScheduler.primaryByFaction.get(c.factionId)===c.id)s.aiResponseScheduler.primaryByFaction.delete(c.factionId);
++  s.aiResponses.set(c.id,c);
++}
++/** Exact domain terminal hook; does not create outcome feedback or a fake decline. */
++export function invalidateProposalResponse(s:GameState,kind:'peace'|'trade',id:string):void {
++  for(const c of liveResponseContexts(s))if(c.subject.kind===kind&&c.subject.id===id)closeResponseContext(s,c,'CONTEXT_INVALIDATED');
++}
++export function markResponseWorldChanged(s:GameState):void {s.aiResponseScheduler.dirty=true;}
++/** Recruitment arithmetic only wakes a relevant blocked context when an exact
++ * complete local quantity prerequisite can change; +1 below it is silent. */
++export function notifyResponsePoolAvailability(s:GameState,territoryId:string,before:number,after:number):void {
++  if(after<=before||!s.aiResponses?.size)return;
++  const index=indexes.get(s.aiResponses);
++  const records=index?[...(index.territories.get(territoryId)??[])].map(id=>s.aiResponses.get(id)!):liveResponseContexts(s).filter(c=>'territoryId'in c.subject&&c.subject.territoryId===territoryId);
++  const relevant=records.filter(c=>c.status==='blocked');
++  if(relevant.some(c=>c.blockers.some(p=>p.action==='REINFORCE'&&before<p.quantity&&after>=p.quantity)))markResponseWorldChanged(s);
++}
+diff --git a/src/state/responseInvariants.ts b/src/state/responseInvariants.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..9060272ab4affd15ba825761f18e3181008a3a44
+--- /dev/null
++++ b/src/state/responseInvariants.ts
+@@ -0,0 +1,32 @@
++import type { GameState } from '../types/GameState';
++import { NON_PROACTIVE_LANES } from '../types/AIResponse';
++import { concretePlanProblem } from '../types/AIConcretePlan';
++import { responseContextId } from '../engine/responseRecords';
++import { durationRemainingMs } from '../world/timeToTick';
++export function responseStateProblems(s:GameState):string[] {
++  const out:string[]=[],q=s.aiResponseScheduler;
++  const int=(n:unknown)=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=0;
++  if(!(s.aiResponses instanceof Map)||!q||!(q.primaryByFaction instanceof Map)||!(q.lastBoundaryByFaction instanceof Map)||typeof q.dirty!=='boolean')return ['Missing canonical response scheduler'];
++  if(q.observedWorldTick!==null&&(!int(q.observedWorldTick)||q.observedWorldTick>s.worldTick))out.push('Invalid response observation boundary');
++  if(q.nextThreatBoundaryTick!=null&&!int(q.nextThreatBoundaryTick))out.push('Invalid material threat boundary');
++  for(const [fid,at]of q.lastBoundaryByFaction)if(!s.factions.has(fid)||!int(at)||at>s.aiClock.nowMs)out.push('Invalid response coalescing boundary');
++  for(const [id,c]of s.aiResponses)try {
++    if(id!==c.id||id!==responseContextId(c.factionId,c.subject)||!s.factions.has(c.factionId)||!NON_PROACTIVE_LANES.includes(c.lane)||!['CRITICAL','URGENT','REQUIRED','RECOVERY'].includes(c.severity)||!int(c.revision)||!int(c.createdAtMs)||c.createdAtMs>s.aiClock.nowMs||typeof c.materialSignature!=='string'||!['queued','thinking','blocked','resolved','invalidated'].includes(c.status)||!int(c.irreversibility))throw new Error('identity/lifecycle');
++    if(c.lane==='REQUIRED_RESPONSE'?!['peace','trade'].includes(c.subject.kind):c.lane==='OPERATION_RECOVERY'?!['operation','cargo'].includes(c.subject.kind):!['hostile_force','invasion'].includes(c.subject.kind))throw new Error('lane/subject mismatch');
++    if(c.status==='blocked'&&c.outcome!=='NO_ADDITIONAL_INTERVENTION'||c.status==='invalidated'&&c.outcome!=='CONTEXT_INVALIDATED'||c.status==='resolved'&&!['INTERVENTION_STARTED','RESPONSE_SETTLED'].includes(c.outcome??'')||['queued','thinking'].includes(c.status)&&c.outcome!==null)throw new Error('outcome/lifecycle mismatch');
++    if(c.lane==='REQUIRED_RESPONSE'&&c.timer)throw new Error('Duplicated required response timing authority');
++    for(const p of [...c.blockers,...(c.selectedPlan?[c.selectedPlan]:[])])if(concretePlanProblem(p)||p.factionId!==c.factionId||p.action==='WAIT')throw new Error('invalid exact response plan');
++    if(c.operationId&&s.operations.get(c.operationId)?.responseContextId!==id)throw new Error('operation provenance');
++    if(c.timer) {
++      const t=c.timer,p=t.progress;
++      if(!int(t.onlineDurationMs)||t.onlineDurationMs<=0||t.onlineDurationMs%1000!==0||!int(t.offlineDurationMs)||t.offlineDurationMs!==t.onlineDurationMs*p.offlineDivisor!||!int(p.accruedThroughMs)||p.accruedThroughMs>s.aiClock.nowMs||!int(p.rationalRemainder)||p.rationalRemainder!>=p.offlineDivisor!||!['ONLINE','OFFLINE'].includes(p.achievedRate)||!int(p.wholeTicks)||!int(p.subTickMicroticks)||p.subTickMicroticks>=1000000||!int(p.accrualDivisionRemainder)||p.accrualDivisionRemainder>=60000)throw new Error('timer');
++      durationRemainingMs(p,t.onlineDurationMs,p.achievedRate);
++    }
++    if(['blocked','resolved','invalidated'].includes(c.status)&&c.timer)throw new Error('dormant timer');
++    if(c.status==='thinking'&&q.primaryByFaction.get(c.factionId)!==id)throw new Error('unowned thought');
++  }catch(e){out.push(`Invalid response ${id}: ${e instanceof Error?e.message:'record'}`);}
++  for(const [fid,id]of q.primaryByFaction) {
++    const c=s.aiResponses.get(id);if(!c||c.factionId!==fid||c.status!=='thinking')out.push(`Invalid primary response ${fid}`);
++  }
++  return out;
++}
+diff --git a/src/types/AIResponse.ts b/src/types/AIResponse.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..c57a084b1517330743b4e5be8b79c419c6088cda
+--- /dev/null
++++ b/src/types/AIResponse.ts
+@@ -0,0 +1,39 @@
++import type { AIConcretePlan } from './AIConcretePlan';
++import type { ProactiveTimer } from './AIPressure';
++
++export const NON_PROACTIVE_LANES = ['REACTIVE_EMERGENCY','REQUIRED_RESPONSE','OPERATION_RECOVERY'] as const;
++export type NonProactiveLane = typeof NON_PROACTIVE_LANES[number];
++export type ResponseSubject =
++  | {kind:'peace'; id:string}
++  | {kind:'trade'; id:string}
++  | {kind:'hostile_force'; id:string; territoryId:string; hostileCommitmentId?:string}
++  | {kind:'invasion'; id:string; territoryId:string}
++  | {kind:'operation'; id:string}
++  | {kind:'cargo'; id:string};
++/** References and lifecycle only. Facts are always re-read from the transaction.
++ * Required proposal windows remain domain-owned, not copied into this record. */
++export interface AIResponseContext {
++  id:string; factionId:string; lane:NonProactiveLane; subject:ResponseSubject;
++  severity:'CRITICAL'|'URGENT'|'REQUIRED'|'RECOVERY'; irreversibility:number;
++  createdAtMs:number; revision:number; materialSignature:string;
++  status:'queued'|'thinking'|'blocked'|'resolved'|'invalidated';
++  timer:ProactiveTimer|null;
++  outcome:'NO_ADDITIONAL_INTERVENTION'|'INTERVENTION_STARTED'|'RESPONSE_SETTLED'|'CONTEXT_INVALIDATED'|null;
++  selectedPlan:AIConcretePlan|null; operationId:string|null;
++  /** Complete candidate AND prerequisites, OR across alternatives. */
++  blockers:AIConcretePlan[];
++}
++export interface AIResponseScheduler {
++  primaryByFaction:Map<string,string>;
++  lastBoundaryByFaction:Map<string,number>;
++  observedWorldTick:number|null;
++  /** Next material arrival threshold, not a per-tick observer/poll. */
++  nextThreatBoundaryTick?:number|null;
++  dirty:boolean;
++}
++export interface ResponseMetrics {
++  observations:number; contextsCreated:number; materialRearms:number; preemptions:number;
++  deliberations:number; requiredResponses:number; candidatePlans:number; interventions:number;
++  noIntervention:number; invalidations:number;
++}
++export const emptyResponseMetrics=():ResponseMetrics=>({observations:0,contextsCreated:0,materialRearms:0,preemptions:0,deliberations:0,requiredResponses:0,candidatePlans:0,interventions:0,noIntervention:0,invalidations:0});
+diff --git a/tests/aiResponses.ts b/tests/aiResponses.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e877ccaa198fbbe6bd2a5afd8870c07a4c77f614
+--- /dev/null
++++ b/tests/aiResponses.ts
+@@ -0,0 +1,119 @@
++import assert from 'assert';
++import { authoredWorldFields } from './worldTestHelpers';
++import { makeOperationTestWorld } from './aiOperationFixtures';
++import { primeSourceDecision } from './aiPressureFixtures';
++import { GameState } from '../src/types/GameState';
++import { NON_PROACTIVE_LANES, emptyResponseMetrics } from '../src/types/AIResponse';
++import { observeNonProactiveWork, processNonProactiveBoundary, orderedResponseContexts, reactivePlans, registerRequiredResponse, settleReadyRequiredResponses } from '../src/engine/nonProactiveCognition';
++import { markResponseWorldChanged, liveResponseContexts, responseContextId } from '../src/engine/responseRecords';
++import { accrueProactiveClocks, startProactiveTimer, timerRemaining } from '../src/engine/proactiveCognition';
++import { occupiedAttention, assessAttention } from '../src/engine/strategicAttention';
++import { cloneGameState } from '../src/state/cloneGameState';
++import { encodePersistable } from '../src/persistence/serialization';
++import { hydratePersistedPayload } from '../src/persistence/hydrate';
++import { Orchestrator, createDefaultRegistry } from '../src/orchestration';
++import { getCommandDefinition } from '../src/orchestration/commandIndex';
++import { buildWarlordStates } from '../src/state/gameStateAdapters';
++import { progressProactiveThrough, startResponseIntervention } from '../src/orchestration/handlers';
++import { makeConcretePlan, PROACTIVE_AI_ACTIONS } from '../src/types/AIConcretePlan';
++import { STRATEGIC_EVALUATORS } from '../src/types/StrategicEvaluation';
++import { settleOperation } from '../src/engine/operations';
++import { responseStateProblems } from '../src/state/responseInvariants';
++import { checkGameStateInvariants } from '../src/state/gameStateInvariants';
++import { runStateTransaction } from '../src/orchestration/transaction';
++import { InMemoryGameStateStore } from '../src/persistence/inMemoryGameStateStore';
++import { processPeaceBoundary, livePeaceProposals, settlePeaceProposal } from '../src/gameplay/diplomacy/peace';
++import { processTradeBoundary, liveTradeProposals, settleTradeProposal } from '../src/gameplay/trade/trade';
++import { tradeNode } from '../src/gameplay/trade/policy';
++import { serializePublicGameState } from '../src/orchestration/publicView';
++import { initializeRecruitment } from '../src/gameplay/recruitment/recruitment';
++import { ensureCity } from '../src/gameplay/cities/city';
++import { RESPONSE_POLICY, RESPONSE_TIMING } from '../src/constants/aiResponse';
++type Api=Pick<Parameters<typeof import('./aiTrade').registerAiTradeTests>[0],'test'|'makeSelf'|'makeTerritory'|'cmdReq'>;
++export function registerAiResponseTests({test,makeSelf,makeTerritory,cmdReq}:Api):void {
++  const world=()=>{const s=makeOperationTestWorld(makeSelf,makeTerritory);initializeRecruitment(s);return s;};
++  const reload=(s:GameState)=>hydratePersistedPayload(encodePersistable(s));
++  const online=(s:GameState,end=1000000)=>{s.gameplaySessionLeases=[{sessionId:'online',openedAtMs:0,expiresAtMs:end,endedAtMs:null,lastReceiptAtMs:0,lastRenewalRequestId:null,openedByRequestId:null,lastRenewalSequence:null,lastCommandSequence:null,lastCommandReceipt:null} as GameState['gameplaySessionLeases'][number]];};
++  const context=(s:GameState)=>({req:cmdReq('AI_DECIDE','ai',{warlordId:'me'}),def:getCommandDefinition('AI_DECIDE')!,registry:createDefaultRegistry(),runtime:{aiWarlordStates:buildWarlordStates(s)}});
++  const advance=(s:GameState,at:number)=>progressProactiveThrough(s,context(s),at);
++  const observe=(s:GameState)=>{markResponseWorldChanged(s);observeNonProactiveWork(s);};
++  const threat=(s=world(),remaining=0)=>{
++    if(remaining){s.territories.set('rear',makeTerritory({id:'rear',owner:'enemy',neighboring:['target']}));s.territories.get('target')!.neighboring.push('rear');s.factions.get('enemy')!.territories.push('rear');Object.assign(s,authoredWorldFields(s.territories));}
++    const a={id:'raider',owner:'enemy',location:remaining?'rear':'target',soldiers:2000,knights:0,siegeEngines:0,morale:80,supply:80,
++      attackIntent:{targetTerritoryId:'stage',stagingTerritoryId:'target',createdAtTick:0,status:remaining?'pending_movement' as const:'ready' as const,commitmentId:null,battleSeed:7,onlyArmyId:'raider'},
++      ...(remaining?{movement:{originTerritoryId:'rear',destinationTerritoryId:'target',startedAtTick:0,durationTicks:remaining,status:'moving' as const,commitmentId:null}}:{})};
++    s.armies.set(a.id,a);s.factions.get('enemy')!.armies=[a.id];observe(s);return s;
++  };
++  const emergency=(s:GameState)=>[...s.aiResponses.values()].find(c=>c.lane==='REACTIVE_EMERGENCY')!;
++  const begin=(s:GameState,p:Parameters<typeof makeConcretePlan>[0])=>{const o=new Orchestrator(s),r=o.execute(cmdReq('START_AI_OPERATION','ai',{plan:makeConcretePlan(p)}));assert.ok(r.success,JSON.stringify(r.errors));return cloneGameState(o.getState());};
++  const move=(s:GameState,armyId='a')=>begin(s,{action:'MOVE',factionId:'me',armyId,originTerritoryId:'home',destinationTerritoryId:'other',route:['home','other']});
++  const startCriticalMove=(s:GameState)=>{online(s);processNonProactiveBoundary(s);const c=emergency(s);const p=reactivePlans(s,c).find(p=>p.action==='MOVE')!;assert.ok(p);c.selectedPlan=p;const ctx=context(s),parameters=ctx.req.parameters;const id=startResponseIntervention(s,ctx,p,c);assert.strictEqual(ctx.req.parameters,parameters);return {c:s.aiResponses.get(c.id)!,id,op:s.operations.get(id)!};};
++  const quiet=(s=world())=>{s.armies.clear();for(const f of s.factions.values()){f.armies=[];f.resources={gold:0,food:0,wood:0,stone:0,iron:0};}for(const t of s.territories.values()){t.garrison=1000000;t.fortification=3;t.resourceOutput={gold:0,food:0,wood:0,iron:0,stone:0};ensureCity(s,t.id,t.owner!);s.territoryInfrastructure.set(t.id,{territoryId:t.id,farmCompletedAtTick:0,mineCompletedAtTick:0,lumberCompletedAtTick:0});}return s;};
++  const pendingPeace=(s=world(),fid='enemy')=>{
++    const d=begin(s,{action:'OFFER_PEACE',factionId:fid,counterpartyId:'me'});accrueProactiveClocks(d,d.aiClock.nowMs+30000,'OFFLINE');processPeaceBoundary(d,undefined,true);return d;
++  };
++  const pendingTrade=(s=world(),fid='enemy')=>{
++    const offered={wood:50},requested={food:50};
++    const d=begin(s,{action:'TRADE',factionId:fid,counterpartyId:'me',offered,requested,proposerSource:{kind:'faction_stock',factionId:fid,resources:offered},delivery:{proposerTerritoryId:tradeNode(s,fid)!,recipientTerritoryId:tradeNode(s,'me')!}});
++    accrueProactiveClocks(d,d.aiClock.nowMs+60000,'OFFLINE');processTradeBoundary(d,undefined,true);return d;
++  };
++  test('Phase L: exactly three response lanes, eight actions, seven factual evaluators',()=>{assert.deepStrictEqual(NON_PROACTIVE_LANES,['REACTIVE_EMERGENCY','REQUIRED_RESPONSE','OPERATION_RECOVERY']);assert.strictEqual(PROACTIVE_AI_ACTIONS.length,8);assert.strictEqual(STRATEGIC_EVALUATORS.length,7);});
++  test('Phase L: quiet world has no response or recovery cognition',()=>{const s=quiet(),m=emptyResponseMetrics();for(let i=0;i<100;i++)processNonProactiveBoundary(s,undefined,m);assert.strictEqual(s.aiResponses.size,0);assert.strictEqual(m.deliberations,0);assert.strictEqual(m.observations,0);});
++  test('Phase L: WAR and subjective cognition alone never create an emergency',()=>{const s=world();s.factions.get('me')!.memory=[{id:'grudge',type:'attack_received',turn:0,withFaction:'enemy',territory:'stage',magnitude:100,details:{}}];observe(s);assert.strictEqual(s.aiResponses.size,0);});
++  test('Phase L: exact semantic response identity has no delimiter collisions',()=>{assert.notStrictEqual(responseContextId('a:b',{kind:'cargo',id:'c'}),responseContextId('a',{kind:'cargo',id:'b:c'}));});
++  test('Phase L: actual imminent commitment creates one stable context',()=>{const s=threat();const id=emergency(s).id;for(let i=0;i<100;i++)observe(s);assert.strictEqual(s.aiResponses.size,1);assert.strictEqual(emergency(s).id,id);assert.strictEqual(emergency(s).revision,0);});
++  test('Phase L: claimed routes and remote armies never become emergency candidates',()=>{const s=threat();const remote={...s.armies.get('a')!,id:'remote',location:'safe'};s.armies.set(remote.id,remote);const plans=reactivePlans(s,emergency(s));assert.ok(plans.length);assert.ok(plans.every(p=>p.action!=='BUILD'&&p.action!=='OFFER_PEACE'&&p.action!=='TRADE'&&p.action!=='WAIT'));assert.ok(plans.every(p=>!('armyId'in p)||p.armyId!=='remote'));});
++  test('Phase L: urgency escalation is material, single-tick ETA change is not',()=>{const s=threat(world(),3),c=emergency(s);s.worldTick=1;observe(s);assert.strictEqual(c.revision,0);s.worldTick=2;observe(s);assert.strictEqual(c.severity,'CRITICAL');assert.strictEqual(c.revision,1);});
++  test('Phase L: new hostile participant retains independent context identity',()=>{const s=threat();const a={...s.armies.get('raider')!,id:'second',attackIntent:{...s.armies.get('raider')!.attackIntent!,onlyArmyId:'second'}};s.armies.set(a.id,a);s.factions.get('enemy')!.armies.push(a.id);observe(s);assert.strictEqual(liveResponseContexts(s).length,2);assert.notStrictEqual([...s.aiResponses.keys()][0],[...s.aiResponses.keys()][1]);});
++  test('Phase L: support loss causes a material context revision',()=>{const s=threat();s.territories.get('stage')!.garrison=100;observe(s);const rev=emergency(s).revision;s.territories.get('stage')!.garrison=20;observe(s);assert.ok(emergency(s).revision>rev);});
++  test('Phase L: +1 troop and unrelated resource changes do not restart cognition',()=>{const s=threat();processNonProactiveBoundary(s);const c=emergency(s),timer=encodePersistable(c.timer);s.armies.get('raider')!.soldiers++;s.factions.get('enemy')!.resources.gold++;observe(s);assert.deepStrictEqual(encodePersistable(c.timer),timer);assert.strictEqual(c.revision,0);});
++  test('Phase L: critical threat preempts thought without relief spacing or physical reset',()=>{const s=world();primeSourceDecision(s,'me');const pressure=encodePersistable(s.aiPressure),beforeOps=encodePersistable(s.operations);threat(s);processNonProactiveBoundary(s);assert.strictEqual(s.aiDecisionOpportunities.get('me')!.primary,null);assert.strictEqual(s.aiDecisionOpportunities.get('me')!.spacing,null);assert.deepStrictEqual(encodePersistable(s.aiPressure),pressure);assert.deepStrictEqual(encodePersistable(s.operations),beforeOps);assert.ok(emergency(s).timer);});
++  test('Phase L: urgent threat preempts proactive thought',()=>{const s=world();primeSourceDecision(s,'me');threat(s,3);processNonProactiveBoundary(s);assert.strictEqual(s.aiDecisionOpportunities.get('me')!.primary,null);assert.strictEqual(emergency(s).severity,'URGENT');});
++  test('Phase L: already committed WAIT initiation is not canceled',()=>{const s=world();primeSourceDecision(s,'me');const o=s.aiDecisionOpportunities.get('me')!;o.primary!.phase='waiting';o.primary!.timer=startProactiveTimer(s,'me','wait-test',2000,2000,30);const before=encodePersistable(o.primary);threat(s);processNonProactiveBoundary(s);assert.deepStrictEqual(encodePersistable(o.primary),before);});
++  for(const severity of ['CRITICAL','URGENT'] as const)test(`Phase L: ${severity} sampled timing obeys locked ranges and persists`,()=>{const s=threat(world(),severity==='URGENT'?3:0);online(s);processNonProactiveBoundary(s);const c=emergency(s),t=c.timer!,range=severity==='CRITICAL'?RESPONSE_TIMING.critical:RESPONSE_TIMING.urgent;assert.ok(t.onlineDurationMs>=range[0]&&t.onlineDurationMs<=range[1]);assert.strictEqual(t.offlineDurationMs,t.onlineDurationMs*range[2]);const d=reload(s);assert.deepStrictEqual(d.aiResponses,s.aiResponses);});
++  test('Phase L: offline to online promotes response progress without demotion',()=>{const s=threat();processNonProactiveBoundary(s);const c=emergency(s);accrueProactiveClocks(s,1000,'OFFLINE');const before=timerRemaining(s,c.timer!);online(s);accrueProactiveClocks(s,1000,'ONLINE');assert.ok(timerRemaining(s,c.timer!)<before);accrueProactiveClocks(s,1500,'ONLINE');const r=timerRemaining(s,c.timer!);s.gameplaySessionLeases=[];assert.strictEqual(timerRemaining(s,c.timer!),r);});
++  test('Phase L: existing runtime and reload complete identical response work',()=>{const s=threat();online(s);processNonProactiveBoundary(s);const d=reload(s);advance(s,3000);advance(d,3000);assert.deepStrictEqual(encodePersistable(d),encodePersistable(s));});
++  test('Phase L: response clocks have exact coarse/fine progression',()=>{const s=threat();online(s);processNonProactiveBoundary(s);const d=cloneGameState(s);advance(s,4000);for(let at=500;at<=4000;at+=500)advance(d,at);assert.deepStrictEqual(encodePersistable(d),encodePersistable(s));});
++  test('Phase L: disappeared threat cancels timed cognition with no stale intervention',()=>{const s=threat();processNonProactiveBoundary(s);s.armies.get('raider')!.attackIntent=null;observe(s);assert.strictEqual(emergency(s).status,'invalidated');assert.strictEqual(s.aiResponseScheduler.primaryByFaction.size,0);assert.strictEqual(s.operations.size,0);});
++  test('Phase L: one non-proactive thought thread despite independent threats',()=>{const s=threat();s.armies.set('r2',{...s.armies.get('raider')!,id:'r2',attackIntent:{...s.armies.get('raider')!.attackIntent!,onlyArmyId:'r2'}});observe(s);processNonProactiveBoundary(s);assert.strictEqual([...s.aiResponses.values()].filter(c=>c.status==='thinking').length,1);assert.strictEqual(s.aiResponseScheduler.primaryByFaction.size,1);});
++  test('Phase L: selected local intervention executes exact plan through production bridge',()=>{const s=threat();s.territoryRecruitment.get('stage')!.troops=2000;online(s);advance(s,4000);const c=emergency(s);assert.strictEqual(c.outcome,'INTERVENTION_STARTED');const op=s.operations.get(c.operationId!)!;assert.deepStrictEqual(op.plan,c.selectedPlan);assert.strictEqual(op.responseContextId,c.id);assert.ok(op.plan?.action==='MOVE'||op.plan?.action==='ATTACK'||op.plan?.action==='REINFORCE');assert.strictEqual(op.sourceContextId,undefined);assert.strictEqual(s.aiDecisionOpportunities.get('me')?.spacing??null,null);assert.deepStrictEqual(checkGameStateInvariants(s),[]);});
++  test('Phase L: critical allowance is operation owned and normal capacity remains finite',()=>{const s=threat();s.strategicAttention.capacity=0;const {op}=startCriticalMove(s);assert.ok(op);assert.ok(op.attention.emergency);assert.ok(op.attention.emergency!.overflow<=RESPONSE_POLICY.emergencyExtraCapacity);assert.strictEqual(occupiedAttention(s,'me'),op.attention.cost);const p=makeConcretePlan({action:'MOVE',factionId:'me',armyId:'b',originTerritoryId:'home',destinationTerritoryId:'other',route:['home','other']});assert.strictEqual(assessAttention(s,p).available,false);assert.deepStrictEqual(checkGameStateInvariants(s),[]);});
++  test('Phase L: critical allowance never bypasses a force claim',()=>{const s=threat();let d=move(s);d=move(d,'b');online(d);advance(d,4000);assert.strictEqual(emergency(d).outcome,'NO_ADDITIONAL_INTERVENTION');assert.strictEqual([...d.operations.values()].length,2);});
++  test('Phase L: unfinished physical work keeps ordinary and emergency Attention',()=>{const s=threat();s.strategicAttention.capacity=0;const {id}=startCriticalMove(s),before=occupiedAttention(s,'me');assert.strictEqual(settleOperation(s,id,'failed','objective changed'),false);assert.strictEqual(occupiedAttention(s,'me'),before);assert.ok(s.operationClaims.size);});
++  test('Phase L: no intervention is not WAIT and causes no rewards or cadence',()=>{const s=threat();s.armies.delete('a');s.armies.delete('b');s.factions.get('me')!.armies=[];observe(s);const bank={...s.factions.get('me')!.resources};online(s);processNonProactiveBoundary(s);accrueProactiveClocks(s,3000,'ONLINE');const m=emptyResponseMetrics();processNonProactiveBoundary(s,undefined,m);assert.strictEqual(emergency(s).outcome,'NO_ADDITIONAL_INTERVENTION');assert.strictEqual(s.operations.size,0);assert.deepStrictEqual(s.factions.get('me')!.resources,bank);assert.strictEqual(s.aiDecisionOpportunities.get('me')!.spacing,null);for(let i=0;i<100;i++){observe(s);processNonProactiveBoundary(s,undefined,m);}assert.strictEqual(m.deliberations,1);});
++  test('Phase L: blocked attack objective preserves elapsed physical travel',()=>{const s=world();const d=begin(s,{action:'ATTACK',factionId:'me',armyId:'a',originTerritoryId:'home',stagingTerritoryId:'stage',targetTerritoryId:'target',route:['home','stage','target']});const op=[...d.operations.values()][0]!,a=d.armies.get('a')!,physical=encodePersistable(a.movement);settleOperation(d,op.id,'failed','target invalid');observe(d);processNonProactiveBoundary(d);const c=[...d.aiResponses.values()].find(c=>c.lane==='OPERATION_RECOVERY')!;assert.strictEqual(c.outcome,'NO_ADDITIONAL_INTERVENTION');assert.strictEqual(c.timer,null);assert.deepStrictEqual(encodePersistable(a.movement),physical);assert.strictEqual(d.operationClaims.get('force:a')!.operationId,op.id);assert.strictEqual(c.blockers.length,0);});
++  test('Phase L: blocked movement recovery is dormant through unchanged boundaries',()=>{const d=move(world()),op=[...d.operations.values()][0]!,a=d.armies.get('a')!;a.movement!.status='blocked';a.movement!.haltedAtTick=0;a.movement!.interruptionReason='route missing';settleOperation(d,op.id,'failed','route missing');const m=emptyResponseMetrics();for(let i=0;i<100;i++){markResponseWorldChanged(d);processNonProactiveBoundary(d,undefined,m);}assert.strictEqual(m.deliberations,0);assert.strictEqual(m.noIntervention,1);assert.strictEqual(d.armies.get('a')!.movement!.status,'blocked');});
++  test('Phase L: physically resumed work invalidates dormant recovery',()=>{const d=move(world()),op=[...d.operations.values()][0]!,a=d.armies.get('a')!;a.movement!.status='blocked';observe(d);processNonProactiveBoundary(d);a.movement!.status='moving';op.phase='physical';op.objective='valid';observe(d);assert.strictEqual([...d.aiResponses.values()][0]!.status,'invalidated');});
++  test('Phase L: required Peace work is registered from publication and bypasses proactive gates',()=>{const d=pendingPeace();d.strategicAttention.capacity=0;const c=[...d.aiResponses.values()].find(c=>c.lane==='REQUIRED_RESPONSE')!;assert.ok(c);const p=livePeaceProposals(d)[0]!;accrueProactiveClocks(d,d.aiClock.nowMs+p.responseTimer!.offlineDurationMs,'OFFLINE');settleReadyRequiredResponses(d);assert.notStrictEqual(p.status,'pending');assert.strictEqual(c.outcome,'RESPONSE_SETTLED');assert.strictEqual(d.aiResponseScheduler.primaryByFaction.size,0);});
++  test('Phase L: required Trade freshly sees recipient spending and releases pending reservation',()=>{const d=pendingTrade(),p=liveTradeProposals(d)[0]!;d.factions.get('me')!.resources.food=0;const timer=p.responseTimer!;accrueProactiveClocks(d,d.aiClock.nowMs+timer.offlineDurationMs,'OFFLINE');settleReadyRequiredResponses(d);assert.strictEqual(p.status,'declined');assert.strictEqual(d.tradeShipments.size,0);assert.strictEqual(d.operationClaims.size,0);});
++  test('Phase L: withdrawn proposal invalidates queued response without fake decline',()=>{const d=pendingPeace(),p=livePeaceProposals(d)[0]!;settlePeaceProposal(d,p.id,'withdrawn');const c=[...d.aiResponses.values()][0]!;assert.strictEqual(c.status,'invalidated');assert.strictEqual(c.outcome,'CONTEXT_INVALIDATED');settleReadyRequiredResponses(d);assert.strictEqual(p.status,'withdrawn');});
++  test('Phase L: response invalidation and replay are idempotent',()=>{const d=pendingTrade(),p=liveTradeProposals(d)[0]!;settleTradeProposal(d,p.id,'invalidated');const before=encodePersistable(d);assert.strictEqual(settleTradeProposal(d,p.id,'invalidated'),false);settleReadyRequiredResponses(d);assert.deepStrictEqual(encodePersistable(d),before);});
++  test('Phase L: Peace and Trade share stable required-deadline ordering',()=>{let d=pendingPeace();d=pendingTrade(d);const contexts=orderedResponseContexts(d,'me');assert.strictEqual(contexts.length,2);const expected=[...contexts].sort((a,b)=>{const pa=a.subject.kind==='peace'?d.peaceProposals.get(a.subject.id)!:d.tradeProposals.get(a.subject.id)!;const pb=b.subject.kind==='peace'?d.peaceProposals.get(b.subject.id)!:d.tradeProposals.get(b.subject.id)!;return timerRemaining(d,pa.responseTimer!)-timerRemaining(d,pb.responseTimer!)||a.createdAtMs-b.createdAtMs||(a.id<b.id?-1:1);}).map(c=>c.id);assert.deepStrictEqual(contexts.map(c=>c.id),expected);});
++  test('Phase L: critical threat priority does not starve earned required deadline',()=>{const d=threat(pendingTrade());processNonProactiveBoundary(d);assert.strictEqual(orderedResponseContexts(d,'me')[0]!.lane,'REACTIVE_EMERGENCY');const p=liveTradeProposals(d)[0]!,m=emptyResponseMetrics();accrueProactiveClocks(d,d.aiClock.nowMs+p.responseTimer!.offlineDurationMs,'OFFLINE');processNonProactiveBoundary(d,undefined,m);assert.notStrictEqual(p.status,'pending');assert.strictEqual(m.requiredResponses,1);});
++  test('Phase L: required response survives reload with same exact windows and terms',()=>{const d=pendingTrade(),r=reload(d),p=liveTradeProposals(d)[0]!;const at=d.aiClock.nowMs+p.responseTimer!.offlineDurationMs;accrueProactiveClocks(d,at,'OFFLINE');accrueProactiveClocks(r,at,'OFFLINE');settleReadyRequiredResponses(d);settleReadyRequiredResponses(r);assert.deepStrictEqual(encodePersistable(r),encodePersistable(d));});
++  test('Phase L: recipient elimination cancels response without optional cognition',()=>{const d=pendingPeace();d.factions.get('me')!.territories=[];d.factions.get('me')!.armies=[];observe(d);const m=emptyResponseMetrics();processNonProactiveBoundary(d,undefined,m);assert.strictEqual(m.deliberations,0);assert.ok([...d.aiResponses.values()].every(c=>c.status==='invalidated'));});
++  test('Phase L: emergency disappears on faction elimination',()=>{const s=threat();processNonProactiveBoundary(s);s.factions.get('me')!.territories=[];s.factions.get('me')!.armies=[];observe(s);assert.strictEqual(emergency(s).status,'invalidated');assert.strictEqual(s.aiResponseScheduler.primaryByFaction.size,0);});
++  test('Phase L: CAS rejects stale response without hidden merge',()=>{const s=threat();processNonProactiveBoundary(s);const store=new InMemoryGameStateStore();assert.ok(store.save('response',s,0).ok);const a=store.load('response'),b=store.load('response');assert.ok(a.ok&&b.ok);if(!a.ok||!b.ok)return;advance(a.state,10000);assert.ok(store.save('response',a.state,a.record.stateVersion).ok);b.state.armies.get('raider')!.attackIntent=null;const r=store.save('response',b.state,b.record.stateVersion);assert.ok(!r.ok&&r.code==='persistence.conflict');});
++  test('Phase L: failed exact start cannot leak context, Attention, sequence or claims',()=>{const s=threat(),before=encodePersistable(s);assert.throws(()=>runStateTransaction(s,d=>{d.aiResponses.clear();d.factions.get('me')!.nextAiCommitmentSequence++;throw new Error('forced failure');}));assert.deepStrictEqual(encodePersistable(s),before);});
++  test('Phase L: canonical clone does not alias nested response timer/plan data',()=>{const s=threat();processNonProactiveBoundary(s);const d=cloneGameState(s);emergency(d).timer!.progress.accruedThroughMs++;assert.notStrictEqual(emergency(d).timer!.progress.accruedThroughMs,emergency(s).timer!.progress.accruedThroughMs);});
++  test('Phase L: malformed current response state cannot hydrate',()=>{const s=world();delete (s as Partial<GameState>).aiResponseScheduler;assert.throws(()=>reload(s));});
++  test('Phase L: invariant rejects orphan primary and malformed exact response plan',()=>{const s=threat();s.aiResponseScheduler.primaryByFaction.set('me','missing');assert.ok(responseStateProblems(s).length);});
++  test('Phase L: schema 26 migration invents no historical emergencies or timers',()=>{const s=world();s.schemaVersion=26;delete (s as Partial<GameState>).aiResponses;delete (s as Partial<GameState>).aiResponseScheduler;const d=reload(s);assert.strictEqual(d.schemaVersion,27);assert.strictEqual(d.aiResponses.size,0);assert.strictEqual(d.aiResponseScheduler.primaryByFaction.size,0);assert.deepStrictEqual(d.operations,s.operations);assert.deepStrictEqual(d.conflictLedger,s.conflictLedger);});
++  test('Phase L: schema 26 migration derives only current required proposal references',()=>{const s=pendingTrade();s.schemaVersion=26;delete (s as Partial<GameState>).aiResponses;delete (s as Partial<GameState>).aiResponseScheduler;const before=encodePersistable({trade:s.tradeProposals,operations:s.operations,claims:s.operationClaims,clock:s.aiClock,opportunities:s.aiDecisionOpportunities});const d=reload(s);assert.strictEqual(d.aiResponses.size,1);assert.deepStrictEqual(encodePersistable({trade:d.tradeProposals,operations:d.operations,claims:d.operationClaims,clock:d.aiClock,opportunities:d.aiDecisionOpportunities}),before);assert.deepStrictEqual(encodePersistable(reload(d)),encodePersistable(d));});
++  test('Phase L: insertion order cannot change context priority or exact candidates',()=>{const s=threat(),d=cloneGameState(s);d.armies=new Map([...d.armies].reverse());d.territories=new Map([...d.territories].reverse());d.aiResponses=new Map([...d.aiResponses].reverse());assert.deepStrictEqual(reactivePlans(d,emergency(d)),reactivePlans(s,emergency(s)));assert.deepStrictEqual(orderedResponseContexts(d).map(c=>c.id),orderedResponseContexts(s).map(c=>c.id));});
++  test('Phase L: no private response scheduler/priority/timers leak in public DTO',()=>{const s=threat();processNonProactiveBoundary(s);const json=JSON.stringify(serializePublicGameState(s,'me'));for(const key of ['aiResponses','aiResponseScheduler','materialSignature','selectedPlan','REACTIVE_EMERGENCY'])assert.ok(!json.includes(key),key);});
++  test('Phase L: handled blocked threat cannot repeatedly bypass primary pacing',()=>{const s=threat();s.armies.delete('a');s.armies.delete('b');s.factions.get('me')!.armies=[];online(s);observe(s);const m=emptyResponseMetrics();processNonProactiveBoundary(s,undefined,m);accrueProactiveClocks(s,3000,'ONLINE');processNonProactiveBoundary(s,undefined,m);for(let i=0;i<500;i++){markResponseWorldChanged(s);processNonProactiveBoundary(s,undefined,m);}assert.strictEqual(m.deliberations,1);assert.strictEqual(m.interventions,0);});
++  test('Phase L: a later hostile commitment by the same force has a new semantic identity',()=>{const s=threat();s.armies.get('raider')!.attackIntent!.conflictFactId='first';observe(s);const first=liveResponseContexts(s)[0]!.id;s.armies.get('raider')!.attackIntent!.conflictFactId='second';observe(s);const current=liveResponseContexts(s);assert.strictEqual(current.length,1);assert.notStrictEqual(current[0]!.id,first);assert.strictEqual(s.aiResponses.get(first)!.status,'invalidated');});
++  test('Phase L: a queued next emergency starts immediately after earned thought completion',()=>{const s=threat();s.armies.set('second',{...s.armies.get('raider')!,id:'second',attackIntent:{...s.armies.get('raider')!.attackIntent!,onlyArmyId:'second'}});observe(s);online(s);processNonProactiveBoundary(s);const first=s.aiResponseScheduler.primaryByFaction.get('me')!;accrueProactiveClocks(s,2000,'ONLINE');processNonProactiveBoundary(s);const second=s.aiResponseScheduler.primaryByFaction.get('me')!;assert.ok(second);assert.notStrictEqual(first,second);assert.strictEqual(s.aiResponses.get(second)!.timer!.progress.accruedThroughMs,2000);});
++  test('Phase L: emergency overflow survives reload and releases once at physical arrival',()=>{const s=threat();s.strategicAttention.capacity=0;const {id}=startCriticalMove(s);const d=reload(s),op=d.operations.get(id)!,a=d.armies.get(op.links.armyId!)!;const before=occupiedAttention(d,'me');assert.ok(before>0);a.location=a.movement!.destinationTerritoryId;a.movement=null;assert.ok(settleOperation(d,id,'completed','authoritative arrival'));assert.strictEqual(occupiedAttention(d,'me'),0);const state=encodePersistable(d);assert.strictEqual(settleOperation(d,id,'completed','duplicate'),false);assert.deepStrictEqual(encodePersistable(d),state);});
++  test('Phase L: one critical intervention cannot consume unbounded overflow',()=>{const s=threat();s.strategicAttention.capacity=0;const {id}=startCriticalMove(s);const other=makeConcretePlan({action:'MOVE',factionId:'me',armyId:'b',originTerritoryId:'home',destinationTerritoryId:'stage',route:['home','stage']});assert.strictEqual(assessAttention(s,other,undefined,s.operations.get(id)!.responseContextId).available,false);});
++  test('Phase L: critical overflow does not reroll thought on an unrelated resource mutation',()=>{const s=world();s.strategicAttention.capacity=0;threat(s);processNonProactiveBoundary(s);const c=emergency(s),before=encodePersistable(c.timer),rev=c.revision;s.factions.get('me')!.resources.gold++;observe(s);assert.strictEqual(c.revision,rev);assert.deepStrictEqual(encodePersistable(c.timer),before);});
++  test('Phase L: a selected response cannot commit after its context disappears',()=>{const s=threat();processNonProactiveBoundary(s);const c=emergency(s),p=reactivePlans(s,c)[0]!;c.selectedPlan=p;s.armies.get('raider')!.attackIntent=null;assert.throws(()=>startResponseIntervention(s,context(s),p,c));assert.strictEqual(s.operations.size,0);assert.strictEqual(s.operationClaims.size,0);});
++  test('Phase L: a selected response cannot substitute another army after its force is reserved',()=>{const s=threat();processNonProactiveBoundary(s);const c=emergency(s),p=reactivePlans(s,c).find(p=>p.action==='MOVE'&&p.armyId==='a')!;c.selectedPlan=p;const d=move(s);assert.throws(()=>startResponseIntervention(d,context(d),p,c));assert.strictEqual(d.operations.size,1);assert.ok(!d.armies.get('b')!.movement);});
++  test('Phase L: terminal history does not enter queue/priority hot paths',()=>{const s=threat();processNonProactiveBoundary(s);s.armies.get('raider')!.attackIntent=null;observe(s);const base=emergency(s);for(let i=0;i<5000;i++){const subject={kind:'cargo' as const,id:'old'+i};const c={...base,subject,lane:'OPERATION_RECOVERY' as const,severity:'RECOVERY' as const,id:responseContextId('me',subject)};s.aiResponses.set(c.id,c);}Object.defineProperty(s.aiResponses,'values',{value:()=>{throw new Error('terminal history scanned');}});assert.deepStrictEqual(orderedResponseContexts(s),[]);processNonProactiveBoundary(s);});
++  test('Phase L: blocked cargo recovery preserves exact custody through reload',()=>{const s=pendingTrade(),p=liveTradeProposals(s)[0]!;assert.ok(settleTradeProposal(s,p.id,'accepted'));for(const sh of s.tradeShipments.values()){sh.phase='blocked';sh.blockedReason='Receiving node lost';sh.blockedAtTick=s.worldTick;}observe(s);processNonProactiveBoundary(s);const cargo=encodePersistable(s.tradeShipments),bank=encodePersistable([...s.factions].map(([id,f])=>[id,f.resources])),d=reload(s);for(let i=0;i<100;i++)processNonProactiveBoundary(d);assert.deepStrictEqual(encodePersistable(d.tradeShipments),cargo);assert.deepStrictEqual(encodePersistable([...d.factions].map(([id,f])=>[id,f.resources])),bank);assert.strictEqual(occupiedAttention(d,'enemy'),0);assert.ok([...d.aiResponses.values()].filter(c=>c.lane==='OPERATION_RECOVERY').every(c=>c.outcome==='NO_ADDITIONAL_INTERVENTION'));});
++  test('Phase L: private counterparty cognition remains inaccessible to required Trade assessment',()=>{const s=pendingTrade(),p=liveTradeProposals(s)[0]!,f=s.factions.get(p.proposer)!,keys=['goals','memory','personality','ambition','diplomacy'] as const;const descriptors=keys.map(k=>Object.getOwnPropertyDescriptor(f,k)!);for(const k of keys)Object.defineProperty(f,k,{configurable:true,get(){throw new Error('foreign cognition read');}});try{accrueProactiveClocks(s,s.aiClock.nowMs+p.responseTimer!.offlineDurationMs,'OFFLINE');settleReadyRequiredResponses(s);}finally{keys.forEach((k,i)=>Object.defineProperty(f,k,descriptors[i]!));}assert.notStrictEqual(p.status,'pending');});
++  test('Phase L: ordinary world ticks do not rescan healthy operations',()=>{const s=move(world()),m=emptyResponseMetrics();observeNonProactiveWork(s,m);const before=m.observations;for(let tick=1;tick<=10000;tick++){s.worldTick=tick;observeNonProactiveWork(s,m);}assert.strictEqual(m.observations,before);assert.strictEqual(s.aiResponses.size,0);});
++  test('Phase L: distant committed arrival schedules only material urgency boundaries',()=>{const s=threat(world(),8),m=emptyResponseMetrics();assert.strictEqual(s.aiResponses.size,0);assert.strictEqual(s.aiResponseScheduler.nextThreatBoundaryTick,5);for(let tick=1;tick<5;tick++){s.worldTick=tick;observeNonProactiveWork(s,m);}assert.strictEqual(m.observations,0);s.worldTick=5;observeNonProactiveWork(s,m);assert.strictEqual(emergency(s).severity,'URGENT');assert.strictEqual(s.aiResponseScheduler.nextThreatBoundaryTick,7);s.worldTick=6;observeNonProactiveWork(s,m);assert.strictEqual(m.observations,1);s.worldTick=7;observeNonProactiveWork(s,m);assert.strictEqual(emergency(s).severity,'CRITICAL');assert.strictEqual(m.observations,2);});
++  test('Phase L: invalid old attack objective cannot create a threat against the new owner',()=>{const s=threat();s.armies.get('raider')!.attackIntent!.targetFactionId='me';s.playerFactionId=null;s.levelAnchorTerritoryIds=[];s.territories.get('stage')!.owner='spectator';s.factions.get('me')!.territories=s.factions.get('me')!.territories.filter(id=>id!=='stage');s.factions.get('spectator')!.territories.push('stage');observe(s);assert.strictEqual(liveResponseContexts(s).length,0);assert.ok([...s.aiResponses.values()].every(c=>c.status==='invalidated'));assert.ok(s.armies.get('raider')!.attackIntent);});
++}

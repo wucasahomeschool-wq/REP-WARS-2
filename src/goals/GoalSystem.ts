@@ -36,12 +36,14 @@ export interface InitialGoalContext {
   homeRegionId?: string | null;
 }
 
+/** LEGACY disposable CLI/test adapter. Canonical production preference and
+ * lifecycle live in cognition/goals, not this action-label alignment model. */
 export class GoalSystem {
   private goals: StrategicGoal[] = [];
   private nextId = 0;
 
   constructor(initialGoals: StrategicGoal[] = []) {
-    this.goals = [...initialGoals];
+    this.goals = initialGoals.map(g=>structuredClone(g));
     for (const g of initialGoals) {
       const parsed = parseInt(g.id.replace('goal_', ''));
       if (!isNaN(parsed) && parsed >= this.nextId)
@@ -81,6 +83,7 @@ export class GoalSystem {
 
   getActiveGoals(currentTurn: number): StrategicGoal[] {
     return this.goals.filter((g) => {
+      if(g.lifecycle&&g.lifecycle.status!=='ACTIVE')return false;
       if (g.progress >= g.targetProgress)
         return false;
       if (g.deadlineTurn !== null && currentTurn > g.deadlineTurn)

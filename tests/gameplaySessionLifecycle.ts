@@ -55,8 +55,8 @@ export async function runGameplaySessionLifecycleTests(
     assert.strictEqual(state.gameplaySessionLeases[0]!.sessionId, opened.sessionId);
     assert.strictEqual(state.gameplaySessionLeases[0]!.openedByRequestId, 'open-1');
     assert.deepStrictEqual(temporal(state), anchoredTemporal(1_700_000_000_000));
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 16);
-    assert.strictEqual(state.schemaVersion, 16);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+    assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
   });
 
   await report('the same open request recovers the committed session', async () => {
@@ -257,7 +257,8 @@ export async function runGameplaySessionLifecycleTests(
     assert.strictEqual(state.gameplaySessionLeases[0]!.expiresAtMs, 25_000 + LEASE_MS);
     assert.strictEqual(state.gameplaySessionLeases[0]!.lastReceiptAtMs, 25_000);
     assert.strictEqual(state.gameplaySessionLeases[0]!.lastRenewalRequestId, 'pause-1');
-    assert.deepStrictEqual(temporal(state), anchoredTemporal(1_000));
+    assert.deepStrictEqual(temporal(state), {...anchoredTemporal(25_000),subTickMicroticks:400_000});
+    assert.strictEqual(state.aiClock.nowMs,25_000);
     clock.set(80_000);
     const replay = await host.execute({
       commandId: 'SET_PLAYER_PAUSE',

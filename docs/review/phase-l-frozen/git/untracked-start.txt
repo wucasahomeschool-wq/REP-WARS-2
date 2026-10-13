@@ -1,0 +1,7 @@
+docs/AI_PHASE_L_NON_PROACTIVE_COGNITION.md
+src/constants/aiResponse.ts
+src/engine/nonProactiveCognition.ts
+src/engine/responseRecords.ts
+src/state/responseInvariants.ts
+src/types/AIResponse.ts
+tests/aiResponses.ts

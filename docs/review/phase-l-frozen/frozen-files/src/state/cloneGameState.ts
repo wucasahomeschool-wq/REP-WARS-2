@@ -1,0 +1,386 @@
+import { createResponseMap } from '../engine/responseRecords';
+import {indexedTradeMap} from '../gameplay/trade/records';
+import {proposalLive,shipmentLive} from '../gameplay/trade/trade';
+import { cloneConcretePlan } from '../types/AIConcretePlan';
+import { cloneOperations } from '../engine/operations';
+/**
+ * GAMESTATE CLONING (AUTHORITATIVE RUNTIME GAMESTATE PASS). See
+ * docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "Cloning / snapshots".
+ *
+ * `cloneGameState()` produces a fully independent deep copy: no shared
+ * `Map`/`Set`/array/object references with the source. Modifying the
+ * clone (or the source) after cloning must never affect the other. Used
+ * for deterministic tests and as the building block a future replay/
+ * simulate-ahead feature would use — this file does not implement
+ * persistence.
+ *
+ * NOTE ON DUPLICATION: `src/events/WorldSimulator.ts` already has its own
+ * private `cloneTerritory`/`cloneWarlordSnapshot`/`cloneMap`/`cloneActiveEvent`
+ * helpers with equivalent semantics, used to keep `WorldSimulator.simulate()`
+ * pure. This file intentionally does NOT import or refactor those (out of
+ * scope for this pass — `WorldSimulator` is already tested/passing and
+ * this pass avoids touching engines that don't need to change). Bringing
+ * both sets of clone helpers under one shared module is a documented
+ * follow-up in docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "Remaining
+ * migration gaps".
+ */
+import { Army, DiplomaticRelationship, FactionId, RegionId, Resources, Territory, Treaty, WarlordSnapshot } from '../types';
+import { ActiveEvent, ConsequenceDelta, HistoryEntry } from '../events/EventModel';
+import {
+  ActiveInvasion,
+  AttackerCooldown,
+  City,
+  ConstructionProject,
+  DefenseMobilizationAttachment,
+  GameState,
+  PlayerFitnessState,
+  PlayerRewardState,
+  RuntimeRegion,
+  TerritoryEconomy,
+  TerritoryInfrastructure,
+} from '../types/GameState';
+import { cloneArmyMovement } from '../army/movement';
+import { cloneAttackIntent } from '../army/strategicAttack';
+import { cloneFitnessEstimate } from '../fitness/estimate/clone';
+import { cloneWorkoutSession } from '../fitness/session/clone';
+import { clonePlayerProgressionState, emptyPlayerProgressionState } from '../fitness/progression/types';
+import { cloneGameRewardResult } from '../rewards/validation';
+
+export function cloneMap<K, V>(m: Map<K, V>, cloneFn: (v: V) => V): Map<K, V> {
+  const out = new Map<K, V>();
+  for (const [k, v] of m.entries())
+    out.set(k, cloneFn(v));
+  return out;
+}
+
+export function cloneTerritory(t: Territory): Territory {
+  return {
+    ...t,
+    neighboring: [...t.neighboring],
+    resourceOutput: { ...t.resourceOutput },
+  };
+}
+
+export function cloneArmy(a: Army): Army {
+  const { movement, attackIntent, ...rest } = a;
+  const cloned: Army = { ...rest };
+  const clonedMovement = cloneArmyMovement(movement);
+  if (clonedMovement !== undefined) cloned.movement = clonedMovement;
+  const clonedIntent = cloneAttackIntent(attackIntent);
+  if (clonedIntent !== undefined) cloned.attackIntent = clonedIntent;
+  return cloned;
+}
+
+function cloneTreaty(t: Treaty): Treaty {
+  return { ...t, terms: { ...t.terms } };
+}
+
+function cloneDiplomaticRelationship(r: DiplomaticRelationship): DiplomaticRelationship {
+  return { ...r, treaties: r.treaties.map(cloneTreaty) };
+}
+
+export function cloneWarlordSnapshot(f: WarlordSnapshot): WarlordSnapshot {
+  const diplomacy = new Map<FactionId, DiplomaticRelationship>();
+  for (const [k, v] of f.diplomacy.entries())
+    diplomacy.set(k, cloneDiplomaticRelationship(v));
+  return {
+    ...f,
+    personality: { ...f.personality },
+    territories: [...f.territories],
+    armies: [...f.armies],
+    resources: { ...f.resources } as Resources,
+    resourceIncome: { ...f.resourceIncome },
+    diplomacy,
+    memory: f.memory.map((m) => ({ ...m, details: structuredClone(m.details) })),
+    goals: f.goals.map((g) => ({ ...g, ...(g.lifecycle?{lifecycle:{...g.lifecycle,objective:g.lifecycle.objective?{...g.lifecycle.objective}:null}}:{}) })),
+    currentThreats: [...f.currentThreats],
+    knownFactions: [...f.knownFactions],
+    knownTerritories: [...f.knownTerritories],
+    lastActions: f.lastActions.map((a) => ({ ...a })),
+  };
+}
+
+function cloneRuntimeRegion(r: RuntimeRegion): RuntimeRegion {
+  return { id: r.id, name: r.name, territoryIds: [...r.territoryIds] };
+}
+
+/**
+ * Clones a `ConsequenceDelta`, only including its optional `delta.*`
+ * sub-fields when the source actually had them — an object literal that
+ * never had a `resourceOutputPct` key must not gain one (with value
+ * `undefined`) after cloning, since that changes the object's own-key
+ * shape even though the field reads as `undefined` either way (visible to
+ * `assert.deepStrictEqual`, which distinguishes "key present with value
+ * `undefined`" from "key absent").
+ */
+function cloneConsequenceDelta(c: ConsequenceDelta): ConsequenceDelta {
+  const delta: ConsequenceDelta['delta'] = { ...c.delta };
+  if (c.delta.resources) delta.resources = { ...c.delta.resources };
+  if (c.delta.resourceOutputPct) delta.resourceOutputPct = { ...c.delta.resourceOutputPct };
+  if (c.delta.relationshipDeltaOpinion) delta.relationshipDeltaOpinion = { ...c.delta.relationshipDeltaOpinion };
+  return { ...c, delta };
+}
+
+function cloneActiveEvent(e: ActiveEvent): ActiveEvent {
+  const cloned: ActiveEvent = {
+    ...e,
+    causes: [...(e.causes ?? [])],
+    consequences: (e.consequences ?? []).map(cloneConsequenceDelta),
+    chainDelays: (e.chainDelays ?? []).map((cd) => ({ ...cd })),
+    choicesPending: (e.choicesPending ?? []).map((c) => (c.cost ? { ...c, cost: { ...c.cost } } : { ...c })),
+  };
+  if (e.choiceTaken) {
+    cloned.choiceTaken = {
+      ...e.choiceTaken,
+      consequences: e.choiceTaken.consequences.map(cloneConsequenceDelta),
+    };
+  }
+  return cloned;
+}
+
+function cloneHistoryEntry(h: HistoryEntry): HistoryEntry {
+  return h.detail ? { ...h, detail: { ...h.detail } } : { ...h };
+}
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function cloneDefenseMobilization(
+  attachment: DefenseMobilizationAttachment | null,
+): DefenseMobilizationAttachment | null {
+  return attachment ? { ...attachment } : null;
+}
+
+function cloneActiveInvasion(invasion: ActiveInvasion): ActiveInvasion {
+  return {
+    ...invasion,
+    attackingArmyIds: [...invasion.attackingArmyIds],
+    defenseMobilization: cloneDefenseMobilization(invasion.defenseMobilization),
+  };
+}
+
+function cloneConstruction(project: ConstructionProject): ConstructionProject {
+  return { ...project };
+}
+
+function cloneCity(city: City): City {
+  return {
+    ...city,
+    buildings: city.buildings.map((building) => ({ ...building })),
+  };
+}
+
+function cloneTerritoryEconomy(economy: TerritoryEconomy): TerritoryEconomy {
+  return {
+    territoryId: economy.territoryId,
+    ...(economy.foodAccrualTick!==undefined?{foodAccrualTick:economy.foodAccrualTick}:{}),
+    lastAccrualTick: economy.lastAccrualTick,
+    uncollected: { ...economy.uncollected },
+  };
+}
+
+function cloneTerritoryInfrastructure(infra: TerritoryInfrastructure): TerritoryInfrastructure {
+  return { ...infra };
+}
+
+function clonePlayerFitness(fitness: PlayerFitnessState): PlayerFitnessState {
+  return {
+    estimate: fitness.estimate ? cloneFitnessEstimate(fitness.estimate) : null,
+    lastWorkoutCompletedAtTick: fitness.lastWorkoutCompletedAtTick,
+    compactHistory: fitness.compactHistory.map((entry) => ({ ...entry })),
+    activeSession: fitness.activeSession ? cloneWorkoutSession(fitness.activeSession) : null,
+    pendingReward: fitness.pendingReward
+      ? {
+        sessionId: fitness.pendingReward.sessionId,
+        reward: cloneGameRewardResult(fitness.pendingReward.reward),
+        context: { ...fitness.pendingReward.context },
+      }
+      : null,
+    progression: fitness.progression
+      ? clonePlayerProgressionState(fitness.progression)
+      : emptyPlayerProgressionState(),
+  };
+}
+
+function cloneCooldown(cooldown: AttackerCooldown): AttackerCooldown {
+  return { ...cooldown };
+}
+
+function clonePlayerRewardState(rewards: PlayerRewardState): PlayerRewardState {
+  return {
+    bankedTroops: rewards.bankedTroops,
+    pendingConstructionEffects: rewards.pendingConstructionEffects.map((effect) => ({ ...effect })),
+    pendingGoldenYieldEffects: rewards.pendingGoldenYieldEffects.map((effect) => ({ ...effect })),
+    appliedRewards: rewards.appliedRewards.map((record) => ({
+      applicationId: record.applicationId,
+      sessionId: record.sessionId,
+      kind: record.kind,
+      appliedAtTick: record.appliedAtTick,
+      result: cloneJson(record.result),
+    })),
+  };
+}
+
+/**
+ * Replace every field of `target` with a deep clone of `source`.
+ * Used by world transition so the orchestrator draft becomes the next world
+ * without sharing nested references with the initializer result.
+ */
+export function overwriteGameState(target: GameState, source: GameState): void {
+  adoptOwnedTransactionState(target, cloneGameState(source));
+}
+
+/** Transfer an already isolated, validated nested transaction draft. The caller
+ * relinquishes its ownership; unlike overwriteGameState this must not receive
+ * a retained external state. No second full-world clone is needed at this boundary.
+ */
+export function adoptOwnedTransactionState(target: GameState, next: GameState): void {
+  target.schemaVersion = next.schemaVersion;
+  target.turn = next.turn;
+  target.worldTick = next.worldTick;
+  target.lastProcessedAtMs = next.lastProcessedAtMs;
+  target.accruedTargetWorldTick = next.accruedTargetWorldTick;
+  target.subTickMicroticks = next.subTickMicroticks;
+  target.accrualDivisionRemainder = next.accrualDivisionRemainder;
+  target.lastAccrualAtMs = next.lastAccrualAtMs;
+  target.gameplaySessionLeases = next.gameplaySessionLeases;
+  target.lastFoodConsumptionTick = next.lastFoodConsumptionTick;
+  target.lastAiDecisionTick = next.lastAiDecisionTick;
+  target.strategicAttention = next.strategicAttention;
+  target.aiDecisionOpportunities = next.aiDecisionOpportunities;
+  target.aiResponses = next.aiResponses;
+  target.aiResponseScheduler = next.aiResponseScheduler;
+  target.aiPressure = next.aiPressure;
+  target.aiClock = next.aiClock;
+  target.peaceRelationships = next.peaceRelationships;
+  target.peaceProposals = next.peaceProposals;
+  target.peaceProposalThreads = next.peaceProposalThreads;
+  target.tradeProposals=next.tradeProposals;target.tradeShipments=next.tradeShipments;
+  target.opinionEvents = next.opinionEvents;
+  target.conflictLedger = next.conflictLedger;
+  target.conflictEventReceipts = next.conflictEventReceipts;
+  target.worldSeed = next.worldSeed;
+  target.factions = next.factions;
+  target.allFactionIds = next.allFactionIds;
+  target.playerFactionId = next.playerFactionId;
+  target.definitionWorldId = next.definitionWorldId;
+  target.definitionFormatVersion = next.definitionFormatVersion;
+  target.worldLevel = next.worldLevel;
+  target.worldName = next.worldName;
+  target.regions = next.regions;
+  target.territories = next.territories;
+  target.armies = next.armies;
+  target.operations = next.operations;
+  target.operationClaims = next.operationClaims;
+  target.activeEvents = next.activeEvents;
+  target.eventHistory = next.eventHistory;
+  target.playerRewards = next.playerRewards;
+  target.activeInvasions = next.activeInvasions;
+  target.constructions = next.constructions;
+  target.cities = next.cities;
+  target.territoryRecruitment = next.territoryRecruitment;
+  target.territoryEconomy = next.territoryEconomy;
+  target.territoryInfrastructure = next.territoryInfrastructure;
+  target.playerFitness = next.playerFitness;
+  target.playerEmpirePause = next.playerEmpirePause;
+  target.attackerCooldowns = next.attackerCooldowns;
+  target.levelAnchorTerritoryIds = next.levelAnchorTerritoryIds;
+  target.levelDefeat = next.levelDefeat;
+  target.level1Tutorial = next.level1Tutorial;
+}
+
+/**
+ * Deep-clones a `GameState` with no shared mutable nested references.
+ * Mutable nested fields are rebuilt; deeply frozen terminal records may be
+ * shared safely. This includes
+ * `factions[].diplomacy`, `regions`, `operations`, `operationClaims`, `activeEvents`,
+ * `playerRewards`, and `activeInvasions`.
+ * See tests/run.ts, "GameState clone isolation".
+ */
+function cloneGameplaySessionLease(
+  lease: GameState['gameplaySessionLeases'][number],
+): GameState['gameplaySessionLeases'][number] {
+  return {
+    sessionId: lease.sessionId,
+    openedAtMs: lease.openedAtMs,
+    expiresAtMs: lease.expiresAtMs,
+    endedAtMs: lease.endedAtMs,
+    lastReceiptAtMs: lease.lastReceiptAtMs,
+    lastRenewalRequestId: lease.lastRenewalRequestId,
+    lastRenewalSequence: lease.lastRenewalSequence ?? null,
+    openedByRequestId: lease.openedByRequestId ?? null,
+    lastCommandSequence: lease.lastCommandSequence ?? null,
+    lastCommandReceipt: lease.lastCommandReceipt == null
+      ? null
+      : {
+        sequence: lease.lastCommandReceipt.sequence,
+        requestId: lease.lastCommandReceipt.requestId,
+        commandId: lease.lastCommandReceipt.commandId,
+        success: lease.lastCommandReceipt.success,
+        payload: JSON.parse(JSON.stringify(lease.lastCommandReceipt.payload)) as Record<string, unknown>,
+        errors: lease.lastCommandReceipt.errors.map((error) => ({ code: error.code, message: error.message })),
+      },
+  };
+}
+
+export function cloneGameState(state: GameState): GameState {
+  return {
+    schemaVersion: state.schemaVersion,
+    turn: state.turn,
+    worldTick: state.worldTick,
+    lastProcessedAtMs: state.lastProcessedAtMs,
+    accruedTargetWorldTick: state.accruedTargetWorldTick,
+    subTickMicroticks: state.subTickMicroticks,
+    accrualDivisionRemainder: state.accrualDivisionRemainder,
+    lastAccrualAtMs: state.lastAccrualAtMs,
+    gameplaySessionLeases: state.gameplaySessionLeases.map(cloneGameplaySessionLease),
+    lastFoodConsumptionTick: state.lastFoodConsumptionTick,
+    lastAiDecisionTick: new Map(state.lastAiDecisionTick),
+    strategicAttention: { ...state.strategicAttention },
+    aiDecisionOpportunities: cloneMap(state.aiDecisionOpportunities, opportunity => JSON.parse(JSON.stringify(opportunity))),
+    aiResponses: createResponseMap([...state.aiResponses].map(([id,c])=>[id,JSON.parse(JSON.stringify(c))] as const)),
+    aiResponseScheduler: {...state.aiResponseScheduler,primaryByFaction:new Map(state.aiResponseScheduler.primaryByFaction),lastBoundaryByFaction:new Map(state.aiResponseScheduler.lastBoundaryByFaction)},
+    aiPressure: cloneMap(state.aiPressure, source => ({ ...source, blockers: source.blockers.map(b => ({ plan: cloneConcretePlan(b.plan), reasons: b.reasons.map(r => ({ ...r })) })) })),
+    aiClock: { ...state.aiClock, worldAnchor: state.aiClock.worldAnchor ? { ...state.aiClock.worldAnchor } : null },
+    worldSeed: state.worldSeed,
+    factions: cloneMap(state.factions, cloneWarlordSnapshot),
+    allFactionIds: [...state.allFactionIds],
+    playerFactionId: state.playerFactionId,
+    definitionWorldId: state.definitionWorldId,
+    definitionFormatVersion: state.definitionFormatVersion,
+    worldLevel: state.worldLevel,
+    worldName: state.worldName,
+    regions: cloneMap(state.regions, cloneRuntimeRegion),
+    territories: cloneMap(state.territories, cloneTerritory),
+    armies: cloneMap(state.armies, cloneArmy),
+    operations: cloneOperations(state.operations),
+    operationClaims: cloneMap(state.operationClaims, c => ({ ...c })),
+    activeEvents: state.activeEvents.map(cloneActiveEvent),
+    eventHistory: state.eventHistory.map(cloneHistoryEntry),
+    playerRewards: clonePlayerRewardState(state.playerRewards),
+    activeInvasions: cloneMap(state.activeInvasions, cloneActiveInvasion),
+    constructions: cloneMap(state.constructions, cloneConstruction),
+    cities: cloneMap(state.cities, cloneCity),
+    territoryRecruitment: cloneMap(state.territoryRecruitment, p => ({ ...p })),
+    peaceRelationships: cloneMap(state.peaceRelationships, r => ({...r,factions:[...r.factions],finalizationTimer:r.finalizationTimer?{...r.finalizationTimer,progress:{...r.finalizationTimer.progress}}:null})),
+    peaceProposals: cloneMap(state.peaceProposals, p => ({...p,responseTimer:p.responseTimer?{...p.responseTimer,progress:{...p.responseTimer.progress}}:null})),
+    peaceProposalThreads: new Map(state.peaceProposalThreads),
+    tradeProposals:indexedTradeMap(proposalLive,[...state.tradeProposals].map(([id,p])=>[id,JSON.parse(JSON.stringify(p))] as const)),
+    tradeShipments:indexedTradeMap(shipmentLive,[...state.tradeShipments].map(([id,p])=>[id,JSON.parse(JSON.stringify(p))] as const)),
+    opinionEvents: cloneMap(state.opinionEvents, e => ({...e})),
+    conflictLedger:cloneMap(state.conflictLedger,p=>structuredClone(p)),
+    conflictEventReceipts:cloneMap(state.conflictEventReceipts,r=>({...r})),
+    territoryEconomy: cloneMap(state.territoryEconomy, cloneTerritoryEconomy),
+    territoryInfrastructure: cloneMap(state.territoryInfrastructure, cloneTerritoryInfrastructure),
+    playerFitness: clonePlayerFitness(state.playerFitness),
+    playerEmpirePause: { ...state.playerEmpirePause },
+    attackerCooldowns: cloneMap(state.attackerCooldowns, cloneCooldown),
+    levelAnchorTerritoryIds: [...state.levelAnchorTerritoryIds],
+    levelDefeat: {
+      ...state.levelDefeat,
+      previousWorldIds: [...(state.levelDefeat?.previousWorldIds ?? [])],
+    },
+    level1Tutorial: state.level1Tutorial ? { ...state.level1Tutorial } : null,
+  };
+}

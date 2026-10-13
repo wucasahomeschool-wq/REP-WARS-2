@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import {
   ECONOMY_CONFIG,
@@ -55,7 +56,7 @@ export function registerAiEconomyTests({ test }: AiEconomyTestApi): void {
     plantOwnedCities(state);
     const fid = 'merchant_republic';
     const owned = state.factions.get(fid)!.territories[0]!;
-    state.commitments.set(fid, makeCmt(fid, 'BUILD', owned));
+    fixtureCommitments(state).set(fid, makeCmt(fid, 'BUILD', owned));
     const orch = new Orchestrator(state);
     const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', { factionId: fid }));
     assert.strictEqual(res.success, true, res.errors?.[0]?.message);

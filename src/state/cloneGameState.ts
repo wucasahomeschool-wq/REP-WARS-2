@@ -1,3 +1,8 @@
+import { createResponseMap } from '../engine/responseRecords';
+import {indexedTradeMap} from '../gameplay/trade/records';
+import {proposalLive,shipmentLive} from '../gameplay/trade/trade';
+import { cloneConcretePlan } from '../types/AIConcretePlan';
+import { cloneOperations } from '../engine/operations';
 /**
  * GAMESTATE CLONING (AUTHORITATIVE RUNTIME GAMESTATE PASS). See
  * docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "Cloning / snapshots".
@@ -34,7 +39,6 @@ import {
   TerritoryEconomy,
   TerritoryInfrastructure,
 } from '../types/GameState';
-import { cloneCommitment } from '../engine/DecisionEngine';
 import { cloneArmyMovement } from '../army/movement';
 import { cloneAttackIntent } from '../army/strategicAttack';
 import { cloneFitnessEstimate } from '../fitness/estimate/clone';
@@ -87,8 +91,8 @@ export function cloneWarlordSnapshot(f: WarlordSnapshot): WarlordSnapshot {
     resources: { ...f.resources } as Resources,
     resourceIncome: { ...f.resourceIncome },
     diplomacy,
-    memory: f.memory.map((m) => ({ ...m, details: { ...m.details } })),
-    goals: f.goals.map((g) => ({ ...g })),
+    memory: f.memory.map((m) => ({ ...m, details: structuredClone(m.details) })),
+    goals: f.goals.map((g) => ({ ...g, ...(g.lifecycle?{lifecycle:{...g.lifecycle,objective:g.lifecycle.objective?{...g.lifecycle.objective}:null}}:{}) })),
     currentThreats: [...f.currentThreats],
     knownFactions: [...f.knownFactions],
     knownTerritories: [...f.knownTerritories],
@@ -170,6 +174,7 @@ function cloneCity(city: City): City {
 function cloneTerritoryEconomy(economy: TerritoryEconomy): TerritoryEconomy {
   return {
     territoryId: economy.territoryId,
+    ...(economy.foodAccrualTick!==undefined?{foodAccrualTick:economy.foodAccrualTick}:{}),
     lastAccrualTick: economy.lastAccrualTick,
     uncollected: { ...economy.uncollected },
   };
@@ -223,7 +228,14 @@ function clonePlayerRewardState(rewards: PlayerRewardState): PlayerRewardState {
  * without sharing nested references with the initializer result.
  */
 export function overwriteGameState(target: GameState, source: GameState): void {
-  const next = cloneGameState(source);
+  adoptOwnedTransactionState(target, cloneGameState(source));
+}
+
+/** Transfer an already isolated, validated nested transaction draft. The caller
+ * relinquishes its ownership; unlike overwriteGameState this must not receive
+ * a retained external state. No second full-world clone is needed at this boundary.
+ */
+export function adoptOwnedTransactionState(target: GameState, next: GameState): void {
   target.schemaVersion = next.schemaVersion;
   target.turn = next.turn;
   target.worldTick = next.worldTick;
@@ -235,6 +247,19 @@ export function overwriteGameState(target: GameState, source: GameState): void {
   target.gameplaySessionLeases = next.gameplaySessionLeases;
   target.lastFoodConsumptionTick = next.lastFoodConsumptionTick;
   target.lastAiDecisionTick = next.lastAiDecisionTick;
+  target.strategicAttention = next.strategicAttention;
+  target.aiDecisionOpportunities = next.aiDecisionOpportunities;
+  target.aiResponses = next.aiResponses;
+  target.aiResponseScheduler = next.aiResponseScheduler;
+  target.aiPressure = next.aiPressure;
+  target.aiClock = next.aiClock;
+  target.peaceRelationships = next.peaceRelationships;
+  target.peaceProposals = next.peaceProposals;
+  target.peaceProposalThreads = next.peaceProposalThreads;
+  target.tradeProposals=next.tradeProposals;target.tradeShipments=next.tradeShipments;
+  target.opinionEvents = next.opinionEvents;
+  target.conflictLedger = next.conflictLedger;
+  target.conflictEventReceipts = next.conflictEventReceipts;
   target.worldSeed = next.worldSeed;
   target.factions = next.factions;
   target.allFactionIds = next.allFactionIds;
@@ -246,13 +271,15 @@ export function overwriteGameState(target: GameState, source: GameState): void {
   target.regions = next.regions;
   target.territories = next.territories;
   target.armies = next.armies;
-  target.commitments = next.commitments;
+  target.operations = next.operations;
+  target.operationClaims = next.operationClaims;
   target.activeEvents = next.activeEvents;
   target.eventHistory = next.eventHistory;
   target.playerRewards = next.playerRewards;
   target.activeInvasions = next.activeInvasions;
   target.constructions = next.constructions;
   target.cities = next.cities;
+  target.territoryRecruitment = next.territoryRecruitment;
   target.territoryEconomy = next.territoryEconomy;
   target.territoryInfrastructure = next.territoryInfrastructure;
   target.playerFitness = next.playerFitness;
@@ -265,8 +292,9 @@ export function overwriteGameState(target: GameState, source: GameState): void {
 
 /**
  * Deep-clones a `GameState` with no shared mutable nested references.
- * Every `Map`/`Set`/array/object nested field is rebuilt, including
- * `factions[].diplomacy`, `regions`, `commitments`, `activeEvents`,
+ * Mutable nested fields are rebuilt; deeply frozen terminal records may be
+ * shared safely. This includes
+ * `factions[].diplomacy`, `regions`, `operations`, `operationClaims`, `activeEvents`,
  * `playerRewards`, and `activeInvasions`.
  * See tests/run.ts, "GameState clone isolation".
  */
@@ -309,6 +337,12 @@ export function cloneGameState(state: GameState): GameState {
     gameplaySessionLeases: state.gameplaySessionLeases.map(cloneGameplaySessionLease),
     lastFoodConsumptionTick: state.lastFoodConsumptionTick,
     lastAiDecisionTick: new Map(state.lastAiDecisionTick),
+    strategicAttention: { ...state.strategicAttention },
+    aiDecisionOpportunities: cloneMap(state.aiDecisionOpportunities, opportunity => JSON.parse(JSON.stringify(opportunity))),
+    aiResponses: createResponseMap([...state.aiResponses].map(([id,c])=>[id,JSON.parse(JSON.stringify(c))] as const)),
+    aiResponseScheduler: {...state.aiResponseScheduler,primaryByFaction:new Map(state.aiResponseScheduler.primaryByFaction),lastBoundaryByFaction:new Map(state.aiResponseScheduler.lastBoundaryByFaction)},
+    aiPressure: cloneMap(state.aiPressure, source => ({ ...source, blockers: source.blockers.map(b => ({ plan: cloneConcretePlan(b.plan), reasons: b.reasons.map(r => ({ ...r })) })) })),
+    aiClock: { ...state.aiClock, worldAnchor: state.aiClock.worldAnchor ? { ...state.aiClock.worldAnchor } : null },
     worldSeed: state.worldSeed,
     factions: cloneMap(state.factions, cloneWarlordSnapshot),
     allFactionIds: [...state.allFactionIds],
@@ -320,13 +354,23 @@ export function cloneGameState(state: GameState): GameState {
     regions: cloneMap(state.regions, cloneRuntimeRegion),
     territories: cloneMap(state.territories, cloneTerritory),
     armies: cloneMap(state.armies, cloneArmy),
-    commitments: cloneMap(state.commitments, (c) => (c ? cloneCommitment(c) : null)),
+    operations: cloneOperations(state.operations),
+    operationClaims: cloneMap(state.operationClaims, c => ({ ...c })),
     activeEvents: state.activeEvents.map(cloneActiveEvent),
     eventHistory: state.eventHistory.map(cloneHistoryEntry),
     playerRewards: clonePlayerRewardState(state.playerRewards),
     activeInvasions: cloneMap(state.activeInvasions, cloneActiveInvasion),
     constructions: cloneMap(state.constructions, cloneConstruction),
     cities: cloneMap(state.cities, cloneCity),
+    territoryRecruitment: cloneMap(state.territoryRecruitment, p => ({ ...p })),
+    peaceRelationships: cloneMap(state.peaceRelationships, r => ({...r,factions:[...r.factions],finalizationTimer:r.finalizationTimer?{...r.finalizationTimer,progress:{...r.finalizationTimer.progress}}:null})),
+    peaceProposals: cloneMap(state.peaceProposals, p => ({...p,responseTimer:p.responseTimer?{...p.responseTimer,progress:{...p.responseTimer.progress}}:null})),
+    peaceProposalThreads: new Map(state.peaceProposalThreads),
+    tradeProposals:indexedTradeMap(proposalLive,[...state.tradeProposals].map(([id,p])=>[id,JSON.parse(JSON.stringify(p))] as const)),
+    tradeShipments:indexedTradeMap(shipmentLive,[...state.tradeShipments].map(([id,p])=>[id,JSON.parse(JSON.stringify(p))] as const)),
+    opinionEvents: cloneMap(state.opinionEvents, e => ({...e})),
+    conflictLedger:cloneMap(state.conflictLedger,p=>structuredClone(p)),
+    conflictEventReceipts:cloneMap(state.conflictEventReceipts,r=>({...r})),
     territoryEconomy: cloneMap(state.territoryEconomy, cloneTerritoryEconomy),
     territoryInfrastructure: cloneMap(state.territoryInfrastructure, cloneTerritoryInfrastructure),
     playerFitness: clonePlayerFitness(state.playerFitness),

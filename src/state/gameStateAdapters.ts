@@ -1,3 +1,6 @@
+import {reservedResource} from '../gameplay/trade/resources';
+import {RESOURCE_KEYS} from '../gameplay/economy/config';
+import { operationFromSelection } from '../engine/operations';
 /**
  * ENGINE INPUT / OUTPUT BOUNDARY ADAPTERS (AUTHORITATIVE RUNTIME GAMESTATE
  * PASS). See docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "Engine input
@@ -13,8 +16,7 @@
  *  - write an engine's output back onto `GameState`
  *    (`syncCommitmentsFromWarlordStates`).
  *
- * A future Orchestrator will call these (or something like them) as part
- * of a real turn loop; that loop itself is intentionally not built here.
+ * The Orchestrator's handlers use these against their current transaction draft.
  */
 import { AICommitment, Army, FactionId, GameStateSnapshot } from '../types';
 import { WorldStepInput } from '../events/EventModel';
@@ -24,14 +26,15 @@ import { WarlordState, cloneCommitment } from '../engine/DecisionEngine';
 /**
  * Narrow, read-only view of `GameState` shaped for `DecisionEngine`/
  * `ActionScorer`'s existing call boundary. Returns the SAME `Map`
- * references as `state` (not clones) — `DecisionEngine`/`ActionScorer`
- * are documented (and tested — see "AI decide/commitment does not mutate
- * world state" in tests/run.ts) to only read this data, never mutate it.
+ * references as `state` (not clones). Scoring reads these facts; decision
+ * bookkeeping writes faction history and the persisted identity sequence.
+ * Authoritative callers must pass their isolated transaction draft.
  * If a future caller needs an isolated view (e.g. a "what-if" preview),
  * clone `state` first with `cloneGameState()` and pass that in instead.
  */
 export function toDecisionEngineSnapshot(state: GameState): GameStateSnapshot {
   return {
+    canonicalState: state,
     turn: state.turn,
     factions: state.factions,
     territories: state.territories,
@@ -67,7 +70,9 @@ export function toDecisionEngineSnapshot(state: GameState): GameStateSnapshot {
  * (see `docs/EVENT_ENGINE_CORRECTNESS.md`).
  */
 export function toWorldStepInput(state: GameState, armies?: Map<string, Army>): WorldStepInput {
+  const reservedResources=new Map([...state.factions.keys()].map(fid=>[fid,Object.fromEntries(RESOURCE_KEYS.map(r=>[r,reservedResource(state,fid,r)]))]));
   return {
+    reservedResources,
     turn: state.turn,
     territories: state.territories,
     factions: state.factions,
@@ -79,76 +84,41 @@ export function toWorldStepInput(state: GameState, armies?: Map<string, Army>): 
   };
 }
 
-/**
- * Builds fresh `WarlordState` runtime wrappers (memory/goals engines +
- * AI-owned `activeCommitment`) from `GameState.factions`, seeding each
- * wrapper's `activeCommitment` from `GameState.commitments` so a rebuilt
- * `WarlordState` (e.g. after a process restart, or in a fresh test) picks
- * up mid-flight where the canonical state left off, instead of starting
- * every faction back at "no commitment".
- *
- * `WarlordState` itself is an AI-engine runtime object (holds live
- * `MemorySystem`/`GoalSystem` instances), not canonical state — see
- * `GameState.commitments`'s doc comment for why this is a documented,
- * explicit sync boundary rather than `GameState` holding `WarlordState`
- * instances directly.
- */
+/** Rebuild disposable cognition adapters. No wrapper owns operations or gating. */
 export function buildWarlordStates(state: GameState): Map<FactionId, WarlordState> {
   const out = new Map<FactionId, WarlordState>();
   for (const [id, snapshot] of state.factions.entries()) {
     const ws = new WarlordState(snapshot);
-    const commitment = state.commitments.get(id);
-    ws.activeCommitment = commitment ? cloneCommitment(commitment) : null;
     out.set(id, ws);
   }
   return out;
 }
 
 /**
- * Point existing `WarlordState` wrappers at a draft `GameState` after clone
- * or after EventEngine replaces faction objects. Preserves `commitmentSeq`
- * on the wrapper so IDs stay unique across ticks in one ADVANCE_WORLD.
+ * Rebuild disposable wrappers from the current draft after a clone or world
+ * mutation. Sequence/history live on canonical factions, so retaining wrapper
+ * objects is neither necessary nor safe. The argument remains for call-site compatibility.
  */
 export function rebindWarlordRuntime(
   state: GameState,
-  existing: Map<FactionId, WarlordState>,
+  _existing: Map<FactionId, WarlordState>,
 ): Map<FactionId, WarlordState> {
-  if (existing.size === 0) {
-    return buildWarlordStates(state);
-  }
-  for (const id of state.allFactionIds) {
-    const snap = state.factions.get(id);
-    if (!snap) continue;
-    const ws = existing.get(id);
-    if (!ws) {
-      const created = new WarlordState(snap);
-      const c = state.commitments.get(id);
-      created.activeCommitment = c ? cloneCommitment(c) : null;
-      existing.set(id, created);
-    } else {
-      ws.snapshot = snap;
-      const c = state.commitments.get(id);
-      ws.activeCommitment = c ? c : null;
-    }
-  }
-  return existing;
+  return buildWarlordStates(state);
 }
 
-/**
- * Writes each `WarlordState.activeCommitment` back onto
- * `state.commitments`, cloning so `GameState` never shares a mutable
- * `AICommitment` reference with a `WarlordState` that keeps reasoning
- * about it turn over turn. Call this after `DecisionEngine.decide()`/
- * `decideAll()` to keep the canonical `GameState.commitments` current.
- * Mutates `state.commitments` in place; does not touch anything else on
- * `state`.
- */
+/** Register newly selected exact proposals by ID; never overwrite existing
+ * operations or delete other faction work from a wrapper's output. */
 export function syncCommitmentsFromWarlordStates(
   state: GameState,
   warlordStates: Map<FactionId, WarlordState>,
+  factionIds: Iterable<FactionId> = warlordStates.keys(),
 ): void {
-  for (const [id, ws] of warlordStates.entries()) {
+  for (const id of factionIds) {
+    const ws = warlordStates.get(id);
+    if (!ws) continue;
     const commitment: AICommitment | null = ws.activeCommitment;
-    state.commitments.set(id, commitment ? cloneCommitment(commitment) : null);
+    if (commitment && !state.operations.has(commitment.id)) {
+      state.operations.set(commitment.id, operationFromSelection(commitment, state.worldTick));
+    }
   }
 }

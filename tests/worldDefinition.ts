@@ -1,3 +1,5 @@
+import { primeSourceDecision } from './aiPressureFixtures';
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -445,9 +447,13 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
     const collect = orch.execute(cmdReq('COLLECT_RESOURCES', { territoryId: 't_01', factionId: 'f_player' }));
     assert.strictEqual(collect.success, true, collect.errors[0]?.message);
     assert.ok(orch.getState().factions.get('f_player')!.resources.gold >= goldBefore);
+    for(const fid of orch.getState().allFactionIds.filter(id=>id!=='f_player')) {
+      orch.getState().factions.get(fid)!.resources.food=0;orch.getState().factions.get(fid)!.resources.iron=0;
+      if(orch.getState().factions.get(fid)!.territories.length)primeSourceDecision(orch.getState(),fid);
+    }
     const decide = orch.execute(cmdReq('AI_DECIDE', {}));
     assert.strictEqual(decide.success, true, decide.errors[0]?.message);
-    const aiCommitments = [...orch.getState().commitments.entries()].filter(([id, c]) => id !== 'f_player' && c);
+    const aiCommitments = [...fixtureCommitments(orch.getState()).entries()].filter(([id, c]) => id !== 'f_player' && c);
     assert.ok(aiCommitments.length >= 1);
   });
 
@@ -475,7 +481,7 @@ export function registerWorldDefinitionTests(api: WorldDefinitionTestApi): void 
       factorBreakdown: [],
       statusReason: null,
     };
-    state.commitments.set('f_cinder_court', commitment);
+    fixtureCommitments(state).set('f_cinder_court', commitment);
     const orch = new Orchestrator(state);
     const resolve = orch.execute(cmdReq('RESOLVE_COMMITMENT', { factionId: 'f_cinder_court', seed: 9 }));
     assert.strictEqual(resolve.success, true, resolve.errors[0]?.message);

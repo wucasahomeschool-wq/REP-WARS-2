@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import {
   ErrorCode,
@@ -192,7 +193,7 @@ export function registerLevel1TutorialTests(api: Level1TutorialTestApi): void {
     const decide = orch.execute(cmd('AI_DECIDE', { warlordId: 'f_ai_01' }, 'ai_decide'));
     assert.strictEqual(decide.success, true);
     assert.strictEqual(decide.payload.tutorialAiSuppressed, true);
-    assert.strictEqual(orch.getState().commitments.get('f_ai_01'), beforeAttack.commitments.get('f_ai_01'));
+    assert.strictEqual(fixtureCommitments(orch.getState()).get('f_ai_01'), fixtureCommitments(beforeAttack).get('f_ai_01'));
 
     const troops = orch.getState().playerRewards.bankedTroops;
     assert.strictEqual(orch.execute(cmd('ATTACK', {

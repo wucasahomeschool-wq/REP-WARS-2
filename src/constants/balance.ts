@@ -113,29 +113,13 @@ export const BALANCE = {
     resourceScarcityMultiplier: 1.5,
     buildEconomyThreshold: 0.3,
     tradeSurplusThreshold: 0.5,
-    // NOTE: `reinforcementCostPerSoldier` below is currently unused by any
-    // engine — nothing in src/ scales reinforcement cost per soldier. It
-    // predates (and was never wired up to) the actual REINFORCE action,
-    // which grants a flat +100 garrison for a flat cost. Left in place
-    // rather than deleted since removing balance values wasn't asked for
-    // here, but do not treat it as authoritative for REINFORCE costing —
-    // `reinforcementCost` immediately below is the one actual callers use.
+    /** @deprecated Historical prototype constants only. No runtime path
+     * purchases troops; Phase G uses local recruitment and pool allocation. */
     reinforcementCostPerSoldier: {
       gold: 5,
       food: 3,
     },
-    /**
-     * AI DECISION CORRECTNESS PASS: this is the single authoritative cost
-     * of a REINFORCE action (flat cost for a flat +100 garrison gain). It
-     * used to only exist as inline literals inside
-     * `src/simulation/cli.ts`'s `simulateDecisionOutcomes()` (250 gold, 150
-     * food), while `ActionScorer.scoreReinforce()` independently checked
-     * against unrelated hardcoded thresholds (gold > 500, food > 300) that
-     * did not match. Both now read from here, so AI scoring and execution
-     * can never silently disagree about what REINFORCE costs. The values
-     * themselves are unchanged (not rebalanced) — only moved to one place.
-     * See docs/AI_DECISION_CORRECTNESS.md, "Reinforcement affordability".
-     */
+    /** @deprecated Historical save/tool reference; not a gameplay cost. */
     reinforcementCost: {
       gold: 250,
       food: 150,

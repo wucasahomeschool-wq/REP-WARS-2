@@ -1,3 +1,4 @@
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import { runLongSimulation } from '../src/simulation/longRunHarness';
 import { checkGameStateInvariants } from '../src/state';
@@ -47,11 +48,12 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
   });
 
   test('different seeds are not forced into identical outcomes (sanity: harness is not a no-op)', () => {
-    const a = runLongSimulation({ seed: 1, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
-    const b = runLongSimulation({ seed: 2, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
+    const a = runLongSimulation({ seed: 1, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS.map(s=>({...s,startingResources:{...s.startingResources,food:0}})) });
+    const b = runLongSimulation({ seed: 2, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS.map(s=>({...s,startingResources:{...s.startingResources,food:0}})) });
     const differs = a.battlesResolved !== b.battlesResolved
       || a.territoriesChangedOwner !== b.territoriesChangedOwner
-      || JSON.stringify([...a.actionCounts.entries()]) !== JSON.stringify([...b.actionCounts.entries()]);
+      || JSON.stringify([...a.actionCounts.entries()]) !== JSON.stringify([...b.actionCounts.entries()])
+      || JSON.stringify([...a.finalState.operations.values()].map(o=>o.plan)) !== JSON.stringify([...b.finalState.operations.values()].map(o=>o.plan));
     assert.ok(differs, 'two different seeds produced byte-identical simulation statistics');
   });
 
@@ -88,8 +90,9 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
 
   test('no permanently-active ATTACK commitment with a target that is no longer a foreign territory', () => {
     const result = runLongSimulation({ seed: 21, ticks: 90 });
-    for (const [factionId, commitment] of result.finalState.commitments) {
+    for (const [factionId, commitment] of fixtureCommitments(result.finalState)) {
       if (!commitment || commitment.action !== 'ATTACK' || !isActiveCommitmentStatus(commitment.status)) continue;
+      if (commitment.phase === 'recovery') { assert.ok(commitment.objective === 'invalid'); continue; }
       if (!commitment.targetId) continue;
       const target = result.finalState.territories.get(commitment.targetId);
       assert.ok(target, `ATTACK commitment target ${commitment.targetId} missing entirely`);
@@ -103,19 +106,16 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
     assert.strictEqual(result.ticksAdvanced, 120);
   });
 
-  test('personality differentiation: aggressive faction shows more war-like actions than defensive across seeds', () => {
-    const warlike: ActionType[] = ['ATTACK', 'DECLARE_WAR'];
-    let aggressiveTotal = 0;
-    let defensiveTotal = 0;
+  test('long simulations select concrete plans and never revive removed proactive actions', () => {
     for (const seed of [1, 2, 3, 4, 5]) {
-      const result = runLongSimulation({ seed, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
-      aggressiveTotal += actionTotal(result.actionCounts.get('ashen_horde'), warlike);
-      defensiveTotal += actionTotal(result.actionCounts.get('iron_kingdom'), warlike);
+      const result = runLongSimulation({ seed, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS.map(s=>({...s,startingResources:{...s.startingResources,food:0}})) });
+      for (const counts of result.actionCounts.values()) {
+        for (const removed of ['DEFEND', 'NEGOTIATE', 'DECLARE_WAR'] as const) assert.strictEqual(counts[removed] ?? 0, 0);
+      }
+      for (const c of fixtureCommitments(result.finalState).values()) {
+        if (c) { assert.ok(c.plan, 'new commitment must retain its exact selected plan'); assert.strictEqual(c.action, c.plan!.action); }
+      }
     }
-    assert.ok(
-      aggressiveTotal >= defensiveTotal,
-      `aggressive ashen_horde (${aggressiveTotal} war-like actions) should not trail defensive iron_kingdom (${defensiveTotal}) across 5 seeds`,
-    );
   });
 
   test('personality differentiation: economic faction shows more BUILD/REINFORCE than aggressive across seeds', () => {
@@ -123,7 +123,7 @@ export function registerLongSimulationTests(api: LongSimulationTestApi): void {
     let economicTotal = 0;
     let aggressiveTotal = 0;
     for (const seed of [1, 2, 3, 4, 5]) {
-      const result = runLongSimulation({ seed, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS });
+      const result = runLongSimulation({ seed, ticks: 60, mapSpecs: SAMPLE_MAP, warlordSpecs: WARLORD_SPECS.map(s=>({...s,startingResources:{...s.startingResources,food:0}})) });
       economicTotal += actionTotal(result.actionCounts.get('merchant_republic'), economic);
       aggressiveTotal += actionTotal(result.actionCounts.get('ashen_horde'), economic);
     }

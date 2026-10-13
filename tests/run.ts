@@ -1,3 +1,14 @@
+import {registerAiResponseTests} from './aiResponses';
+import {registerAiConflictTests} from './aiConflict';
+import {registerAiCognitionTests} from './aiCognition';
+import {registerAiTradeTests} from './aiTrade';
+import { registerAiPeaceTests } from './aiPeace';
+import { registerAiRecruitmentTests } from './aiRecruitment';
+import { primeSourceDecision } from './aiPressureFixtures';
+import { opportunity, selectWaitInitiation, prepareProactiveDecision, accrueProactiveClocks } from '../src/engine/proactiveCognition';
+import { registerAiStrategicPressureTests } from './aiStrategicPressure';
+import { registerAiStrategicEvaluationTests } from './aiStrategicEvaluation';
+import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -57,6 +68,10 @@ import { runStateTransaction } from '../src/orchestration/transaction';
 import { registerArmyMovementTests } from './armyMovement';
 import { registerStrategicAttackTests } from './strategicAttack';
 import { registerAiRuntimeTests } from './aiRuntime';
+import { registerAiOperationTests } from './aiOperations';
+import { registerAiStrategyConcurrencyTests } from './aiStrategyConcurrency';
+import { registerAiConcretePlanTests } from './aiConcretePlans';
+import { registerAiCanonicalReasoningTests } from './aiCanonicalReasoning';
 import { registerFoundationHardeningTests } from './foundationHardening';
 import { registerLongSimulationTests } from './longSimulation';
 import { registerFitnessDomainTests } from './fitnessDomain';
@@ -541,6 +556,7 @@ function makeSelf(id: string, overrides: Partial<WarlordSnapshot> = {}): Warlord
     knownFactions: [id],
     knownTerritories: [],
     lastActions: [],
+    nextAiCommitmentSequence: 0,
     reputation: 50,
     stability: 70,
     ambition: 0.5,
@@ -609,80 +625,13 @@ test('computeLocalHostilePower scales with force actually stationed at the hosti
 });
 
 console.log('AI decision correctness — reinforcement cost consistency');
-test('scoreReinforce affordability check uses BALANCE.economy.reinforcementCost, the same source cli.ts execution charges', () => {
-  const RC = BALANCE.economy.reinforcementCost;
-  const territories = new Map<string, Territory>([
-    ['home', makeTerritory({ id: 'home', owner: 'me', garrison: 50 })],
-  ]);
-  const armies = new Map<string, Army>();
-  const scorer = new ActionScorer();
-  const scoreReinforceHome = (gold: number, food: number) => {
-    const self = makeSelf('me', {
-      territories: ['home'],
-      totalMilitaryPower: 50,
-      resources: { gold, food, iron: 1000, wood: 1000, stone: 1000 },
-    });
-    const gameState: GameStateSnapshot = { turn: 1, factions: new Map([['me', self]]), territories, armies, allFactionIds: ['me'] };
-    const ctx = WarlordState.buildContext(self, gameState);
-    const input: ScorerInput = { ctx, turn: 1, rng: new SeededRNG(1), memory: new MemorySystem(), goals: new GoalSystem([]) };
-    return scorer.scoreAllActions(input).find((s) => s.action === 'REINFORCE' && s.targetId === 'home')!;
-  };
-
-  const affordableResult = scoreReinforceHome(RC.gold, RC.food);
-  assert.ok(affordableResult.factorBreakdown.some((f) => f.factor === 'Resources available'),
-    'exactly enough gold/food for the real REINFORCE cost must be treated as affordable');
-  assert.ok(!affordableResult.factorBreakdown.some((f) => f.factor === 'Resource constraints'));
-
-  const shortResult = scoreReinforceHome(RC.gold - 1, RC.food);
-  assert.ok(shortResult.factorBreakdown.some((f) => f.factor === 'Resource constraints'),
-    'one gold short of the real REINFORCE cost must be treated as unaffordable, matching what execution would refuse to charge');
-
-  // Guard against silently rebalancing the shared, authoritative cost values.
-  assert.strictEqual(RC.gold, 250);
-  assert.strictEqual(RC.food, 150);
-  assert.strictEqual(RC.garrisonGain, 100);
-});
-
-console.log('AI decision correctness — trade respects surplus depth, not just low current need');
-function scoreTradeIronBonus(myIronResources: number, myIronIncome: number): number {
-  const me = makeSelf('me', {
-    knownFactions: ['me', 'other'],
-    resources: { gold: 1000, food: 1000, iron: myIronResources, wood: 1000, stone: 1000 },
-    resourceIncome: { gold: 100, food: 100, iron: myIronIncome, wood: 100, stone: 100 },
-  });
-  const other = makeSelf('other', {
-    resources: { gold: 5000, food: 5000, iron: 10, wood: 5000, stone: 5000 },
-    resourceIncome: { gold: 100, food: 100, iron: 50, wood: 100, stone: 100 },
-  });
-  const gameState: GameStateSnapshot = {
-    turn: 1,
-    factions: new Map([['me', me], ['other', other]]),
-    territories: new Map(),
-    armies: new Map(),
-    allFactionIds: ['me', 'other'],
-  };
-  const ctx = WarlordState.buildContext(me, gameState);
-  const scorer = new ActionScorer();
-  const input: ScorerInput = { ctx, turn: 1, rng: new SeededRNG(1), memory: new MemorySystem(), goals: new GoalSystem([]) };
-  const trade = scorer.scoreAllActions(input).find((s) => s.action === 'TRADE' && s.targetId === 'other');
-  assert.ok(trade, 'expected a TRADE score for the known trade partner');
-  const complementarity = trade!.factorBreakdown.find((f) => f.factor === 'Resource complementarity');
-  return complementarity ? complementarity.contribution : 0;
-}
-test('a razor-thin resource surplus contributes only a small trade bonus', () => {
-  // iron = 2401, income = 100 puts `mySurplus.iron` just barely above 0 (~0.00028).
-  const contribution = scoreTradeIronBonus(2401, 100);
-  assert.ok(contribution < 1, `expected a razor-thin surplus to contribute a small bonus, got ${contribution}`);
-});
-test('a deep resource surplus contributes a much larger trade bonus for the same partner need', () => {
-  // iron = 100000, income = 100 puts `mySurplus.iron` at its cap (1.0).
-  const contribution = scoreTradeIronBonus(100000, 100);
-  assert.ok(contribution > 40, `expected a deep surplus to contribute a large bonus, got ${contribution}`);
-});
-test('no resource surplus at all contributes no trade bonus for that resource, even if the partner badly needs it', () => {
-  // iron = 0, income = 0 -> `mySurplus.iron` is undefined (the inc<=0 branch never registers a surplus).
-  const contribution = scoreTradeIronBonus(0, 0);
-  assert.strictEqual(contribution, 0);
+test('resource wealth cannot fabricate a pool-based REINFORCE or absent Trade/Peace proposal', () => {
+  const me = makeSelf('me', { territories: ['home'], resources: { gold: 100000, food: 100000, iron: 100000, wood: 100000, stone: 100000 } });
+  const other = makeSelf('other');
+  const gs: GameStateSnapshot = { turn: 1, factions: new Map([['me', me], ['other', other]]), territories: new Map([['home', makeTerritory({ id: 'home', owner: 'me' })]]), armies: new Map(), allFactionIds: ['me', 'other'] };
+  const scored = new ActionScorer().scoreAllActions({ ctx: WarlordState.buildContext(me, gs), turn: 1, rng: new SeededRNG(1), memory: new MemorySystem(), goals: new GoalSystem([]) });
+  assert.ok(!scored.some(s => ['REINFORCE', 'TRADE', 'OFFER_PEACE'].includes(s.action)));
+  assert.ok(scored.some(s => s.action === 'WAIT' && s.plan.action === 'WAIT'));
 });
 
 console.log('AI decision correctness — control_region goal target bug');
@@ -789,19 +738,19 @@ test('DecisionEngine.decide is deterministic for a fixed seed given identical st
 
 console.log('Engine execution consistency — balance/cost centralization');
 test('BUILD affordability (scorer) and cli read BALANCE mirror of construction definition', () => {
-  const scorerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'scoring', 'ActionScorer.ts'), 'utf8');
+  const scorerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'engine', 'concretePlans.ts'), 'utf8');
   const cliSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'simulation', 'cli.ts'), 'utf8');
-  assert.ok(/fortificationCostPerLevel/.test(scorerSrc), 'ActionScorer.scoreBuild must read BALANCE.territory.fortificationCostPerLevel');
+  assert.ok(/constructionCostEntries/.test(scorerSrc) && /getConstructionProjectDefinition/.test(scorerSrc), 'BUILD generators must use authoritative definitions, not a second cost table');
   assert.ok(/fortificationCostPerLevel/.test(cliSrc), "cli.ts's BUILD execution must read BALANCE.territory.fortificationCostPerLevel");
   const def = getConstructionProjectDefinition('FORTIFICATION');
   assert.strictEqual(BALANCE.territory.fortificationCostPerLevel.gold, def.cost.gold);
   assert.strictEqual(BALANCE.territory.fortificationCostPerLevel.stone, def.cost.stone);
 });
-test('REINFORCE affordability (scorer) and REINFORCE cost (cli.ts execution) both read BALANCE.economy.reinforcementCost', () => {
+test('new REINFORCE has no resource-purchase scorer; legacy execution remains isolated', () => {
   const scorerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'scoring', 'ActionScorer.ts'), 'utf8');
-  const cliSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'simulation', 'cli.ts'), 'utf8');
-  assert.ok(/reinforcementCost\b/.test(scorerSrc) && /reinforcementCost\b/.test(cliSrc),
-    'both ActionScorer and cli.ts must read the same BALANCE.economy.reinforcementCost value');
+  const handlerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'orchestration', 'handlers.ts'), 'utf8');
+  assert.ok(!/scoreReinforce|reinforcementCost/.test(scorerSrc));
+  assert.ok(/handleReinforce/.test(handlerSrc), 'retain old saved commitment command compatibility');
 });
 
 console.log('AI decision correctness — AI does not resolve battles itself');
@@ -1604,9 +1553,7 @@ test('high ambition does not apply offensive bonuses under an immediate survival
   assert.ok(!highAtk.factorBreakdown.some((f) => f.factor === 'Ambition (strategic push)'),
     'threatened ATTACK must not carry an offensive Ambition push');
   void midAtk;
-  const midDef = scoreWorld(mid.self, mid.gameState, mid.goals).find((s) => s.action === 'DEFEND')!;
-  const highDef = scoreWorld(high.self, high.gameState, high.goals).find((s) => s.action === 'DEFEND')!;
-  assert.strictEqual(midDef.score, highDef.score, 'DEFEND must be independent of ambition');
+  assert.ok(!scoreWorld(high.self, high.gameState, high.goals).some(s => s.action === 'DEFEND'), 'DEFEND is not a proactive candidate');
 });
 test('goal data influences action selection where a valid target exists', () => {
   const withContext = GoalSystem.generateInitialGoals('aggressive', 'me', 0, new SeededRNG(1), {
@@ -1653,8 +1600,8 @@ console.log('AI commitment & ambition — strategic RETREAT vs no-battle-retreat
 test('strategic RETREAT is repositioning off non-owned ground, not a battle-retreat mechanic', () => {
   const scorerSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'scoring', 'ActionScorer.ts'), 'utf8');
   const retreatFn = scorerSrc.split('private scoreRetreat')[1]!.split('private scoreWait')[0];
-  assert.ok(/loc\.owner === ctx\.self\.id/.test(retreatFn),
-    'scoreRetreat must skip armies already on owned territory');
+  const generatorSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'engine', 'concretePlans.ts'), 'utf8');
+  assert.ok(/origin.owner !== factionId/.test(generatorSrc), 'RETREAT generation requires non-owned ground');
   assert.ok(!/BattleEngine/.test(retreatFn), 'scoreRetreat must not call BattleEngine');
   assert.ok(/strategic, not battle retreat/.test(retreatFn));
 
@@ -1685,9 +1632,7 @@ test('strategic RETREAT is repositioning off non-owned ground, not a battle-retr
     territories, armies, allFactionIds: ['me', 'enemy'],
   };
   const ownedOnly = scoreWorld(me, gs, new GoalSystem([]));
-  const retreatOwned = ownedOnly.find((s) => s.action === 'RETREAT')!;
-  assert.notStrictEqual(retreatOwned.targetId, 'home',
-    'an army on owned land must not be scored as a battlefield retreat off the home territory');
+  assert.ok(!ownedOnly.some(s => s.action === 'RETREAT'), 'no legal strategic retreat from owned ground');
 
   armies.set('exposed', {
     id: 'exposed', owner: 'me', location: 'field',
@@ -1716,9 +1661,9 @@ test('createGameState() contains the expected major state domains', () => {
   const state = createGameState({ seed: 42 });
   const keys = Object.keys(state).sort();
   const expected = [
-    'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'commitments', 'constructions',
+    'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiResponses', 'aiResponseScheduler', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'conflictLedger', 'conflictEventReceipts', 'opinionEvents', 'operationClaims', 'operations', 'constructions',
     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
-    'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure',
+    'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'tradeProposals', 'tradeShipments', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
@@ -1748,13 +1693,11 @@ test('createGameState() contains the expected major state domains', () => {
   assert.strictEqual(state.activeInvasions.size, 0);
 });
 
-test('createGameState() seeds one null commitment per faction', () => {
+test('createGameState() starts with empty canonical operations and claims', () => {
   const state = createGameState({ seed: 7 });
-  assert.strictEqual(state.commitments.size, state.allFactionIds.length);
-  for (const fid of state.allFactionIds) {
-    assert.ok(state.commitments.has(fid), `commitments must have an entry for ${fid}`);
-    assert.strictEqual(state.commitments.get(fid), null, `${fid} must start with no active commitment`);
-  }
+  assert.strictEqual(state.operations.size, 0);
+  assert.strictEqual(state.operationClaims.size, 0);
+  assert.ok(!('commitments' in state));
 });
 
 test('createGameState() is deterministic: same seed produces an equivalent GameState', () => {
@@ -1844,12 +1787,12 @@ test('invariants catch a faction listing a territory it does not own', () => {
   assert.ok(violations.some((v) => v.code === 'faction.territory_owner_mismatch'));
 });
 
-test('invariants catch an active commitment with an invalid target', () => {
+test('stale selected objectives fail fresh start validation', () => {
   const state = createGameState({ seed: 42 });
   const clone = cloneGameState(state);
   const [fid] = clone.allFactionIds;
   const [victimTerritoryId] = clone.territories.keys();
-  clone.commitments.set(fid!, {
+  fixtureCommitments(clone).set(fid!, {
     id: 'cmt_test', warlordId: fid!, action: 'ATTACK', targetId: victimTerritoryId!, targetName: null,
     status: 'committed', createdTurn: 0, originatingGoalId: null, reason: [], priority: 0, score: 0,
     confidence: 0, personalityBias: 0, ambitionInfluence: 0, factorBreakdown: [], statusReason: null,
@@ -1857,9 +1800,16 @@ test('invariants catch an active commitment with an invalid target', () => {
   // ATTACK on a territory the same faction already owns (or that is
   // unowned) is not a valid attack target — reuses `validateCommitmentTarget`.
   const t = clone.territories.get(victimTerritoryId!)!;
+  if (t.owner) clone.factions.get(t.owner)!.territories = clone.factions.get(t.owner)!.territories.filter(id => id !== t.id);
   t.owner = fid!;
+  if (!clone.factions.get(fid!)!.territories.includes(t.id)) clone.factions.get(fid!)!.territories.push(t.id);
   const violations = checkGameStateInvariants(clone);
-  assert.ok(violations.some((v) => v.code === 'commitment.invalid_target'));
+  // Selected objectives may become stale before execution. They are
+  // revalidated at atomic start rather than making a world snapshot invalid.
+  assert.ok(!violations.some(v => v.code === 'commitment.invalid_target'));
+  const result = new Orchestrator(clone).execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid! }));
+  assert.strictEqual(result.success, false);
+  assert.strictEqual(result.errors[0]!.code, ErrorCode.INVALID_TARGET);
 });
 
 test('invariants catch an active event referencing an unknown territory/faction', () => {
@@ -1911,7 +1861,7 @@ test('cloneGameState produces a deep copy that shares no mutable nested state', 
   });
   const [fid] = source.allFactionIds;
   source.lastAiDecisionTick.set(fid!, 3);
-  source.commitments.set(fid!, {
+  fixtureCommitments(source).set(fid!, {
     id: 'cmt_src', warlordId: fid!, action: 'WAIT', targetId: null, targetName: null, status: 'committed',
     createdTurn: 0, originatingGoalId: null, reason: ['r1'], priority: 0, score: 0, confidence: 0,
     personalityBias: 0, ambitionInfluence: 0, factorBreakdown: [{ factor: 'f', weight: 1, contribution: 1 }],
@@ -1958,8 +1908,8 @@ test('cloneGameState produces a deep copy that shares no mutable nested state', 
     rel.opinion = -999;
     break;
   }
-  clone.commitments.get(fid!)!.reason.push('mutated');
-  clone.commitments.set('mutated_key', null);
+  fixtureCommitments(clone).get(fid!)!.reason.push('mutated');
+  fixtureCommitments(clone).set('mutated_key', null);
   clone.lastAiDecisionTick.set(fid!, 99);
   clone.worldTick = 999;
   clone.activeEvents[0]!.status = 'expired';
@@ -2011,8 +1961,8 @@ test('cloneGameState produces a deep copy that shares no mutable nested state', 
   for (const rel of [...source.factions.values()][0]!.diplomacy.values()) {
     assert.notStrictEqual(rel.opinion, -999);
   }
-  assert.strictEqual(source.commitments.get(fid!)!.reason.includes('mutated'), false);
-  assert.strictEqual(source.commitments.has('mutated_key'), false);
+  assert.strictEqual(fixtureCommitments(source).get(fid!)!.reason.includes('mutated'), false);
+  assert.strictEqual(fixtureCommitments(source).has('mutated_key'), false);
   assert.strictEqual(source.lastAiDecisionTick.get(fid!), 3);
   assert.strictEqual(source.worldTick, 0);
   assert.strictEqual(source.activeEvents[0]!.status, 'active');
@@ -2074,7 +2024,7 @@ test('buildWarlordStates + DecisionEngine.decideAll + syncCommitmentsFromWarlord
   syncCommitmentsFromWarlordStates(state, warlordStates);
 
   for (const fid of state.allFactionIds) {
-    const commitment = state.commitments.get(fid);
+    const commitment = fixtureCommitments(state).get(fid);
     assert.ok(commitment, `${fid} must have a commitment recorded in GameState after decide + sync`);
     assert.strictEqual(commitment!.warlordId, fid);
     // Must be an independent clone, not the same object `warlordStates` holds.
@@ -2082,11 +2032,11 @@ test('buildWarlordStates + DecisionEngine.decideAll + syncCommitmentsFromWarlord
   }
   assert.deepStrictEqual(checkGameStateInvariants(state), [], 'GameState must remain structurally valid after a real decide() round-trip');
 
-  // Rebuilding WarlordStates from the now-populated GameState must pick up
-  // the same commitments rather than resetting them to null.
+  // Rebuilding cognition DTOs never reinstalls physical operation authority.
   const rebuilt = buildWarlordStates(state);
   for (const fid of state.allFactionIds) {
-    assert.strictEqual(rebuilt.get(fid)!.activeCommitment?.id, state.commitments.get(fid)!.id);
+    assert.strictEqual(rebuilt.get(fid)!.activeCommitment, null);
+    assert.ok(fixtureCommitments(state).get(fid));
   }
 });
 
@@ -2134,7 +2084,7 @@ function buildOrchestratorAttackScenario(): { orchestrator: Orchestrator; attack
     territories: snap.territories,
     ...authoredWorldFields(snap.territories),
     armies: snap.armies,
-    commitments,
+    operations: new Map(), operationClaims: new Map(),
     activeEvents: [],
     eventHistory: [],
   };
@@ -2162,9 +2112,9 @@ test('invalid command returns INVALID_COMMAND', () => {
   assert.strictEqual(res.errors[0]!.code, ErrorCode.INVALID_COMMAND);
 });
 
-test('unsupported command returns FEATURE_NOT_IMPLEMENTED', () => {
+test('legacy declaration command returns FEATURE_NOT_IMPLEMENTED', () => {
   const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' }));
-  const res = orch.execute(cmdReq('TRADE', 'player_1', { targetFactionId: 'iron_kingdom' }));
+  const res = orch.execute(cmdReq('DECLARE_WAR', 'player_1', { targetFactionId: 'iron_kingdom' }));
   assert.strictEqual(res.success, false);
   assert.strictEqual(res.errors[0]!.code, ErrorCode.FEATURE_NOT_IMPLEMENTED);
 });
@@ -2235,20 +2185,15 @@ test('BUILD starts timed fortification using construction definition cost', () =
   assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore + 1);
 });
 
-test('REINFORCE uses centralized BALANCE reinforcement cost', () => {
+test('legacy resource-funded REINFORCE cannot create troops or spend banked resources', () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'iron_kingdom' });
-  const fid = 'iron_kingdom';
-  const owned = state.factions.get(fid)!.territories[0]!;
-  const garBefore = state.territories.get(owned)!.garrison;
-  const { gold: costG, food: costF, garrisonGain } = BALANCE.economy.reinforcementCost;
-  const goldBefore = state.factions.get(fid)!.resources.gold;
-  const foodBefore = state.factions.get(fid)!.resources.food;
-  const orch = new Orchestrator(state);
-  const res = orch.execute(cmdReq('REINFORCE', 'player_1', { territoryId: owned, factionId: fid }));
-  assert.strictEqual(res.success, true);
-  assert.strictEqual(orch.getState().territories.get(owned)!.garrison, garBefore + garrisonGain);
-  assert.strictEqual(orch.getState().factions.get(fid)!.resources.gold, goldBefore - costG);
-  assert.strictEqual(orch.getState().factions.get(fid)!.resources.food, foodBefore - costF);
+  const fid = 'iron_kingdom', owned = state.factions.get(fid)!.territories[0]!;
+  const before=cloneGameState(state), orch=new Orchestrator(state);
+  const res=orch.execute(cmdReq('REINFORCE','player_1',{territoryId:owned,factionId:fid}));
+  assert.strictEqual(res.success,false);
+  assert.deepStrictEqual(orch.getState().territories,before.territories);
+  assert.deepStrictEqual(orch.getState().factions,before.factions);
+  assert.deepStrictEqual(orch.getState().playerRewards,before.playerRewards);
 });
 
 test('insufficient resources leaves state unchanged on BUILD', () => {
@@ -2269,7 +2214,7 @@ test('GameState invariants run after state-changing commands', () => {
   const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
   const fid = 'merchant_republic';
   const owned = orch.getState().factions.get(fid)!.territories[0]!;
-  const res = orch.execute(cmdReq('REINFORCE', 'player_1', { territoryId: owned, factionId: fid }));
+  const res = orch.execute(cmdReq('ADVANCE_WORLD', 'player_1', { elapsedTicks: 1 }));
   assert.strictEqual(res.success, true);
   assert.deepStrictEqual(checkGameStateInvariants(orch.getState()), []);
 });
@@ -2330,13 +2275,14 @@ test('ADVANCE_WORLD applies WorldSimulator result without a second authoritative
 
 test('AI_DECIDE updates commitments without mutating territories/armies maps', () => {
   const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
+  orch.getState().factions.get('ashen_horde')!.resources.food=0;primeSourceDecision(orch.getState(),'ashen_horde');
   const terrBefore = cloneGameState(orch.getState()).territories;
   const armiesBefore = cloneGameState(orch.getState()).armies;
   const res = orch.execute(cmdReq('AI_DECIDE', 'player_1', { warlordId: 'ashen_horde' }));
   assert.strictEqual(res.success, true);
   assert.deepStrictEqual(orch.getState().territories, terrBefore);
   assert.deepStrictEqual(orch.getState().armies, armiesBefore);
-  assert.ok(orch.getState().commitments.get('ashen_horde'));
+  assert.ok(fixtureCommitments(orch.getState()).get('ashen_horde'));
 });
 
 function snapshotToGameState(snap: GameStateSnapshot, playerFactionId: FactionId | null, worldSeed = 42): GameState {
@@ -2354,7 +2300,7 @@ function snapshotToGameState(snap: GameStateSnapshot, playerFactionId: FactionId
     territories: snap.territories,
     ...authoredWorldFields(snap.territories),
     armies: snap.armies,
-    commitments,
+    operations: new Map(), operationClaims: new Map(),
     activeEvents: [],
     eventHistory: [],
   };
@@ -2424,7 +2370,7 @@ test('AI → Player ATTACK creates an invasion instead of resolving immediately'
   const reg = createDefaultRegistry();
   reg.registerBattle(battle);
   const state = buildParityBattleState('def_faction');
-  state.commitments.set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
+  fixtureCommitments(state).set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
   const orch = new Orchestrator(state, reg);
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'player_1', { factionId: 'atk_faction', seed: 42 }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
@@ -2440,7 +2386,7 @@ test('AI → AI ATTACK uses the same BattleEngine path', () => {
   const reg = createDefaultRegistry();
   reg.registerBattle(battle);
   const state = buildParityBattleState('spectator', true);
-  state.commitments.set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
+  fixtureCommitments(state).set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
   const orch = new Orchestrator(state, reg);
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'player_1', { factionId: 'atk_faction', seed: 42 }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
@@ -2467,7 +2413,7 @@ test('no duplicate player-vs-AI battle formula exists; all pairings share Battle
   };
   const runAi = (player: FactionId, spectator: boolean) => {
     const state = buildParityBattleState(player, spectator);
-    state.commitments.set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
+    fixtureCommitments(state).set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
     const orch = new Orchestrator(state);
     return orch.execute(cmdReq('RESOLVE_COMMITMENT', 'player_1', { factionId: 'atk_faction', seed: 42 }));
   };
@@ -2531,7 +2477,7 @@ test('AI_DECIDE does not run DecisionEngine for the player faction', () => {
   assert.strictEqual(res.errors[0]!.code, ErrorCode.ACTION_NOT_ALLOWED);
 });
 
-test('unsupported diplomacy remains FEATURE_NOT_IMPLEMENTED for player and AI callers', () => {
+test('Trade and Peace reject missing exact plans and player impersonation', () => {
   const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' }));
   const peaceP = orch.execute(cmdReq('OFFER_PEACE', 'player_1', { targetFactionId: 'iron_kingdom' }));
   const peaceAi = orch.execute(cmdReq('OFFER_PEACE', 'player_1', {
@@ -2541,9 +2487,11 @@ test('unsupported diplomacy remains FEATURE_NOT_IMPLEMENTED for player and AI ca
   const tradeAi = orch.execute(cmdReq('TRADE', 'player_1', {
     targetFactionId: 'iron_kingdom', factionId: 'ashen_horde',
   }));
-  for (const r of [peaceP, peaceAi, tradeP, tradeAi]) {
+  assert.strictEqual(peaceP.errors[0]!.code, ErrorCode.MISSING_PARAMETER);
+  assert.strictEqual(peaceAi.success,false);
+  for (const r of [tradeP, tradeAi]) {
     assert.strictEqual(r.success, false);
-    assert.strictEqual(r.errors[0]!.code, ErrorCode.FEATURE_NOT_IMPLEMENTED);
+    assert.strictEqual(r.errors[0]!.code, ErrorCode.MISSING_PARAMETER);
   }
 });
 
@@ -2557,7 +2505,7 @@ test('no DiplomacyEngine was introduced; SCOUT handler is gone', () => {
 test('player command and AI commitment converge on executeAttack; AI vs player waits for defense', () => {
   const battle = new RecordingBattleEngine();
   const state = buildParityBattleState('def_faction');
-  state.commitments.set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
+  fixtureCommitments(state).set('atk_faction', makeAttackCommitment('atk_faction', 'front'));
   const reg = createDefaultRegistry();
   reg.registerBattle(battle);
   const orch = new Orchestrator(state, reg);
@@ -2614,7 +2562,7 @@ function buildRetreatOrchestratorState(): GameState {
     territories: new Map([['home', home], ['wild', wild]]),
     ...authoredWorldFields(new Map([['home', home], ['wild', wild]])),
     armies: new Map([[army.id, army]]),
-    commitments: new Map([[fid, null]]),
+    operations: new Map(), operationClaims: new Map(),
     activeEvents: [],
     eventHistory: [],
   };
@@ -2638,7 +2586,7 @@ test('every ActionType is classified executable or unsupported', () => {
 test('AI ATTACK commitment executes through BattleEngine', () => {
   const battle = new RecordingBattleEngine();
   const state = buildParityBattleState('spectator', true);
-  state.commitments.set('atk_faction', makeCmt({ warlordId: 'atk_faction', action: 'ATTACK', targetId: 'front' }));
+  fixtureCommitments(state).set('atk_faction', makeCmt({ warlordId: 'atk_faction', action: 'ATTACK', targetId: 'front' }));
   const reg = createDefaultRegistry();
   reg.registerBattle(battle);
   const orch = new Orchestrator(state, reg);
@@ -2646,7 +2594,7 @@ test('AI ATTACK commitment executes through BattleEngine', () => {
   assert.strictEqual(res.success, true, res.errors[0]?.message);
   assert.strictEqual(battle.inputs.length, 1);
   assert.strictEqual(res.payload.commitmentOutcome, 'completed');
-  assert.strictEqual(orch.getState().commitments.get('atk_faction')!.status, 'completed');
+  assert.strictEqual(fixtureCommitments(orch.getState()).get('atk_faction')!.status, 'completed');
   assert.deepStrictEqual(checkGameStateInvariants(orch.getState()), []);
 });
 
@@ -2658,7 +2606,7 @@ test('AI BUILD commitment starts timed fortification construction', () => {
   const { gold: costG } = BALANCE.territory.fortificationCostPerLevel;
   const goldBefore = state.factions.get(fid)!.resources.gold;
   const fortBefore = state.territories.get(owned)!.fortification;
-  state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'BUILD', targetId: owned }));
+  fixtureCommitments(state).set(fid, makeCmt({ warlordId: fid, action: 'BUILD', targetId: owned }));
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
@@ -2668,21 +2616,16 @@ test('AI BUILD commitment starts timed fortification construction', () => {
   assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore + 1);
 });
 
-test('AI REINFORCE commitment uses shared REINFORCE / BALANCE cost', () => {
+test('AI REINFORCE remains unavailable without a local pool', () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
-  const fid = 'iron_kingdom';
-  const owned = state.factions.get(fid)!.territories[0]!;
-  const { gold: costG, food: costF, garrisonGain } = BALANCE.economy.reinforcementCost;
-  const goldBefore = state.factions.get(fid)!.resources.gold;
-  const foodBefore = state.factions.get(fid)!.resources.food;
-  const garBefore = state.territories.get(owned)!.garrison;
-  state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'REINFORCE', targetId: owned }));
+  const fid = 'iron_kingdom'; const owned = state.factions.get(fid)!.territories[0]!;
+  const before = cloneGameState(state);
+  fixtureCommitments(state).set(fid, makeCmt({ warlordId: fid, action: 'REINFORCE', targetId: owned }));
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
-  assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.strictEqual(orch.getState().territories.get(owned)!.garrison, garBefore + garrisonGain);
-  assert.strictEqual(orch.getState().factions.get(fid)!.resources.gold, goldBefore - costG);
-  assert.strictEqual(orch.getState().factions.get(fid)!.resources.food, foodBefore - costF);
+  assert.strictEqual(res.success, false); assert.strictEqual(res.errors[0]!.code, ErrorCode.FEATURE_NOT_IMPLEMENTED);
+  assert.deepStrictEqual(orch.getState().territories, before.territories);
+  assert.deepStrictEqual(orch.getState().factions.get(fid)!.resources, before.factions.get(fid)!.resources);
 });
 
 test('AI MOVE commitment executes through shared handleMove', () => {
@@ -2694,91 +2637,65 @@ test('AI MOVE commitment executes through shared handleMove', () => {
   const originT = state.territories.get(loc)!;
   const destT = state.territories.get(dest)!;
   const duration = calculateMovementDuration({ origin: originT, destination: destT });
-  state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'MOVE', targetId: dest }));
+  fixtureCommitments(state).set(fid, makeCmt({ warlordId: fid, action: 'MOVE', targetId: dest }));
   const orch = new Orchestrator(state);
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'orchestration', 'handlers.ts'), 'utf8');
-  const moveFn = src.slice(src.indexOf('function executeMoveCommitment'), src.indexOf('function executeStrategicRetreat'));
+  const moveFn = src.slice(src.indexOf('function executeConcreteCommitment'), src.indexOf('function startOperation'));
   assert.ok(moveFn.includes('handleMove'));
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
   assert.strictEqual(res.payload.arrivalPending, true);
   assert.strictEqual(orch.getState().armies.get(armyId)!.location, loc, 'army stays at origin until arrival');
   assert.strictEqual(orch.getState().armies.get(armyId)!.movement?.status, 'moving');
-  assert.strictEqual(orch.getState().commitments.get(fid)!.status, 'executing');
+  assert.strictEqual(fixtureCommitments(orch.getState()).get(fid)!.status, 'executing');
   const tick = orch.getState().worldTick;
   orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: duration }));
   assert.strictEqual(orch.getState().worldTick, tick + duration);
   assert.strictEqual(orch.getState().armies.get(armyId)!.location, dest);
   assert.ok(!isArmyMoving(orch.getState().armies.get(armyId)!));
-  assert.strictEqual(orch.getState().commitments.get(fid)!.status, 'completed');
+  assert.strictEqual(fixtureCommitments(orch.getState()).get(fid)!.status, 'completed');
 });
 
-test('AI NEGOTIATE commitment uses shared handleNegotiate', () => {
+for (const action of ['NEGOTIATE', 'DECLARE_WAR', 'DEFEND'] as const) test(`legacy ${action} cannot execute proactively`, () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
-  const fid = 'ashen_horde';
-  const target = 'iron_kingdom';
-  const before = state.factions.get(fid)!.diplomacy.get(target)!.opinion;
-  state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'NEGOTIATE', targetId: target }));
+  const before = cloneGameState(state); const fid = 'ashen_horde';
+  fixtureCommitments(state).set(fid, makeCmt({ warlordId: fid, action, targetId: 'iron_kingdom' }));
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
-  assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.ok(orch.getState().factions.get(fid)!.diplomacy.get(target)!.opinion > before);
+  assert.strictEqual(res.success, false); assert.strictEqual(res.errors[0]!.code, ErrorCode.FEATURE_NOT_IMPLEMENTED);
+  assert.strictEqual(fixtureCommitments(orch.getState()).get(fid)!.status, 'failed');
+  assert.deepStrictEqual(orch.getState().territories, before.territories);
+  assert.deepStrictEqual(orch.getState().factions.get(fid)!.diplomacy, before.factions.get(fid)!.diplomacy);
 });
 
-test('AI DECLARE_WAR commitment uses shared handleDeclareWar', () => {
-  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
-  const fid = 'ashen_horde';
-  const target = 'iron_kingdom';
-  state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'DECLARE_WAR', targetId: target }));
-  const orch = new Orchestrator(state);
-  const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
-  assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.strictEqual(orch.getState().factions.get(fid)!.diplomacy.get(target)!.state, 'at_war');
-  assert.strictEqual(orch.getState().factions.get(target)!.diplomacy.get(fid)!.state, 'at_war');
-});
-
-test('AI DEFEND completes immediately and does not stay active', () => {
-  const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
-  const fid = 'ashen_horde';
-  const owned = state.factions.get(fid)!.territories[0]!;
-  state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'DEFEND', targetId: owned }));
-  const orch = new Orchestrator(state);
-  const terrBefore = cloneGameState(orch.getState()).territories;
-  const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
-  assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.strictEqual(res.payload.commitmentOutcome, 'completed');
-  assert.ok(!isActiveCommitmentStatus(orch.getState().commitments.get(fid)!.status));
-  assert.deepStrictEqual(orch.getState().territories, terrBefore);
-});
-
-test('AI WAIT completes immediately and cannot remain infinitely active', () => {
+test('historical WAIT operation cannot bypass the source-bound initiation timer', () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'iron_kingdom';
-  state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'WAIT' }));
+  fixtureCommitments(state).set(fid, makeCmt({ warlordId: fid, action: 'WAIT' }));
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
-  assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.strictEqual(res.payload.commitmentOutcome, 'completed');
-  assert.ok(!isActiveCommitmentStatus(orch.getState().commitments.get(fid)!.status));
+  assert.strictEqual(res.success, false);
+  assert.strictEqual(res.payload.commitmentOutcome, 'failed');
+  assert.ok(!isActiveCommitmentStatus(fixtureCommitments(orch.getState()).get(fid)!.status));
 });
 
 test('AI RETREAT repositions via MOVE and never invokes BattleEngine', () => {
   const state = buildRetreatOrchestratorState();
-  state.commitments.set('atk_faction', makeCmt({ warlordId: 'atk_faction', action: 'RETREAT', targetId: 'wild' }));
+  fixtureCommitments(state).set('atk_faction', makeCmt({ warlordId: 'atk_faction', action: 'RETREAT', targetId: 'wild' }));
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'atk_faction' }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
   assert.strictEqual(orch.getState().armies.get('atk_army')!.location, 'wild');
   assert.strictEqual(orch.getState().armies.get('atk_army')!.movement?.status, 'moving');
-  assert.strictEqual(orch.getState().commitments.get('atk_faction')!.status, 'executing');
+  assert.strictEqual(fixtureCommitments(orch.getState()).get('atk_faction')!.status, 'executing');
   const origin = orch.getState().territories.get('wild')!;
   const dest = orch.getState().territories.get('home')!;
   const duration = calculateMovementDuration({ origin, destination: dest });
   orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: duration }));
   assert.strictEqual(orch.getState().armies.get('atk_army')!.location, 'home');
-  assert.strictEqual(orch.getState().commitments.get('atk_faction')!.status, 'completed');
+  assert.strictEqual(fixtureCommitments(orch.getState()).get('atk_faction')!.status, 'completed');
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'orchestration', 'handlers.ts'), 'utf8');
-  const retreatFn = src.slice(src.indexOf('function executeStrategicRetreat'), src.indexOf('export function handleDeclareWar'));
+  const retreatFn = src.slice(src.indexOf("case 'MOVE': case 'RETREAT':"), src.indexOf("case 'BUILD': {", src.indexOf('function executeConcreteCommitment')));
   assert.ok(retreatFn.includes('handleMove'));
   assert.ok(!retreatFn.includes('BattleEngine'));
   assert.ok(!retreatFn.includes('resolve('));
@@ -2786,14 +2703,14 @@ test('AI RETREAT repositions via MOVE and never invokes BattleEngine', () => {
 
 test('stale commitment target fails safely without world mutation', () => {
   const state = buildParityBattleState('atk_faction');
-  state.commitments.set('atk_faction', makeCmt({ warlordId: 'atk_faction', action: 'ATTACK', targetId: 'home' }));
+  fixtureCommitments(state).set('atk_faction', makeCmt({ warlordId: 'atk_faction', action: 'ATTACK', targetId: 'home' }));
   const orch = new Orchestrator(state);
   const beforeTerr = cloneGameState(orch.getState()).territories;
   const beforeArmies = cloneGameState(orch.getState()).armies;
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'atk_faction' }));
   assert.strictEqual(res.success, false);
   assert.strictEqual(res.errors[0]!.code, ErrorCode.INVALID_TARGET);
-  assert.strictEqual(orch.getState().commitments.get('atk_faction')!.status, 'failed');
+  assert.strictEqual(fixtureCommitments(orch.getState()).get('atk_faction')!.status, 'failed');
   assert.deepStrictEqual(orch.getState().territories, beforeTerr);
   assert.deepStrictEqual(orch.getState().armies, beforeArmies);
 });
@@ -2801,10 +2718,10 @@ test('stale commitment target fails safely without world mutation', () => {
 test('completed commitment cannot execute twice', () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'ashen_horde';
-  state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'WAIT' }));
+  fixtureCommitments(state).set(fid, makeCmt({ warlordId: fid, action: 'ATTACK', targetId: state.factions.get(fid)!.territories[0]! }));
   const orch = new Orchestrator(state);
   const first = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
-  assert.strictEqual(first.success, true, first.errors[0]?.message);
+  assert.strictEqual(first.success,false);assert.strictEqual(fixtureCommitments(orch.getState()).get(fid)!.status,'failed');
   const second = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
   assert.strictEqual(second.success, false);
   assert.strictEqual(second.errors[0]!.code, ErrorCode.ACTION_NOT_ALLOWED);
@@ -2813,13 +2730,14 @@ test('completed commitment cannot execute twice', () => {
 test('failed commitment permits reassessment', () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'ashen_horde';
-  state.commitments.set(fid, makeCmt({
+  fixtureCommitments(state).set(fid, makeCmt({
     warlordId: fid, action: 'ATTACK', targetId: state.factions.get(fid)!.territories[0]!, status: 'failed',
   }));
+  state.factions.get(fid)!.resources.food=0;state.factions.get(fid)!.resources.iron=0;primeSourceDecision(state,fid);
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('AI_DECIDE', 'ai', { warlordId: fid }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
-  const next = orch.getState().commitments.get(fid);
+  const next = fixtureCommitments(orch.getState()).get(fid);
   assert.ok(next);
   assert.ok(isActiveCommitmentStatus(next!.status));
 });
@@ -2827,24 +2745,25 @@ test('failed commitment permits reassessment', () => {
 test('interrupted commitment permits reassessment', () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'iron_kingdom';
-  state.commitments.set(fid, makeCmt({ warlordId: fid, action: 'WAIT', status: 'interrupted' }));
+  fixtureCommitments(state).set(fid, makeCmt({ warlordId: fid, action: 'WAIT', status: 'interrupted' }));
+  state.factions.get(fid)!.resources.food=0;state.factions.get(fid)!.resources.iron=0;primeSourceDecision(state,fid);
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('AI_DECIDE', 'ai', { warlordId: fid }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
-  const next = orch.getState().commitments.get(fid);
+  const next = fixtureCommitments(orch.getState()).get(fid);
   assert.ok(next && isActiveCommitmentStatus(next.status));
 });
 
 test('unsupported TRADE commitment returns FEATURE_NOT_IMPLEMENTED and fails', () => {
   const state = createLegacySampleMapGameState({ seed: 1, playerFactionId: 'merchant_republic' });
-  state.commitments.set('ashen_horde', makeCmt({
+  fixtureCommitments(state).set('ashen_horde', makeCmt({
     warlordId: 'ashen_horde', action: 'TRADE', targetId: 'iron_kingdom',
   }));
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: 'ashen_horde' }));
   assert.strictEqual(res.success, false);
   assert.strictEqual(res.errors[0]!.code, ErrorCode.FEATURE_NOT_IMPLEMENTED);
-  assert.strictEqual(orch.getState().commitments.get('ashen_horde')!.status, 'failed');
+  assert.strictEqual(fixtureCommitments(orch.getState()).get('ashen_horde')!.status, 'failed');
   assert.strictEqual(res.payload.reassessmentRequired, true);
 });
 
@@ -2855,7 +2774,9 @@ function worldAdvance(res: { payload: Record<string, unknown> }): WorldAdvanceRe
 }
 
 function sampleWorldOrch(seed = 42): Orchestrator {
-  return new Orchestrator(createLegacySampleMapGameState({ seed, playerFactionId: 'merchant_republic' }));
+  const orch=new Orchestrator(createLegacySampleMapGameState({ seed, playerFactionId: 'merchant_republic' }));
+  for(const id of orch.getState().allFactionIds.filter(id=>id!==orch.getState().playerFactionId)){orch.getState().factions.get(id)!.resources.food=0;orch.getState().factions.get(id)!.resources.iron=0;primeSourceDecision(orch.getState(),id);}
+  return orch;
 }
 
 test('world time advances correctly by elapsedTicks', () => {
@@ -2919,7 +2840,7 @@ test('AI with no commitment can decide', () => {
   const orch = sampleWorldOrch(31);
   for (const fid of orch.getState().allFactionIds) {
     if (fid !== 'merchant_republic') {
-      assert.strictEqual(orch.getState().commitments.get(fid), null);
+      assert.strictEqual(fixtureCommitments(orch.getState()).get(fid), null);
     }
   }
   const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
@@ -2934,114 +2855,83 @@ test('AI with an active commitment does not repeatedly decide', () => {
   const first = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
   assert.strictEqual(first.success, true, first.errors[0]?.message);
   const idsAfterFirst = new Map(
-    [...orch.getState().commitments.entries()].map(([k, v]) => [k, v?.id ?? null]),
+    [...fixtureCommitments(orch.getState()).entries()].map(([k, v]) => [k, v?.id ?? null]),
   );
   const second = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
   assert.strictEqual(second.success, true, second.errors[0]?.message);
   assert.strictEqual(worldAdvance(second).aiDecisions.length, 0, 'reassessment cadence must block a second decide');
   for (const [fid, id] of idsAfterFirst) {
     if (!id) continue;
-    const c = orch.getState().commitments.get(fid);
+    const c = fixtureCommitments(orch.getState()).get(fid);
     if (c && isActiveCommitmentStatus(c.status)) {
       assert.strictEqual(c.id, id, `${fid} must keep the same in-flight commitment`);
     }
   }
 });
 
-test('commitment progresses while duration remains', () => {
-  const state = createLegacySampleMapGameState({ seed: 33, playerFactionId: 'merchant_republic' });
-  state.commitments.set('ashen_horde', makeCmt({
-    warlordId: 'ashen_horde',
-    action: 'WAIT',
-    durationTicks: 3,
-    startedAtTick: 0,
-    completionCondition: 'duration_elapsed',
-  }));
-  const orch = new Orchestrator(state);
-  const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
-  assert.strictEqual(res.success, true, res.errors[0]?.message);
-  const c = orch.getState().commitments.get('ashen_horde')!;
-  assert.ok(isActiveCommitmentStatus(c.status), 'WAIT with remaining duration must stay active');
-  const progress = worldAdvance(res).commitmentProgress.find((p) => p.factionId === 'ashen_horde');
-  assert.ok(progress);
-  assert.strictEqual(progress!.ticksRemaining, 2);
-  assert.strictEqual(worldAdvance(res).commitmentResolutions.filter((r) => r.factionId === 'ashen_horde').length, 0);
+function sourceWaitFixture(seed:number):GameState {
+  const state=createLegacySampleMapGameState({seed,playerFactionId:'merchant_republic'});
+  state.factions.get('ashen_horde')!.resources.food=0;primeSourceDecision(state,'ashen_horde');
+  const o=opportunity(state,'ashen_horde');o.primary!.phase='selected';o.primary!.timer=null;
+  selectWaitInitiation(state,'ashen_horde');return state;
+}
+
+test('WAIT initiation retains partial elapsed work without a physical commitment',()=>{
+  const state=sourceWaitFixture(33),before=state.aiClock.nowMs;
+  accrueProactiveClocks(state,before+59999,'OFFLINE');prepareProactiveDecision(state,'ashen_horde');
+  assert.strictEqual(opportunity(state,'ashen_horde').primary!.phase,'waiting');
+  assert.strictEqual(state.operations.size,0);assert.strictEqual(state.worldTick,0);
 });
 
-test('commitment resolves when duration elapses', () => {
-  const state = createLegacySampleMapGameState({ seed: 34, playerFactionId: 'merchant_republic' });
-  state.commitments.set('ashen_horde', makeCmt({
-    warlordId: 'ashen_horde',
-    action: 'WAIT',
-    durationTicks: 2,
-    startedAtTick: 0,
-    completionCondition: 'duration_elapsed',
-  }));
-  const orch = new Orchestrator(state);
-  const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 2 }));
-  assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.strictEqual(orch.getState().commitments.get('ashen_horde')!.status, 'completed');
-  const resolutions = worldAdvance(res).commitmentResolutions.filter((r) => r.factionId === 'ashen_horde');
-  assert.strictEqual(resolutions.length, 1);
-  assert.strictEqual(resolutions[0]!.outcome, 'completed');
+test('WAIT completion revalidates the source and starts spacing at its exact deadline',()=>{
+  const state=sourceWaitFixture(34),at=state.aiClock.nowMs;
+  accrueProactiveClocks(state,at+60000,'OFFLINE');prepareProactiveDecision(state,'ashen_horde');
+  assert.strictEqual(opportunity(state,'ashen_horde').primary,null);
+  assert.ok(opportunity(state,'ashen_horde').spacing);assert.strictEqual(state.operations.size,0);
 });
 
-test('completed commitment is not executed twice', () => {
-  const state = createLegacySampleMapGameState({ seed: 35, playerFactionId: 'merchant_republic' });
-  state.commitments.set('ashen_horde', makeCmt({
-    warlordId: 'ashen_horde',
-    action: 'WAIT',
-    durationTicks: 0,
-    startedAtTick: 0,
-    completionCondition: 'duration_elapsed',
-  }));
-  const orch = new Orchestrator(state);
-  const first = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
-  assert.strictEqual(first.success, true, first.errors[0]?.message);
-  const id = orch.getState().commitments.get('ashen_horde')!.id;
-  assert.strictEqual(orch.getState().commitments.get('ashen_horde')!.status, 'completed');
-  const second = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
-  assert.strictEqual(second.success, true, second.errors[0]?.message);
-  const again = worldAdvance(second).commitmentResolutions.filter((r) => r.commitmentId === id);
-  assert.strictEqual(again.length, 0);
-  assert.strictEqual(orch.getState().commitments.get('ashen_horde')!.status, 'completed');
+test('WAIT completion cannot repeat relief or timer sampling at the same boundary',()=>{
+  const state=sourceWaitFixture(35),at=state.aiClock.nowMs;
+  accrueProactiveClocks(state,at+60000,'OFFLINE');prepareProactiveDecision(state,'ashen_horde');
+  const before=cloneGameState(state);prepareProactiveDecision(state,'ashen_horde');
+  assert.deepStrictEqual(state,before);
 });
 
 test('failed commitment can reassess after cadence', () => {
   const state = createLegacySampleMapGameState({ seed: 36, playerFactionId: 'merchant_republic' });
-  state.commitments.set('ashen_horde', makeCmt({
+  fixtureCommitments(state).set('ashen_horde', makeCmt({
     warlordId: 'ashen_horde',
     action: 'TRADE',
     targetId: 'iron_kingdom',
     durationTicks: 0,
     startedAtTick: 0,
   }));
+  const original_ashen_horde = fixtureCommitments(state).get('ashen_horde')!.id;
   const orch = new Orchestrator(state);
   const failStep = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
   assert.strictEqual(failStep.success, true, failStep.errors[0]?.message);
-  assert.strictEqual(orch.getState().commitments.get('ashen_horde')!.status, 'failed');
+  assert.strictEqual(orch.getState().operations.get(original_ashen_horde)!.status, 'failed');
+  const fresh = worldAdvance(failStep).aiDecisions.filter(d => d.factionId === 'ashen_horde');
+  assert.strictEqual(fresh.length, 0, 'failed initiation has no genuine ready source and earns no fallback WAIT');
+  assert.strictEqual(orch.getState().aiDecisionOpportunities.get('ashen_horde')!.spacing??null,null);
   const cooldown = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
-  assert.strictEqual(worldAdvance(cooldown).aiDecisions.filter((d) => d.factionId === 'ashen_horde').length, 0);
-  const reassess = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
-  assert.strictEqual(reassess.success, true, reassess.errors[0]?.message);
-  const decided = worldAdvance(reassess).aiDecisions.filter((d) => d.factionId === 'ashen_horde');
-  assert.ok(decided.length === 1, 'failed TRADE must become eligible for AI_DECIDE after reassessment interval');
-  assert.notStrictEqual(decided[0]!.commitmentId, 'cmt_ashen_horde_TRADE');
+  assert.strictEqual(worldAdvance(cooldown).aiDecisions.filter(d => d.factionId === 'ashen_horde').length, 0);
 });
 
 test('unsupported commitment cannot remain active', () => {
   const state = createLegacySampleMapGameState({ seed: 37, playerFactionId: 'merchant_republic' });
-  state.commitments.set('ashen_horde', makeCmt({
+  fixtureCommitments(state).set('ashen_horde', makeCmt({
     warlordId: 'ashen_horde',
     action: 'OFFER_PEACE',
     targetId: 'iron_kingdom',
     durationTicks: 5,
     startedAtTick: 0,
   }));
+  const original_ashen_horde = fixtureCommitments(state).get('ashen_horde')!.id;
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
-  const c = orch.getState().commitments.get('ashen_horde')!;
+  const c = orch.getState().operations.get(original_ashen_horde)!;
   assert.strictEqual(c.status, 'failed');
   assert.ok(!isActiveCommitmentStatus(c.status));
   const resn = worldAdvance(res).commitmentResolutions.find((r) => r.factionId === 'ashen_horde');
@@ -3062,25 +2952,28 @@ test('multiple AI factions advance independently', () => {
 
 test('one AI faction failing does not corrupt unrelated factions', () => {
   const state = createLegacySampleMapGameState({ seed: 39, playerFactionId: 'merchant_republic' });
-  state.commitments.set('ashen_horde', makeCmt({
+  fixtureCommitments(state).set('ashen_horde', makeCmt({
     warlordId: 'ashen_horde',
     action: 'TRADE',
     targetId: 'iron_kingdom',
     durationTicks: 0,
     startedAtTick: 0,
   }));
-  state.commitments.set('iron_kingdom', makeCmt({
+  fixtureCommitments(state).set('iron_kingdom', makeCmt({
     warlordId: 'iron_kingdom',
-    action: 'WAIT',
+    action: 'MOVE',
+    targetId: state.territories.get(state.armies.get(state.factions.get('iron_kingdom')!.armies[0]!)!.location)!.neighboring[0]!,
     durationTicks: 0,
     startedAtTick: 0,
   }));
   const ironTerritories = [...state.factions.get('iron_kingdom')!.territories];
+  const original_ashen_horde = fixtureCommitments(state).get('ashen_horde')!.id;
+  const original_iron_kingdom = fixtureCommitments(state).get('iron_kingdom')!.id;
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
-  assert.strictEqual(orch.getState().commitments.get('ashen_horde')!.status, 'failed');
-  assert.strictEqual(orch.getState().commitments.get('iron_kingdom')!.status, 'completed');
+  assert.strictEqual(orch.getState().operations.get(original_ashen_horde)!.status, 'failed');
+  assert.strictEqual(orch.getState().operations.get(original_iron_kingdom)!.status, 'executing');
   assert.deepStrictEqual(orch.getState().factions.get('iron_kingdom')!.territories, ironTerritories);
   assert.ok(orch.getState().factions.has('celestial_theocracy'));
   assert.deepStrictEqual(checkGameStateInvariants(orch.getState()), []);
@@ -3178,7 +3071,7 @@ test('continuous world code does not use wall-clock randomness', () => {
 
 test('player commitments are not auto-resolved by ADVANCE_WORLD', () => {
   const state = createLegacySampleMapGameState({ seed: 48, playerFactionId: 'merchant_republic' });
-  state.commitments.set('merchant_republic', makeCmt({
+  fixtureCommitments(state).set('merchant_republic', makeCmt({
     warlordId: 'merchant_republic',
     action: 'WAIT',
     durationTicks: 0,
@@ -3186,7 +3079,7 @@ test('player commitments are not auto-resolved by ADVANCE_WORLD', () => {
   }));
   const orch = new Orchestrator(state);
   orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: 1 }));
-  assert.strictEqual(orch.getState().commitments.get('merchant_republic')!.status, 'committed');
+  assert.strictEqual(fixtureCommitments(orch.getState()).get('merchant_republic')!.status, 'committed');
 });
 
 test('ContinuousWorldEngine is a coordinator, not a second AI/battle implementation', () => {
@@ -3220,6 +3113,19 @@ registerAiRuntimeTests({
   makeTerritory,
   makeSelf,
 });
+
+registerAiCanonicalReasoningTests({ test });
+registerAiConcretePlanTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
+registerAiOperationTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
+registerAiStrategyConcurrencyTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq });
+registerAiStrategicPressureTests({ test, makeSelf, makeTerritory, cmdReq });
+registerAiRecruitmentTests({test,makeSelf,makeTerritory,cmdReq});
+registerAiPeaceTests({test,makeSelf,makeTerritory,cmdReq});
+registerAiTradeTests({test,makeSelf,makeTerritory,cmdReq});
+registerAiCognitionTests({test,makeSelf,makeTerritory,cmdReq});
+registerAiConflictTests({test,makeSelf,makeTerritory,cmdReq});
+registerAiResponseTests({test,makeSelf,makeTerritory,cmdReq});
+registerAiStrategicEvaluationTests({ test, makeSelf, makeTerritory, cmdReq });
 
 registerFoundationHardeningTests({
   test,

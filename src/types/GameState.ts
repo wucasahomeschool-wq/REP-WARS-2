@@ -1,3 +1,7 @@
+import { createResponseMap } from '../engine/responseRecords';
+import type { AIOperation, AIOperationClaim } from './AIOperation';
+import type { StrategicAttentionState, AIDecisionOpportunity } from './AIStrategy';
+import { STRATEGIC_ATTENTION_TUNING } from '../constants/strategicAttention';
 /**
  * CANONICAL RUNTIME GAME STATE (AUTHORITATIVE RUNTIME GAMESTATE PASS)
  * =====================================================================
@@ -87,8 +91,19 @@ import { GameRewardResult } from '../rewards/types';
  * 16 = Per-session gameplay command receipt (`lastCommandSequence`,
  *     `lastCommandReceipt`). One committed result per session. This is
  *     command idempotency, not presence and not world time.
+ * 17 = Canonical AI commitment identity high-water mark (Phase A).
+ * 18 = Exact AI concrete plans (Phase B); old action/target saves remain explicit legacy records.
+ * 19 = Canonical multi-operation ownership and exclusive physical claims (Phase C).
+ * 20 = Operation-owned Strategic Attention and canonical proactive opportunities (Phase D).
+ * 21 = Source-bound Strategic Pressure and canonical proactive duration clocks (Phase E).
+ * 22 = Territory-local recruitment/pools and quantity-reserved REINFORCE initiation (Phase G).
+ * 23 = Canonical Peace proposal threads, required-response clocks and relationship exceptions (Phase H).
+ * 24 = Canonical Trade proposals, exact bank reservations and bilateral shipment custody (Phase I).
+ * 25 = Concrete Goal lifecycle and idempotent directed Opinion event receipts (Phase J).
+ * 26 = Canonical factual conflict episodes/aggregates and replay receipts (Phase K).
+ * 27 = Canonical non-proactive response contexts and primary response scheduler (Phase L).
  */
-export const GAME_STATE_SCHEMA_VERSION = 16;
+export const GAME_STATE_SCHEMA_VERSION = 27;
 
 export type InvasionId = string;
 
@@ -165,6 +180,8 @@ export type InvasionStatus = 'pending_response' | 'defense_in_progress';
  * Expired iff `now > deadlineTick`.
  */
 export interface ActiveInvasion {
+  /** Stable factual chain identity; does not simulate invasion state. */
+  conflictFactId?: string;
   id: InvasionId;
   defenderFactionId: FactionId;
   attackerFactionId: FactionId;
@@ -219,6 +236,8 @@ export interface City {
  */
 export interface TerritoryEconomy {
   territoryId: TerritoryId;
+  /** Phase G materializes only local Food between legacy whole-ledger accruals. */
+  foodAccrualTick?: number;
   lastAccrualTick: number;
   uncollected: Resources;
 }
@@ -245,6 +264,7 @@ export function emptyTerritoryInfrastructure(territoryId: TerritoryId): Territor
 }
 
 export interface ConstructionProject {
+  aiOperationId?: string;
   id: ConstructionId;
   factionId: FactionId;
   territoryId: TerritoryId;
@@ -416,10 +436,17 @@ export interface GameState {
    */
   lastFoodConsumptionTick: number;
   /**
-   * Last world tick on which each faction ran `AI_DECIDE` or resolved a
-   * commitment. Used for reassessment cadence. Missing key = never.
+   * Last successful primary proactive initiation boundary. Physical operation
+   * completion does not restart this transitional cadence. Missing key = never.
    */
   lastAiDecisionTick: Map<FactionId, number>;
+  /** Persisted common limit, applied independently to each faction's owned work. */
+  strategicAttention: StrategicAttentionState;
+  aiResponses: Map<string, import('./AIResponse').AIResponseContext>;
+  aiResponseScheduler: import('./AIResponse').AIResponseScheduler;
+  aiPressure: Map<string, import('./AIPressure').AISourceContext>;
+  aiClock: import('./AIPressure').AIClock;
+  aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
   /** Seed the world was generated with; also the root seed engines fork per-battle/per-event RNGs from. */
   worldSeed: number;
 
@@ -485,35 +512,13 @@ export interface GameState {
   // ---- armies ----
   armies: Map<ArmyId, Army>;
 
-  // ---- AI commitments ----
-  /**
-   * Canonical home for each faction's current strategic commitment
-   * (Phase 8 — AI COMMITMENT & AMBITION PASS). One entry per faction id in
-   * `allFactionIds`; `null` means "no active commitment" (e.g. before the
-   * first `decide()` call for that faction, or right after a terminal
-   * commitment completes/fails/is interrupted and before reassessment).
-   *
-   * OWNERSHIP: the AI Engine (`DecisionEngine`/`WarlordState`, in
-   * `src/engine/DecisionEngine.ts`) is responsible for *calculating* and
-   * *transitioning* commitment state (create/hold/complete/fail/
-   * interrupt) — see `docs/AI_COMMITMENT_AMBITION.md`. `GameState` only
-   * *stores* the result.
-   *
-   * TRANSITIONAL NOTE: `WarlordState.activeCommitment` (an AI-engine-owned,
-   * non-canonical runtime field predating this pass) remains the AI
-   * Engine's own working copy while it reasons — that has not been
-   * rewritten in this pass. `src/state/gameStateAdapters.ts` provides
-   * `buildWarlordStates()` (GameState -> WarlordState, seeding
-   * `activeCommitment` from here) and `syncCommitmentsFromWarlordStates()`
-   * (WarlordState -> GameState, writing the result back here) as the
-   * explicit, call-it-yourself sync boundary between the two until the
-   * Orchestrator exists and becomes the only thing that calls the AI
-   * Engine and writes the result back. This is a deliberate, documented
-   * two-copies-in-transition, not a hidden second authority — see
-   * docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "AI commitment
-   * integration".
+  // ---- canonical independently identified AI operations ----
+  /** Physical domain truth remains in armies, constructions and invasions.
+   * Operations own exact plans and exclusive claims, indexed by persisted ID.
+   * Runtime WarlordState is a disposable cognition adapter only.
    */
-  commitments: Map<FactionId, AICommitment | null>;
+  operations: Map<string, AIOperation>;
+  operationClaims: Map<string, AIOperationClaim>;
 
   // ---- active events / world history ----
   activeEvents: ActiveEvent[];
@@ -548,9 +553,20 @@ export interface GameState {
    * the previous city; the new owner receives bare land.
    */
   cities: Map<CityId, City>;
+  /** Exact local undeployed troops and earned recruitment work, separate from player rewards. */
+  territoryRecruitment: Map<TerritoryId, import("./Recruitment").TerritoryRecruitment>;
+  /** Canonical diplomacy exceptions, proposals and exact live unordered-pair references. */
+  peaceRelationships: Map<string, import('./Peace').PeaceRelationship>;
+  peaceProposals: Map<string, import('./Peace').PeaceProposal>;
+  peaceProposalThreads: Map<string, string>;
+  tradeProposals: Map<string, import('./Trade').TradeProposal>;
+  tradeShipments: Map<string, import('./Trade').TradeShipment>;
+  opinionEvents: Map<string, import('./AICognition').OpinionEventReceipt>;
+  conflictLedger: Map<string, import('./ConflictLedger').ConflictPairLedger>;
+  conflictEventReceipts: Map<string, import('./ConflictLedger').ConflictReceipt>;
   /**
    * Per-territory uncollected yield and last accrual tick. Faction
-   * `resources` remain the only stored reserve.
+   * `resources` remain the banked reserve; recruitment uses only local Food yield.
    */
   territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
   /**
@@ -590,6 +606,12 @@ export function emptyWorldClock(): {
   gameplaySessionLeases: GameplaySessionLease[];
   lastFoodConsumptionTick: number;
   lastAiDecisionTick: Map<FactionId, number>;
+  strategicAttention: StrategicAttentionState;
+  aiResponses: Map<string, import('./AIResponse').AIResponseContext>;
+  aiResponseScheduler: import('./AIResponse').AIResponseScheduler;
+  aiPressure: Map<string, import('./AIPressure').AISourceContext>;
+  aiClock: import('./AIPressure').AIClock;
+  aiDecisionOpportunities: Map<FactionId, AIDecisionOpportunity>;
 } {
   return {
     worldTick: 0,
@@ -601,6 +623,12 @@ export function emptyWorldClock(): {
     gameplaySessionLeases: [],
     lastFoodConsumptionTick: 0,
     lastAiDecisionTick: new Map(),
+    strategicAttention: { capacity: STRATEGIC_ATTENTION_TUNING.capacity },
+    aiResponses: createResponseMap(),
+    aiResponseScheduler: {primaryByFaction:new Map(),lastBoundaryByFaction:new Map(),observedWorldTick:0,dirty:false},
+    aiPressure: new Map(),
+    aiClock: { nowMs: 0, worldAnchor: null },
+    aiDecisionOpportunities: new Map(),
   };
 }
 
@@ -662,6 +690,15 @@ export function emptyRewardApplicationState(): {
   activeInvasions: Map<InvasionId, ActiveInvasion>;
   constructions: Map<ConstructionId, ConstructionProject>;
   cities: Map<CityId, City>;
+  territoryRecruitment: Map<TerritoryId, import("./Recruitment").TerritoryRecruitment>;
+  peaceRelationships: Map<string, import('./Peace').PeaceRelationship>;
+  peaceProposals: Map<string, import('./Peace').PeaceProposal>;
+  peaceProposalThreads: Map<string, string>;
+  tradeProposals: Map<string, import('./Trade').TradeProposal>;
+  tradeShipments: Map<string, import('./Trade').TradeShipment>;
+  opinionEvents: Map<string, import('./AICognition').OpinionEventReceipt>;
+  conflictLedger: Map<string, import('./ConflictLedger').ConflictPairLedger>;
+  conflictEventReceipts: Map<string, import('./ConflictLedger').ConflictReceipt>;
   territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
   territoryInfrastructure: Map<TerritoryId, TerritoryInfrastructure>;
   playerFitness: PlayerFitnessState;
@@ -676,6 +713,11 @@ export function emptyRewardApplicationState(): {
     activeInvasions: new Map(),
     constructions: new Map(),
     cities: new Map(),
+    territoryRecruitment: new Map(),
+    peaceRelationships: new Map(),
+    peaceProposals: new Map(),
+    peaceProposalThreads: new Map(),
+    tradeProposals: new Map(), tradeShipments: new Map(), opinionEvents: new Map(), conflictLedger:new Map(), conflictEventReceipts:new Map(),
     territoryEconomy: new Map(),
     territoryInfrastructure: new Map(),
     playerFitness: emptyPlayerFitnessState(),

@@ -1,5 +1,7 @@
+import { accrueWorldThroughReceipt } from '../world/worldAccrual';
+import { catchUpWorld } from '../world/catchup';
+import { FixedWorldTimeAuthority } from '../persistence/timeAuthority';
 import { GameState } from '../types/GameState';
-import { buildWarlordStates, rebindWarlordRuntime } from '../state/gameStateAdapters';
 import { handleSyncPlayerWorld } from '../world/catchup';
 import { getCommandDefinition } from './commandIndex';
 import { createDefaultRegistry, EngineRegistry } from './engineRegistry';
@@ -7,7 +9,6 @@ import { OrchestrationError, ErrorCode, OrchestrationErrorBody } from './errors'
 import {
   HandlerContext,
   MUTATING_HANDLERS,
-  OrchestratorRuntime,
   READ_ONLY_HANDLERS,
 } from './handlers';
 import { CommandRequest, CommandResponse, HandlerResult } from './protocol';
@@ -72,13 +73,11 @@ function successResponse(req: CommandRequest, requestId: string, result: Handler
 export class Orchestrator {
   private state: GameState;
   private readonly registry: EngineRegistry;
-  private runtime: OrchestratorRuntime;
   private readonly telemetry: TelemetryRecorder | null;
 
   constructor(initialState: GameState, registry?: EngineRegistry, telemetry?: TelemetryRecorder | null) {
     this.state = initialState;
     this.registry = registry ?? createDefaultRegistry();
-    this.runtime = { aiWarlordStates: buildWarlordStates(this.state) };
     this.telemetry = telemetry ?? null;
   }
 
@@ -88,10 +87,17 @@ export class Orchestrator {
 
   replaceState(next: GameState): void {
     this.state = next;
-    this.runtime = { aiWarlordStates: buildWarlordStates(this.state) };
   }
 
-  execute(req: CommandRequest): CommandResponse {
+  execute(req: CommandRequest): CommandResponse { return this.executeCommand(req); }
+
+  /** Trusted server receipt only; HTTP request fields never supply this clock.
+   * Process existing temporal boundaries before observing a newly applied command. */
+  executeAtAuthoritativeReceipt(req: CommandRequest, receiptMs: number): CommandResponse {
+    return this.executeCommand(req,receiptMs);
+  }
+
+  private executeCommand(req: CommandRequest, receiptMs?: number): CommandResponse {
     const requestId = makeRequestId(req);
     const respond = (response: CommandResponse): CommandResponse => {
       safeObserveCommand(this.telemetry, {
@@ -101,6 +107,7 @@ export class Orchestrator {
       });
       return response;
     };
+    let historyBackup: ReturnType<NonNullable<EngineRegistry['workoutHistory']>['clonePlayer']>|null=null;
     try {
       const def = assertCommandKnown(req.commandId, getCommandDefinition(req.commandId));
       assertCommandImplemented(def);
@@ -111,7 +118,8 @@ export class Orchestrator {
         req,
         def,
         registry: this.registry,
-        runtime: this.runtime,
+        // Per-command working data only. AI handlers derive it from their current draft.
+        runtime: { aiWarlordStates: new Map() },
       };
 
       if (!def.changesState) {
@@ -131,11 +139,19 @@ export class Orchestrator {
       }
 
       const { state: next, result } = runStateTransaction(this.state, (draft) => {
+        if(receiptMs!==undefined) {
+          if(this.registry.workoutHistory)historyBackup=this.registry.workoutHistory.clonePlayer(req.playerId);
+          accrueWorldThroughReceipt(draft,receiptMs);
+          // Command-scoped adapter; never mutate the shared registry or accept
+          // a client-provided target as authoritative receipt time.
+          ctx.registry=Object.assign(Object.create(this.registry) as EngineRegistry,
+            {timeAuthority:new FixedWorldTimeAuthority(draft.accruedTargetWorldTick)});
+          if(req.commandId!=='SYNC_PLAYER_WORLD')catchUpWorld(draft,ctx,draft.accruedTargetWorldTick);
+        }
         const inner = mutHandler(draft, ctx);
         return applyLevel1TutorialToHandlerResult(draft, inner);
       });
       this.state = next;
-      this.runtime.aiWarlordStates = rebindWarlordRuntime(this.state, this.runtime.aiWarlordStates);
       if (result.commandSuccess === false) {
         return respond(failureResponse(
           req,
@@ -146,7 +162,7 @@ export class Orchestrator {
       }
       return respond(successResponse(req, requestId, result));
     } catch (err) {
-      this.runtime = { aiWarlordStates: buildWarlordStates(this.state) };
+      if(historyBackup&&this.registry.workoutHistory)this.registry.workoutHistory.replacePlayer(req.playerId,historyBackup);
       if (err instanceof OrchestrationError) {
         return respond(failureResponse(req, requestId, [err.toBody()]));
       }

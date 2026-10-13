@@ -1,0 +1,8 @@
+{
+  "base": "7b6cf00a639b6ed1b17302713ef13ad6d2ea195f",
+  "patch_check_exit": 0,
+  "apply_in_disposable_review_copy_exit": 0,
+  "matching_files": 46,
+  "mismatches": [],
+  "method": "Export only 39 baseline tracked files; apply complete patch in isolated temporary review directory without git staging; compare all 46 resulting contents to frozen SHA-256; remove temporary directory."
+}

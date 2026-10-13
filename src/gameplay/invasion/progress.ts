@@ -45,3 +45,13 @@ export function progressExpiredInvasions(
 ): HandlerResult[] {
   return processInvasionTimeouts(state, battle);
 }
+
+/** A stationary invasion whose defender lost the target cannot fight the old
+ * defender or select a replacement target. Settle through the existing resolver
+ * before new operation starts validate the next authoritative transaction.
+ */
+export function processInvalidatedInvasions(state: GameState, battle: BattleEngine): HandlerResult[] {
+  return [...state.activeInvasions.values()].filter(isOpenInvasion)
+    .filter(i => state.territories.has(i.territoryId) && state.territories.get(i.territoryId)!.owner !== i.defenderFactionId)
+    .sort(compareOpenInvasions).map(i => resolveInvasionBattle(state, battle, i.id, 'undefended'));
+}

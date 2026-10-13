@@ -1,3 +1,5 @@
+import { progressProactiveThrough } from '../orchestration/handlers';
+import { liveResponseContexts } from '../engine/responseRecords';
 import { getCommandDefinition } from '../orchestration/commandIndex';
 import { createDefaultRegistry, Orchestrator } from '../orchestration';
 import { ErrorCode } from '../orchestration/errors';
@@ -146,7 +148,24 @@ export function createSessionHost(
     session: PlayerSession,
     apply: (state: GameState) => GameplaySessionChange,
   ): GameplaySessionView {
-    const committed = commitGameplaySession(persistence, playerId, apply);
+    const committed = commitGameplaySession(persistence, playerId, state => {
+      const changed=apply(state);
+      // Lease receipts may finish sub-tick cognition/WAIT. A physical backlog
+      // must be ordered by the existing SYNC/catch-up path first.
+      if(changed.state.lastAccrualAtMs!==null && changed.state.worldTick===changed.state.accruedTargetWorldTick) {
+        // Terminal records are immutable. Comparing live records also detects
+        // their terminal removal; no history scan is needed for this save gate.
+        const cognitionSnapshot=()=>JSON.stringify([changed.state.aiClock,[...changed.state.aiPressure],[...changed.state.aiDecisionOpportunities],
+          liveResponseContexts(changed.state),{...changed.state.aiResponseScheduler,
+            primaryByFaction:[...changed.state.aiResponseScheduler.primaryByFaction],
+            lastBoundaryByFaction:[...changed.state.aiResponseScheduler.lastBoundaryByFaction]}]);
+        const before=cognitionSnapshot();
+        const req:CommandRequest={commandId:'ADVANCE_WORLD',playerId,parameters:{elapsedTicks:0}};
+        progressProactiveThrough(changed.state,{req,def:getCommandDefinition('ADVANCE_WORLD')!,registry,runtime:{aiWarlordStates:new Map()}},changed.state.lastAccrualAtMs);
+        changed.changed=changed.changed || before!==cognitionSnapshot();
+      }
+      return changed;
+    });
     if (!committed.ok) throw new PersistenceFailedError(committed.code, committed.message);
     remember(session, committed.state, committed.stateVersion);
     return committed.view;
@@ -226,7 +245,7 @@ export function createSessionHost(
         const history = persistence.history;
         history.begin(request.playerId);
         try {
-          response = current.orchestrator.execute(request);
+          response = current.orchestrator.executeAtAuthoritativeReceipt(request,receiptMs);
           finishCommandCommit(current, request, before, response, renewal);
           const saved = persistence.commitWorld(
             request.playerId,
@@ -248,7 +267,7 @@ export function createSessionHost(
         ? persistence.history.clonePlayer(request.playerId)
         : null;
       try {
-        response = current.orchestrator.execute(request);
+        response = current.orchestrator.executeAtAuthoritativeReceipt(request,receiptMs);
       } catch (err) {
         if (historyBackup) persistence.history.replacePlayer(request.playerId, historyBackup);
         throw err;

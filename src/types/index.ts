@@ -1,3 +1,4 @@
+import type { AIConcretePlan } from './AIConcretePlan';
 /**
  * CANONICAL STATE TYPES — this file is the single authoritative home for
  * core Rep Wars game-state entities (Territory, Army, WarlordSnapshot,
@@ -48,6 +49,7 @@ export type TerritoryOutcome = 'unchanged' | 'captured' | 'contested';
  * eliminated as a fighting force), not troops escaping.
  */
 export type BattleEventType = 'phase_start' | 'first_strike' | 'charge' | 'rally' | 'rout' | 'breach' | 'flank' | 'ambush' | 'heroic_stand' | 'surrender' | 'phase_end' | 'critical_hit';
+/** Historical record vocabulary. New proactive cognition uses ProactiveAIAction / AIConcretePlan. */
 export type ActionType = 'ATTACK' | 'DEFEND' | 'REINFORCE' | 'BUILD' | 'MOVE' | 'NEGOTIATE' | 'OFFER_PEACE' | 'DECLARE_WAR' | 'TRADE' | 'RETREAT' | 'WAIT';
 /**
  * AI commitment lifecycle (AI COMMITMENT & AMBITION PASS).
@@ -75,7 +77,7 @@ export type TreatyType = 'alliance' | 'non_aggression' | 'trade_agreement' | 'va
  * docs/AI_RUNTIME_INTEGRATION.md, "Memory / outcome feedback".
  */
 export type MemoryEventType = 'attack_received' | 'attack_made' | 'territory_lost' | 'territory_gained' | 'treaty_broken' | 'treaty_signed' | 'trade_completed' | 'alliance_formed' | 'alliance_broken' | 'major_victory' | 'major_defeat' | 'peace_offered' | 'war_declared' | 'battle_won' | 'battle_lost' | 'action_failed';
-export type GoalType = 'control_region' | 'dominant_faction' | 'protect_territory' | 'destroy_rival' | 'expand_to_resources' | 'prepare_for_invasion' | 'economic_growth' | 'form_alliance' | 'break_siege';
+export type GoalType = 'control_territory' | 'develop_territory' | 'seek_peace' | 'resource_condition' | 'force_position' | 'control_region' | 'dominant_faction' | 'protect_territory' | 'destroy_rival' | 'expand_to_resources' | 'prepare_for_invasion' | 'economic_growth' | 'form_alliance' | 'break_siege';
 export interface Resources {
     gold: number;
     food: number;
@@ -83,7 +85,7 @@ export interface Resources {
     wood: number;
     stone: number;
 }
-export type ArmyMovementStatus = 'moving' | 'arrived' | 'interrupted' | 'cancelled';
+export type ArmyMovementStatus = 'moving' | 'blocked' | 'arrived' | 'interrupted' | 'cancelled';
 
 /**
  * In-transit logistics for one army. Territory-to-territory only (adjacency
@@ -96,8 +98,14 @@ export interface ArmyMovement {
     startedAtTick: number;
     durationTicks: number;
     status: ArmyMovementStatus;
+    /** Physical march halted without a safe domain recovery policy. Still unavailable. */
+    haltedAtTick?: number;
+    interruptionReason?: string;
     /** AI MOVE/RETREAT commitment this march fulfills; null for player MOVE. */
     commitmentId: string | null;
+    /** Original hostile counterpart for attack travel, retained after objective invalidation.
+     * Physical arrival clears this with movement; ordinary MOVE has no counterpart. */
+    hostileCounterpartyId?: FactionId;
 }
 
 export interface Army {
@@ -127,6 +135,10 @@ export type StrategicAttackIntentStatus = 'pending_movement' | 'ready';
  * Live statuses only. See docs/STRATEGIC_ATTACK_ARCHITECTURE.md.
  */
 export interface StrategicAttackIntent {
+    /** Persisted exact factual-chain link; no duplicate physical authority. */
+    conflictFactId?: string;
+    /** Opposing faction when this physical hostile operation began. */
+    targetFactionId?: FactionId;
     targetTerritoryId: TerritoryId;
     stagingTerritoryId: TerritoryId;
     createdAtTick: number;
@@ -187,6 +199,8 @@ export interface MemoryEntry {
     details: Record<string, unknown>;
 }
 export interface StrategicGoal {
+    /** Required on canonical production records; optional for legacy harness inputs. */
+    lifecycle?: import("./AICognition").GoalLifecycle;
     id: string;
     type: GoalType;
     priority: number;
@@ -221,6 +235,8 @@ export interface Personality {
  */
 export interface AICommitment {
     id: CommitmentId;
+    /** Absent only on explicitly supported legacy action/target commitments. */
+    plan?: AIConcretePlan;
     warlordId: FactionId;
     action: ActionType;
     targetId: string | null;
@@ -287,10 +303,14 @@ export interface WarlordSnapshot {
         action: ActionType;
         target: string | null;
     }[];
+    /** Persisted identity high-water mark for independently identified AI operations. */
+    nextAiCommitmentSequence: number;
     reputation: number;
     stability: number;
 }
 export interface GameStateSnapshot {
+    /** Borrowed current transaction draft; construction rules require canonical cities/infrastructure/capacity. Never persisted or retained. */
+    canonicalState?: import('./GameState').GameState;
     turn: number;
     factions: Map<FactionId, WarlordSnapshot>;
     territories: Map<TerritoryId, Territory>;
@@ -313,6 +333,8 @@ export interface GameStateSnapshot {
     };
 }
 export interface ScoredAction {
+    /** Present on every production proactive candidate. Optional for historical/harness DTOs. */
+    plan?: AIConcretePlan;
     action: ActionType;
     targetId: string | null;
     targetName: string | null;
@@ -326,7 +348,12 @@ export interface ScoredAction {
     }[];
     reasoning: string[];
 }
+export interface ScoredConcretePlan extends ScoredAction { plan: AIConcretePlan; }
 export interface Decision {
+    /** Ephemeral server-side diagnostics only; never persisted or publicly projected. */
+    planComparisonDiagnostics?: ReturnType<import('../scoring/contextPlanComparison').ContextPlanComparator['compare']> & {
+        resolution: ReturnType<typeof import('../scoring/contextPlanComparison').selectContextComparison>['resolution'];
+    };
     warlordId: FactionId;
     warlordName: string;
     turn: number;

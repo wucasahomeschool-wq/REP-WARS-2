@@ -7,7 +7,7 @@ import { progressExpiredInvasions } from '../gameplay/invasion/progress';
 import { persistTerminalSessionHistory } from '../fitness/history/persistSession';
 import { GameState } from '../types/GameState';
 import { withRequestParameters } from '../orchestration/helpers';
-import { handleAdvanceWorld, HandlerContext } from '../orchestration/handlers';
+import { handleAdvanceWorld, progressProactiveThrough, HandlerContext } from '../orchestration/handlers';
 import { GameEvent, HandlerResult, Notification, ResourceChange, StateChange } from '../orchestration/protocol';
 import { OrchestrationError, ErrorCode } from '../orchestration/errors';
 import { PersistenceError } from '../persistence/errors';
@@ -287,6 +287,8 @@ export function catchUpWorld(state: GameState, ctx: HandlerContext, targetWorldT
     flushAbandonedHistory(state, ctx);
   }
 
+  if(state.lastAccrualAtMs!==null && state.worldTick===state.accruedTargetWorldTick)
+    mergeAdvance(result,progressProactiveThrough(state,ctx,state.lastAccrualAtMs));
   result.worldTick = state.worldTick;
   result.ticksAdvanced = state.worldTick - previousWorldTick;
   if (result.ticksAdvanced > 0) {

@@ -1,3 +1,4 @@
+import { createOperationMap } from '../engine/operations';
 /**
  * LEGACY simulation CLI. Default `runSimulation` boots SAMPLE_MAP.
  * `--world` and `--move` use `createGameState()` with the selected authored
@@ -12,6 +13,7 @@ import { GameStateSnapshot, WarlordSnapshot, Decision, FactionId, RelationshipSt
 import { BattleEngine, BattleInput, BattleResult } from '../battle/BattleEngine';
 import { ScoringHelpers } from '../scoring/ActionScorer';
 import { Orchestrator } from '../orchestration/orchestrator';
+import { OrchestrationError, ErrorCode } from '../orchestration/errors';
 import { createGameState, createLegacySampleMapGameState } from '../state/createGameState';
 import { DEFAULT_PRODUCTION_WORLD_ID } from '../worldDefinition';
 import { checkGameStateInvariants } from '../state/gameStateInvariants';
@@ -385,6 +387,10 @@ function simulateDecisionOutcomes(
     const ws = warlordStates.get(d.warlordId);
     if (!ws)
       continue;
+    if (d.commitment?.plan && d.action !== 'WAIT') {
+      throw new OrchestrationError(ErrorCode.FEATURE_NOT_IMPLEMENTED,
+        'The legacy turn-only preview cannot execute concrete plans; use the canonical --world Orchestrator flow');
+    }
     ws.snapshot.lastActions.unshift({ turn, action: d.action, target: d.targetId });
     if (ws.snapshot.lastActions.length > 20)
       ws.snapshot.lastActions.pop();
@@ -531,29 +537,11 @@ function simulateDecisionOutcomes(
         }
         break;
       case 'REINFORCE':
-        if (d.targetId) {
-          const t = gameState.territories.get(d.targetId);
-          if (t && t.owner === d.warlordId) {
-            // AI DECISION CORRECTNESS PASS: moved from inline literals to
-            // BALANCE.economy.reinforcementCost, the same source
-            // ActionScorer.scoreReinforce() now reads for its affordability
-            // check, so scoring and execution can't disagree about cost.
-            const { gold: costG, food: costF, garrisonGain } = BALANCE.economy.reinforcementCost;
-            if (ws.snapshot.resources.gold >= costG && ws.snapshot.resources.food >= costF) {
-              ws.snapshot.resources.gold -= costG;
-              ws.snapshot.resources.food -= costF;
-              t.garrison += garrisonGain;
-            }
-          }
-        }
+        // Legacy harness cannot allocate canonically timed local pools.
+        // Never recreate purchased troops; use Orchestrator in production.
         break;
       case 'WAIT': {
-        const inc = ws.snapshot.resourceIncome;
-        ws.snapshot.resources.gold += Math.floor((inc.gold ?? 0) * 0.5);
-        ws.snapshot.resources.food += Math.floor((inc.food ?? 0) * 0.5);
-        ws.snapshot.resources.iron += Math.floor((inc.iron ?? 0) * 0.5);
-        ws.snapshot.resources.wood += Math.floor((inc.wood ?? 0) * 0.5);
-        ws.snapshot.resources.stone += Math.floor((inc.stone ?? 0) * 0.5);
+        // Initiate no operation; waiting never grants resources or troops.
         break;
       }
     }
@@ -816,7 +804,7 @@ async function runAttackChainDemo(opts: CliOpts): Promise<void> {
     totalMilitaryPower: 800, resources: { gold: 1000, food: 1000, iron: 1000, wood: 1000, stone: 1000 },
     resourceIncome: { gold: 10, food: 10, iron: 10, wood: 10, stone: 10 }, diplomacy: new Map(),
     memory: [], goals: [], currentThreats: [], knownFactions: [atk, def], knownTerritories: ['rear', 'staging', 'front'],
-    lastActions: [], reputation: 50, stability: 70, ambition: 0.5,
+    lastActions: [], nextAiCommitmentSequence: 0, reputation: 50, stability: 70, ambition: 0.5,
   };
   const defSnap: WarlordSnapshot = { ...atkSnap, id: def, name: 'Defender', territories: ['front'], armies: [], totalMilitaryPower: 10 };
   const state = {
@@ -835,7 +823,7 @@ async function runAttackChainDemo(opts: CliOpts): Promise<void> {
     regions: new Map([['r_demo', { id: 'r_demo', name: 'Demo', territoryIds: ['rear', 'staging', 'front'] }]]),
     territories: new Map([['rear', rear], ['staging', staging], ['front', front]]),
     armies: new Map([[army.id, army]]),
-    commitments: new Map([[atk, null], [def, null]]),
+    operations: createOperationMap(), operationClaims: new Map(),
     activeEvents: [],
     eventHistory: [],
   };

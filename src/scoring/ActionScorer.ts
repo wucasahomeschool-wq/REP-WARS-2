@@ -1,3 +1,5 @@
+import { AIConcretePlan, AttackPlan, BuildPlan, MovePlan, RetreatPlan, planTargetId, comparePlanIds, cloneConcretePlan } from '../types/AIConcretePlan';
+import { generateConcretePlans, assessConcretePlanFeasibility } from '../engine/concretePlans';
 import { BALANCE } from '../constants/balance';
 import { PersonalitySystem } from '../personality/PersonalitySystem';
 import {
@@ -8,6 +10,7 @@ import {
   FactionId,
   Resources,
   ScoredAction,
+  ScoredConcretePlan,
   Territory,
   WarlordSnapshot,
 } from '../types';
@@ -15,10 +18,6 @@ import { MemorySystem } from '../memory/MemorySystem';
 import { GoalSystem } from '../goals/GoalSystem';
 import { SeededRNG } from '../utils/SeededRNG';
 import { computeMilitaryAdvantageRatio } from '../battle/CombatPower';
-import { getAttackFeasibility, isMoveDestinationFeasible } from '../engine/feasibility';
-import { armyHasActiveStrategicOperation } from '../army/strategicAttack';
-import { isAttackForbiddenOnSnapshot } from '../gameplay/invasion/eligibility';
-import { isPlayerAnchorProtectedOnSnapshot } from '../gameplay/anchors';
 
 const {
   scoring: S,
@@ -320,27 +319,39 @@ export interface ScorerInput {
 
 interface FactorEntry { factor: string; weight: number; contribution: number; }
 
+/** @deprecated Legacy standalone CLI/test scorer. Canonical proactive handlers
+ * use DecisionEngine.decideForSource / ContextPlanComparator exclusively. */
 export class ActionScorer {
-  scoreAllActions(input: ScorerInput): ScoredAction[] {
-    const results: ScoredAction[] = [];
-    const actions: ActionType[] = [
-      'ATTACK', 'DEFEND', 'REINFORCE',
-      'BUILD', 'MOVE', 'NEGOTIATE', 'OFFER_PEACE', 'DECLARE_WAR',
-      'TRADE', 'RETREAT', 'WAIT',
-    ];
-    for (const action of actions) {
-      const scored = this.scoreAction(action, input);
-      results.push(...scored);
-    }
+  scoreAllActions(input: ScorerInput): ScoredConcretePlan[] {
+    return this.scorePlans(generateConcretePlans(input.ctx.gameState, input.ctx.self.id), input);
+  }
+
+  scorePlans(plans: readonly AIConcretePlan[], input: ScorerInput): ScoredConcretePlan[] {
+    const results = [...plans].sort((a, b) => comparePlanIds(a.id, b.id)).map(plan => this.scorePlan(plan, input));
     this.applyAmbitionModifiers(results, input);
-    return results.sort((a, b) => b.score - a.score);
+    return results.sort((a, b) => b.score - a.score || comparePlanIds(a.plan!.id, b.plan!.id));
+  }
+
+  scorePlan(plan: AIConcretePlan, input: ScorerInput): ScoredConcretePlan {
+    if (plan.factionId !== input.ctx.self.id || !assessConcretePlanFeasibility(plan, input.ctx.gameState).feasible)
+      throw new Error(`Invalid concrete scoring input ${plan.id}`);
+    let scored: ScoredAction;
+    switch (plan.action) {
+      case 'ATTACK': scored = this.scoreAttack(input, plan); break;
+      case 'BUILD': scored = this.scoreBuild(input, plan); break;
+      case 'MOVE': scored = this.scoreMove(input, plan)[0]!; break;
+      case 'RETREAT': scored = this.scoreRetreat(input, plan)[0]!; break;
+      case 'WAIT': scored = this.scoreWait(input)[0]!; break;
+      default: throw new Error(`No operational candidate source for ${plan.action}`);
+    }
+    if (!scored) throw new Error(`Invalid concrete scoring input ${plan.id}`);
+    return { ...scored, plan: cloneConcretePlan(plan), targetId: planTargetId(plan) };
   }
 
   /**
    * Ambition layers on top of existing goal alignment and personality.
    * At `BALANCE.ambition.defaultValue` (0.5) every extra is 0.
-   * Under immediate local threat, offensive ambition bonuses on
-   * DECLARE_WAR (and the strategic-push bonus on ATTACK) are skipped.
+   * Under immediate local threat, the strategic-push bonus on ATTACK is skipped.
    */
   private applyAmbitionModifiers(results: ScoredAction[], input: ScorerInput): void {
     const ambition = input.ctx.self.ambition;
@@ -349,11 +360,10 @@ export class ActionScorer {
     for (const scored of results) {
       const goalFactor = scored.factorBreakdown.find((f) => f.factor === 'Goal alignment');
       const goalContribution = goalFactor?.contribution ?? 0;
-      const skipGoalAmp = threatened && scored.action === 'DECLARE_WAR';
-      const ambitionGoal = (!skipGoalAmp && goalContribution !== 0)
+      const ambitionGoal = (goalContribution !== 0)
         ? goalContribution * delta * BALANCE.ambition.goalPersistenceScale
         : 0;
-      const offensivePush = scored.action === 'ATTACK' || scored.action === 'DECLARE_WAR';
+      const offensivePush = scored.action === 'ATTACK';
       const strategicPush = (!threatened && offensivePush)
         ? delta * BALANCE.ambition.strategicPushWeight
         : 0;
@@ -373,22 +383,6 @@ export class ActionScorer {
         scored.factorBreakdown.push({ factor: 'Ambition (strategic push)', weight: 1, contribution: strategicPush });
       }
       scored.score = Math.max(S.minReasonableScore, Math.min(S.maxScore, scored.score));
-    }
-  }
-
-  private scoreAction(action: ActionType, input: ScorerInput): ScoredAction[] {
-    switch (action) {
-      case 'ATTACK': return this.scoreAttack(input);
-      case 'DEFEND': return this.scoreDefend(input);
-      case 'REINFORCE': return this.scoreReinforce(input);
-      case 'BUILD': return this.scoreBuild(input);
-      case 'MOVE': return this.scoreMove(input);
-      case 'NEGOTIATE': return this.scoreNegotiate(input);
-      case 'OFFER_PEACE': return this.scoreOfferPeace(input);
-      case 'DECLARE_WAR': return this.scoreDeclareWar(input);
-      case 'TRADE': return this.scoreTrade(input);
-      case 'RETREAT': return this.scoreRetreat(input);
-      case 'WAIT': return this.scoreWait(input);
     }
   }
 
@@ -414,569 +408,148 @@ export class ActionScorer {
     return { base: base + personalityBias + randomness, factors, reasoning };
   }
 
-  private scoreAttack(input: ScorerInput): ScoredAction[] {
-    const { ctx, turn, rng, memory, goals } = input;
-    const results: ScoredAction[] = [];
-    for (const targetTerr of ctx.enemyNeighbors) {
-      const targetFactionId = targetTerr.owner;
-      if (!targetFactionId) continue;
-      if (isAttackForbiddenOnSnapshot(ctx.gameState, ctx.self.id, targetFactionId)) continue;
-      if (isPlayerAnchorProtectedOnSnapshot(ctx.gameState, targetTerr.id)) continue;
-      let { base, factors, reasoning } = this.baseScored('ATTACK', input);
-      let score = base;
-      const targetOwner = ctx.allFactions.get(targetFactionId);
-      if (!targetOwner) continue;
-      // AI RUNTIME INTEGRATION PASS — attack feasibility.
-      // Previously this only used `armiesBorderingTerritory` (armies
-      // already standing on a legal staging tile) and skipped the target
-      // entirely otherwise. That under-scored Phase 15's one-hop
-      // MOVE → ATTACK chain: a target only reachable by marching a
-      // faraway-but-eligible army onto a staging tile first was never
-      // scored as attackable at all, even though `startStrategicAttack`
-      // could execute exactly that plan. `getAttackFeasibility` now calls
-      // the SAME staging/immediate-army selection `startStrategicAttack`
-      // uses (`listImmediateAttackingArmies` / `selectDelayedAttackPlan`),
-      // so the scorer and the executor can never disagree about whether a
-      // target is reachable. `unreachable` still causes this target to be
-      // skipped — the AI should not score an impossible attack as though
-      // it were executable. See docs/AI_RUNTIME_INTEGRATION.md, "Attack
-      // feasibility".
-      const feasibility = getAttackFeasibility(ctx, targetTerr.id);
-      if (feasibility.feasibility === 'unreachable') continue;
-      const isStaging = feasibility.feasibility === 'staging';
-      const attackingArmies = isStaging
-        ? [ctx.allArmies.get(feasibility.stagingArmyId!)!].filter((a): a is Army => !!a)
-        : feasibility.immediateArmies;
-      if (attackingArmies.length === 0) continue;
-      const { advantage, ratio, risk } = ScoringHelpers.estimateMilitaryAdvantage(
-        attackingArmies, targetTerr, ctx.allArmies,
-      );
-      score += Math.max(-S.maxFactorWeight, Math.min(S.maxFactorWeight, advantage * M.advantageMultiplier));
-      factors.push({ factor: 'Military advantage', weight: M.advantageMultiplier, contribution: advantage * M.advantageMultiplier });
-      if (ratio > M.criticalThreatRatio) reasoning.push('strong military advantage');
-      else if (ratio > M.moderateThreatRatio) reasoning.push('moderate military advantage');
-      else if (ratio < 1 / M.criticalThreatRatio) { reasoning.push('military disadvantage'); score -= 40; }
-      const terrValue = ScoringHelpers.evaluateTerritoryValue(targetTerr);
-      score += Math.min(S.maxFactorWeight, terrValue * 0.5);
-      factors.push({ factor: 'Territory value', weight: T.baseValueWeight, contribution: terrValue * 0.5 });
-      if (terrValue > 80) reasoning.push('high territory value');
-      else if (terrValue > 50) reasoning.push('moderate territory value');
-      const riskMod = PersonalitySystem.getRiskModifier(ctx.self.personality, risk);
-      score += riskMod;
-      factors.push({ factor: 'Risk assessment', weight: 1, contribution: riskMod });
-      if (risk > R.highRisk && ctx.self.personality.riskTolerance < 0.4) reasoning.push('too risky');
-      const rel = ScoringHelpers.getRelationship(ctx.self, targetFactionId);
-      const relMod = ScoringHelpers.evaluateRelationshipModifier(rel);
-      score += -relMod * 0.8;
-      factors.push({ factor: 'Diplomatic relations', weight: 0.8, contribution: -relMod * 0.8 });
-      if (rel?.state === 'at_war') reasoning.push('already at war');
-      else if (rel?.state === 'allied') { score -= 60; reasoning.push('would break alliance'); }
-      else if (rel?.state === 'friendly') { score -= 20; reasoning.push('would betray friendly power'); }
-      const memSummary = memory.summarizeForFaction(targetFactionId, turn);
-      const revengeMod = PersonalitySystem.getRevengeModifier(ctx.self.personality, memSummary.totalGrievances);
-      score += revengeMod;
-      factors.push({ factor: 'Historical grievances', weight: 1, contribution: revengeMod });
-      if (memSummary.recentAttacks > 0) reasoning.push('recent attacks demand response');
-      if (memSummary.totalGrievances > 20) reasoning.push('long-standing rivalry');
-      const goalAlign = goals.evaluateActionAlignment({
-        actionType: 'ATTACK', targetFaction: targetFactionId, targetTerritory: targetTerr.id,
-        self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
-      });
-      score += goalAlign.scoreContribution;
-      factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
-      for (const g of goalAlign.alignedGoals) reasoning.push(`aligns with goal: ${g.type.replace(/_/g, ' ')}`);
-      if (isStaging) {
-        score -= S.stagingAttackPenalty;
-        factors.push({ factor: 'Requires staging march', weight: 1, contribution: -S.stagingAttackPenalty });
-        reasoning.push('requires marching to a staging territory first');
-      }
-      score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
-      results.push({
-        action: 'ATTACK', targetId: targetTerr.id, targetName: targetTerr.id,
-        score, baseScore: S.baseScores.ATTACK, factorBreakdown: factors, reasoning,
-      });
-    }
-    return results.sort((a, b) => b.score - a.score).slice(0, 3);
-  }
-
-  private scoreDefend(input: ScorerInput): ScoredAction[] {
-    const { ctx, turn, goals } = input;
-    const results: ScoredAction[] = [];
-    for (const myTerr of ctx.myTerritories) {
-      let { base, factors, reasoning } = this.baseScored('DEFEND', input);
-      let score = base;
-      // AI DECISION CORRECTNESS PASS — local threat scoring.
-      // Previously this was a flat "+15 per hostile neighbor" regardless of
-      // how much force (if any) that neighbor actually had. That could not
-      // distinguish a hostile neighbor with almost no military from one
-      // with a large army sitting right on the border. Now each hostile
-      // bordering territory contributes its own local strength (garrison +
-      // any field armies stationed there, via `computeLocalHostilePower`),
-      // scaled down by /10 so a "typical" starting garrison (~150, per
-      // SAMPLE_MAP) contributes ~15 — the same order of magnitude as the
-      // old flat constant — while a lightly-held border contributes little
-      // and a heavily-reinforced one contributes proportionally more. A
-      // faction's empire-wide military power is intentionally NOT used
-      // here: a hostile faction that is powerful overall but has nothing
-      // stationed near this particular border is not a local threat.
-      // See docs/AI_DECISION_CORRECTNESS.md, "Local threat calculation".
-      let borderThreat = 0;
-      for (const nId of myTerr.neighboring) {
-        const n = ctx.allTerritories.get(nId);
-        if (n && n.owner && n.owner !== ctx.self.id) {
-          const owner = ctx.allFactions.get(n.owner);
-          if (owner) {
-            const rel = ctx.self.diplomacy.get(n.owner);
-            const hostile = rel?.state === 'at_war' || rel?.state === 'hostile' || (rel?.opinion ?? 0) < -30;
-            if (hostile) {
-              const localPower = ScoringHelpers.computeLocalHostilePower(n, ctx.allArmies);
-              borderThreat += localPower / 10;
-            }
-          }
-        }
-      }
-      score += Math.min(S.maxFactorWeight, borderThreat);
-      factors.push({ factor: 'Border threat', weight: 1, contribution: borderThreat });
-      if (borderThreat > 30) reasoning.push('high border threat');
-      else if (borderThreat > 10) reasoning.push('border tensions detected');
-      const terrValue = ScoringHelpers.evaluateTerritoryValue(myTerr);
-      score += terrValue * 0.3;
-      factors.push({ factor: 'Territory value', weight: 0.3, contribution: terrValue * 0.3 });
-      if (terrValue > 100) reasoning.push('valuable territory');
-      const underdefended = myTerr.garrison < 200 && borderThreat > 10;
-      if (underdefended) { score += 20; factors.push({ factor: 'Underdefended', weight: 1, contribution: 20 }); reasoning.push('garrison too small for threats'); }
-      const goalAlign = goals.evaluateActionAlignment({
-        actionType: 'DEFEND', targetTerritory: myTerr.id,
-        self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
-      });
-      score += goalAlign.scoreContribution;
-      factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
-      for (const g of goalAlign.alignedGoals) reasoning.push(`aligns with goal: ${g.type.replace(/_/g, ' ')}`);
-      if (borderThreat === 0) score -= 20;
-      score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
-      results.push({
-        action: 'DEFEND', targetId: myTerr.id, targetName: myTerr.id,
-        score, baseScore: S.baseScores.DEFEND, factorBreakdown: factors, reasoning,
-      });
-    }
-    return results.sort((a, b) => b.score - a.score).slice(0, 2);
-  }
-
-  private scoreReinforce(input: ScorerInput): ScoredAction[] {
-    const { ctx, turn, goals } = input;
-    const results: ScoredAction[] = [];
-    const { scarcity, overallNeed } = ScoringHelpers.evaluateResourceNeed(ctx.self.resources, ctx.self.resourceIncome);
-    for (const myTerr of ctx.myTerritories) {
-      let { base, factors, reasoning } = this.baseScored('REINFORCE', input);
-      let score = base;
-      // AI DECISION CORRECTNESS PASS: use the same reinforcement cost the
-      // CLI actually charges (`BALANCE.economy.reinforcementCost`) instead
-      // of the old unrelated hardcoded thresholds (gold > 500, food > 300)
-      // that didn't match the real 250 gold / 150 food cost. See
-      // docs/AI_DECISION_CORRECTNESS.md, "Reinforcement affordability".
-      const goldOK = ctx.self.resources.gold >= E.reinforcementCost.gold;
-      const foodOK = ctx.self.resources.food >= E.reinforcementCost.food;
-      const canAfford = goldOK && foodOK;
-      if (!canAfford) { score -= 30; factors.push({ factor: 'Resource constraints', weight: 1, contribution: -30 }); reasoning.push('insufficient resources'); }
-      else { score += 5; factors.push({ factor: 'Resources available', weight: 1, contribution: 5 }); }
-      const wantReinforce = myTerr.garrison < 300;
-      if (wantReinforce) { score += 25; factors.push({ factor: 'Garrison weak', weight: 1, contribution: 25 }); reasoning.push('garrison needs reinforcement'); }
-      const goalAlign = goals.evaluateActionAlignment({
-        actionType: 'REINFORCE', targetTerritory: myTerr.id,
-        self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
-      });
-      score += goalAlign.scoreContribution;
-      factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
-      void scarcity; void overallNeed;
-      score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
-      results.push({
-        action: 'REINFORCE', targetId: myTerr.id, targetName: myTerr.id,
-        score, baseScore: S.baseScores.REINFORCE, factorBreakdown: factors, reasoning,
-      });
-    }
-    return results.sort((a, b) => b.score - a.score).slice(0, 2);
-  }
-
-  /**
-   * Economy v1: scores timed fortification only. City founding, Farm/Mine/Lumber,
-   * and collect are deferred — docs/ECONOMY_DESIGN_SURFACE.md (AI economy).
-   * Do not invent a workout substitute for AI.
-   */
-  private scoreBuild(input: ScorerInput): ScoredAction[] {
-    const { ctx, turn, goals } = input;
-    const results: ScoredAction[] = [];
-    const res = ctx.self.resources;
-    // ENGINE EXECUTION CONSISTENCY PASS: reads the same
-    // `BALANCE.territory.fortificationCostPerLevel` the CLI's BUILD
-    // execution charges (previously both sides hardcoded 100/50 as
-    // separate inline literals). See docs/ENGINE_EXECUTION_CONSISTENCY.md.
-    const canAffordFortify = res.stone >= T.fortificationCostPerLevel.stone
-      && res.gold >= T.fortificationCostPerLevel.gold;
-    for (const myTerr of ctx.myTerritories) {
-      let { base, factors, reasoning } = this.baseScored('BUILD', input);
-      let score = base;
-      if (!canAffordFortify) { score -= 25; factors.push({ factor: 'Insufficient resources', weight: 1, contribution: -25 }); reasoning.push('lacking stone/gold'); }
-      else { score += 5; }
-      if (myTerr.fortification < 3) {
-        score += (3 - myTerr.fortification) * 10;
-        factors.push({ factor: 'Low fortification', weight: 1, contribution: (3 - myTerr.fortification) * 10 });
-        reasoning.push('fortification levels low');
-      } else { score -= 10; }
-      let enemyBorder = 0;
-      for (const nId of myTerr.neighboring) {
-        const n = ctx.allTerritories.get(nId);
-        if (n?.owner && n.owner !== ctx.self.id) {
-          const rel = ctx.self.diplomacy.get(n.owner);
-          if (rel?.state === 'hostile' || rel?.state === 'at_war') enemyBorder += 2;
-          else enemyBorder += 1;
-        }
-      }
-      score += enemyBorder * 8;
-      factors.push({ factor: 'Border exposure', weight: 1, contribution: enemyBorder * 8 });
-      if (enemyBorder >= 2) reasoning.push('border with hostile powers');
-      const terrValue = ScoringHelpers.evaluateTerritoryValue(myTerr);
-      score += terrValue * 0.2;
-      factors.push({ factor: 'Territory value', weight: 0.2, contribution: terrValue * 0.2 });
-      const goalAlign = goals.evaluateActionAlignment({
-        actionType: 'BUILD', targetTerritory: myTerr.id,
-        self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
-      });
-      score += goalAlign.scoreContribution;
-      factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
-      score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
-      results.push({
-        action: 'BUILD', targetId: myTerr.id, targetName: myTerr.id,
-        score, baseScore: S.baseScores.BUILD, factorBreakdown: factors, reasoning,
-      });
-    }
-    return results.sort((a, b) => b.score - a.score).slice(0, 2);
-  }
-
-  private scoreMove(input: ScorerInput): ScoredAction[] {
-    const { ctx, rng } = input;
-    void rng;
-    let { base, factors, reasoning } = this.baseScored('MOVE', input);
+  private scoreAttack(input: ScorerInput, plan: AttackPlan): ScoredAction {
+    const { ctx, turn, memory, goals } = input;
+    const targetTerr = ctx.allTerritories.get(plan.targetTerritoryId)!;
+    const targetFactionId = targetTerr.owner!;
+    let { base, factors, reasoning } = this.baseScored('ATTACK', input);
     let score = base;
-    let bestTarget: Territory | null = null;
-    let bestMoveScore = -Infinity;
-    for (const army of ctx.myArmies) {
-      // AI RUNTIME INTEGRATION PASS — MOVE feasibility.
-      // `executeMoveCommitment` only ever picks a stationary army with no
-      // conflicting attack intent (`!isArmyMoving(a)`); an army already
-      // moving or mid-strategic-attack cannot be reassigned to a fresh
-      // MOVE. Previously this loop considered every army in `ctx.myArmies`
-      // regardless of movement/attack-intent status, so the scorer could
-      // pick `bestTarget` based on an army that execution would then
-      // immediately reject with `NOT_ADJACENT` (because no OTHER army
-      // happened to be adjacent). See docs/AI_RUNTIME_INTEGRATION.md,
-      // "Move feasibility".
-      if (armyHasActiveStrategicOperation(army)) continue;
-      const currentLoc = ctx.allTerritories.get(army.location);
-      if (!currentLoc) continue;
-      for (const nId of currentLoc.neighboring) {
-        const dest = ctx.allTerritories.get(nId);
-        if (!dest) continue;
-        if (!ctx.self.territories.includes(dest.id) &&
-            !dest.neighboring.some((nn) => ctx.self.territories.includes(nn))) continue;
-        let ms = 0;
-        if (dest.owner && dest.owner !== ctx.self.id) {
-          const rel = ctx.self.diplomacy.get(dest.owner);
-          if (rel?.state === 'at_war') ms += 20;
-        }
-        if (dest.owner === ctx.self.id) {
-          let borderThreat = 0;
-          for (const nnId of dest.neighboring) {
-            const nn = ctx.allTerritories.get(nnId);
-            if (nn?.owner && nn.owner !== ctx.self.id) borderThreat += 5;
-          }
-          ms += borderThreat;
-          if (dest.garrison < 150) ms += 15;
-        }
-        if (ms > bestMoveScore) { bestMoveScore = ms; bestTarget = dest; }
+    const isStaging = plan.originTerritoryId !== plan.stagingTerritoryId;
+    const attackingArmies = [ctx.allArmies.get(plan.armyId)!];
+    const { advantage, ratio, risk } = ScoringHelpers.estimateMilitaryAdvantage(
+      attackingArmies, targetTerr, ctx.allArmies,
+    );
+    score += Math.max(-S.maxFactorWeight, Math.min(S.maxFactorWeight, advantage * M.advantageMultiplier));
+    factors.push({ factor: 'Military advantage', weight: M.advantageMultiplier, contribution: advantage * M.advantageMultiplier });
+    if (ratio > M.criticalThreatRatio) reasoning.push('strong military advantage');
+    else if (ratio > M.moderateThreatRatio) reasoning.push('moderate military advantage');
+    else if (ratio < 1 / M.criticalThreatRatio) { reasoning.push('military disadvantage'); score -= 40; }
+    const terrValue = ScoringHelpers.evaluateTerritoryValue(targetTerr);
+    score += Math.min(S.maxFactorWeight, terrValue * 0.5);
+    factors.push({ factor: 'Territory value', weight: T.baseValueWeight, contribution: terrValue * 0.5 });
+    if (terrValue > 80) reasoning.push('high territory value');
+    else if (terrValue > 50) reasoning.push('moderate territory value');
+    const riskMod = PersonalitySystem.getRiskModifier(ctx.self.personality, risk);
+    score += riskMod;
+    factors.push({ factor: 'Risk assessment', weight: 1, contribution: riskMod });
+    if (risk > R.highRisk && ctx.self.personality.riskTolerance < 0.4) reasoning.push('too risky');
+    const rel = ScoringHelpers.getRelationship(ctx.self, targetFactionId);
+    const relMod = ScoringHelpers.evaluateRelationshipModifier(rel);
+    score += -relMod * 0.8;
+    factors.push({ factor: 'Diplomatic relations', weight: 0.8, contribution: -relMod * 0.8 });
+    if (rel?.state === 'at_war') reasoning.push('already at war');
+    else if (rel?.state === 'allied') { score -= 60; reasoning.push('would break alliance'); }
+    else if (rel?.state === 'friendly') { score -= 20; reasoning.push('would betray friendly power'); }
+    const memSummary = memory.summarizeForFaction(targetFactionId, turn);
+    const revengeMod = PersonalitySystem.getRevengeModifier(ctx.self.personality, memSummary.totalGrievances);
+    score += revengeMod;
+    factors.push({ factor: 'Historical grievances', weight: 1, contribution: revengeMod });
+    if (memSummary.recentAttacks > 0) reasoning.push('recent attacks demand response');
+    if (memSummary.totalGrievances > 20) reasoning.push('long-standing rivalry');
+    const goalAlign = goals.evaluateActionAlignment({
+      actionType: 'ATTACK', targetFaction: targetFactionId, targetTerritory: targetTerr.id,
+      self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
+    });
+    score += goalAlign.scoreContribution;
+    factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
+    for (const g of goalAlign.alignedGoals) reasoning.push(`aligns with goal: ${g.type.replace(/_/g, ' ')}`);
+    if (isStaging) {
+      score -= S.stagingAttackPenalty;
+      factors.push({ factor: 'Requires staging march', weight: 1, contribution: -S.stagingAttackPenalty });
+      reasoning.push('requires marching to a staging territory first');
+    }
+    score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
+    return {
+      action: 'ATTACK', targetId: targetTerr.id, targetName: targetTerr.id,
+      score, baseScore: S.baseScores.ATTACK, factorBreakdown: factors, reasoning,
+    };
+  }
+
+  private scoreBuild(input: ScorerInput, plan: BuildPlan): ScoredAction {
+    const { ctx, turn, goals } = input;
+    const myTerr = ctx.allTerritories.get(plan.territoryId)!;
+    let { base, factors, reasoning } = this.baseScored('BUILD', input);
+    let score = base;
+    score += 5; // Feasible generator already checks exact current cost.
+    if (plan.projectType === 'FORTIFICATION') {
+      const fortScore = myTerr.fortification < 3 ? (3 - myTerr.fortification) * 10 : -10;
+      score += fortScore;
+      factors.push({ factor: 'Low fortification', weight: 1, contribution: fortScore });
+    }
+    reasoning.push(`construct ${plan.projectType.toLowerCase()}`);
+    let enemyBorder = 0;
+    for (const nId of myTerr.neighboring) {
+      const n = ctx.allTerritories.get(nId);
+      if (n?.owner && n.owner !== ctx.self.id) {
+        const rel = ctx.self.diplomacy.get(n.owner);
+        if (rel?.state === 'hostile' || rel?.state === 'at_war') enemyBorder += 2;
+        else enemyBorder += 1;
       }
     }
-    if (bestTarget) {
-      score += Math.min(S.maxFactorWeight, bestMoveScore);
-      factors.push({ factor: 'Strategic relocation value', weight: 1, contribution: bestMoveScore });
-      if (bestMoveScore > 30) reasoning.push('high-value repositioning');
-    } else { score -= 15; }
-    const goalAlign = input.goals.evaluateActionAlignment({
-      actionType: 'MOVE', targetTerritory: bestTarget?.id ?? null,
-      self: ctx.self, currentTurn: input.turn, allTerritories: ctx.allTerritories,
+    score += enemyBorder * 8;
+    factors.push({ factor: 'Border exposure', weight: 1, contribution: enemyBorder * 8 });
+    if (enemyBorder >= 2) reasoning.push('border with hostile powers');
+    const terrValue = ScoringHelpers.evaluateTerritoryValue(myTerr);
+    score += terrValue * 0.2;
+    factors.push({ factor: 'Territory value', weight: 0.2, contribution: terrValue * 0.2 });
+    const goalAlign = goals.evaluateActionAlignment({
+      actionType: 'BUILD', targetTerritory: myTerr.id,
+      self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
     });
     score += goalAlign.scoreContribution;
     factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
     score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
-    return [{
-      action: 'MOVE', targetId: bestTarget?.id ?? null, targetName: bestTarget?.id ?? null,
-      score, baseScore: S.baseScores.MOVE, factorBreakdown: factors, reasoning,
-    }];
+    return {
+      action: 'BUILD', targetId: myTerr.id, targetName: myTerr.id,
+      score, baseScore: S.baseScores.BUILD, factorBreakdown: factors, reasoning,
+    };
   }
 
-  private scoreNegotiate(input: ScorerInput): ScoredAction[] {
-    const { ctx, turn, memory, goals } = input;
-    const results: ScoredAction[] = [];
-    const diplomacies = Array.from(ctx.self.diplomacy.entries())
-      .filter(([id]) => id !== ctx.self.id)
-      .filter(([id]) => ctx.self.knownFactions.includes(id));
-    for (const [targetId, rel] of diplomacies) {
-      let { base, factors, reasoning } = this.baseScored('NEGOTIATE', input);
-      let score = base;
-      if (rel.state === 'allied') score -= 10;
-      else if (rel.state === 'at_war') { score += 5; reasoning.push('end war through diplomacy'); }
-      else if (rel.state === 'hostile') { score += 15; reasoning.push('de-escalate tensions'); }
-      else if (rel.state === 'tense') { score += 10; reasoning.push('improve strained relations'); }
-      else if (rel.state === 'neutral') { score += 10; reasoning.push('establish dialogue'); }
-      const trust = memory.summarizeForFaction(targetId, turn).trustLevel;
-      const trustMod = PersonalitySystem.getDiplomaticTrustModifier(ctx.self.personality, trust);
-      score += trustMod;
-      factors.push({ factor: 'Past trust', weight: 1, contribution: trustMod });
-      const target = ctx.allFactions.get(targetId);
-      if (target) {
-        const powerBalance = ctx.self.totalMilitaryPower / Math.max(1, target.totalMilitaryPower);
-        if (powerBalance < 0.8) { score += 15; reasoning.push('weaker than target, seek diplomatic solution'); }
-        if (powerBalance > 1.2 && ctx.self.personality.diplomacy < 0.4) score -= 10;
+  private scoreMove(input: ScorerInput, plan: MovePlan): ScoredAction[] {
+    const { ctx } = input;
+    const dest = ctx.allTerritories.get(plan.destinationTerritoryId)!;
+    const { base, factors, reasoning } = this.baseScored('MOVE', input);
+    let relocation = 0;
+    if (dest.owner && dest.owner !== ctx.self.id && ctx.self.diplomacy.get(dest.owner)?.state === 'at_war') relocation += 20;
+    if (dest.owner === ctx.self.id) {
+      for (const id of dest.neighboring) {
+        const neighbor = ctx.allTerritories.get(id);
+        if (neighbor?.owner && neighbor.owner !== ctx.self.id) relocation += 5;
       }
-      const goalAlign = goals.evaluateActionAlignment({
-        actionType: 'NEGOTIATE', targetFaction: targetId,
-        self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
-      });
-      score += goalAlign.scoreContribution;
-      factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
-      score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
-      results.push({
-        action: 'NEGOTIATE', targetId, targetName: target?.name ?? targetId,
-        score, baseScore: S.baseScores.NEGOTIATE, factorBreakdown: factors, reasoning,
-      });
+      if (dest.garrison < 150) relocation += 15;
     }
-    return results.sort((a, b) => b.score - a.score).slice(0, 3);
+    const alignment = input.goals.evaluateActionAlignment({ actionType: 'MOVE', targetTerritory: dest.id,
+      self: ctx.self, currentTurn: input.turn, allTerritories: ctx.allTerritories });
+    factors.push({ factor: 'Strategic relocation value', weight: 1, contribution: relocation },
+      { factor: 'Goal alignment', weight: 1, contribution: alignment.scoreContribution });
+    if (relocation > 30) reasoning.push('high-value repositioning');
+    return [{ action: 'MOVE', targetId: dest.id, targetName: dest.id,
+      score: Math.max(S.minReasonableScore, Math.min(S.maxScore, base + Math.min(S.maxFactorWeight, relocation) + alignment.scoreContribution)),
+      baseScore: S.baseScores.MOVE, factorBreakdown: factors, reasoning }];
   }
 
-  private scoreOfferPeace(input: ScorerInput): ScoredAction[] {
-    const { ctx, turn, memory } = input;
-    const results: ScoredAction[] = [];
-    const atWarRelations = Array.from(ctx.self.diplomacy.entries())
-      .filter(([id]) => id !== ctx.self.id)
-      .filter(([, rel]) => rel.state === 'at_war');
-    if (atWarRelations.length === 0) {
-      const { base, factors, reasoning } = this.baseScored('OFFER_PEACE', input);
-      return [{
-        action: 'OFFER_PEACE', targetId: null, targetName: null,
-        score: base - 50, baseScore: S.baseScores.OFFER_PEACE,
-        factorBreakdown: [...factors, { factor: 'No active wars', weight: 1, contribution: -50 }],
-        reasoning: [...reasoning, 'not currently at war'],
-      }];
-    }
-    for (const [targetId, rel] of atWarRelations) {
-      let { base, factors, reasoning } = this.baseScored('OFFER_PEACE', input);
-      let score = base;
-      const target = ctx.allFactions.get(targetId);
-      if (!target) continue;
-      const myPower = ctx.self.totalMilitaryPower;
-      const theirPower = target.totalMilitaryPower;
-      const ratio = myPower / Math.max(1, theirPower);
-      let warFactor = 0;
-      if (ratio < 0.6) { warFactor = 30; reasoning.push('losing war, seek peace'); }
-      else if (ratio < 0.9) { warFactor = 15; reasoning.push('stalemate, peace beneficial'); }
-      else if (ratio > 1.3) { warFactor = -20; reasoning.push('winning, why offer peace?'); }
-      factors.push({ factor: 'War balance', weight: 1, contribution: warFactor });
-      score += warFactor;
-      const costOfWar = rel.yearsAtWar * 5;
-      score += costOfWar;
-      factors.push({ factor: 'War exhaustion', weight: 1, contribution: costOfWar });
-      if (rel.yearsAtWar > 5) reasoning.push('war-weary');
-      const mem = memory.summarizeForFaction(targetId, turn);
-      if (mem.territoriesLost > mem.territoriesGained) { score += 10; reasoning.push('lost territory in this war'); }
-      if (rel.treaties.some((t) => t.type === 'alliance')) { score += 15; reasoning.push('former allies, possible reconciliation'); }
-      score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
-      results.push({
-        action: 'OFFER_PEACE', targetId, targetName: target.name,
-        score, baseScore: S.baseScores.OFFER_PEACE, factorBreakdown: factors, reasoning,
-      });
-    }
-    return results.sort((a, b) => b.score - a.score);
-  }
-
-  private scoreDeclareWar(input: ScorerInput): ScoredAction[] {
-    const { ctx, turn, memory, goals } = input;
-    const results: ScoredAction[] = [];
-    const knownHostiles = ctx.self.knownFactions.filter((id) => id !== ctx.self.id);
-    for (const targetId of knownHostiles) {
-      const target = ctx.allFactions.get(targetId);
-      if (!target) continue;
-      const rel = ScoringHelpers.getRelationship(ctx.self, targetId);
-      if (rel?.state === 'at_war') continue;
-      let { base, factors, reasoning } = this.baseScored('DECLARE_WAR', input);
-      let score = base;
-      const powerRatio = ctx.self.totalMilitaryPower / Math.max(1, target.totalMilitaryPower);
-      const powerScore = Math.log2(powerRatio) * 35;
-      score += Math.max(-S.maxFactorWeight, Math.min(S.maxFactorWeight, powerScore));
-      factors.push({ factor: 'Military power balance', weight: 1, contribution: powerScore });
-      if (powerRatio > 1.5) reasoning.push('significant military superiority');
-      else if (powerRatio < 0.8) { score -= 25; reasoning.push('outmatched militarily'); }
-      const relMod = ScoringHelpers.evaluateRelationshipModifier(rel);
-      score += -relMod * 0.9;
-      factors.push({ factor: 'Diplomatic state', weight: 0.9, contribution: -relMod * 0.9 });
-      if (rel?.state === 'hostile') reasoning.push('relations already hostile');
-      if (rel?.state === 'allied') { score -= 80; reasoning.push('would betray alliance'); }
-      if (rel?.state === 'friendly') { score -= 30; reasoning.push('would betray friendship'); }
-      const hasBorder = ctx.myTerritories.some((t) => t.neighboring.some((nId) => {
-        const n = ctx.allTerritories.get(nId);
-        return n?.owner === targetId;
-      }));
-      if (!hasBorder) { score -= 30; factors.push({ factor: 'No shared border', weight: 1, contribution: -30 }); }
-      else { reasoning.push('shared border makes war feasible'); }
-      const mem = memory.summarizeForFaction(targetId, turn);
-      let grievanceScore = 0;
-      if (mem.totalGrievances > 25) { score += 20; reasoning.push('history of grievances demands war'); grievanceScore += 20; }
-      if (mem.recentAttacks > 0) { score += 15; reasoning.push('recent attacks justify declaration'); grievanceScore += 15; }
-      factors.push({ factor: 'Grievances', weight: 1, contribution: Math.min(20, mem.totalGrievances * 0.5) });
-      const numEnemies = Array.from(ctx.self.diplomacy.values()).filter((r) => r.state === 'at_war').length;
-      if (numEnemies >= 1 && ctx.self.personality.defensiveness > 0.6) {
-        score -= 20 * numEnemies;
-        factors.push({ factor: 'Multiple fronts risk', weight: 1, contribution: -20 * numEnemies });
-        reasoning.push('already committed elsewhere');
-      }
-      const goalAlign = goals.evaluateActionAlignment({
-        actionType: 'DECLARE_WAR', targetFaction: targetId,
-        self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
-      });
-      score += goalAlign.scoreContribution;
-      factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
-      void grievanceScore;
-      score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
-      results.push({
-        action: 'DECLARE_WAR', targetId, targetName: target.name,
-        score, baseScore: S.baseScores.DECLARE_WAR, factorBreakdown: factors, reasoning,
-      });
-    }
-    return results.sort((a, b) => b.score - a.score).slice(0, 3);
-  }
-
-  private scoreTrade(input: ScorerInput): ScoredAction[] {
-    const { ctx, turn, memory, goals } = input;
-    const results: ScoredAction[] = [];
-    const mySurplus: Record<string, number> = {};
-    for (const k of Object.keys(ctx.self.resources) as (keyof Resources)[]) {
-      const inc = ctx.self.resourceIncome[k] ?? 0;
-      const supply = inc > 0 ? ctx.self.resources[k] / (inc * 12) : 2;
-      if (supply > 2) mySurplus[k] = Math.min(1, (supply - 2) / 3);
-    }
-    const tradePartners = ctx.self.knownFactions.filter((id) => {
-      if (id === ctx.self.id) return false;
-      const rel = ctx.self.diplomacy.get(id);
-      return rel?.state !== 'at_war' && rel?.state !== 'hostile';
-    });
-    for (const targetId of tradePartners) {
-      const target = ctx.allFactions.get(targetId);
-      if (!target) continue;
-      let { base, factors, reasoning } = this.baseScored('TRADE', input);
-      let score = base;
-      const { scarcity: theirScarcity } = ScoringHelpers.evaluateResourceNeed(target.resources, target.resourceIncome);
-      let matchScore = 0;
-      let hasMatch = false;
-      const keys: (keyof Resources)[] = ['gold', 'food', 'iron', 'wood', 'stone'];
-      for (const k of keys) {
-        if (mySurplus[k] && theirScarcity[k] > 0.3) {
-          matchScore += mySurplus[k] * theirScarcity[k] * 30;
-          hasMatch = true;
-        }
-        // AI DECISION CORRECTNESS PASS — trade safety/surplus check.
-        // This used to be `theirScarcity[k] > 0.5 && scarcity[k] < 0.2`: a
-        // flat +20 bonus keyed only on "my own current need for k is low"
-        // (via `evaluateResourceNeed`'s months-of-supply-from-income
-        // figure), with no reference to `mySurplus[k]` — the dedicated
-        // surplus/safety-reserve figure computed just above — at all. That
-        // is exactly the "they need X and I don't need X" pattern this
-        // pass was told to fix: low current need is not the same thing as
-        // having a safe reserve to give away. (`scarcity[k] < 0.2` and
-        // `mySurplus[k]` truthy turn out to be equivalent under today's
-        // formula constants — both reduce to `resources[k] > 24 *
-        // income[k]` — so this was not visibly wrong in practice, but it
-        // relied on that coincidence between two independently-tunable
-        // constants rather than an explicit safety check, and gave the
-        // SAME flat +20 whether the AI's surplus was razor-thin or deep.)
-        // Fixed to require `mySurplus[k]` explicitly and to scale the
-        // bonus by its magnitude, the same way the branch above already
-        // scales by `mySurplus[k]`, so a thin surplus contributes little
-        // and a deep one contributes close to the old flat bonus. See
-        // docs/AI_DECISION_CORRECTNESS.md, "Trade safety evaluation".
-        if (theirScarcity[k] > 0.5 && mySurplus[k]) { matchScore += 20 * mySurplus[k]; hasMatch = true; }
-      }
-      score += matchScore;
-      factors.push({ factor: 'Resource complementarity', weight: 1, contribution: matchScore });
-      if (hasMatch) reasoning.push('complementary resource needs');
-      else { score -= 15; }
-      const rel = ScoringHelpers.getRelationship(ctx.self, targetId) ?? null;
-      const relMod = ScoringHelpers.evaluateRelationshipModifier(rel);
-      score += relMod * 0.6;
-      factors.push({ factor: 'Trade relations', weight: 0.6, contribution: relMod * 0.6 });
-      if (rel?.state === 'allied') reasoning.push('trading with ally');
-      if (rel?.treaties.some((t) => t.type === 'trade_agreement')) {
-        score += 10; reasoning.push('trade agreement in place');
-      }
-      const mem = memory.summarizeForFaction(targetId, turn);
-      if (mem.treatiesBroken > 0) { score -= 15 * mem.treatiesBroken; reasoning.push('past unreliability'); }
-      if (mem.successfulTrades > 0) {
-        score += mem.successfulTrades * 3;
-        factors.push({ factor: 'Trade history', weight: 1, contribution: mem.successfulTrades * 3 });
-      }
-      const goalAlign = goals.evaluateActionAlignment({
-        actionType: 'TRADE', targetFaction: targetId,
-        self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
-      });
-      score += goalAlign.scoreContribution;
-      factors.push({ factor: 'Goal alignment', weight: 1, contribution: goalAlign.scoreContribution });
-      score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
-      results.push({
-        action: 'TRADE', targetId, targetName: target.name,
-        score, baseScore: S.baseScores.TRADE, factorBreakdown: factors, reasoning,
-      });
-    }
-    return results.sort((a, b) => b.score - a.score).slice(0, 3);
-  }
-
-  /**
-   * Strategic army repositioning off ground this faction does not own when
-   * locally outnumbered. This is NOT a battlefield retreat. BattleEngine
-   * eliminates defeated armies (no-retreat rule); this ActionType only
-   * scores pulling a field army back from a non-owned location before a
-   * fight is resolved. The CLI/Orchestrator still have to execute movement.
-   */
-  private scoreRetreat(input: ScorerInput): ScoredAction[] {
+  private scoreRetreat(input: ScorerInput, plan: RetreatPlan): ScoredAction[] {
     const { ctx, turn, goals } = input;
     let { base, factors, reasoning } = this.baseScored('RETREAT', input);
     let score = base;
-    let worstArmy: Army | null = null;
-    let worstScore = -Infinity;
-    for (const army of ctx.myArmies) {
-      const loc = ctx.allTerritories.get(army.location);
-      if (!loc) continue;
-      // Only armies standing on non-owned territory are candidates.
-      // An army on home ground is not "retreating from battle."
-      if (loc.owner === ctx.self.id) continue;
-      let enemyNearby = 0;
-      for (const nId of loc.neighboring) {
-        const n = ctx.allTerritories.get(nId);
-        if (n?.owner && n.owner !== ctx.self.id) {
-          const owner = ctx.allFactions.get(n.owner);
-          if (owner) enemyNearby += owner.totalMilitaryPower;
-        }
-      }
-      const armyPower = ScoringHelpers.computeArmyPower(army);
-      const ratio = armyPower / Math.max(1, enemyNearby);
-      if (ratio < 0.3 && loc.owner !== ctx.self.id) {
-        const s = (0.3 - ratio) * 100;
-        if (s > worstScore) { worstScore = s; worstArmy = army; }
-      }
+    const army = ctx.allArmies.get(plan.armyId)!;
+    const loc = ctx.allTerritories.get(plan.originTerritoryId)!;
+    // Eligibility already guarantees non-owned origin and legal owned fallback.
+    let enemyNearby = 0;
+    for (const nId of loc.neighboring) {
+      const neighbor = ctx.allTerritories.get(nId);
+      if (neighbor?.owner && neighbor.owner !== ctx.self.id)
+        enemyNearby += ctx.allFactions.get(neighbor.owner)?.totalMilitaryPower ?? 0;
     }
-    if (worstArmy && worstScore > 0) {
-      score += worstScore;
-      factors.push({ factor: 'Army endangered', weight: 1, contribution: worstScore });
+    const ratio = ScoringHelpers.computeArmyPower(army) / Math.max(1, enemyNearby);
+    const danger = (0.3 - ratio) * 100;
+    if (danger > 0) {
+      score += danger;
+      factors.push({ factor: 'Army endangered', weight: 1, contribution: danger });
       reasoning.push('reposition army off non-owned ground (strategic, not battle retreat)');
     } else { score -= 15; }
     const goalAlign = goals.evaluateActionAlignment({
-      actionType: 'RETREAT', targetTerritory: worstArmy?.location ?? null,
+      actionType: 'RETREAT', targetTerritory: plan.originTerritoryId,
       self: ctx.self, currentTurn: turn, allTerritories: ctx.allTerritories,
     });
     score += goalAlign.scoreContribution;
@@ -984,8 +557,8 @@ export class ActionScorer {
     score = Math.max(S.minReasonableScore, Math.min(S.maxScore, score));
     return [{
       action: 'RETREAT',
-      targetId: worstArmy?.location ?? null,
-      targetName: worstArmy ? worstArmy.location : null,
+      targetId: plan.originTerritoryId,
+      targetName: plan.originTerritoryId,
       score, baseScore: S.baseScores.RETREAT, factorBreakdown: factors, reasoning,
     }];
   }

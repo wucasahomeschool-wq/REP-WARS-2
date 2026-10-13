@@ -22,6 +22,7 @@ export function peekCollectibleResources(state: GameState, territoryId: Territor
   const rec = state.territoryEconomy.get(territoryId);
   if (!rec) return emptyResources();
   const extra = productionAccruedBetween(effectiveResourceOutput(state, territory), rec.lastAccrualTick, state.worldTick);
+  if(rec.foodAccrualTick!==undefined)extra.food=productionAccruedBetween({food:effectiveResourceOutput(state,territory).food},Math.max(rec.lastAccrualTick,rec.foodAccrualTick),state.worldTick).food;
   return addResourcesClamped(rec.uncollected, extra);
 }
 
@@ -46,4 +47,16 @@ export function persistAllTerritoryAccrual(state: GameState): void {
   for (const territoryId of state.territories.keys()) {
     persistTerritoryAccrual(state, territoryId);
   }
+}
+
+/** Narrow local Food availability for recruitment. Other resources retain their
+ * existing lazy accrual/collection behavior and stamps. No bank transfer. */
+export function persistTerritoryFoodAccrual(state:GameState,territoryId:TerritoryId):void {
+  const t=state.territories.get(territoryId);
+  const rec=state.territoryEconomy.get(territoryId)??persistTerritoryAccrual(state,territoryId);
+  if(t?.owner) {
+    const extra=productionAccruedBetween({food:effectiveResourceOutput(state,t).food},Math.max(rec.lastAccrualTick,rec.foodAccrualTick??rec.lastAccrualTick),state.worldTick);
+    rec.uncollected=addResourcesClamped(rec.uncollected,extra);
+  }
+  rec.foodAccrualTick=state.worldTick;
 }

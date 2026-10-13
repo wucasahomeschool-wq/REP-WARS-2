@@ -239,6 +239,7 @@ export class SimulationBuilder {
         knownFactions: Array.from(knownFactions).filter((f) => factionIds.includes(f)),
         knownTerritories: Array.from(knownTerritories),
         lastActions: [],
+        nextAiCommitmentSequence: 0,
         reputation: 50 + Math.floor(rng.next() * 30 - 15),
         stability: 70 + Math.floor(rng.next() * 30),
       };

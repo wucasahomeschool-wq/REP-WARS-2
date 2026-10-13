@@ -1,3 +1,4 @@
+import { anchorAiReceiptClock } from './aiTemporal';
 import { GameState } from '../types/GameState';
 import { derivePresenceSegments } from './presenceLeases';
 import { accrueSimulationTime, isTemporalPresence, TemporalPresence } from './timeToTick';
@@ -56,6 +57,7 @@ export function accrueAuthoritativeWorldTime(
     state.subTickMicroticks = 0;
     state.accrualDivisionRemainder = 0;
     state.lastAccrualAtMs = nowMs;
+    anchorAiReceiptClock(state);
     return snapshot(state, 0, true, true);
   }
 

@@ -1,3 +1,16 @@
+import { RESPONSE_POLICY } from '../constants/aiResponse';
+import {responseStateProblems} from './responseInvariants';
+import {conflictStateProblems} from './conflictInvariants';
+import {cognitionStateProblems} from './cognitionInvariants';
+import {tradeStateProblems} from './tradeInvariants';
+import { peaceStateProblems } from './peaceInvariants';
+import { REINFORCE_INITIATION } from '../constants/recruitment';
+import { RECRUITMENT_WORK_PER_TICK, simulationWork } from '../gameplay/recruitment/recruitment';
+import { reinforcementProblem } from '../gameplay/recruitment/reinforcement';
+import { pressureStateProblems, sourcePlanBindingProblem } from './pressureInvariants';
+import { activeOperations, requiredClaims, claimIdentity, isImmutableTerminalOperation } from '../engine/operations';
+import { concretePlanProblem, planTargetId } from '../types/AIConcretePlan';
+import { recordedAiCommitmentSequenceFloors } from '../engine/commitmentIdentity';
 /**
  * GAMESTATE STRUCTURAL INVARIANTS (AUTHORITATIVE RUNTIME GAMESTATE PASS).
  * See docs/AUTHORITATIVE_GAMESTATE_ARCHITECTURE.md, "State invariants".
@@ -6,18 +19,22 @@
  * `GameState` is internally consistent (unique ids, valid references, no
  * negative counts, no orphaned/duplicate entities). They do NOT encode new
  * gameplay rules the existing engines don't already enforce (e.g. this
- * file does not decide whether an ATTACK is legal — `validateCommitmentTarget`,
- * already defined in `DecisionEngine.ts`, is reused for in-flight commitments
- * (pending/committed/executing). Terminal commitments may retain a stale
- * target after successful execution.
+ * file does not decide whether an ATTACK is currently eligible.
+ * Structural operation/claim linkage is validated separately from fresh plan
+ * eligibility. A changed objective is legal world state until its lifecycle
+ * observes invalidation; unfinished physical travel remains authoritative.
  */
-import { AICommitment, GameStateSnapshot } from '../types';
 import { GameState } from '../types/GameState';
-import { isActiveCommitmentStatus, validateCommitmentTarget } from '../engine/DecisionEngine';
 import { collectNeighborGraphIssues } from '../map/graphInvariants';
 import { BALANCE } from '../constants/balance';
 import { WORLD_TICK_DURATION_MS } from '../world/realtimeClock';
 import { validateGameplaySessionLease } from '../world/presenceLeases';
+
+// Successful structural validation of a deeply immutable terminal record is
+// reusable. World references, key identity, sequence floors and time bounds are
+// still checked against every current transaction. Mutable/hydrated records
+// never inherit this proof; corruption is not cached away.
+const validatedTerminals = new WeakMap<object, number>();
 
 export interface GameStateInvariantViolation {
   /** Short machine-checkable category, e.g. `'army.negative_troops'`. */
@@ -28,25 +45,6 @@ export interface GameStateInvariantViolation {
 
 function isOpenInvasionStatus(status: string): boolean {
   return status === 'pending_response' || status === 'defense_in_progress';
-}
-
-function toEngineSnapshotView(state: GameState): GameStateSnapshot {
-  return {
-    turn: state.turn,
-    factions: state.factions,
-    territories: state.territories,
-    armies: state.armies,
-    allFactionIds: state.allFactionIds,
-    levelAnchorTerritoryIds: [...state.levelAnchorTerritoryIds],
-    attackRestrictions: {
-      playerFactionId: state.playerFactionId,
-      worldTick: state.worldTick,
-      lastPlayerWorkoutCompletedAtTick: state.playerFitness.lastWorkoutCompletedAtTick,
-      playerPaused: state.playerEmpirePause.paused,
-      attackerRecoveryUntilTick: new Map(),
-      attackerContinuationUntilTick: new Map(),
-    },
-  };
 }
 
 /**
@@ -91,6 +89,30 @@ function checkGameplaySessionLeases(
 export function checkGameStateInvariants(state: GameState): GameStateInvariantViolation[] {
   const violations: GameStateInvariantViolation[] = [];
   const push = (code: string, message: string) => violations.push({ code, message });
+  for(const message of responseStateProblems(state))push('response.invalid_state',message);
+  for(const message of cognitionStateProblems(state))push('cognition.invalid_state',message);
+  for(const message of peaceStateProblems(state)) push('peace.invalid_state',message);
+  for(const message of pressureStateProblems(state)) push('pressure.invalid_state',message);
+  if (!(state.operations instanceof Map) || !(state.operationClaims instanceof Map)) {
+    push('operation.missing_storage', 'canonical operation and claim maps are required');
+    for(const problem of conflictStateProblems(state))push('conflict.invalid_state',problem);
+    return violations;
+  }
+  if (!state.strategicAttention || !Number.isSafeInteger(state.strategicAttention.capacity) || state.strategicAttention.capacity < 0)
+    push('attention.invalid_capacity', 'Per-faction ordinary capacity must be a non-negative safe integer');
+  if (!(state.aiDecisionOpportunities instanceof Map)) {
+    push('opportunity.missing_storage', 'Canonical decision opportunities are required'); return violations;
+  }
+  for (const [factionId, opportunity] of state.aiDecisionOpportunities) {
+    if (!opportunity || !state.factions.has(factionId)) { push('opportunity.invalid_owner', `Opportunity owner ${factionId} is invalid`); continue; }
+    if (opportunity.lastBoundaryTick !== null && (!Number.isSafeInteger(opportunity.lastBoundaryTick) || opportunity.lastBoundaryTick < 0 || opportunity.lastBoundaryTick > state.worldTick))
+      push('opportunity.invalid_boundary', `Opportunity ${factionId} has invalid boundary`);
+    if (opportunity.primaryOperationId !== null) {
+      const primary = state.operations.get(opportunity.primaryOperationId);
+      if (!primary || primary.warlordId !== factionId || !(primary.phase === 'selected' || ['REINFORCE','OFFER_PEACE','TRADE'].includes(primary.action) && primary.phase === 'physical'))
+        push('opportunity.invalid_primary', `Opportunity ${factionId} does not own a pending initiation`);
+    }
+  }
 
   if (!Number.isInteger(state.worldTick) || state.worldTick < 0 || !Number.isFinite(state.worldTick)) {
     push('world.invalid_tick', `worldTick ${state.worldTick} must be a non-negative integer`);
@@ -225,7 +247,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     if (!state.factions.has(a.owner)) {
       push('army.invalid_owner', `army ${a.id} owner ${a.owner} is not a known faction`);
     }
-    if (!state.territories.has(a.location)) {
+    if (!state.territories.has(a.location) && !(a.movement?.status === 'blocked' && a.location === a.movement.originTerritoryId)) {
       push('army.invalid_location', `army ${a.id} location ${a.location} is not a known territory`);
     }
     if (a.soldiers < 0 || a.knights < 0 || a.siegeEngines < 0) {
@@ -245,11 +267,11 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       push('army.not_listed_by_owner', `army ${a.id} owner ${a.owner} does not list this army in armies[]`);
     }
     const mv = a.movement;
-    if (mv && mv.status === 'moving') {
-      if (!state.territories.has(mv.originTerritoryId)) {
+    if (mv && (mv.status === 'moving' || mv.status === 'blocked')) {
+      if (mv.status !== 'blocked' && !state.territories.has(mv.originTerritoryId)) {
         push('army.invalid_movement_origin', `army ${a.id} movement origin ${mv.originTerritoryId} is not a known territory`);
       }
-      if (!state.territories.has(mv.destinationTerritoryId)) {
+      if (mv.status !== 'blocked' && !state.territories.has(mv.destinationTerritoryId)) {
         push('army.invalid_movement_destination', `army ${a.id} movement destination ${mv.destinationTerritoryId} is not a known territory`);
       }
       if (a.location !== mv.originTerritoryId) {
@@ -262,6 +284,10 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
         push('army.invalid_movement_start', `army ${a.id} movement startedAtTick ${mv.startedAtTick} is invalid`);
       }
     }
+    if (mv?.status === 'blocked' && (!Number.isSafeInteger(mv.haltedAtTick) || mv.haltedAtTick! < mv.startedAtTick || mv.haltedAtTick! > state.worldTick || !mv.interruptionReason))
+      push('army.invalid_movement_halt', `army ${a.id} blocked march lacks its physical boundary/reason`);
+    if (mv && mv.status !== 'blocked' && (mv.haltedAtTick !== undefined || mv.interruptionReason !== undefined))
+      push('army.invalid_movement_halt', `army ${a.id} unblocked march carries halt state`);
     const intent = a.attackIntent;
     if (intent) {
       if (!state.territories.has(intent.targetTerritoryId)) {
@@ -274,7 +300,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
         push('army.attack_stages_on_target', `army ${a.id} attackIntent staging equals target ${intent.targetTerritoryId}`);
       }
       if (intent.status === 'pending_movement') {
-        if (mv && mv.status === 'moving') {
+        if (mv && (mv.status === 'moving' || mv.status === 'blocked')) {
           if (mv.destinationTerritoryId !== intent.stagingTerritoryId) {
             push('army.attack_intent_dest_mismatch', `army ${a.id} is moving to ${mv.destinationTerritoryId} but attack staging is ${intent.stagingTerritoryId}`);
           }
@@ -295,8 +321,8 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
         }
       }
       if (intent.commitmentId) {
-        const c = state.commitments.get(a.owner);
-        if (!c || c.id !== intent.commitmentId) {
+        const c = state.operations.get(intent.commitmentId);
+        if (!c || c.warlordId !== a.owner || c.phase === 'terminal') {
           push('army.attack_intent_stale_commitment', `army ${a.id} attackIntent commitment ${intent.commitmentId} is not the owner's active commitment`);
         }
       }
@@ -304,7 +330,13 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
   }
 
   // ---- faction-level structural checks ----
+  const sequenceFloors = recordedAiCommitmentSequenceFloors(state);
   for (const f of state.factions.values()) {
+    if (!Number.isSafeInteger(f.nextAiCommitmentSequence) || f.nextAiCommitmentSequence < 0) {
+      push('faction.invalid_ai_commitment_sequence', `faction ${f.id} has invalid AI commitment sequence ${f.nextAiCommitmentSequence}`);
+    } else if (f.nextAiCommitmentSequence < (sequenceFloors.get(f.id) ?? 0)) {
+      push('faction.invalid_ai_commitment_sequence', `faction ${f.id} AI commitment sequence would reuse a recorded ID`);
+    }
     const armySeen = new Set<string>();
     for (const aid of f.armies) {
       if (armySeen.has(aid)) {
@@ -363,29 +395,175 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     }
   }
 
-  // ---- AI commitments ----
-  const snapshotView = toEngineSnapshotView(state);
-  for (const [fid, commitment] of state.commitments.entries()) {
-    if (!state.factions.has(fid)) {
-      push('commitment.unknown_faction_key', `commitments map has an entry for unknown faction ${fid}`);
+  // ---- canonical operations and hard physical claims ----
+  const attentionTotals = new Map<string, { ordinary: number; historical: number; emergency:number }>();
+  for (const [id, op] of state.operations) {
+    const validatedAt = op && validatedTerminals.get(op);
+    if (validatedAt !== undefined && state.worldTick >= validatedAt
+      && id === op.id && state.factions.has(op.warlordId)) continue;
+    const beforeOperation = violations.length;
+    if (!op || !Array.isArray(op.claimIds) || !op.links || typeof op.links !== 'object' || Array.isArray(op.links)) {
+      push('operation.invalid_shape', `operation ${id} lacks canonical linkage/claims`); continue;
     }
-    if (commitment === null) continue;
-    const c: AICommitment = commitment;
-    if (c.warlordId !== fid) {
-      push('commitment.faction_mismatch', `commitments[${fid}] has warlordId ${c.warlordId}`);
-    }
-    if (!state.factions.has(c.warlordId)) {
-      push('commitment.invalid_faction', `commitment ${c.id} references unknown faction ${c.warlordId}`);
-    }
-    // Terminal commitments (completed/failed/interrupted) are historical:
-    // a successful ATTACK can capture the target, making the stored target
-    // invalid. Only in-flight commitments must still point at a legal target.
-    if (isActiveCommitmentStatus(c.status)) {
-      const validity = validateCommitmentTarget(c, snapshotView);
-      if (!validity.valid) {
-        push('commitment.invalid_target', `commitment ${c.id} (${c.action} → ${c.targetId ?? 'none'}) is invalid: ${validity.reason}`);
+    if(op.hostileCounterpartyId!==undefined&&(op.action!=='ATTACK'||op.hostileCounterpartyId===op.warlordId||!state.factions.has(op.hostileCounterpartyId)))
+      push('operation.invalid_hostile_counterparty', `Operation ${id} has invalid opposing faction linkage`);
+    if (id !== op.id) push('operation.id_mismatch', `operations key ${id} differs from ${op.id}`);
+    const attention = op.attention;
+    if (!attention || attention.factionId !== op.warlordId || !Number.isSafeInteger(attention.cost) || attention.cost < 0 || typeof attention.grandfathered !== 'boolean')
+      push('attention.invalid_owner_cost', `Operation ${id} has invalid Attention ownership/cost`);
+    else {
+      const acquired = attention.acquiredAtTick, released = attention.releasedAtTick;
+      if (acquired !== null && (!Number.isSafeInteger(acquired) || acquired < op.createdAtTick || acquired > state.worldTick))
+        push('attention.invalid_acquisition', `Operation ${id} has invalid Attention boundary`);
+      if (released !== null && (acquired === null || !Number.isSafeInteger(released) || released < acquired || released > state.worldTick))
+        push('attention.invalid_release', `Operation ${id} has invalid Attention release`);
+      if (op.phase === 'terminal' && acquired !== null && released === null)
+        push('attention.terminal_charge', `Terminal operation ${id} retains Attention`);
+      if (attention.cost > 0 && acquired === null)
+        push('attention.missing_acquisition', `Operation ${id} has a charge without acquisition`);
+      if (op.terminal && acquired !== null && released !== op.terminal.atTick)
+        push('attention.terminal_boundary', `Operation ${id} did not release at its terminal boundary`);
+      if (op.phase === 'selected' && (attention.cost !== 0 || acquired !== null || released !== null))
+        push('attention.selected_charge', `Selection ${id} acquired Attention before initiation`);
+      if (['physical','recovery'].includes(op.phase)) {
+        if (['ATTACK','MOVE','RETREAT','BUILD','OFFER_PEACE','TRADE'].includes(op.action) && attention.cost === 0)
+          push('attention.missing_physical_cost', `Physical operation ${id} bypasses ordinary Attention`);
+        if (released !== null || (attention.cost > 0 && acquired === null)) push('attention.missing_charge', `Physical operation ${id} lacks its charge`);
+        const totals = attentionTotals.get(op.warlordId) ?? { ordinary: 0, historical: 0, emergency:0 };
+        const emergency=attention.emergency?.overflow??0;
+        if(emergency){const context=state.aiResponses.get(attention.emergency!.contextId);if(!Number.isSafeInteger(emergency)||emergency<0||emergency>attention.cost||op.responseContextId!==context?.id||context?.factionId!==op.warlordId||context.lane!=='REACTIVE_EMERGENCY'||!Number.isSafeInteger(attention.emergency!.revision)||attention.emergency!.revision<0||attention.emergency!.revision>context.revision)push('attention.invalid_emergency',`Invalid emergency charge ${id}`);}
+        totals[attention.grandfathered ? 'historical' : 'ordinary'] += attention.cost-emergency;
+        totals.emergency+=emergency;
+        attentionTotals.set(op.warlordId, totals);
       }
     }
+    if (!state.factions.has(op.warlordId)) push('operation.unknown_faction', `operation ${id} has unknown faction`);
+    if (!['selected','physical','recovery','terminal'].includes(op.phase)) push('operation.invalid_phase', `operation ${id} has invalid phase`);
+    if (!Number.isSafeInteger(op.createdAtTick) || op.createdAtTick < 0 || op.createdAtTick > state.worldTick) push('operation.invalid_boundary', `operation ${id} has invalid created boundary`);
+    const planProblem = op.plan === undefined ? 'missing' : concretePlanProblem(op.plan);
+    if(op.sourceContextId!==undefined && (!op.plan || planProblem || sourcePlanBindingProblem(op.sourceContextId,op.plan)))
+      push('operation.invalid_source_binding', `operation ${id} disagrees with its semantic source`);
+    if (op.plan !== undefined) {
+      const problem = planProblem;
+      if (problem) push('commitment.invalid_plan', `operation ${id}: ${problem}`);
+      else if (op.plan.action !== op.action || op.plan.factionId !== op.warlordId || planTargetId(op.plan) !== op.targetId)
+        push('commitment.plan_mismatch', `operation ${id} metadata disagrees with its plan`);
+    } else if (op.phase !== 'terminal') push('operation.incomplete_live_plan', `operation ${id} lacks an exact plan`);
+    if ((op.phase === 'terminal') !== (op.terminal !== null)) push('operation.terminal_mismatch', `operation ${id} terminal state disagrees`);
+    if (op.terminal && (op.status !== op.terminal.outcome || op.claimIds.length)) push('operation.terminal_claim', `terminal operation ${id} retains claims or mismatched outcome`);
+    if (op.terminal && !['completed','failed','interrupted'].includes(op.terminal.outcome)) push('operation.invalid_outcome', `operation ${id} has invalid terminal outcome`);
+    if (op.terminal && (!Number.isSafeInteger(op.terminal.atTick) || op.terminal.atTick < op.createdAtTick || op.terminal.atTick > state.worldTick))
+      push('operation.invalid_terminal_boundary', `operation ${id} has invalid terminal boundary`);
+    if (op.phase === 'selected' && (op.claimIds.length || Object.keys(op.links).length || !['pending','committed'].includes(op.status)))
+      push('operation.selected_physical_state', `selected operation ${id} owns physical state`);
+    if (['physical','recovery'].includes(op.phase) && op.status !== 'executing') push('operation.status_mismatch', `physical operation ${id} is not executing`);
+    if (!['valid','invalid'].includes(op.objective) || (op.phase === 'recovery' && op.objective !== 'invalid'))
+      push('operation.invalid_objective', `operation ${id} objective/phase disagrees`);
+    if (new Set(op.claimIds).size !== op.claimIds.length) push('operation.duplicate_claim', `operation ${id} duplicates claim references`);
+    for (const claimId of op.claimIds) if (state.operationClaims.get(claimId)?.operationId !== id)
+      push('operation.missing_claim', `operation ${id} lacks owned claim ${claimId}`);
+    if ((op.phase === 'physical' || op.phase === 'recovery') && op.plan && !planProblem) {
+      if (!['ATTACK','MOVE','RETREAT','BUILD','REINFORCE','OFFER_PEACE','TRADE'].includes(op.plan.action)) push('operation.unavailable_physical_action', `operation ${id} has no implemented physical lifecycle`);
+      const extinctInvader = op.phase === 'recovery' && !!op.links.invasionId && state.activeInvasions.has(op.links.invasionId)
+        && 'armyId' in op.plan && !state.armies.has(op.plan.armyId);
+      for (const c of requiredClaims(op.plan, id, state, !!op.links.invasionId).filter(c => extinctInvader ? c.kind !== 'force' : op.phase !== 'recovery' || c.kind === 'force')) if (state.operationClaims.get(c.id)?.operationId !== id)
+        push('operation.missing_claim', `physical operation ${id} lacks ${c.id}`);
+      if ('armyId' in op.plan) {
+        const army = state.armies.get(op.plan.armyId);
+        if (!extinctInvader && (!army || army.owner !== op.warlordId || op.links.armyId !== army.id)) push('operation.invalid_force_link', `operation ${id} force linkage disagrees`);
+        if (army?.movement && army.movement.commitmentId !== id) push('operation.movement_link', `operation ${id} does not own its physical march`);
+        if (army?.attackIntent && army.attackIntent.commitmentId !== id) push('operation.attack_link', `operation ${id} does not own its attack intent`);
+        const destination = op.plan.action === 'ATTACK' ? op.plan.stagingTerritoryId
+          : op.plan.action === 'MOVE' ? op.plan.destinationTerritoryId : op.plan.fallbackTerritoryId;
+        if (army?.movement && (army.movement.originTerritoryId !== op.plan.originTerritoryId || army.movement.destinationTerritoryId !== destination))
+          push('operation.movement_plan_mismatch', `operation ${id} physical route differs from exact plan`);
+        if (op.plan.action === 'ATTACK' && army?.attackIntent && (army.attackIntent.targetTerritoryId !== op.plan.targetTerritoryId
+          || army.attackIntent.stagingTerritoryId !== op.plan.stagingTerritoryId || army.attackIntent.onlyArmyId !== op.plan.armyId))
+          push('operation.attack_plan_mismatch', `operation ${id} attack intent differs from exact plan`);
+        if (!extinctInvader && !army?.movement && !army?.attackIntent) push('operation.missing_physical_force', `operation ${id} has no ongoing force lifecycle`);
+      }
+      if (op.plan.action === 'BUILD') {
+        const project = op.links.constructionId ? state.constructions.get(op.links.constructionId) : undefined;
+        if (!project || project.aiOperationId !== id || project.factionId !== op.warlordId || project.status !== 'in_progress'
+          || project.territoryId !== op.plan.territoryId || project.projectType !== op.plan.projectType)
+          push('operation.invalid_construction_link', `operation ${id} construction linkage disagrees`);
+      }
+    }
+    if (violations.length === beforeOperation && isImmutableTerminalOperation(op))
+      validatedTerminals.set(op, state.worldTick);
+  }
+  for (const [factionId, totals] of attentionTotals) {
+    if(totals.emergency>RESPONSE_POLICY.emergencyExtraCapacity)push('attention.emergency_over_capacity',`Faction ${factionId} exceeds narrow emergency allowance`);
+    if (totals.ordinary > state.strategicAttention?.capacity || (!totals.historical && totals.ordinary + totals.historical > state.strategicAttention?.capacity))
+      push('attention.ordinary_over_capacity', `Faction ${factionId} exceeds normal capacity without historical work`);
+  }
+  for (const [id, claim] of state.operationClaims) {
+    if (!claim || typeof claim !== 'object') { push('claim.invalid_shape', `claim ${id} is malformed`); continue; }
+    const op = state.operations.get(claim.operationId);
+    if (!['force','construction_site','engagement_target','invasion_target','local_troops','garrison','resource'].includes(claim.kind)) push('claim.invalid_kind', `claim ${id} has unknown kind`);
+    if (id !== claim.id || claim.kind!=='resource'&&id !== claimIdentity(claim.kind, claim.subjectId, claim.scopeFactionId, claim.operationId)) push('claim.invalid_identity', `claim ${id} has inconsistent subject identity`);
+    if (!op || op.phase === 'terminal' || !op.claimIds?.includes(id)) push('claim.orphan', `claim ${id} has no active owning operation`);
+    if (op?.plan && !concretePlanProblem(op.plan) && !requiredClaims(op.plan, op.id, state, !!op.links.invasionId).some(c => c.id === id))
+      push('claim.plan_mismatch', `claim ${id} is not required by its owner's exact plan`);
+    if (claim.kind === 'engagement_target' && claim.scopeFactionId !== op?.warlordId) push('claim.invalid_scope', `claim ${id} faction scope disagrees`);
+    if (claim.kind==='resource'?!state.factions.has(claim.scopeFactionId!):claim.kind === 'force' ? !state.armies.has(claim.subjectId) : !state.territories.has(claim.subjectId))
+      push('claim.missing_subject', `claim ${id} subject no longer exists`);
+  }
+  const quantities = new Map<string,number>();
+  for(const claim of state.operationClaims.values())if(claim.kind==='local_troops') {
+    if(!Number.isSafeInteger(claim.quantity)||claim.quantity!<=0)push('claim.invalid_quantity',`Invalid local quantity ${claim.id}`);
+    quantities.set(claim.subjectId,(quantities.get(claim.subjectId)??0)+(claim.quantity??0));
+    const op=state.operations.get(claim.operationId);
+    if(op?.plan?.action!=='REINFORCE'||op.plan.quantity!==claim.quantity)push('claim.quantity_mismatch',`Claim ${claim.id} changed selected quantity`);
+  }
+  let earnedRecruitmentFrontier:bigint|undefined;
+  try {
+    const processed=BigInt(state.worldTick)*RECRUITMENT_WORK_PER_TICK;
+    const accrued=simulationWork({wholeTicks:state.accruedTargetWorldTick,subTickMicroticks:state.subTickMicroticks,accrualDivisionRemainder:state.accrualDivisionRemainder});
+    earnedRecruitmentFrontier=processed>accrued?processed:accrued;
+  } catch { /* Invalid clock fields already have their own structural violations. */ }
+  if(!(state.territoryRecruitment instanceof Map))push('recruitment.missing_map','Canonical local recruitment map missing');
+  else for(const [id,pool] of state.territoryRecruitment) {
+    if(!pool||typeof pool!=='object'){push('recruitment.invalid_shape',`Malformed local pool ${id}`);continue;}
+    const t=state.territories.get(id);
+    if(!t||!state.factions.has(pool.factionId)||t.owner===null||pool.territoryId!==id||pool.factionId!==t.owner||pool.factionId===state.playerFactionId)push('recruitment.invalid_owner',`Invalid local pool ${id}`);
+    if(!Number.isSafeInteger(pool.troops)||pool.troops<0||(quantities.get(id)??0)>pool.troops)push('recruitment.invalid_quantity',`Invalid or over-reserved local pool ${id}`);
+    try {if(typeof pool.fractionalWork!=='string'||typeof pool.accruedThroughWork!=='string'||!/^(0|[1-9][0-9]*)$/.test(pool.fractionalWork)||!/^(0|[1-9][0-9]*)$/.test(pool.accruedThroughWork)||BigInt(pool.fractionalWork)>=RECRUITMENT_WORK_PER_TICK||(earnedRecruitmentFrontier!==undefined&&BigInt(pool.accruedThroughWork)>earnedRecruitmentFrontier))throw new Error();}catch{push('recruitment.invalid_work',`Invalid exact recruitment progress ${id}`);}
+  }
+  for (const op of activeOperations(state))if(op.plan?.action==='REINFORCE'&&op.phase==='physical') {
+    if(!op.initiationTimer||op.initiationTimer.onlineDurationMs!==REINFORCE_INITIATION.initiationOnlineMs||op.initiationTimer.offlineDurationMs!==REINFORCE_INITIATION.initiationOfflineMs||reinforcementProblem(state,op.plan,op.id))push('recruitment.invalid_initiation',`Invalid live allocation ${op.id}`);
+  }
+  for (const army of state.armies.values()) {
+    const counterparty=army.movement?.hostileCounterpartyId;
+    if(counterparty!==undefined&&(counterparty===army.owner||!state.factions.has(counterparty)))
+      push('peace.invalid_hostile_march',`Army ${army.id} has invalid hostile travel linkage`);
+    if(counterparty!==undefined&&army.attackIntent?.targetFactionId&&counterparty!==army.attackIntent.targetFactionId)
+      push('peace.invalid_hostile_march',`Army ${army.id} travel and attack counterparties disagree`);
+    if(counterparty!==undefined&&army.movement?.commitmentId){
+      const op=state.operations.get(army.movement.commitmentId);
+      if(op?.action!=='ATTACK'||op.hostileCounterpartyId!==counterparty)
+        push('peace.invalid_hostile_march',`Army ${army.id} travel and operation counterparties disagree`);
+    }
+    for (const id of [army.movement?.commitmentId, army.attackIntent?.commitmentId]) {
+      if (!id) continue;
+      const op = state.operations.get(id);
+      if (!op || op.phase === 'terminal' || op.warlordId !== army.owner || state.operationClaims.get(`force:${army.id}`)?.operationId !== id)
+        push('operation.orphan_physical_force', `army ${army.id} physical lifecycle lacks its operation/force claim`);
+    }
+  }
+  for (const inv of state.activeInvasions.values()) {
+    if (!inv.commitmentId) continue;
+    const op = state.operations.get(inv.commitmentId);
+    if (!op || op.phase === 'terminal' || op.links.invasionId !== inv.id || op.warlordId !== inv.attackerFactionId)
+      push('operation.orphan_invasion', `invasion ${inv.id} lacks its operation link`);
+    if (op?.plan?.action !== 'ATTACK' || op.plan.targetTerritoryId !== inv.territoryId
+      || inv.attackingArmyIds.length !== 1 || inv.attackingArmyIds[0] !== op.plan.armyId)
+      push('operation.invasion_plan_mismatch', `invasion ${inv.id} differs from its exact attack plan`);
+  }
+  for (const project of state.constructions.values()) if (project.aiOperationId) {
+    const op = state.operations.get(project.aiOperationId);
+    if (!op || op.phase === 'terminal' || op.links.constructionId !== project.id || project.status !== 'in_progress')
+      push('operation.orphan_construction', `project ${project.id} lacks its active operation`);
   }
 
   // ---- active events reference valid entities where required ----
@@ -639,6 +817,7 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
       if (!state.territories.has(rec.territoryId)) {
         push('economy.invalid_territory', `territoryEconomy ${rec.territoryId} is not a known territory`);
       }
+      if(rec.foodAccrualTick!==undefined && (!Number.isSafeInteger(rec.foodAccrualTick)||rec.foodAccrualTick<0||rec.foodAccrualTick>state.worldTick))push('economy.invalid_food_stamp',`Invalid local Food stamp ${rec.territoryId}`);
       if (!Number.isInteger(rec.lastAccrualTick) || rec.lastAccrualTick < 0) {
         push('economy.invalid_last_accrual', `territoryEconomy ${rec.territoryId} lastAccrualTick is ${String(rec.lastAccrualTick)}`);
       }
@@ -718,6 +897,8 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     }
   }
 
+  for(const problem of tradeStateProblems(state))push('trade.invalid_state',problem);
+  for(const problem of conflictStateProblems(state))push('conflict.invalid_state',problem);
   return violations;
 }
 
