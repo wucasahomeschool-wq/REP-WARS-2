@@ -154,6 +154,7 @@ namespace RepWars
     {
         public string worldName;
         public int worldLevel;
+        public string definitionWorldId;
         public int turn;
         public string playerFactionId;
         public PublicTerritory[] territories;

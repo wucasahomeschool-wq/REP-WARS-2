@@ -19,6 +19,8 @@ namespace RepWars
     {
         public RepWarsPropEntry[] entries = Array.Empty<RepWarsPropEntry>();
         public TextAsset authoredWorld;
+        /// <summary>Optional repeating terrain fill for this world. Null uses the terrain-color fallback.</summary>
+        public Sprite terrainFill;
 
         readonly Dictionary<string, Sprite> sprites = new Dictionary<string, Sprite>();
 

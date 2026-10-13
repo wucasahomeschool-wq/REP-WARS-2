@@ -62,3 +62,4 @@ MonoBehaviour:
   - assetId: tree-cluster-3
     sprite: {fileID: 21300000, guid: bbf808c38406c5e6dd7e4b2879ed32fc, type: 3}
   authoredWorld: {fileID: 4900000, guid: 0c32a8c77810c6270fd02fe28267e069, type: 3}
+  terrainFill: {fileID: 21300000, guid: 7c1e9a4b2d8f4e6a91b0c3d5e7f81234, type: 3}

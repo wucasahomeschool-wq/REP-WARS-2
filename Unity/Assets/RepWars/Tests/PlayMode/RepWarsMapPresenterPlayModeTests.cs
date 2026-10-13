@@ -33,7 +33,7 @@ namespace RepWars.PlayModeTests
         public IEnumerator BuildMapCreatesEveryPartUnderOneRoot()
         {
             BuildLevelOne();
-            var root = GameObject.Find("Level1Map");
+            var root = GameObject.Find(RepWarsMapScreen.MapRootName);
             Assert.IsNotNull(root);
             Assert.AreEqual(1, Object.FindObjectsByType<RepWarsMapResources>().Length);
             Assert.AreEqual(1, Object.FindObjectsByType<RepWarsSelectionPresentation>().Length);
@@ -102,7 +102,7 @@ namespace RepWars.PlayModeTests
         public IEnumerator RuntimeMeshesAndMaterialsAreOwnedByTheMapAndSharedWhereIdentical()
         {
             BuildLevelOne();
-            var root = GameObject.Find("Level1Map");
+            var root = GameObject.Find(RepWarsMapScreen.MapRootName);
             var resources = root.GetComponent<RepWarsMapResources>();
             var owned = RuntimeObjects(root);
 
@@ -125,7 +125,7 @@ namespace RepWars.PlayModeTests
         public IEnumerator RebuildReplacesTheMapAndReleasesTheOldRuntimeObjects()
         {
             BuildLevelOne();
-            var oldRoot = GameObject.Find("Level1Map");
+            var oldRoot = GameObject.Find(RepWarsMapScreen.MapRootName);
             var oldObjects = RuntimeObjects(oldRoot);
             var oldSelection = oldRoot.GetComponentInChildren<RepWarsSelectionPresentation>();
             var plains = Resources.Load<Sprite>("Terrain/Plains 1");
@@ -147,7 +147,7 @@ namespace RepWars.PlayModeTests
             Assert.IsTrue(plains != null && plains.texture != null, "Project textures are not destroyed.");
             Assert.IsTrue(propSprite != null);
 
-            var root = GameObject.Find("Level1Map");
+            var root = GameObject.Find(RepWarsMapScreen.MapRootName);
             Assert.IsNotNull(root);
             Own(root);
             Assert.AreEqual(1, Object.FindObjectsByType<RepWarsMapResources>().Length);
@@ -189,16 +189,18 @@ namespace RepWars.PlayModeTests
             var screenObject = Own(new GameObject("MapScreen"));
             screenObject.SetActive(false);
             _screen = screenObject.AddComponent<RepWarsMapScreen>();
-            _catalog = Resources.Load<RepWarsPropCatalog>("RepWarsPropCatalog");
+            var presentation = RepWarsWorldPresentations.Resolve("Level 1");
+            _catalog = presentation.Catalog;
+            _world = presentation.World;
             Assert.IsNotNull(_catalog);
-            Assert.IsNotNull(_catalog.authoredWorld);
-            _world = WorldDefinitionReader.Read(_catalog.authoredWorld.text);
+            Assert.IsNotNull(presentation.TerrainFill);
             _built = new List<AuthoredTerritory>();
             foreach (var territory in _world.territories)
                 if (territory.ring.Count >= 3) _built.Add(territory);
             Assert.GreaterOrEqual(_built.Count, 2);
             SetField(_screen, "world", _world);
             SetField(_screen, "propCatalog", _catalog);
+            SetField(_screen, "terrainFill", presentation.TerrainFill);
             SetField(_screen, "gameState", new PublicGameState
             {
                 playerFactionId = "f_player",
@@ -211,7 +213,7 @@ namespace RepWars.PlayModeTests
             });
             Call(_screen, "EnsureHud");
             Call(_screen, "BuildMap");
-            Own(GameObject.Find("Level1Map"));
+            Own(GameObject.Find(RepWarsMapScreen.MapRootName));
             Own(GameObject.Find("EmpireHud"));
             Own(GameObject.Find("TerritoryInfo"));
         }

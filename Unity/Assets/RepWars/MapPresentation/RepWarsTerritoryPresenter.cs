@@ -30,10 +30,10 @@ namespace RepWars
             public bool HasBounds;
         }
 
-        public static Result Build(Transform parent, AuthoredWorld world, RepWarsMapResources resources)
+        public static Result Build(Transform parent, AuthoredWorld world, RepWarsMapResources resources, Sprite terrainFill)
         {
             var result = new Result();
-            var plains = Resources.Load<Sprite>("Terrain/Plains 1");
+            var plains = terrainFill;
             var plainsTileUnits = plains != null ? plains.rect.width / plains.pixelsPerUnit : 0f;
             Material plainsMaterial = null;
             Material borderMaterial = null;

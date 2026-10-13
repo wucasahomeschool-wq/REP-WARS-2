@@ -9,10 +9,12 @@ namespace RepWars
     /// First playable map screen. Geometry comes from the authored world definition.
     /// Ownership, armies, and turn come from the live public snapshot.
     /// This class coordinates the map: boot, the full rebuild, selection, picking, and camera framing.
-    /// Territories, armies, props, and labels are built by the presenters in MapPresentation.
+    /// The world it draws is a resolved presentation definition. Territories, armies, props, and labels
+    /// are built by the presenters in MapPresentation.
     /// </summary>
     public class RepWarsMapScreen : MonoBehaviour
     {
+        public const string MapRootName = "WorldMap";
         public string baseUrl = RepWarsApiClient.DefaultBaseUrl;
         public string playerId = "player_local";
         bool heartbeatStarted;
@@ -27,8 +29,10 @@ namespace RepWars
         PublicGameState gameState;
         AuthoredWorld world;
         RepWarsPropCatalog propCatalog;
+        Sprite terrainFill;
+        RepWarsWorldPresentationDefinition presentation;
         VisibleWorldSnapshot visibleWorld;
-        string status = "Loading Level 1...";
+        string status = "Loading world...";
         TextMesh hud;
         TextMesh territoryInfo;
         RepWarsMapCamera mapCamera;
@@ -108,6 +112,20 @@ namespace RepWars
             if (next == null) return;
             gameState = next;
             if (visible != null) visibleWorld = visible;
+            if (!string.IsNullOrEmpty(next.definitionWorldId)
+                && (presentation == null || presentation.WorldId != next.definitionWorldId))
+            {
+                try
+                {
+                    Adopt(RepWarsWorldPresentations.Resolve(next.definitionWorldId));
+                }
+                catch (System.Exception ex)
+                {
+                    ClearMap();
+                    Fail(ex.Message);
+                    return;
+                }
+            }
             ClearMap();
             if (territoryInfo != null) territoryInfo.text = "";
             BuildMap();
@@ -157,6 +175,8 @@ namespace RepWars
             yield return RepWarsSessionDriver.Open(Client, GameplaySession, playerId, false);
             EnsureHeartbeat();
 
+            // The endpoint must answer before the map is shown. Its body is not the sprite-backed
+            // presentation bundle; that bundle is selected from definitionWorldId.
             RepWarsCommandResult definitionResult = null;
             yield return Client.GetWorldDefinition(playerId, result => definitionResult = result);
             if (definitionResult == null || !definitionResult.TransportOk)
@@ -164,24 +184,13 @@ namespace RepWars
                 Fail(definitionResult != null ? definitionResult.Failure : "GET_WORLD_DEFINITION failed");
                 yield break;
             }
-            propCatalog = Resources.Load<RepWarsPropCatalog>("RepWarsPropCatalog");
-            if (propCatalog == null || propCatalog.authoredWorld == null)
-            {
-                Fail("Level 1 prop catalog is missing");
-                yield break;
-            }
             try
             {
-                world = WorldDefinitionReader.Read(propCatalog.authoredWorld.text);
+                Adopt(RepWarsWorldPresentations.Resolve(gameState.definitionWorldId));
             }
             catch (System.Exception ex)
             {
-                Fail("World definition could not be read: " + ex.Message);
-                yield break;
-            }
-            if (world.territories.Count == 0)
-            {
-                Fail("World definition contained no territories");
+                Fail(ex.Message);
                 yield break;
             }
 
@@ -202,16 +211,16 @@ namespace RepWars
         }
 
         /// <summary>
-        /// Full rebuild. Drops the previous map root (its RepWarsMapResources releases runtime meshes and materials),
-        /// then asks each presenter to build its part under one new Level1Map root.
+        /// Full rebuild of the resolved presentation. Drops the previous map root, which releases its runtime meshes
+        /// and materials, then asks each presenter to build under one new root.
         /// </summary>
         void BuildMap()
         {
             ClearMap();
-            mapRoot = new GameObject("Level1Map");
+            mapRoot = new GameObject(MapRootName);
             var root = mapRoot.transform;
             var resources = RepWarsMapResources.Create(mapRoot);
-            var territories = RepWarsTerritoryPresenter.Build(root, world, resources);
+            var territories = RepWarsTerritoryPresenter.Build(root, world, resources, terrainFill);
             RepWarsArmyPresenter.Build(territories.Pieces, gameState, world, OwnersById());
             selection = RepWarsSelectionPresentation.Create(root);
             RepWarsPropPresenter.Build(root, world, propCatalog, resources);
@@ -229,6 +238,15 @@ namespace RepWars
             }
             mapBounds = bounds;
             hasMapBounds = territories.HasBounds;
+        }
+
+        void Adopt(RepWarsWorldPresentationDefinition definition)
+        {
+            presentation = definition;
+            world = definition.World;
+            propCatalog = definition.Catalog;
+            terrainFill = definition.TerrainFill;
+            RepWarsWorldPresentations.WarnOnSnapshotGaps(world, gameState);
         }
 
         /// <summary>The rebuild clears selection. Selection persistence across incremental updates is deferred.</summary>

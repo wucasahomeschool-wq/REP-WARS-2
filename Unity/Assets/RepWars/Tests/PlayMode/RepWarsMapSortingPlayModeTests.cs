@@ -60,14 +60,12 @@ namespace RepWars.PlayModeTests
             var screenObject = Own(new GameObject("MapScreen"));
             screenObject.SetActive(false);
             var screen = screenObject.AddComponent<RepWarsMapScreen>();
-            var catalog = Resources.Load<RepWarsPropCatalog>("RepWarsPropCatalog");
-            Assert.IsNotNull(catalog);
-            Assert.IsNotNull(catalog.authoredWorld);
-            var world = WorldDefinitionReader.Read(catalog.authoredWorld.text);
-            Assert.Greater(world.territories.Count, 0);
-            var territoryId = world.territories[0].id;
-            SetField(screen, "world", world);
-            SetField(screen, "propCatalog", catalog);
+            var presentation = RepWarsWorldPresentations.Resolve("Level 1");
+            Assert.Greater(presentation.World.territories.Count, 0);
+            var territoryId = presentation.World.territories[0].id;
+            SetField(screen, "world", presentation.World);
+            SetField(screen, "propCatalog", presentation.Catalog);
+            SetField(screen, "terrainFill", presentation.TerrainFill);
             SetField(screen, "gameState", new PublicGameState
             {
                 playerFactionId = "f_player",
@@ -79,7 +77,7 @@ namespace RepWars.PlayModeTests
             });
             Call(screen, "EnsureHud");
             Call(screen, "BuildMap");
-            Own(GameObject.Find("Level1Map"));
+            Own(GameObject.Find(RepWarsMapScreen.MapRootName));
             Own(GameObject.Find("EmpireHud"));
             Own(GameObject.Find("TerritoryInfo"));
 
@@ -190,7 +188,7 @@ namespace RepWars.PlayModeTests
             Assert.AreEqual(other.normalWidth, other.outline.widthMultiplier, 0.001f);
 
             screen.PresentAuthoritative(screen.LiveState, null);
-            Own(GameObject.Find("Level1Map"));
+            Own(GameObject.Find(RepWarsMapScreen.MapRootName));
             Assert.IsNull(screen.SelectedTerritoryId);
             var rebuilt = UnityEngine.Object.FindAnyObjectByType<RepWarsSelectionPresentation>();
             Assert.IsNotNull(rebuilt);

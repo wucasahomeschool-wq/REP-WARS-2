@@ -4,7 +4,7 @@ using UnityEngine;
 namespace RepWars
 {
     /// <summary>
-    /// Sits on the Level1Map root and owns the meshes and materials the map presenters create at runtime.
+    /// Sits on the map root and owns the meshes and materials the map presenters create at runtime.
     /// Destroying the map root releases them. Project assets (sprites, textures, fonts) are never tracked here.
     /// </summary>
     public class RepWarsMapResources : MonoBehaviour
