@@ -221,3 +221,201 @@ remain `8375022d43482658227415f078a40ac13356c9cb`; the correction branch is the 
 active line. The existing `origin/REP-WARS-3` ref remains
 `81dced8239aedb5864e689ae97553cb16c7698ff`. No commit, push, merge or reconciliation
 was performed. This candidate awaits independent re-review.
+
+## Follow-up: final R2 HTTP privacy serialization correction
+
+This addendum records follow-up work from reviewed R2 checkpoint
+`70b7529e07954069e77eddee9e4cbf3ec5018e29`, on
+`codex/ai-phase-l-r2-privacy-correction`. The independent re-review verdict was
+**C — REVISION REQUIRED**, architecture **R2 — SMALL CORRECTION STILL REQUIRED**:
+five original corrections passed; HTTP serialization remained blocked. This does
+not replace that verdict or rewrite the frozen evidence. Final approval remains
+subject to independent review.
+
+Before changing production code, real HTTP tests reproduced private NPC Trade
+proposal/context leakage from null-prototype dictionaries, OrchestrationError
+instances, mixed arrays, and own/inherited `toJSON` transformations. The original
+projection accepted only exact Object.prototype objects; untouched representations
+then reached JSON.stringify, including its executable transformation hooks.
+
+The outward boundary now creates fresh JSON data using property descriptors,
+without invoking getters, `toJSON`, or proxy traps. Own serializable data from
+ordinary objects, null-prototype dictionaries and class instances takes the same
+recursive path. Known internal codes redact the complete error, even without a
+message, retaining the original diagnostic server-side. An independent probe found
+and then verified closure of inherited-code, boxed-code and function-code
+representation bypasses.
+Unknown native Error instances also receive a safe internal error body; expected
+domain Error instances retain code/message/details without stack traces.
+
+Fresh object/array outputs have no prototype hooks. JSON scalar, array, undefined
+omission, non-finite number and repeated-alias behavior is preserved. Executable
+serialization hooks/accessors, proxies, boxed primitives, cycles and BigInt fail
+closed through the
+existing sanitized HTTP 500 path. They are not executed to discover a wire shape.
+The actual command/session DTO implementations contain data rather than custom
+`toJSON`/Date serialization; no such hook support is added. This is an outward DTO
+contract, not a general JavaScript serialization framework.
+
+Command and session success bodies share this boundary. Existing expected domain
+errors remain useful, and existing exception/persistence catches remain sanitized.
+The isolated reporter retains original internal error objects and safe request
+correlation; encountered diagnostics are retained even if a later malformed value
+prevents serialization. Input objects are not mutated. Projection only runs while
+producing HTTP responses, never in simulation progression.
+
+**19 new real-HTTP regressions** cover plain/null-prototype/class internal errors
+in top-level errors and nested payloads, mixed arrays, public domain representations,
+own/inherited `toJSON`, getters, cycles, BigInt, absent-message/alternate-field
+errors, unknown Error stacks, inherited internal codes, boxed/function-transforming
+codes and safe JSON/alias behavior.
+All inspect final wire text for realistic hidden NPC proposal/context IDs; all
+compare canonical fixture state and input identity before/after projection.
+
+A separate HTTP probe verified null-prototype, OrchestrationError, inherited-code
+and session-response cases, plus a proxy variation outside the authored regressions
+(zero executed traps). No private IDs reached those final responses.
+
+Validation commands remain those listed above. Final results for this follow-up:
+
+| Check | Result |
+|---|---|
+| New privacy regressions | 19 passed / 0 failed |
+| Privacy HTTP focused (existing + new) | 20 passed / 0 failed |
+| Phase L | 113 passed / 0 failed |
+| A–L focused | 807 passed / 0 failed |
+| Integration (including anchors/session/temporal/persistence) | 319 passed / 0 failed |
+| Full suite | 1,886 passed / 0 failed |
+| HTTP bridge | 1 passed / 0 failed; also exercised in the full suite |
+| Production TypeScript | PASS, exit 0 |
+| Test-inclusive TypeScript | Exit 2; same 28 baseline identities, zero new/removed |
+| Diff whitespace | `git diff --check`: PASS |
+
+No scheduler, timing, AI policy, canonical state, schema, RNG, CAS, reservation or
+operation behavior is changed. Schema remains 27. All previously listed deferred
+contracts remain deferred. Scope is HTTP source, its existing regression module,
+and this addendum only. The reviewed R2 and frozen branches are preserved; changes
+remain unstaged/uncommitted, with no push, merge, REP-WARS-3 modification, Phase M,
+Temporal V2 or reconciliation.
+
+The post-test self-audit traced every projector output to the final stringify call:
+original container objects do not survive projection, whole internal errors are
+redacted irrespective of field names, and the freshly normalized tree cannot
+invoke a second JSON transformation. Repeated aliases are allowed, cycles fail
+safely, and expected domain classification still uses error codes rather than a
+message blacklist. No remaining bypass was found in the independently exercised
+representations. All 102 frozen artifacts still match their frozen commit bytes.
+No simulation benchmark was needed: this path executes only at the HTTP boundary.
+
+## Follow-up: complete HTTP failure-boundary hardening
+
+The final independent privacy review returned **C — REVISION REQUIRED**,
+**R2 — SMALL CORRECTION STILL REQUIRED**, and **PHASE L NOT YET APPROVED**.
+It found the main projector sound in exercised cases, but reproduced three
+surrounding failure-path gaps: persistence codes bypassed normalization; default
+console formatting executed custom inspection/stack getters; and exception
+`instanceof` checks executed thrown-proxy prototype traps. Those historical
+findings and the previous reports remain unchanged. This is a further candidate
+on the same privacy branch, not an approval checkpoint.
+
+Before production changes, the new wire tests reproduced hidden-ID leaks through
+both `/commands` and `/session/open`. The initial 29 hardening regressions had
+4 passes / 25 failures against the reviewed candidate. One additional regression
+now protects the adjacent empty/non-JSON response failure case.
+
+### Trust boundary and implemented invariant
+
+Server-authored constants, codes validated against the existing
+`PERSISTENCE_ERROR_CODES` list, known public validation contracts, and explicitly
+configured server callbacks are trusted. Arbitrary thrown values, their fields,
+prototypes, accessors, serialization/inspection hooks and boxed/proxy values are
+untrusted. No message-text heuristic or additional persistence authority is used.
+
+All dynamic response data crosses `sendPublicJson` before final stringify. The
+only unprojected send is the last-resort internal-error envelope, constructed as a
+prototype-free object containing trusted primitive constants. Unsupported values
+produce that safe failure; an undefined/non-JSON serialization result cannot
+become an empty successful response. Diagnostics never re-enter the public body.
+
+| Outward path | Protection |
+|---|---|
+| Command results, including nested world/catch-up errors | Full recursive public normalization |
+| Session open/heartbeat/end results | Same normalization |
+| HTTP envelope/JSON validation failures | Known public validation type + own primitive message, then normalization |
+| Command not exposed | Public message derived from validated caller command ID, then normalization |
+| Stale session receipt | Fixed public receipt message, then normalization |
+| Persistence failure on command/session paths | Own data descriptor only; existing known primitive code retained, otherwise `persistence.save_failed`; then normalization |
+| Unexpected exceptions, projection/serialization failures | Safe diagnostics + trusted constant internal-error envelope |
+| Outer command/session fallback catches | Same trusted internal-error envelope |
+| Health and unknown-route responses | Normalization with safe internal fallback |
+
+Persistence code validation never coerces, formats or calls methods on the
+original code. Missing, unknown-string, object, class, boxed, accessor or proxy
+codes fall back without exposing the source; real enum codes remain unchanged.
+
+Exception classification does not use `instanceof` on arbitrary thrown values.
+Node 24.19.0's native `util.types.isProxy` detector is checked before each bounded
+prototype lookup, including revoked proxies and proxy links. Only known server
+error prototypes authorize expected handling; everything else defaults internal.
+Classification walks at most eight links. Public BadRequest messages must be own
+primitive data; receipt/command messages do not read potentially malformed error
+message fields. This changes no session or persistence behavior.
+
+The default reporter snapshots at most 64 visited values, four levels, 12 fields
+or array entries per container, and 1,024 characters per string/key. It records
+own primitive data and accessor/function/proxy/truncation markers. It does not
+invoke getters, coercion, custom inspection or `toJSON`. Stack is deliberately
+omitted without reading its descriptor/value. Only serialized snapshot text
+reaches console formatting. Original diagnostics remain available to explicitly
+configured trusted server reporters under the existing API; reporter exceptions
+remain isolated from public responses.
+
+### Regression and adversarial evidence
+
+**30 additional real-HTTP regressions** cover both persistence routes with boxed,
+null-prototype, class, accessor, proxy, unknown-string and valid primitive codes;
+actual default logger inspection/accessor/serialization hooks and bounded output;
+all four thrown-proxy routes; revoked/prototype proxies; malformed public messages;
+useful public validation/receipt/command errors; reporter exceptions; and an
+unserializable top-level response. Hidden NPC Trade proposal/context IDs are
+checked against final wire text. All earlier privacy regressions remain intact.
+
+An initial full-run failure exposed overlapping stderr interception in the test
+harness: the legacy full runner starts registered async cases concurrently. The
+shared default-logger capture now has serialized ownership and restores the sink
+in `finally`; production scheduling is unaffected and no assertion was removed.
+Focused validation explicitly awaits every registered case. The corrected full
+run completed successfully.
+
+A separate post-test probe recreated the boxed persistence bypass on both routes
+and added array-code/accessor and inherited-code-getter variations, unknown Error
+hooks, native stack formatting and all four thrown-proxy routes. Across ten actual
+HTTP requests: **zero hidden-ID occurrences**, **10 useful diagnostic entries**,
+and measured counters **toJSON 0 / custom inspection 0 / accessors 0 / proxy traps 0
+/ native prepareStackTrace 0**. Canonical fixture state remained identical.
+
+| Final validation | Result |
+|---|---|
+| New hardening regressions | 30 passed / 0 failed |
+| Privacy/HTTP focused | 50 passed / 0 failed |
+| HTTP bridge | 1 passed / 0 failed |
+| Phase L | 143 passed / 0 failed |
+| Phase A–L | 837 passed / 0 failed |
+| Integration | 319 passed / 0 failed |
+| Full suite | 1,916 passed / 0 failed |
+| Production TypeScript | PASS |
+| Test-inclusive TypeScript | Same 28 baseline file/code/full-message identities, zero new/removed; expected exit 2 |
+| Diff whitespace | `git diff --check`: PASS |
+
+The same validation commands documented above are used. Privacy-focused filtering
+includes `Phase L privacy:`, `Phase L R2: HTTP`, and `Phase L HTTP boundary:` cases.
+The increase from 1,886 to 1,916 is exactly the 30 added regressions. No simulation
+benchmark is needed: these helpers run only at the HTTP/diagnostic boundary.
+
+Scope remains the same three files: HTTP source, its regression module and this
+record. Schema 27, GameState, RNG, simulation ordering, CAS, persistence semantics,
+Attention, reservations, operations and all five approved R2 corrections are
+unchanged. Spatial/cargo recovery, broader battle timing, non-player invasion
+rearming, required-window interpretation, Attention tuning and compaction remain
+deferred. Changes remain unstaged/uncommitted for independent re-review; no push,
+merge, REP-WARS-3 change, Phase M, Temporal V2 or reconciliation is performed.

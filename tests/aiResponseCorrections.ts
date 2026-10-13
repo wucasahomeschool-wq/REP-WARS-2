@@ -1,5 +1,6 @@
 import assert from 'assert';
 import { request } from 'node:http';
+import { inspect } from 'node:util';
 import type { GameState } from '../src/types/GameState';
 import type { AIResponseContext } from '../src/types/AIResponse';
 import { MUTATING_HANDLERS, type HandlerContext } from '../src/orchestration/handlers';
@@ -11,7 +12,7 @@ import { accrueProactiveClocks, startProactiveTimer, timerRemaining, opportunity
 import { occupiedAttention } from '../src/engine/strategicAttention';
 import { settleOperation } from '../src/engine/operations';
 import { initializeRecruitment, recruitmentPoolId } from '../src/gameplay/recruitment/recruitment';
-import { liveTradeProposals } from '../src/gameplay/trade/trade';
+import { liveTradeProposals, publicTradeState } from '../src/gameplay/trade/trade';
 import { cloneGameState } from '../src/state/cloneGameState';
 import { responseStateProblems } from '../src/state/responseInvariants';
 import { checkGameStateInvariants } from '../src/state/gameStateInvariants';
@@ -26,7 +27,9 @@ import { mergeEventStepOntoGameState } from '../src/orchestration/applyEvents';
 import { ConsequenceApplier } from '../src/events/WorldSimulator';
 import { accrueWorldThroughReceipt } from '../src/world/worldAccrual';
 import { openGameplaySessionLease, renewGameplaySessionLeaseAtSequence, endGameplaySessionLease } from '../src/world/presenceLeases';
-import { createSessionHost, CommandSessionHost } from '../src/server/session';
+import { createSessionHost, CommandSessionHost, PersistenceFailedError, CommandNotExposedError } from '../src/server/session';
+import { BadRequestError } from '../src/server/identity';
+import { GameplaySessionReceiptError } from '../src/server/gameplaySessionLifecycle';
 import { PlayerWorldPersistence } from '../src/server/persistencePort';
 import { createCommandHttpServer } from '../src/server/http';
 
@@ -267,4 +270,203 @@ export function registerAiResponseCorrectionTests(api:Api,f:Fixtures):void {
       const thrown=await post('/session/open',{playerId:'r2',requestId:'open'});assert.strictEqual(thrown.error,'INTERNAL');assert.ok(!JSON.stringify(thrown).includes(proposal.id));
     }finally{await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
   });
+
+  // Real HTTP bodies, including hidden NPC Trade identities; no projector-only tests.
+  const privacyHttp=async(build:(error:Record<string,unknown>,ids:{proposal:string;context:string})=>unknown,
+    verify:(result:{status:number;raw:string;body:Record<string,unknown>;diagnostics:unknown[]},original:unknown)=>void)=>{
+    const s=pendingTrade(),proposal=liveTradeProposals(s)[0]!.id,contextId=[...s.aiResponses.values()][0]!.id;
+    assert.strictEqual(publicTradeState(s,'spectator').proposals.length,0);
+    const before=encodePersistable(s),error={code:ErrorCode.INVALID_GAME_STATE,message:proposal,
+      details:{contextId,proposalId:proposal}},original=build(error,{proposal,context:contextId});
+    const response=new Orchestrator(s).execute(cmdReq('GET_GAME_STATE','spectator'));
+    response.errors=original && typeof original==='object' && Object.getOwnPropertyDescriptor(original,'code')?.value
+      ? [original as (typeof response.errors)[number]] : [];response.payload={probe:original};
+    const diagnostics:unknown[]=[],host:CommandSessionHost={persistenceName:'memory',execute:async()=>response,
+      openGameplaySession:async()=>{throw new Error('unused');},heartbeatGameplaySession:async()=>{throw new Error('unused');},endGameplaySession:async()=>{throw new Error('unused');}};
+    const server=createCommandHttpServer(host,{onInternalError:d=>diagnostics.push(d)});
+    await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
+    const address=server.address();assert.ok(address&&typeof address!=='string');if(!address||typeof address==='string')throw new Error('No port');
+    try {
+      const result=await new Promise<{status:number;raw:string;body:Record<string,unknown>}>((resolve,reject)=>{
+        const payload=JSON.stringify({commandId:'GET_GAME_STATE',playerId:'spectator'});
+        const req=request({hostname:'127.0.0.1',port:address.port,path:'/commands',method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(payload)}},res=>{
+          let raw='';res.on('data',chunk=>raw+=chunk);res.on('end',()=>resolve({status:res.statusCode!,raw,body:JSON.parse(raw)}));
+        });req.on('error',reject);req.end(payload);
+      });
+      // Test final wire text, including escaped IDs, rather than only parsed fields.
+      for(const id of [proposal,contextId])assert.ok(!result.raw.includes(JSON.stringify(id).slice(1,-1)),`Private identity reached HTTP: ${id}`);
+      verify({...result,diagnostics},original);
+      assert.deepStrictEqual(encodePersistable(s),before);
+      assert.strictEqual(response.payload.probe,original); // Projection cannot mutate its input.
+    }finally{await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
+  };
+  const safeInternal=(result:{status:number;body:Record<string,unknown>;diagnostics:unknown[]},original:unknown)=>{
+    assert.strictEqual(result.status,200);
+    assert.deepStrictEqual((result.body.payload as {probe:unknown}).probe,{code:ErrorCode.INVALID_GAME_STATE,message:'Internal game consistency error. Please retry.'});
+    assert.strictEqual(result.diagnostics.length,1);
+    assert.strictEqual((result.diagnostics[0] as {errors:unknown[]}).errors[0],original);
+  };
+  const safeFailure=(result:{status:number;body:Record<string,unknown>;diagnostics:unknown[]})=>{
+    assert.strictEqual(result.status,500);assert.deepStrictEqual(result.body,{error:'INTERNAL',message:'Internal server error. Please retry.'});assert.strictEqual(result.diagnostics.length,1);
+  };
+  test('Phase L privacy: plain internal error preserves safe projection and diagnostics',()=>privacyHttp(e=>e,safeInternal));
+  test('Phase L privacy: top-level null-prototype internal error is sanitized',()=>privacyHttp(e=>Object.assign(Object.create(null),e),safeInternal));
+  test('Phase L privacy: nested null-prototype internal error is sanitized',()=>privacyHttp(e=>({catchUp:{errors:[Object.assign(Object.create(null),e)]}}),r=>{
+    assert.strictEqual(r.status,200);assert.strictEqual(r.diagnostics.length,1);
+    assert.strictEqual(JSON.stringify(r.body).includes('contextId'),false);
+  }));
+  test('Phase L privacy: top-level OrchestrationError instance is sanitized',()=>privacyHttp(e=>new OrchestrationError(ErrorCode.INVALID_GAME_STATE,e.message as string,e.details as Record<string,unknown>),safeInternal));
+  test('Phase L privacy: nested OrchestrationError instance is sanitized',()=>privacyHttp(e=>({world:{errors:[new OrchestrationError(ErrorCode.INVALID_GAME_STATE,e.message as string,e.details as Record<string,unknown>)]}}),r=>{
+    assert.strictEqual(r.status,200);assert.strictEqual(r.diagnostics.length,1);assert.ok(!r.raw.includes('contextId'));
+  }));
+  test('Phase L privacy: arrays with mixed representations sanitize every entry',()=>privacyHttp(e=>[e,Object.assign(Object.create(null),e),new OrchestrationError(ErrorCode.INVALID_GAME_STATE,e.message as string,e.details as Record<string,unknown>)],r=>{
+    assert.strictEqual(r.status,200);assert.strictEqual((r.diagnostics[0] as {errors:unknown[]}).errors.length,3);
+    const entries=(r.body.payload as {probe:{details?:unknown}[]}).probe;assert.strictEqual(entries.length,3);assert.ok(entries.every(e=>e.details===undefined));
+  }));
+  test('Phase L privacy: public domain errors retain code message and details across representations',()=>privacyHttp(()=>{
+    const domain={code:ErrorCode.INVALID_TERRITORY,message:'Territory absent',details:{territoryId:'absent',alternatives:['safe']}};
+    class DomainBody {code=domain.code;message=domain.message;details=domain.details;}
+    return [domain,Object.assign(Object.create(null),domain),new DomainBody(),new OrchestrationError(domain.code,domain.message,domain.details)];
+  },r=>{
+    assert.strictEqual(r.status,200);assert.strictEqual(r.diagnostics.length,0);
+    const domain={code:ErrorCode.INVALID_TERRITORY,message:'Territory absent',details:{territoryId:'absent',alternatives:['safe']}};
+    assert.deepStrictEqual((r.body.payload as {probe:unknown}).probe,[domain,domain,domain,domain]);
+  }));
+  test('Phase L privacy: own toJSON cannot inject private errors and is not invoked',async()=>{
+    let calls=0;await privacyHttp(e=>({safe:true,toJSON(){calls++;return e;}}),safeFailure);assert.strictEqual(calls,0);
+  });
+  test('Phase L privacy: inherited toJSON cannot inject private errors and is not invoked',async()=>{
+    let calls=0;await privacyHttp(e=>{class Container {safe=true;toJSON(){calls++;return e;}}return {nested:new Container()};},safeFailure);assert.strictEqual(calls,0);
+  });
+  test('Phase L privacy: enumerable getter is rejected without invocation',async()=>{
+    let calls=0;await privacyHttp(e=>Object.defineProperty({safe:true},'unexpected',{enumerable:true,get(){calls++;return e;}}),safeFailure);assert.strictEqual(calls,0);
+  });
+  test('Phase L privacy: cyclic output fails safely without exception text',()=>privacyHttp((_,ids)=>{
+    const cycle:Record<string,unknown>={};cycle.self=cycle;cycle.secret=ids.proposal;return cycle;
+  },safeFailure));
+  test('Phase L privacy: internal code without message cannot leak under alternate fields',()=>privacyHttp((e,ids)=>({code:e.code,unexpected:ids.proposal,more:[ids.context]}),safeInternal));
+  test('Phase L privacy: nested unexpected Error does not expose stack or exception text',()=>privacyHttp((_,ids)=>new Error(ids.proposal),r=>{
+    assert.strictEqual(r.status,200);assert.strictEqual(r.diagnostics.length,1);assert.ok(!r.raw.includes('stack'));
+    assert.deepStrictEqual((r.body.payload as {probe:unknown}).probe,{code:ErrorCode.ENGINE_ERROR,message:'Internal game consistency error. Please retry.'});
+  }));
+  test('Phase L privacy: safe data and repeated aliases preserve ordinary JSON semantics',()=>privacyHttp(()=>{
+    const shared={label:'public',value:7};return {aliases:[shared,shared],missing:undefined,finite:2.5,nonfinite:Infinity,array:[undefined,null,true],nested:Object.assign(Object.create(null),{name:'public'})};
+  },r=>{
+    assert.strictEqual(r.status,200);assert.strictEqual(r.diagnostics.length,0);
+    assert.deepStrictEqual((r.body.payload as {probe:unknown}).probe,{aliases:[{label:'public',value:7},{label:'public',value:7}],finite:2.5,nonfinite:null,array:[null,null,true],nested:{name:'public'}});
+  }));
+  test('Phase L privacy: serialization hook getter is rejected without invocation',async()=>{
+    let calls=0;await privacyHttp(e=>Object.defineProperty({safe:true},'toJSON',{get(){calls++;return ()=>e;}}),safeFailure);assert.strictEqual(calls,0);
+  });
+  test('Phase L privacy: unserializable BigInt fails safely instead of exposing exception details',()=>privacyHttp(()=>({value:1n}),safeFailure));
+  test('Phase L privacy: inherited internal error code cannot conceal private own fields',()=>privacyHttp((e,ids)=>Object.assign(Object.create({code:e.code}),{message:ids.proposal,unexpected:ids.context}),safeInternal));
+  test('Phase L privacy: boxed code cannot change classification at serialization',()=>privacyHttp((e,ids)=>({code:new String(e.code),message:ids.proposal,details:{contextId:ids.context}}),safeFailure));
+  test('Phase L privacy: function toJSON cannot transform an error code after classification',async()=>{
+    let calls=0;await privacyHttp((e,ids)=>({code:Object.assign(()=>undefined,{toJSON(){calls++;return e.code;}}),message:ids.proposal,details:{contextId:ids.context}}),safeFailure);assert.strictEqual(calls,0);
+  });
+
+  const runBoundaryHttp=async(path:string,make:(ids:{proposal:string;context:string})=>unknown,
+    verify:(r:{status:number;body:Record<string,unknown>;raw:string;diagnostics:unknown[];log:string},original:unknown)=>void,
+    options:{returned?:boolean;rawResponse?:boolean;defaultLogger?:boolean;throwReporter?:boolean}={})=>{
+    const s=pendingTrade(),proposal=liveTradeProposals(s)[0]!.id,contextId=[...s.aiResponses.values()][0]!.id;
+    assert.strictEqual(publicTradeState(s,'spectator').proposals.length,0);
+    const before=encodePersistable(s),original=make({proposal,context:contextId}),response=new Orchestrator(s).execute(cmdReq('GET_GAME_STATE','spectator'));
+    response.errors=[];response.payload={probe:original};
+    const diagnostics:unknown[]=[],host:CommandSessionHost={persistenceName:'memory',execute:async()=>{if(options.rawResponse)return original as Awaited<ReturnType<CommandSessionHost['execute']>>;if(options.returned)return response;throw original;},
+      openGameplaySession:async()=>{throw original;},heartbeatGameplaySession:async()=>{throw original;},endGameplaySession:async()=>{throw original;}};
+    const log:string[]=[],write=process.stderr.write;
+    if(options.defaultLogger)process.stderr.write=((chunk:string|Uint8Array)=>{log.push(typeof chunk==='string'?chunk:Buffer.from(chunk).toString('utf8'));return true;}) as typeof process.stderr.write;
+    const server=createCommandHttpServer(host,options.defaultLogger?undefined:{onInternalError:d=>{diagnostics.push(d);if(options.throwReporter)throw new Error(proposal);}});
+    try {
+      await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));const address=server.address();assert.ok(address&&typeof address!=='string');if(!address||typeof address==='string')throw new Error('No port');
+      const result=await new Promise<{status:number;raw:string;body:Record<string,unknown>}>((resolve,reject)=>{
+        const payload=JSON.stringify({commandId:'GET_GAME_STATE',playerId:'spectator',requestId:'boundary',gameplaySessionId:'session',renewalSequence:1});
+        const req=request({hostname:'127.0.0.1',port:address.port,path,method:'POST',headers:{'Content-Type':'application/json'}},res=>{let raw='';res.on('data',chunk=>raw+=chunk);res.on('end',()=>{try{resolve({status:res.statusCode!,raw,body:JSON.parse(raw)});}catch(e){reject(e);}});});req.on('error',reject);req.end(payload);
+      });
+      for(const id of [proposal,contextId])assert.ok(!result.raw.includes(JSON.stringify(id).slice(1,-1)),'Private ID reached failure response');
+      verify({...result,diagnostics,log:log.join('')},original);
+      assert.deepStrictEqual(encodePersistable(s),before);assert.strictEqual(response.payload.probe,original);
+    }finally{process.stderr.write=write;await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
+  };
+  // The legacy full runner starts registered async tests concurrently. A shared
+  // stderr sink must have one capture owner; focused runners still await cases.
+  let diagnosticCapture:Promise<void>=Promise.resolve();
+  const boundaryHttp:typeof runBoundaryHttp=async(path,make,verify,options={})=>{
+    if(!options.defaultLogger)return runBoundaryHttp(path,make,verify,options);
+    const previous=diagnosticCapture;let release!:()=>void;
+    diagnosticCapture=new Promise<void>(resolve=>{release=resolve;});
+    await previous;
+    try{await runBoundaryHttp(path,make,verify,options);}finally{release();}
+  };
+  const persistenceBody=(r:{status:number;body:Record<string,unknown>;diagnostics:unknown[]},code='persistence.save_failed')=>{
+    assert.strictEqual(r.status,500);assert.deepStrictEqual(r.body,{error:'PERSISTENCE_FAILED',message:'Unable to save game state. Please retry.',code});assert.strictEqual(r.diagnostics.length,1);
+  };
+  for(const path of ['/commands','/session/open']){
+    test(`Phase L HTTP boundary: ${path} persistence boxed code never serializes`,async()=>{
+      let calls=0;await boundaryHttp(path,ids=>{
+        const e=new PersistenceFailedError('persistence.conflict',ids.proposal);
+        Object.defineProperty(e,'code',{value:Object.assign(new String('persistence.conflict'),{toJSON(){calls++;return {proposal:ids.proposal,context:ids.context};}})});return e;
+      },r=>persistenceBody(r));assert.strictEqual(calls,0);
+    });
+    test(`Phase L HTTP boundary: ${path} persistence null-prototype code is rejected`,()=>boundaryHttp(path,ids=>{
+      const e=new PersistenceFailedError('persistence.conflict',ids.proposal);Object.defineProperty(e,'code',{value:Object.assign(Object.create(null),{proposal:ids.proposal,context:ids.context})});return e;
+    },r=>persistenceBody(r)));
+    test(`Phase L HTTP boundary: ${path} persistence class code is rejected`,()=>boundaryHttp(path,ids=>{
+      class Code {proposal=ids.proposal;context=ids.context;}
+      const e=new PersistenceFailedError('persistence.conflict',ids.proposal);Object.defineProperty(e,'code',{value:new Code()});return e;
+    },r=>persistenceBody(r)));
+    test(`Phase L HTTP boundary: ${path} persistence code getter is never evaluated`,async()=>{
+      let calls=0;await boundaryHttp(path,ids=>{const e=new PersistenceFailedError('persistence.conflict',ids.proposal);Object.defineProperty(e,'code',{get(){calls++;return ids.context;}});return e;},r=>persistenceBody(r));assert.strictEqual(calls,0);
+    });
+    test(`Phase L HTTP boundary: ${path} persistence proxy code causes zero traps`,async()=>{
+      let calls=0;await boundaryHttp(path,ids=>{
+        const e=new PersistenceFailedError('persistence.conflict',ids.proposal),trap=()=>{calls++;throw new Error(ids.context);};
+        Object.defineProperty(e,'code',{value:new Proxy({}, {get:trap,getPrototypeOf:trap,ownKeys:trap,getOwnPropertyDescriptor:trap})});return e;
+      },r=>persistenceBody(r));assert.strictEqual(calls,0);
+    });
+    test(`Phase L HTTP boundary: ${path} legitimate persistence code is preserved`,()=>boundaryHttp(path,ids=>new PersistenceFailedError('persistence.conflict',ids.proposal),r=>persistenceBody(r,'persistence.conflict')));
+    test(`Phase L HTTP boundary: ${path} arbitrary string persistence code is not public`,()=>boundaryHttp(path,ids=>new PersistenceFailedError(ids.context,ids.proposal),r=>persistenceBody(r)));
+  }
+  test('Phase L HTTP boundary: default logger never invokes custom inspection',async()=>{
+    let calls=0;await boundaryHttp('/commands',ids=>Object.assign(new OrchestrationError(ErrorCode.ENGINE_ERROR,ids.proposal,{contextId:ids.context}),{[inspect.custom](){calls++;return 'hidden';}}),r=>{
+      assert.strictEqual(r.status,200);assert.ok(r.log.includes('Internal game request failure'));assert.ok(r.log.includes('ENGINE_ERROR'));
+    },{returned:true,defaultLogger:true});assert.strictEqual(calls,0);
+  });
+  test('Phase L HTTP boundary: default logger never reads stack message or details getters',async()=>{
+    let calls=0;await boundaryHttp('/commands',ids=>{
+      const e=new OrchestrationError(ErrorCode.ENGINE_ERROR,'placeholder');
+      for(const key of ['stack','message','details'])Object.defineProperty(e,key,{enumerable:true,get(){calls++;return ids.proposal;}});return e;
+    },r=>{assert.strictEqual(r.status,200);assert.ok(r.log.includes('ENGINE_ERROR'));assert.ok(r.log.includes('[accessor]'));},{returned:true,defaultLogger:true});assert.strictEqual(calls,0);
+  });
+  test('Phase L HTTP boundary: default logger never calls toJSON and records useful data',async()=>{
+    let calls=0;await boundaryHttp('/commands',ids=>Object.assign(new OrchestrationError(ErrorCode.ENGINE_ERROR,ids.proposal),{toJSON(){calls++;return ids.context;}}),r=>{
+      assert.strictEqual(r.status,200);assert.ok(r.log.includes('ENGINE_ERROR'));assert.ok(r.log.includes('[function]'));
+    },{returned:true,defaultLogger:true});assert.strictEqual(calls,0);
+  });
+  test('Phase L HTTP boundary: default diagnostics bound cycles depth fields and string size',()=>boundaryHttp('/commands',()=>{
+    const e=new Error('x'.repeat(10000));const detail:Record<string,unknown>={};detail.self=detail;for(let i=0;i<100;i++)detail['key'+i]={a:{b:{c:{value:'public'}}}};Object.assign(e,{details:detail});return e;
+  },r=>{assert.strictEqual(r.status,500);assert.ok(r.log.length<20000);assert.ok(r.log.includes('[truncated]')||r.log.includes('[depth limit]')||r.log.includes('[circular]'));},{defaultLogger:true}));
+  for(const path of ['/commands','/session/open','/session/heartbeat','/session/end'])test(`Phase L HTTP boundary: thrown proxy at ${path} executes no traps`,async()=>{
+    let calls=0;await boundaryHttp(path,ids=>{const trap=()=>{calls++;throw new Error(ids.proposal);};return new Proxy({}, {get:trap,getPrototypeOf:trap,ownKeys:trap,getOwnPropertyDescriptor:trap});},r=>{
+      assert.strictEqual(r.status,500);assert.deepStrictEqual(r.body,{error:'INTERNAL',message:'Internal server error. Please retry.'});assert.ok(r.log.includes('[proxy]'));
+    },{defaultLogger:true});assert.strictEqual(calls,0);
+  });
+  test('Phase L HTTP boundary: revoked thrown proxy fails safely',()=>boundaryHttp('/commands',()=>{const p=Proxy.revocable({},{});p.revoke();return p.proxy;},r=>{assert.strictEqual(r.status,500);assert.ok(r.log.includes('[proxy]'));},{defaultLogger:true}));
+  test('Phase L HTTP boundary: proxy prototype cannot impersonate a public exception',async()=>{
+    let calls=0;await boundaryHttp('/commands',()=>Object.create(new Proxy(BadRequestError.prototype,{getPrototypeOf(){calls++;return null;},get(){calls++;return 'hidden';}})),r=>{assert.strictEqual(r.status,500);});assert.strictEqual(calls,0);
+  });
+  test('Phase L HTTP boundary: malformed public exception message getter is not evaluated',async()=>{
+    let calls=0;await boundaryHttp('/session/open',ids=>{const e=new BadRequestError('placeholder');Object.defineProperty(e,'message',{get(){calls++;return ids.context;}});return e;},r=>{assert.strictEqual(r.status,500);});assert.strictEqual(calls,0);
+  });
+  test('Phase L HTTP boundary: command rejection derives public context without message getter',async()=>{
+    let calls=0;await boundaryHttp('/commands',ids=>{const e=new CommandNotExposedError('GET_GAME_STATE');Object.defineProperty(e,'message',{get(){calls++;return ids.context;}});return e;},r=>{
+      assert.strictEqual(r.status,403);assert.strictEqual(r.body.message,'Command is not exposed over HTTP: GET_GAME_STATE');
+    });assert.strictEqual(calls,0);
+  });
+  test('Phase L HTTP boundary: useful expected session validation message remains public',()=>boundaryHttp('/session/open',()=>new BadRequestError('renewalSequence must be a positive safe integer'),r=>{assert.strictEqual(r.status,400);assert.strictEqual(r.body.message,'renewalSequence must be a positive safe integer');}));
+  test('Phase L HTTP boundary: stale receipt uses a trusted fixed public message',async()=>{
+    let calls=0;await boundaryHttp('/session/heartbeat',ids=>{const e=new GameplaySessionReceiptError();Object.defineProperty(e,'message',{get(){calls++;return ids.context;}});return e;},r=>{assert.strictEqual(r.status,409);assert.strictEqual(r.body.message,'Gameplay session receipt is behind authoritative state');});assert.strictEqual(calls,0);
+  });
+  test('Phase L HTTP boundary: reporter failure cannot replace the safe public response',()=>boundaryHttp('/commands',ids=>new PersistenceFailedError('persistence.conflict',ids.proposal),r=>persistenceBody(r,'persistence.conflict'),{throwReporter:true}));
+  test('Phase L HTTP boundary: unserializable top-level response becomes a safe failure',()=>boundaryHttp('/commands',()=>()=>undefined,r=>{assert.strictEqual(r.status,500);assert.deepStrictEqual(r.body,{error:'INTERNAL',message:'Internal server error. Please retry.'});},{rawResponse:true}));
 }

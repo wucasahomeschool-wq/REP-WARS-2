@@ -1,39 +1,200 @@
 import { IncomingMessage, Server, ServerResponse, createServer } from 'node:http';
+import { types } from 'node:util';
 import { CommandRequest } from '../orchestration/protocol';
 import { BadRequestError, resolvePlayerId } from './identity';
 import { GameplaySessionReceiptError } from './gameplaySessionLifecycle';
 import { CommandNotExposedError, CommandSessionHost, PersistenceFailedError } from './session';
 import { ErrorCode, publicOrchestrationError } from '../orchestration/errors';
+import { PERSISTENCE_ERROR_CODES } from '../persistence/errors';
 
 const MAX_BODY_BYTES = 1024 * 1024;
-type InternalErrorReporter=(diagnostic:unknown)=>void;
-function reportInternalError(report:InternalErrorReporter,diagnostic:unknown):void {
-  try{report(diagnostic);}catch{/* Logging cannot change command or HTTP results. */}
+type InternalErrorReporter = (diagnostic: unknown) => void;
+
+// Trusted: server constants, validated primitive codes and explicitly configured
+// reporter callbacks. Thrown values and their properties are untrusted data.
+function ownDataValue(value: unknown, key: string): unknown {
+  if (!value || typeof value !== 'object' || types.isProxy(value)) return undefined;
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  return descriptor && 'value' in descriptor ? descriptor.value : undefined;
 }
-function sendInternalError(res:ServerResponse,report:InternalErrorReporter,diagnostic:unknown):void {
-  reportInternalError(report,diagnostic);
-  sendJson(res,500,{error:'INTERNAL',message:'Internal server error. Please retry.'});
-}
-function sendPersistenceError(res:ServerResponse,report:InternalErrorReporter,err:PersistenceFailedError):void {
-  reportInternalError(report,err);
-  sendJson(res,500,{error:'PERSISTENCE_FAILED',message:'Unable to save game state. Please retry.',code:err.code});
-}
-/** World/catch-up results can contain nested error bodies as well as top-level
- * command errors. Project every JSON error surface; retain originals for logs. */
-function publicErrorProjection(value:unknown,diagnostics:unknown[]):unknown {
-  if(Array.isArray(value))return value.map(v=>publicErrorProjection(v,diagnostics));
-  if(value&&typeof value==='object'&&Object.getPrototypeOf(value)===Object.prototype) {
-    const object=value as Record<string,unknown>,code=object.code;
-    if((code===ErrorCode.INVALID_GAME_STATE||code===ErrorCode.ENGINE_ERROR)&&typeof object.message==='string') {
-      diagnostics.push(object);return publicOrchestrationError({code,message:object.message});
+
+type HttpErrorKind = 'bad_request' | 'receipt' | 'command' | 'persistence' | 'internal';
+function httpErrorKind(value: unknown): HttpErrorKind {
+  if (!value || typeof value !== 'object' || types.isProxy(value)) return 'internal';
+  // Node's util.types.isProxy is a native, non-trapping detector (also for revoked
+  // proxies). Check every link before reflection; never use instanceof on unknown.
+  let object: object | null = value;
+  for (let depth = 0; object !== null && depth < 8; depth++) {
+    if (types.isProxy(object)) return 'internal';
+    if (depth > 0) {
+      if (object === BadRequestError.prototype) return 'bad_request';
+      if (object === GameplaySessionReceiptError.prototype) return 'receipt';
+      if (object === CommandNotExposedError.prototype) return 'command';
+      if (object === PersistenceFailedError.prototype) return 'persistence';
     }
-    return Object.fromEntries(Object.entries(object).map(([k,v])=>[k,publicErrorProjection(v,diagnostics)]));
+    object = Object.getPrototypeOf(object);
   }
-  return value;
+  return 'internal';
+}
+
+// Log data, not arbitrary object inspection. Bounds apply to depth, visited
+// values, sampled fields and strings. Stack is deliberately never evaluated.
+function diagnosticSnapshot(value: unknown, budget = { remaining: 64 }, depth = 0, ancestors = new Set<object>()): unknown {
+  if (budget.remaining-- <= 0) return '[truncated]';
+  if (typeof value === 'string') return value.length > 1024 ? value.slice(0, 1024) + '[truncated]' : value;
+  if (value === null || typeof value === 'boolean' || typeof value === 'number') return value;
+  if (typeof value !== 'object') return '[' + typeof value + ']';
+  if (types.isProxy(value)) return '[proxy]';
+  if (depth >= 4) return '[depth limit]';
+  if (ancestors.has(value)) return '[circular]';
+  ancestors.add(value);
+  try {
+    const result: Record<string, unknown> = Object.create(null);
+    const array = Array.isArray(value);
+    const length = array ? ownDataValue(value, 'length') as number : 0;
+    const keys = array ? Array.from({ length: Math.min(length, 12) }, (_, i) => String(i)) : Object.getOwnPropertyNames(value).slice(0, 12);
+    for (const key of keys) {
+      const outputKey = key.length > 1024 ? key.slice(0, 1024) + '[truncated]' : key;
+      if (key === 'stack') { result[outputKey] = '[omitted stack]'; continue; }
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      result[outputKey] = !descriptor ? '[absent]' : 'value' in descriptor
+        ? diagnosticSnapshot(descriptor.value, budget, depth + 1, ancestors) : '[accessor]';
+    }
+    if (array && length > 12) result.truncated = '[truncated]';
+    return result;
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function defaultInternalErrorReporter(diagnostic: unknown): void {
+  let snapshot: unknown;
+  try { snapshot = diagnosticSnapshot(diagnostic); } catch { snapshot = '[diagnostic unavailable]'; }
+  // Only primitive text reaches console formatting: no custom inspection or
+  // Error.stack access. Symbol hooks and methods are never copied into snapshots.
+  console.error('Internal game request failure', JSON.stringify(snapshot));
+}
+
+function reportInternalError(report: InternalErrorReporter, diagnostic: unknown): void {
+  // An explicit reporter is a trusted server integration; preserve its existing
+  // raw-diagnostic contract. The default reporter uses the bounded snapshot above.
+  try { report(diagnostic); } catch { /* Reporter failure cannot replace the response. */ }
+}
+function sendInternalError(res: ServerResponse, report: InternalErrorReporter, diagnostic: unknown): void {
+  reportInternalError(report, diagnostic);
+  // Last-resort body is a prototype-free tree of trusted primitive constants.
+  sendJson(res, 500, Object.assign(Object.create(null), { error: 'INTERNAL', message: 'Internal server error. Please retry.' }));
+}
+function sendPersistenceError(res: ServerResponse, report: InternalErrorReporter, err: unknown): void {
+  reportInternalError(report, err);
+  const candidate = ownDataValue(err, 'code');
+  const code = typeof candidate === 'string' && PERSISTENCE_ERROR_CODES.some(c => c === candidate)
+    ? candidate : 'persistence.save_failed';
+  sendPublicJson(res, 500, { error: 'PERSISTENCE_FAILED', message: 'Unable to save game state. Please retry.', code }, report);
+}
+function sendBadRequest(res: ServerResponse, report: InternalErrorReporter, err: unknown): void {
+  const message = ownDataValue(err, 'message');
+  if (httpErrorKind(err) !== 'bad_request' || typeof message !== 'string') {
+    sendInternalError(res, report, err); return;
+  }
+  // This explicit public validation contract authorizes its own primitive message.
+  sendPublicJson(res, 400, { error: 'BAD_REQUEST', message }, report);
+}
+/** Inspect inherited data without executing accessors or proxy traps. */
+function responseDescriptor(value: object, key: string): PropertyDescriptor | undefined {
+  for (let object: object | null = value; object !== null; object = Object.getPrototypeOf(object)) {
+    if (types.isProxy(object)) throw new TypeError('Executable HTTP response prototype');
+    const descriptor = Object.getOwnPropertyDescriptor(object, key);
+    if (descriptor) return descriptor;
+  }
+  return undefined;
+}
+
+/** Normalize outward JSON data before stringify. Never pass the original object
+ * through: stringify can invoke toJSON/getters after a raw-object privacy check.
+ * DTOs contain data, not executable serialization hooks. Reject those hooks and
+ * cycles safely; class/null-prototype own data follows the same recursive path. */
+function publicErrorProjection(value: unknown, diagnostics: unknown[], ancestors = new Set<object>()): unknown {
+  if (value === null || typeof value !== 'object') {
+    if (typeof value === 'bigint') throw new TypeError('Non-JSON HTTP response data');
+    if (typeof value === 'function') {
+      if (types.isProxy(value)) throw new TypeError('Executable HTTP response representation');
+      const hook = responseDescriptor(value, 'toJSON');
+      if (hook && (!('value' in hook) || typeof hook.value === 'function')) {
+        throw new TypeError('Executable HTTP serialization hook');
+      }
+      return undefined; // Ordinary function-valued properties are omitted by JSON.
+    }
+    return typeof value === 'symbol' ? undefined : value;
+  }
+  // Descriptor reflection must not invoke proxy traps or accessors.
+  if (types.isProxy(value)) throw new TypeError('Executable HTTP response representation');
+  // Boxed primitives also transform at stringify; DTOs use primitive values.
+  if (types.isBoxedPrimitive(value)) throw new TypeError('Non-data HTTP response representation');
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const codeDescriptor = responseDescriptor(value, 'code');
+  if (codeDescriptor && !('value' in codeDescriptor)) throw new TypeError('Executable HTTP error code');
+  const code: unknown = codeDescriptor?.value;
+  const internal = code === ErrorCode.INVALID_GAME_STATE || code === ErrorCode.ENGINE_ERROR;
+  const domainError = typeof code === 'string' && Object.values(ErrorCode).some(c => c === code) && !internal;
+  if (internal || (types.isNativeError(value) && !domainError)) {
+    diagnostics.push(value);
+    return Object.assign(Object.create(null), publicOrchestrationError({ code: internal ? code : ErrorCode.ENGINE_ERROR, message: '' }));
+  }
+  // Inspect serialization hooks, never execute them. A data-only own field may
+  // shadow an inherited hook exactly as it would for ordinary JSON lookup.
+  const hook = responseDescriptor(value, 'toJSON');
+  if (hook && (!('value' in hook) || typeof hook.value === 'function')) {
+    throw new TypeError('Executable HTTP serialization hook');
+  }
+  if (ancestors.has(value)) throw new TypeError('Cyclic HTTP response data');
+  ancestors.add(value);
+  try {
+    const project = (descriptor: PropertyDescriptor): unknown => {
+      if (!('value' in descriptor)) throw new TypeError('Executable HTTP response property');
+      return publicErrorProjection(descriptor.value, diagnostics, ancestors);
+    };
+    if (Array.isArray(value)) {
+      // A fresh array with no prototype prevents any later inherited JSON hook.
+      const array: unknown[] = [];
+      Object.setPrototypeOf(array, null);
+      const length = descriptors.length.value as number;
+      for (let i = 0; i < length; i++) array[i] = descriptors[i] ? project(descriptors[i]) : null;
+      return array;
+    }
+    const result: Record<string, unknown> = Object.create(null);
+    if (types.isNativeError(value) && domainError) {
+      // Expected Error instances have non-enumerable messages. Keep their useful
+      // public fields, never their stack or arbitrary exception implementation.
+      result.code = code;
+      for (const key of ['message', 'details']) if (descriptors[key]) result[key] = project(descriptors[key]);
+    } else {
+      for (const [key, descriptor] of Object.entries(descriptors)) {
+        if (descriptor.enumerable) result[key] = project(descriptor);
+      }
+    }
+    return result;
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+function sendPublicJson(res: ServerResponse, status: number, body: unknown, report: InternalErrorReporter, correlation?: { commandId: string; requestId?: string }): void {
+  const diagnostics: unknown[] = [];
+  let publicBody: unknown;
+  try {
+    publicBody = publicErrorProjection(body, diagnostics);
+  } finally {
+    // Preserve encountered error diagnostics even if another malformed value
+    // subsequently prevents serialization. Reporter failure stays isolated.
+    if (diagnostics.length) reportInternalError(report, { ...correlation, errors: diagnostics });
+  }
+  sendJson(res, status, publicBody);
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body);
+  if (typeof payload !== 'string') throw new TypeError('Non-JSON HTTP response body');
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(payload);
 }
@@ -140,7 +301,7 @@ async function readJsonObject(req: IncomingMessage): Promise<Record<string, unkn
   try {
     parsed = JSON.parse(await readBody(req));
   } catch (err) {
-    if (err instanceof BadRequestError) throw err;
+    if (httpErrorKind(err) === 'bad_request') throw err;
     throw new BadRequestError('Malformed JSON');
   }
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -179,8 +340,7 @@ async function handleSession(
   try {
     body = await readJsonObject(req);
   } catch (err) {
-    const message = err instanceof BadRequestError ? err.message : 'Malformed request';
-    sendJson(res, 400, { error: 'BAD_REQUEST', message });
+    sendBadRequest(res, report, err);
     return;
   }
   try {
@@ -196,17 +356,18 @@ async function handleSession(
           requireRenewalSequence(body),
         )
         : await host.endGameplaySession(playerId, requestId, requireGameplaySessionId(body));
-    sendJson(res, 200, view);
+    sendPublicJson(res, 200, view, report);
   } catch (err) {
-    if (err instanceof BadRequestError) {
-      sendJson(res, 400, { error: 'BAD_REQUEST', message: err.message });
+    const kind = httpErrorKind(err);
+    if (kind === 'bad_request') {
+      sendBadRequest(res, report, err);
       return;
     }
-    if (err instanceof GameplaySessionReceiptError) {
-      sendJson(res, 409, { error: 'STALE_RECEIPT', message: err.message });
+    if (kind === 'receipt') {
+      sendPublicJson(res, 409, { error: 'STALE_RECEIPT', message: 'Gameplay session receipt is behind authoritative state' }, report);
       return;
     }
-    if (err instanceof PersistenceFailedError) {
+    if (kind === 'persistence') {
       sendPersistenceError(res,report,err);
       return;
     }
@@ -219,29 +380,26 @@ async function handleCommand(req: IncomingMessage, res: ServerResponse, host: Co
   try {
     parsed = await readJsonObject(req);
   } catch (err) {
-    const message = err instanceof BadRequestError ? err.message : 'Malformed JSON';
-    sendJson(res, 400, { error: 'BAD_REQUEST', message });
+    sendBadRequest(res, report, err);
     return;
   }
   let request: CommandRequest;
   try {
     request = commandFromBody(req, parsed);
   } catch (err) {
-    const message = err instanceof BadRequestError ? err.message : 'Malformed request';
-    sendJson(res, 400, { error: 'BAD_REQUEST', message });
+    sendBadRequest(res, report, err);
     return;
   }
   try {
     const response = await host.execute(request);
-    const diagnostics:unknown[]=[],publicResponse=publicErrorProjection(response,diagnostics);
-    if(diagnostics.length)reportInternalError(report,{commandId:response.commandId,requestId:response.requestId,errors:diagnostics});
-    sendJson(res, 200, publicResponse);
+    sendPublicJson(res, 200, response, report, { commandId: request.commandId, requestId: request.requestId });
   } catch (err) {
-    if (err instanceof CommandNotExposedError) {
-      sendJson(res, 403, { error: 'COMMAND_NOT_EXPOSED', message: err.message });
+    const kind = httpErrorKind(err);
+    if (kind === 'command') {
+      sendPublicJson(res, 403, { error: 'COMMAND_NOT_EXPOSED', message: `Command is not exposed over HTTP: ${request.commandId}` }, report);
       return;
     }
-    if (err instanceof PersistenceFailedError) {
+    if (kind === 'persistence') {
       sendPersistenceError(res,report,err);
       return;
     }
@@ -250,11 +408,13 @@ async function handleCommand(req: IncomingMessage, res: ServerResponse, host: Co
 }
 
 export function createCommandHttpServer(host: CommandSessionHost,options:{onInternalError?:InternalErrorReporter}={}): Server {
-  const report=options.onInternalError??((diagnostic:unknown)=>console.error('Internal game request failure',diagnostic));
+  const report = options.onInternalError ?? defaultInternalErrorReporter;
   return createServer((req, res) => {
     const path = pathname(req);
     if (req.method === 'GET' && path === '/health') {
-      sendJson(res, 200, { ok: true, service: 'rep-wars', persistence: host.persistenceName });
+      try {
+        sendPublicJson(res, 200, { ok: true, service: 'rep-wars', persistence: host.persistenceName }, report);
+      } catch (err) { sendInternalError(res, report, err); }
       return;
     }
     if (req.method === 'POST' && (path === '/session/open' || path === '/session/heartbeat' || path === '/session/end')) {
@@ -272,6 +432,8 @@ export function createCommandHttpServer(host: CommandSessionHost,options:{onInte
       });
       return;
     }
-    sendJson(res, 404, { error: 'NOT_FOUND', message: 'Not found' });
+    try {
+      sendPublicJson(res, 404, { error: 'NOT_FOUND', message: 'Not found' }, report);
+    } catch (err) { sendInternalError(res, report, err); }
   });
 }
