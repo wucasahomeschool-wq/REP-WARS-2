@@ -35,6 +35,18 @@ export function anchorAiReceiptClock(state:GameState):void {
     if(o.primary?.timer)o.primary.timer.progress.accruedThroughMs+=offset;
     if(o.spacing)o.spacing.progress.accruedThroughMs+=offset;
   }
+  for(const c of state.aiResponses.values()) {
+    c.createdAtMs+=offset;
+    if(c.timer)c.timer.progress.accruedThroughMs+=offset;
+    if(c.subject.kind==='peace'||c.subject.kind==='trade') {
+      const p=c.subject.kind==='peace'?state.peaceProposals.get(c.subject.id):state.tradeProposals.get(c.subject.id);
+      // The receipt origin changes, not the underlying proposal materiality.
+      if(p&&c.materialSignature===JSON.stringify([p.id,p.pendingAtMs]))
+        c.materialSignature=JSON.stringify([p.id,p.pendingAtMs===null?null:p.pendingAtMs+offset]);
+    }
+  }
+  for(const [fid,boundary]of state.aiResponseScheduler.lastBoundaryByFaction)
+    state.aiResponseScheduler.lastBoundaryByFaction.set(fid,boundary+offset);
   for(const op of activeOperations(state))if(op.initiationTimer)op.initiationTimer.progress.accruedThroughMs+=offset;
   for(const p of state.peaceProposals.values()) {
     p.createdAtMs+=offset;if(p.pendingAtMs!==null)p.pendingAtMs+=offset;if(p.resolvedAtMs!==null)p.resolvedAtMs+=offset;

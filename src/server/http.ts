@@ -3,8 +3,34 @@ import { CommandRequest } from '../orchestration/protocol';
 import { BadRequestError, resolvePlayerId } from './identity';
 import { GameplaySessionReceiptError } from './gameplaySessionLifecycle';
 import { CommandNotExposedError, CommandSessionHost, PersistenceFailedError } from './session';
+import { ErrorCode, publicOrchestrationError } from '../orchestration/errors';
 
 const MAX_BODY_BYTES = 1024 * 1024;
+type InternalErrorReporter=(diagnostic:unknown)=>void;
+function reportInternalError(report:InternalErrorReporter,diagnostic:unknown):void {
+  try{report(diagnostic);}catch{/* Logging cannot change command or HTTP results. */}
+}
+function sendInternalError(res:ServerResponse,report:InternalErrorReporter,diagnostic:unknown):void {
+  reportInternalError(report,diagnostic);
+  sendJson(res,500,{error:'INTERNAL',message:'Internal server error. Please retry.'});
+}
+function sendPersistenceError(res:ServerResponse,report:InternalErrorReporter,err:PersistenceFailedError):void {
+  reportInternalError(report,err);
+  sendJson(res,500,{error:'PERSISTENCE_FAILED',message:'Unable to save game state. Please retry.',code:err.code});
+}
+/** World/catch-up results can contain nested error bodies as well as top-level
+ * command errors. Project every JSON error surface; retain originals for logs. */
+function publicErrorProjection(value:unknown,diagnostics:unknown[]):unknown {
+  if(Array.isArray(value))return value.map(v=>publicErrorProjection(v,diagnostics));
+  if(value&&typeof value==='object'&&Object.getPrototypeOf(value)===Object.prototype) {
+    const object=value as Record<string,unknown>,code=object.code;
+    if((code===ErrorCode.INVALID_GAME_STATE||code===ErrorCode.ENGINE_ERROR)&&typeof object.message==='string') {
+      diagnostics.push(object);return publicOrchestrationError({code,message:object.message});
+    }
+    return Object.fromEntries(Object.entries(object).map(([k,v])=>[k,publicErrorProjection(v,diagnostics)]));
+  }
+  return value;
+}
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body);
@@ -147,6 +173,7 @@ async function handleSession(
   res: ServerResponse,
   host: CommandSessionHost,
   kind: 'open' | 'heartbeat' | 'end',
+  report:InternalErrorReporter,
 ): Promise<void> {
   let body: Record<string, unknown>;
   try {
@@ -180,15 +207,14 @@ async function handleSession(
       return;
     }
     if (err instanceof PersistenceFailedError) {
-      sendJson(res, 500, { error: 'PERSISTENCE_FAILED', message: err.message, code: err.code });
+      sendPersistenceError(res,report,err);
       return;
     }
-    const message = err instanceof Error ? err.message : 'Internal error';
-    sendJson(res, 500, { error: 'INTERNAL', message });
+    sendInternalError(res,report,err);
   }
 }
 
-async function handleCommand(req: IncomingMessage, res: ServerResponse, host: CommandSessionHost): Promise<void> {
+async function handleCommand(req: IncomingMessage, res: ServerResponse, host: CommandSessionHost,report:InternalErrorReporter): Promise<void> {
   let parsed: Record<string, unknown>;
   try {
     parsed = await readJsonObject(req);
@@ -207,22 +233,24 @@ async function handleCommand(req: IncomingMessage, res: ServerResponse, host: Co
   }
   try {
     const response = await host.execute(request);
-    sendJson(res, 200, response);
+    const diagnostics:unknown[]=[],publicResponse=publicErrorProjection(response,diagnostics);
+    if(diagnostics.length)reportInternalError(report,{commandId:response.commandId,requestId:response.requestId,errors:diagnostics});
+    sendJson(res, 200, publicResponse);
   } catch (err) {
     if (err instanceof CommandNotExposedError) {
       sendJson(res, 403, { error: 'COMMAND_NOT_EXPOSED', message: err.message });
       return;
     }
     if (err instanceof PersistenceFailedError) {
-      sendJson(res, 500, { error: 'PERSISTENCE_FAILED', message: err.message, code: err.code });
+      sendPersistenceError(res,report,err);
       return;
     }
-    const message = err instanceof Error ? err.message : 'Internal error';
-    sendJson(res, 500, { error: 'INTERNAL', message });
+    sendInternalError(res,report,err);
   }
 }
 
-export function createCommandHttpServer(host: CommandSessionHost): Server {
+export function createCommandHttpServer(host: CommandSessionHost,options:{onInternalError?:InternalErrorReporter}={}): Server {
+  const report=options.onInternalError??((diagnostic:unknown)=>console.error('Internal game request failure',diagnostic));
   return createServer((req, res) => {
     const path = pathname(req);
     if (req.method === 'GET' && path === '/health') {
@@ -231,18 +259,16 @@ export function createCommandHttpServer(host: CommandSessionHost): Server {
     }
     if (req.method === 'POST' && (path === '/session/open' || path === '/session/heartbeat' || path === '/session/end')) {
       const kind = path === '/session/open' ? 'open' : path === '/session/heartbeat' ? 'heartbeat' : 'end';
-      void handleSession(req, res, host, kind).catch((err: unknown) => {
+      void handleSession(req, res, host, kind,report).catch((err: unknown) => {
         if (res.headersSent) return;
-        const message = err instanceof Error ? err.message : 'Internal error';
-        sendJson(res, 500, { error: 'INTERNAL', message });
+        sendInternalError(res,report,err);
       });
       return;
     }
     if (req.method === 'POST' && path === '/commands') {
-      void handleCommand(req, res, host).catch((err: unknown) => {
+      void handleCommand(req, res, host,report).catch((err: unknown) => {
         if (res.headersSent) return;
-        const message = err instanceof Error ? err.message : 'Internal error';
-        sendJson(res, 500, { error: 'INTERNAL', message });
+        sendInternalError(res,report,err);
       });
       return;
     }

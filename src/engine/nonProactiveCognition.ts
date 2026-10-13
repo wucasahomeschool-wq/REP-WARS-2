@@ -20,7 +20,7 @@ import { assessRequiredTradeResponse } from '../scoring/tradeAssessment';
 import { settlePeaceProposal } from '../gameplay/diplomacy/peace';
 import { settleTradeProposal } from '../gameplay/trade/trade';
 import { SeededRNG } from '../utils/SeededRNG';
-import { closeResponseContext, responseContextId, liveResponseContexts, readyResponseContexts, responseContextLive } from './responseRecords';
+import { acquirePrimaryResponse, transferPrimaryResponse, releasePrimaryResponse, primaryResponseOwner, resetResponseReasoning, closeResponseContext, responseContextId, liveResponseContexts, readyResponseContexts, responseContextLive } from './responseRecords';
 
 const canThink=(s:GameState,fid:string)=>fid!==s.playerFactionId&&activeDiplomacyFaction(s,fid)&&!isLevel1TutorialAiSuppressed(s,fid);
 const bucket=(n:number)=>Math.floor(n/P.materialTroopBatch);
@@ -32,8 +32,7 @@ function upsert(s:GameState,fid:string,subject:ResponseSubject,lane:AIResponseCo
       // Material change invalidates unfinished reasoning. Blocked recovery has
       // no authorized intervention policy; changed quantities cannot invent one.
       if(lane!=='OPERATION_RECOVERY') {
-        old.status='queued';old.timer=null;old.selectedPlan=null;old.outcome=null;old.blockers=[];
-        if(s.aiResponseScheduler.primaryByFaction.get(fid)===id)s.aiResponseScheduler.primaryByFaction.delete(fid);
+        resetResponseReasoning(s,old);
         if(m)m.materialRearms++;
       }
     }
@@ -139,7 +138,7 @@ export function observeNonProactiveWork(s:GameState,m?:ResponseMetrics):void {
     if(wasMissing)s.aiResponses.get(shell.id)!.materialSignature=signature;
     const c=upsert(s,fid,subject,'REACTIVE_EMERGENCY',remaining<=P.criticalArrivalTicks?'CRITICAL':'URGENT',signature,m);seen.add(c.id);
     // Urgency escalation is meaningful even though ordinary ETA decrement isn't.
-    if(c.severity==='URGENT'&&remaining<=P.criticalArrivalTicks&&responseContextLive(c)){c.severity='CRITICAL';c.revision++;c.status='queued';c.timer=null;c.outcome=null;c.blockers=[];s.aiResponses.set(c.id,c);scheduler.primaryByFaction.delete(fid);if(m)m.materialRearms++;}
+    if(c.severity==='URGENT'&&remaining<=P.criticalArrivalTicks&&responseContextLive(c)){c.severity='CRITICAL';c.revision++;resetResponseReasoning(s,c);if(m)m.materialRearms++;}
   }
   for(const op of activeOperations(s)) {
     const army=op.links.armyId?s.armies.get(op.links.armyId):undefined;
@@ -150,7 +149,6 @@ export function observeNonProactiveWork(s:GameState,m?:ResponseMetrics):void {
   for(const sh of liveTradeShipments(s))if(sh.phase==='blocked'&&canThink(s,sh.sender)) {
     const c=upsert(s,sh.sender,{kind:'cargo',id:sh.id},'OPERATION_RECOVERY','RECOVERY',JSON.stringify([sh.blockedReason]),m);seen.add(c.id);
   }
-  for(const fid of s.aiResponseScheduler.primaryByFaction.keys())if(!canThink(s,fid))s.aiResponseScheduler.primaryByFaction.delete(fid);
   for(const c of liveResponseContexts(s)) {
     if(c.lane==='REQUIRED_RESPONSE'? !responseContextExists(s,c):!seen.has(c.id)) {closeResponseContext(s,c,'CONTEXT_INVALIDATED');if(m)m.invalidations++;}
   }
@@ -210,9 +208,7 @@ export function settleReadyRequiredResponses(s:GameState,kind?:'peace'|'trade',m
     // Deadline-ready work cannot starve behind an unrelated physical operation.
     // Deliberation/settlement is serialized on this canonical transaction.
     preemptProactiveThought(s,c.factionId,m);
-    const previous=s.aiResponses.get(s.aiResponseScheduler.primaryByFaction.get(c.factionId)??'');
-    if(previous&&previous.id!==c.id){previous.status='queued';s.aiResponses.set(previous.id,previous);}
-    c.status='thinking';s.aiResponses.set(c.id,c);s.aiResponseScheduler.primaryByFaction.set(c.factionId,c.id);
+    const previous=transferPrimaryResponse(s,c);
     if(m){m.deliberations++;m.requiredResponses++;}
     const outcome=c.subject.kind==='peace'?assessRequiredPeaceResponse(s,c.factionId,s.peaceProposals.get(c.subject.id)!.proposer).outcome:
       assessRequiredTradeResponse(s,s.tradeProposals.get(c.subject.id)!).outcome;
@@ -221,23 +217,21 @@ export function settleReadyRequiredResponses(s:GameState,kind?:'peace'|'trade',m
     else settleTradeProposal(s,c.subject.id,accepted?'accepted':'declined');
     // Domain terminal hook may already have invalidated the queue reference.
     c.status='resolved';c.outcome='RESPONSE_SETTLED';c.timer=null;s.aiResponses.set(c.id,c);
-    if(s.aiResponseScheduler.primaryByFaction.get(c.factionId)===c.id)s.aiResponseScheduler.primaryByFaction.delete(c.factionId);
-    if(previous&&previous.id!==c.id&&responseContextExists(s,previous)) {
-      previous.status='thinking';s.aiResponses.set(previous.id,previous);s.aiResponseScheduler.primaryByFaction.set(previous.factionId,previous.id);
+    releasePrimaryResponse(s,c);
+    if(previous&&previous.id!==c.id&&responseContextLive(previous)&&responseContextExists(s,previous)) {
+      acquirePrimaryResponse(s,previous);
     }
   }
 }
 export type StartResponseIntervention=(plan:AIConcretePlan,context:AIResponseContext)=>string|null;
 function activateResponse(s:GameState,c:AIResponseContext,m?:ResponseMetrics):void {
   if(c.lane==='OPERATION_RECOVERY')throw new Error('No authoritative recovery choice/timing policy exists');
-  c.status='thinking';
-  if(c.timer)c.timer.progress={...c.timer.progress,accruedThroughMs:s.aiClock.nowMs};
+  transferPrimaryResponse(s,c);
   if(c.lane!=='REQUIRED_RESPONSE'&&!c.timer) {
     const t=c.severity==='CRITICAL'?RESPONSE_TIMING.critical:RESPONSE_TIMING.urgent;
     c.timer=startProactiveTimer(s,c.factionId,`response:${c.id}:${c.revision}`,t[0],t[1],t[2]);
   }
   s.aiResponses.set(c.id,c);
-  s.aiResponseScheduler.primaryByFaction.set(c.factionId,c.id);
   s.aiResponseScheduler.lastBoundaryByFaction.set(c.factionId,s.aiClock.nowMs);
   preemptProactiveThought(s,c.factionId,m);
 }
@@ -249,7 +243,7 @@ export function processNonProactiveBoundary(s:GameState,start?:StartResponseInte
   settleReadyRequiredResponses(s,undefined,m);
   for(const fid of [...s.allFactionIds].sort(comparePlanIds)) {
     if(!canThink(s,fid))continue;
-    let current=s.aiResponses.get(s.aiResponseScheduler.primaryByFaction.get(fid)??'');
+    let current=primaryResponseOwner(s,fid);
     if(current&&!responseContextExists(s,current)){closeResponseContext(s,current,'CONTEXT_INVALIDATED');current=undefined;}
     for(const c of readyResponseContexts(s))if(c.factionId===fid&&c.lane==='OPERATION_RECOVERY'&&c.status==='queued'){
       c.status='blocked';c.outcome='NO_ADDITIONAL_INTERVENTION';c.timer=null;s.aiResponses.set(c.id,c);if(m)m.noIntervention++;
@@ -258,7 +252,7 @@ export function processNonProactiveBoundary(s:GameState,start?:StartResponseInte
     if(current&&next&&P.severityOrder[next.severity]<P.severityOrder[current.severity]) {
       // Required domain response-window work is never lost. Reactive sampled
       // progress is retained on queueing; restart does not reroll it.
-      current.status='queued';s.aiResponses.set(current.id,current);s.aiResponseScheduler.primaryByFaction.delete(fid);current=undefined;
+      activateResponse(s,next,m);current=next;
     }
     if(!current) {
       if(!next)continue;
@@ -281,7 +275,7 @@ export function processNonProactiveBoundary(s:GameState,start?:StartResponseInte
     else {
       current.status='blocked';current.outcome='NO_ADDITIONAL_INTERVENTION';current.timer=null;
       current.blockers=current.lane==='REACTIVE_EMERGENCY'?reactivePlans(s,current,false):[];
-      s.aiResponseScheduler.primaryByFaction.delete(fid);s.aiResponses.set(current.id,current);if(m)m.noIntervention++;
+      releasePrimaryResponse(s,current);s.aiResponses.set(current.id,current);if(m)m.noIntervention++;
     }
     s.aiResponseScheduler.lastBoundaryByFaction.set(fid,s.aiClock.nowMs);
     // Begin the next bounded thought at this earned boundary. Its strictly

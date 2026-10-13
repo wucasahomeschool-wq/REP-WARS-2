@@ -1,5 +1,40 @@
 # Phase L — non-proactive cognition and physical recovery
 
+## R2 correction candidate
+
+The independent frozen review required six correctness repairs. The correction
+line is `codex/ai-phase-l-r2-correction`, directly from the review-only transport
+commit `8375022d43482658227415f078a40ac13356c9cb`. Schema remains **27**.
+This candidate is uncommitted and awaits independent re-review; it is not an
+approved Phase L checkpoint. The historical bundle under
+`docs/review/phase-l-frozen/` remains unchanged, including its known defect.
+
+* Primary acquire/release/transfer is centralized in `responseRecords`. Release
+  checks the exact owner ID; acquisition rejects an unrelated/inconsistent owner.
+  Material revision resets reasoning, while preemption retains earned work and
+  sampled duration. Exact execution freshly checks the primary owner both before
+  entry and inside the nested operation-start transaction. Existing invariants
+  remain intact.
+* Zero-cost work cannot acquire emergency metadata, even when existing positive
+  charges occupy legal overflow. Capacity, costs and overflow tuning are unchanged.
+* Authoritative event merges notify the existing dirty observer when physical
+  territory/force facts change. Empty steps, property-order differences and
+  unrelated resource accrual do not introduce response polling.
+* Session open/heartbeat/end share a save gate that now compares live response
+  records and canonical scheduler bookkeeping. Terminal transitions are detected
+  by removal from the live index; persistence still saves the entire GameState
+  through the existing CAS path.
+* Initial clock attachment translates response creation times, queued/active
+  timer watermarks, coalescing boundaries and proposal signatures containing the
+  translated receipt origin. Earned work and duration samples are preserved.
+* HTTP internal invariant/engine/persistence exceptions are sanitized. Detailed
+  diagnostics remain available internally and are logged server-side; expected
+  player/domain validation remains descriptive.
+
+See [AI_PHASE_L_R2_CORRECTIONS.md](AI_PHASE_L_R2_CORRECTIONS.md) for regression
+coverage, final validation, self-audit and the explicitly deferred contracts.
+The original implementation records below describe the pre-review phase.
+
 ## Baseline and authority
 
 Implementation began on clean branch `work`, HEAD
@@ -242,9 +277,9 @@ Classification: bounded expected bookkeeping; no significant quiet-world regress
 The review removed the initial per-world-tick observer rescan, a Phase-L-local performance
 defect. No tuning, physical timing change, weakened determinism or history deletion was used.
 
-## Final verification record
+## Original implementation verification record (before frozen review)
 
-**Final validation passed:** full suite **1,833 passed / 0 failed**; A–L focused
+**Original reported validation passed:** full suite **1,833 passed / 0 failed**; A–L focused
 **754 passed / 0 failed**; affected integration suite **319 passed / 0 failed**.
 Production TypeScript `--noEmit` passes. Test-inclusive TypeScript has exactly the same
 28 baseline diagnostics, zero new/removed file/code/message identities. `git diff --check`

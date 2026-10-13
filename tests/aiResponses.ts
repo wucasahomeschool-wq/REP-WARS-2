@@ -29,6 +29,7 @@ import { serializePublicGameState } from '../src/orchestration/publicView';
 import { initializeRecruitment } from '../src/gameplay/recruitment/recruitment';
 import { ensureCity } from '../src/gameplay/cities/city';
 import { RESPONSE_POLICY, RESPONSE_TIMING } from '../src/constants/aiResponse';
+import { registerAiResponseCorrectionTests } from './aiResponseCorrections';
 type Api=Pick<Parameters<typeof import('./aiTrade').registerAiTradeTests>[0],'test'|'makeSelf'|'makeTerritory'|'cmdReq'>;
 export function registerAiResponseTests({test,makeSelf,makeTerritory,cmdReq}:Api):void {
   const world=()=>{const s=makeOperationTestWorld(makeSelf,makeTerritory);initializeRecruitment(s);return s;};
@@ -57,6 +58,7 @@ export function registerAiResponseTests({test,makeSelf,makeTerritory,cmdReq}:Api
     const d=begin(s,{action:'TRADE',factionId:fid,counterpartyId:'me',offered,requested,proposerSource:{kind:'faction_stock',factionId:fid,resources:offered},delivery:{proposerTerritoryId:tradeNode(s,fid)!,recipientTerritoryId:tradeNode(s,'me')!}});
     accrueProactiveClocks(d,d.aiClock.nowMs+60000,'OFFLINE');processTradeBoundary(d,undefined,true);return d;
   };
+  registerAiResponseCorrectionTests({test,makeSelf,makeTerritory,cmdReq},{world,reload,online,context,advance,observe,threat,emergency,begin,move,pendingTrade,startCriticalMove});
   test('Phase L: exactly three response lanes, eight actions, seven factual evaluators',()=>{assert.deepStrictEqual(NON_PROACTIVE_LANES,['REACTIVE_EMERGENCY','REQUIRED_RESPONSE','OPERATION_RECOVERY']);assert.strictEqual(PROACTIVE_AI_ACTIONS.length,8);assert.strictEqual(STRATEGIC_EVALUATORS.length,7);});
   test('Phase L: quiet world has no response or recovery cognition',()=>{const s=quiet(),m=emptyResponseMetrics();for(let i=0;i<100;i++)processNonProactiveBoundary(s,undefined,m);assert.strictEqual(s.aiResponses.size,0);assert.strictEqual(m.deliberations,0);assert.strictEqual(m.observations,0);});
   test('Phase L: WAR and subjective cognition alone never create an emergency',()=>{const s=world();s.factions.get('me')!.memory=[{id:'grudge',type:'attack_received',turn:0,withFaction:'enemy',territory:'stage',magnitude:100,details:{}}];observe(s);assert.strictEqual(s.aiResponses.size,0);});

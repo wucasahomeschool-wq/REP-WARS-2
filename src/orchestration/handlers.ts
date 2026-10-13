@@ -791,6 +791,11 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
     if (op.plan?.action==='WAIT') throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Legacy WAIT operations cannot execute; WAIT requires a source-bound primary timer');
     if (!op.plan) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Incomplete legacy reasoning cannot execute');
     const feasibility = assessConcretePlanFeasibility(op.plan, toDecisionEngineSnapshot(draft), op.id,undefined,op.responseContextId);
+    if(op.responseContextId) {
+      const owner=draft.aiResponses.get(op.responseContextId);
+      if(!owner||owner.status!=='thinking'||draft.aiResponseScheduler.primaryByFaction.get(op.warlordId)!==owner.id||owner.selectedPlan?.id!==op.plan.id)
+        throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Response owner changed before exact operation start');
+    }
     if (!feasibility.feasible) {
       const rejection = feasibility.rejections[0]!;
       throw new OrchestrationError(rejection.kind === 'LEGALITY' ? ErrorCode.INVALID_TARGET : ErrorCode.ACTION_NOT_ALLOWED,
@@ -854,7 +859,7 @@ export function handleStartAiOperation(state: GameState, ctx: HandlerContext): H
 }
 export function startResponseIntervention(state:GameState,ctx:HandlerContext,plan:AIConcretePlan,context:AIResponseContext,onResult?:(result:HandlerResult)=>void):string {
   const current=state.aiResponses.get(context.id);
-  if(!current||current.revision!==context.revision||current.materialSignature!==context.materialSignature||current.status!=='thinking'||!responseContextExists(state,current)||!reactivePlans(state,current).some(p=>p.id===plan.id))throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Response context changed before initiation');
+  if(!current||current.revision!==context.revision||current.materialSignature!==context.materialSignature||current.status!=='thinking'||state.aiResponseScheduler.primaryByFaction.get(current.factionId)!==current.id||!responseContextExists(state,current)||!reactivePlans(state,current).some(p=>p.id===plan.id))throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Response context changed before initiation');
   if(current.selectedPlan?.id!==plan.id||context.selectedPlan?.id!==plan.id)throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Response must retain its selected exact plan');
   const parameters=ctx.req.parameters;
   try {

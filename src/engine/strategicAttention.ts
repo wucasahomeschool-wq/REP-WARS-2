@@ -20,6 +20,9 @@ export function assessAttention(state: GameState, plan: AIConcretePlan, excludin
   const capacity = state.strategicAttention.capacity;
   const cost = attentionCost(plan);
   const occupied = occupiedAttention(state, plan.factionId, excludingOperationId);
+  // Existing over-cap work cannot manufacture a charge/authorization for new
+  // zero-cost work. Physical feasibility is checked independently by claims.
+  if(cost===0)return {capacity,cost,occupied,allowance:0,available:capacity!==undefined};
   const context=responseContextId?state.aiResponses.get(responseContextId):undefined;
   const allowance=context&&context.factionId===plan.factionId&&context.lane==='REACTIVE_EMERGENCY'&&context.severity==='CRITICAL'&&['queued','thinking','blocked'].includes(context.status)?RESPONSE_POLICY.emergencyExtraCapacity:0;
   const reservedOverflow=activeOperations(state,plan.factionId).filter(o=>o.id!==excludingOperationId).reduce((n,o)=>n+(o.attention.emergency?.overflow??0),0);
@@ -33,5 +36,5 @@ export function acquireAttention(state: GameState, op: AIOperation): void {
   if (!result.available) throw new Error('Insufficient ordinary Strategic Attention');
   op.attention = { factionId: op.warlordId, cost: result.cost,
     acquiredAtTick: result.cost ? state.worldTick : null, releasedAtTick: null, grandfathered: false,
-    ...(result.occupied+result.cost>result.capacity?{emergency:{contextId:op.responseContextId!,revision:state.aiResponses.get(op.responseContextId!)!.revision,overflow:Math.min(result.cost,result.occupied+result.cost-result.capacity)}}:{}) };
+    ...(result.cost>0&&result.occupied+result.cost>result.capacity?{emergency:{contextId:op.responseContextId!,revision:state.aiResponses.get(op.responseContextId!)!.revision,overflow:Math.min(result.cost,result.occupied+result.cost-result.capacity)}}:{}) };
 }

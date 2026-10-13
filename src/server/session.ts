@@ -1,4 +1,5 @@
 import { progressProactiveThrough } from '../orchestration/handlers';
+import { liveResponseContexts } from '../engine/responseRecords';
 import { getCommandDefinition } from '../orchestration/commandIndex';
 import { createDefaultRegistry, Orchestrator } from '../orchestration';
 import { ErrorCode } from '../orchestration/errors';
@@ -152,10 +153,16 @@ export function createSessionHost(
       // Lease receipts may finish sub-tick cognition/WAIT. A physical backlog
       // must be ordered by the existing SYNC/catch-up path first.
       if(changed.state.lastAccrualAtMs!==null && changed.state.worldTick===changed.state.accruedTargetWorldTick) {
-        const before=JSON.stringify([changed.state.aiClock,[...changed.state.aiPressure],[...changed.state.aiDecisionOpportunities]]);
+        // Terminal records are immutable. Comparing live records also detects
+        // their terminal removal; no history scan is needed for this save gate.
+        const cognitionSnapshot=()=>JSON.stringify([changed.state.aiClock,[...changed.state.aiPressure],[...changed.state.aiDecisionOpportunities],
+          liveResponseContexts(changed.state),{...changed.state.aiResponseScheduler,
+            primaryByFaction:[...changed.state.aiResponseScheduler.primaryByFaction],
+            lastBoundaryByFaction:[...changed.state.aiResponseScheduler.lastBoundaryByFaction]}]);
+        const before=cognitionSnapshot();
         const req:CommandRequest={commandId:'ADVANCE_WORLD',playerId,parameters:{elapsedTicks:0}};
         progressProactiveThrough(changed.state,{req,def:getCommandDefinition('ADVANCE_WORLD')!,registry,runtime:{aiWarlordStates:new Map()}},changed.state.lastAccrualAtMs);
-        changed.changed=changed.changed || before!==JSON.stringify([changed.state.aiClock,[...changed.state.aiPressure],[...changed.state.aiDecisionOpportunities]]);
+        changed.changed=changed.changed || before!==cognitionSnapshot();
       }
       return changed;
     });

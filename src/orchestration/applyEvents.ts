@@ -3,16 +3,21 @@ import {refreshGoals} from '../cognition/goals';
 import { ActiveEvent, WorldStepOutput } from '../events/EventModel';
 import { GameState } from '../types/GameState';
 import { GameEvent, StateChange } from './protocol';
+import { markResponseWorldChanged } from '../engine/responseRecords';
+import { isDeepStrictEqual } from 'node:util';
 
 /** Merge a `WorldSimulator` step output onto authoritative `GameState`. */
 export function mergeEventStepOntoGameState(state: GameState, output: WorldStepOutput): StateChange[] {
   const changes: StateChange[] = [];
   let goalFactsChanged=false;
+  let responseFactsChanged=false;
   // Authored transition identity owns the delta. Stance differences between
   // disposable snapshots and current state are never evidence of a new event.
   for(const effect of output.opinionEffects??[])applyOpinionEvent(state,effect.id,effect.observer,effect.target,'world_event',effect.delta);
   for (const [id, t] of output.mutatedTerritories) {
     const prev = state.territories.get(id);
+    if(!prev||prev.owner!==t.owner||prev.garrison!==t.garrison||prev.fortification!==t.fortification||
+      JSON.stringify([...prev.neighboring].sort())!==JSON.stringify([...t.neighboring].sort()))responseFactsChanged=true;
     state.territories.set(id, t);
     if (prev && prev.owner !== t.owner) {
       goalFactsChanged=true;
@@ -56,12 +61,18 @@ export function mergeEventStepOntoGameState(state: GameState, output: WorldStepO
     for (const [id, a] of output.mutatedArmies) {
       const old=state.armies.get(id);
       if(!old||old.owner!==a.owner||old.location!==a.location)goalFactsChanged=true;
+      if(!old||old.owner!==a.owner||old.location!==a.location||old.soldiers!==a.soldiers||old.knights!==a.knights||
+        old.siegeEngines!==a.siegeEngines||old.morale!==a.morale||old.supply!==a.supply||
+        !isDeepStrictEqual(old.movement??null,a.movement??null)||!isDeepStrictEqual(old.attackIntent??null,a.attackIntent??null))responseFactsChanged=true;
       state.armies.set(id, a);
     }
   }
   state.activeEvents = output.newActiveEvents;
   state.eventHistory = output.newEventHistory;
   if(goalFactsChanged)refreshGoals(state);
+  // Event output is disposable; only a changed canonical physical fact wakes
+  // the existing observer. Empty steps and ordinary resource accrual stay quiet.
+  if(responseFactsChanged)markResponseWorldChanged(state);
   return changes;
 }
 
