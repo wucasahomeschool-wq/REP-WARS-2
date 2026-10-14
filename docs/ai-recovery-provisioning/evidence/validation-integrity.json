@@ -1,0 +1,36 @@
+{
+  "originalHashedEntriesUnchanged": 118,
+  "existingPathsDeleted": [],
+  "previousSourceAndTestChanges": [
+    "tests/aiBehavioralFixes.ts",
+    "src/engine/strategicPressure.ts",
+    "src/scoring/contextPlanComparison.ts",
+    "src/scoring/strategicEvaluators.ts",
+    "src/state/pressureInvariants.ts",
+    "src/types/AIPressure.ts"
+  ],
+  "oldBehavioralTestBytesArchived": true,
+  "finalProductionFilesPinned": 11,
+  "diagnosticIdentities": {
+    "baseline": 28,
+    "current": 28,
+    "same": true
+  },
+  "trackedDiffCheck": "PASS",
+  "newTextWhitespace": "PASS",
+  "index": "empty",
+  "originalCheckout": "clean",
+  "schema": 27,
+  "environment": {
+    "node": "v24.19.0",
+    "os": "Linux x86_64"
+  },
+  "newStandaloneMilitaryTests": 31,
+  "previousBehavioralTests": 31,
+  "previousSimulationTests": 19,
+  "fullRunnerReported": 1916,
+  "fullRunnerCredentialSkips": 3,
+  "finalSimulationsCompleted": 16,
+  "strictNestedErrorFreeCases": 15,
+  "expectedInvalidatedAttackOperations": 2
+}

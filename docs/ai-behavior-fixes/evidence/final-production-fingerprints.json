@@ -1,0 +1,10 @@
+{
+  "src/engine/strategicPressure.ts": "e262a48fcddb57572d73ce8c787ea327510585418fa8f2648b2396cb6d4766df",
+  "src/gameplay/trade/trade.ts": "ba50f91bcb4d6dc7de0b50e233f5ac12f66098b9ceefe969cc3e62c5d5297a95",
+  "src/scoring/contextPlanComparison.ts": "ece8b05e31e9770435df6154823e00462f0236dad62016b9e3be16f136fa6f68",
+  "src/scoring/strategicEvaluators.ts": "d505040a0a75bf65454438fa8aa4a8c4c25b2a78d770e6592351ec9dd30aedab",
+  "src/state/pressureInvariants.ts": "5013d8f811607af784a35cc4375308c9e88f6c7d3e4f26725057a532017c7cef",
+  "src/types/AIPressure.ts": "5e0da19a9926bed3f7c2161871241427ee60774a03c629fc9ff0b33dd78fdcbc",
+  "src/army/strategicAccess.ts": "df708e5c6156f052e24993df2c8bf4384b981eff93308d6703e3a5ae62c8c1b6",
+  "src/gameplay/trade/declinedContext.ts": "60cd9c4a179451aae3f824e3f028b400c4aeed5a2916925803dd480be2af5024"
+}

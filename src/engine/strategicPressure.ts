@@ -11,11 +11,14 @@ import { assessConcretePlanFeasibility } from './concretePlans';
 import { activeOperations } from './operations';
 import { STRATEGIC_PRESSURE_TUNING as T, PROACTIVE_TEMPORAL_RULES as TIME } from '../constants/strategicPressure';
 import { MIN_ATTACKING_TROOPS, armyHasActiveStrategicOperation } from '../army/strategicAttack';
-import { constructionCostEntries, getConstructionProjectDefinition, listConstructionProjectTypes } from '../gameplay/construction/definitions';
+import { constructionCostEntries, getConstructionProjectDefinition, listConstructionProjectTypes, constructionStartProblem } from '../gameplay/construction/definitions';
 import { ECONOMY_CONFIG } from '../gameplay/economy/config';
 import type { TemporalPresence } from '../world/timeToTick';
 import { computeAttackerPower, computeDefenderPower } from '../battle/CombatPower';
 import { withTerritoryCombatView } from '../gameplay/defense/territoryDefense';
+import { strategicAccessOpportunity } from '../army/strategicAccess';
+import { unchangedTradeDecline } from '../gameplay/trade/declinedContext';
+import { fieldRecoveryOpportunity } from '../army/fieldRecovery';
 
 export function sourceContextId(source: Pick<AISourceContext,'factionId'|'domain'|'kind'|'subjectId'|'counterpartyId'|'projectType'>): string {
   return `source:v1:${JSON.stringify([source.factionId,source.domain,source.kind,source.subjectId,source.counterpartyId ?? null,source.projectType ?? null])}`;
@@ -45,6 +48,19 @@ export function sourcePlanPredicates(state: GameState, source: AISourceContext):
   if(source.domain==='TRADE_ECONOMIC')return source.counterpartyId?tradeCandidates(state,fid,source.counterpartyId,source.id):[];
   if(source.domain==='DIPLOMACY_PEACE') {
     if(source.counterpartyId)add({action:'OFFER_PEACE',factionId:fid,counterpartyId:source.counterpartyId});
+    return [...plans.values()];
+  }
+  if(source.kind==='STRATEGIC_ACCESS') {
+    const access=strategicAccessOpportunity(state,fid,source.subjectId),army=state.armies.get(source.subjectId);
+    if(access&&army&&access.counterpartyId===source.counterpartyId)add({action:'MOVE',factionId:fid,armyId:army.id,
+      originTerritoryId:army.location,destinationTerritoryId:access.nextTerritoryId,route:[army.location,access.nextTerritoryId]});
+    return [...plans.values()];
+  }
+  if(source.kind==='FIELD_FORCE_GAP') {
+    const recovery=fieldRecoveryOpportunity(state,fid);
+    if(recovery&&recovery.territoryId===source.subjectId&&recovery.counterpartyId===source.counterpartyId)
+      for(const quantity of reinforcementQuantities(recovery.quantity).filter(n=>n>MIN_ATTACKING_TROOPS))
+        add({action:'REINFORCE',factionId:fid,territoryId:recovery.territoryId,sourcePoolId:recruitmentPoolId(recovery.territoryId),quantity,destination:{kind:'new_army',territoryId:recovery.territoryId}});
     return [...plans.values()];
   }
   const subject=state.territories.get(source.subjectId);
@@ -97,6 +113,8 @@ export function inspectSourceActionability(state: GameState, source: AISourceCon
   const blockers: AISourceContext['blockers']=[];
   const feasible: AIConcretePlan[]=[];
   for (const plan of predicates) {
+    const decline=plan.action==='TRADE'?unchangedTradeDecline(state,plan,source.blockers):null;
+    if(decline){blockers.push({plan,reasons:[decline]});continue;}
     const result=assessConcretePlanFeasibility(plan,snapshot);
     if (result.feasible) feasible.push(plan);
     else blockers.push({plan,reasons:result.rejections});
@@ -155,7 +173,7 @@ function usefulBuild(state:GameState,fid:string,tid:string,type:ConstructionProj
   const frontier=t.neighboring.some(id=>{ const n=state.territories.get(id);return !!n&&hostile(state,fid,n.owner)&&militaryAt(state,id,n.owner!)>0; });
   if(!frontier) return false;
   if(type==='CITY') return ![...state.cities.values()].some(c=>c.territoryId===tid);
-  try {getConstructionProjectDefinition(type).assertCanStart({state,factionId:fid,territoryId:tid});return true;} catch{return false;}
+  return constructionStartProblem(type,{state,factionId:fid,territoryId:tid})===null;
 }
 /** Observation uses live domain facts and finite prerequisite probes, never
  * scoring, selection RNG, Memory, future battle draws, or a retained wrapper. */
@@ -186,6 +204,12 @@ export function deriveSources(state:GameState,fid:string,atMs:number):AISourceCo
   }
   for(const a of state.armies.values()) if(a.owner===fid && hostile(state,fid,state.territories.get(a.location)?.owner??null))
     add({domain:'FORCE_POSITIONING',kind:'EXPOSED_FORCE',subjectId:a.id});
+  for(const a of state.armies.values())if(a.owner===fid) {
+    const access=strategicAccessOpportunity(state,fid,a.id);
+    if(access)add({domain:'FORCE_POSITIONING',kind:'STRATEGIC_ACCESS',subjectId:a.id,counterpartyId:access.counterpartyId});
+  }
+  const recovery=fieldRecoveryOpportunity(state,fid);
+  if(recovery)add({domain:'FORCE_POSITIONING',kind:'FIELD_FORCE_GAP',subjectId:recovery.territoryId,counterpartyId:recovery.counterpartyId});
   const tradeCounterparties=new Set(observableTradeCounterparties(state,fid));
   const f=state.factions.get(fid)!;
   for(const other of state.factions.values()) if(other.id!==fid && f.knownFactions.includes(other.id)) {
@@ -221,9 +245,12 @@ export function observeSources(state:GameState,fid:string,metrics?:AIPressureMet
   for(const spec of fresh) {
     const existing=state.aiPressure.get(spec.id);const s=existing??spec;
     const probe=inspectSourceActionability(state,s);
-    const signature=JSON.stringify([probe.predicates.map(p=>p.id),
+    const parts:unknown[]=[probe.predicates.map(p=>p.id),
       s.domain==='MILITARY_INITIATIVE'?[Math.floor(((state.territories.get(s.subjectId)?.garrison??0)
-        +militaryAt(state,s.subjectId,s.counterpartyId!))/Math.max(1,MIN_ATTACKING_TROOPS)),state.territories.get(s.subjectId)?.fortification]:null]);
+        +militaryAt(state,s.subjectId,s.counterpartyId!))/Math.max(1,MIN_ATTACKING_TROOPS)),state.territories.get(s.subjectId)?.fortification]:null];
+    const declined=probe.blockers.filter(b=>b.reasons.some(r=>r.kind==='CONTEXT')).map(b=>[b.plan.id,b.reasons]);
+    if(declined.length)parts.push(declined); // Preserve unchanged schema-27 signatures otherwise.
+    const signature=JSON.stringify(parts);
     if(!existing) {state.aiPressure.set(s.id,s);if(metrics)metrics.sourceCreated++;}
     else if(signature!==s.materialSignature) {s.revision++;if(metrics)metrics.materialUpdates++;}
     s.materialSignature=signature;

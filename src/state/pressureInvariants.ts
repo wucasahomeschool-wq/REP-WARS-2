@@ -10,7 +10,7 @@ function sourceParts(id:unknown):unknown[] {
   const parts:unknown=JSON.parse(id.slice('source:v1:'.length));
   if(!Array.isArray(parts)||parts.length!==6||id!==`source:v1:${JSON.stringify(parts)}`)throw new Error();
   const [fid,domain,kind,subject,counterparty,project]=parts;
-  const domains:Record<string,string>={HOSTILE_OPPORTUNITY:'MILITARY_INITIATIVE',EXPOSED_FORCE:'FORCE_POSITIONING',COVERAGE_GAP:'FORCE_POSITIONING',PRODUCTIVE_DEVELOPMENT:'DEVELOPMENT',FRONTIER_DEVELOPMENT:'DEVELOPMENT',WAR_BURDEN:'DIPLOMACY_PEACE',RESOURCE_EXCHANGE:'TRADE_ECONOMIC'};
+  const domains:Record<string,string>={HOSTILE_OPPORTUNITY:'MILITARY_INITIATIVE',EXPOSED_FORCE:'FORCE_POSITIONING',COVERAGE_GAP:'FORCE_POSITIONING',STRATEGIC_ACCESS:'FORCE_POSITIONING',FIELD_FORCE_GAP:'FORCE_POSITIONING',PRODUCTIVE_DEVELOPMENT:'DEVELOPMENT',FRONTIER_DEVELOPMENT:'DEVELOPMENT',WAR_BURDEN:'DIPLOMACY_PEACE',RESOURCE_EXCHANGE:'TRADE_ECONOMIC'};
   if(typeof fid!=='string'||!fid||typeof kind!=='string'||domains[kind]!==domain||typeof subject!=='string'||!subject
     ||(counterparty!==null&&typeof counterparty!=='string')||(project!==null&&typeof project!=='string'))throw new Error();
   return parts;
@@ -24,6 +24,8 @@ export function sourcePlanBindingProblem(id:unknown,plan:AIConcretePlan):string|
     switch(kind) {
       case 'HOSTILE_OPPORTUNITY': if(plan.action!=='REINFORCE'&&plan.action!=='MOVE'&&(plan.action!=='ATTACK'||plan.targetTerritoryId!==subject))throw new Error();break;
       case 'EXPOSED_FORCE': if(plan.action!=='RETREAT'||plan.armyId!==subject)throw new Error();break;
+      case 'FIELD_FORCE_GAP': if(plan.action!=='REINFORCE'||plan.territoryId!==subject||plan.destination.kind!=='new_army')throw new Error();break;
+      case 'STRATEGIC_ACCESS': if(plan.action!=='MOVE'||plan.armyId!==subject)throw new Error();break;
       case 'COVERAGE_GAP': if(plan.action==='REINFORCE'?plan.territoryId!==subject:plan.action!=='MOVE'||plan.destinationTerritoryId!==subject)throw new Error();break;
       case 'PRODUCTIVE_DEVELOPMENT': case 'FRONTIER_DEVELOPMENT': if(plan.action!=='BUILD'||plan.territoryId!==subject||plan.projectType!==project)throw new Error();break;
       case 'WAR_BURDEN': if(plan.action!=='OFFER_PEACE'||plan.counterpartyId!==counterparty)throw new Error();break;
@@ -60,7 +62,7 @@ export function pressureStateProblems(state:GameState):string[] {
       ||typeof s.blocked!=='boolean'||!Array.isArray(s.blockers)) {errors.push(`Invalid source ${id}`);continue;}
     try {sourceParts(id);}catch{errors.push(`Invalid semantic source ${id}`);}
     for(const b of s.blockers) if(!b||typeof b!=='object'||concretePlanProblem(b.plan)||b.plan.factionId!==s.factionId||b.plan.action==='WAIT'
-      ||!Array.isArray(b.reasons)||!b.reasons.length||b.reasons.some(r=>!r||!['LEGALITY','CLAIM','COMPATIBILITY','ATTENTION'].includes(r.kind)))errors.push(`Invalid complete-candidate blocker ${id}`);
+      ||!Array.isArray(b.reasons)||!b.reasons.length||b.reasons.some(r=>!r||!['LEGALITY','CLAIM','COMPATIBILITY','ATTENTION','CONTEXT'].includes(r.kind)))errors.push(`Invalid complete-candidate blocker ${id}`);
   }
   for(const op of activeOperations(state))if(op.initiationTimer)timer(op.initiationTimer);
   for(const [fid,o] of state.aiDecisionOpportunities??[]) {

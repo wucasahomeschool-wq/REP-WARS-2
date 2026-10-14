@@ -1,0 +1,89 @@
+[
+  {
+    "stage": "after",
+    "name": "large-47-online-360",
+    "completed": true,
+    "nestedErrorReferences": [
+      {
+        "code": "INSUFFICIENT_TROOPS",
+        "message": "Arrived army is no longer an eligible attacking force"
+      },
+      {
+        "code": "INSUFFICIENT_TROOPS",
+        "message": "Arrived army is no longer an eligible attacking force"
+      }
+    ],
+    "distinctExpectedFailedAttacks": 1,
+    "operations": [
+      {
+        "operationId": "cmt_1b_1dsm2hk_192_2w_ATTACK_t_003|\"f_ai_6\"",
+        "armyId": "local-army:v1:\"cmt_1b_1dsm2hk_184_2q_REINFORCE_t_002|\\\"f_ai_6\\\"\"",
+        "battleTick": 195,
+        "terminalTick": 195,
+        "beforeTroops": 101,
+        "remainingTroops": 76,
+        "casualties": 25,
+        "status": "failed",
+        "claimsReleased": true,
+        "attentionReleasedAtTick": 195,
+        "attackIntentCleared": true
+      }
+    ],
+    "invariantProblems": [],
+    "classification": "VALID CURRENT PHYSICAL CONTRACT: intervening defensive casualties invalidate a later attack; no invalid battle or refund; strict harness flags nested domain errors"
+  },
+  {
+    "stage": "final-after",
+    "name": "medium-11-online-1440",
+    "completed": true,
+    "nestedErrorReferences": [
+      {
+        "code": "INSUFFICIENT_TROOPS",
+        "message": "Arrived army is no longer an eligible attacking force"
+      },
+      {
+        "code": "INSUFFICIENT_TROOPS",
+        "message": "Arrived army is no longer an eligible attacking force"
+      },
+      {
+        "code": "INSUFFICIENT_TROOPS",
+        "message": "Arrived army is no longer an eligible attacking force"
+      },
+      {
+        "code": "INSUFFICIENT_TROOPS",
+        "message": "Arrived army is no longer an eligible attacking force"
+      }
+    ],
+    "distinctExpectedFailedAttacks": 2,
+    "operations": [
+      {
+        "operationId": "cmt_b_1dsm2he_933_kw_ATTACK_t_003|\"f_ai_0\"",
+        "armyId": "local-army:v1:\"cmt_b_1dsm2he_855_j5_REINFORCE_t_000|\\\"f_ai_0\\\"\"",
+        "battleTick": 935,
+        "terminalTick": 940,
+        "beforeTroops": 101,
+        "remainingTroops": 76,
+        "casualties": 25,
+        "status": "failed",
+        "claimsReleased": true,
+        "attentionReleasedAtTick": 936,
+        "attackIntentCleared": true
+      },
+      {
+        "operationId": "cmt_b_1dsm2hf_1326_t0_ATTACK_t_007|\"f_ai_1\"",
+        "armyId": "local-army:v1:\"cmt_b_1dsm2hf_1205_qc_REINFORCE_t_004|\\\"f_ai_1\\\"\"",
+        "battleTick": 1330,
+        "terminalTick": 1330,
+        "beforeTroops": 101,
+        "remainingTroops": 76,
+        "casualties": 25,
+        "status": "failed",
+        "claimsReleased": true,
+        "attentionReleasedAtTick": 1328,
+        "attackIntentCleared": true
+      }
+    ],
+    "invariantProblems": [],
+    "classification": "VALID CURRENT PHYSICAL CONTRACT: intervening defensive casualties invalidate a later attack; no invalid battle or refund; strict harness flags nested domain errors"
+  }
+]

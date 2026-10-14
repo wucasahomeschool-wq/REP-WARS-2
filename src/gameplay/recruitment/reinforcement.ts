@@ -3,6 +3,7 @@ import type { GameState } from '../../types/GameState';
 import type { ReinforcePlan } from '../../types/AIConcretePlan';
 import { armyHasActiveStrategicOperation } from '../../army/strategicAttack';
 import { recruitmentPoolId } from './recruitment';
+import { formationArmyId, localFormationArmy } from './formation';
 /** Only live quantity claims; historical operations are never scanned. */
 export function availableLocalTroops(state:GameState,territoryId:string,operationId?:string):number {
   let reserved=0;
@@ -10,13 +11,19 @@ export function availableLocalTroops(state:GameState,territoryId:string,operatio
   return (state.territoryRecruitment.get(territoryId)?.troops??0)-reserved;
 }
 export function reinforcementProblem(state:GameState,plan:ReinforcePlan,operationId?:string,ignoreClaims=false):string|null {
+  if(!Number.isSafeInteger(plan.quantity)||plan.quantity<=0)return 'Local quantity must be a positive safe integer';
   const t=state.territories.get(plan.territoryId),pool=state.territoryRecruitment.get(plan.territoryId);
   if(!t||t.owner!==plan.factionId||!pool||pool.factionId!==plan.factionId||plan.sourcePoolId!==recruitmentPoolId(t.id))return 'Local source pool missing or wrong ownership';
   if(plan.destination.territoryId!==t.id)return 'Reinforcement destination must be co-located';
   if(pool.troops<plan.quantity)return 'Local pool quantity insufficient';
   if(!ignoreClaims&&availableLocalTroops(state,t.id,operationId)<plan.quantity)return 'Local pool quantity already reserved';
   if([...state.activeInvasions.values()].some(i=>i.territoryId===t.id))return 'Local destination engaged in invasion';
-  if(plan.destination.kind==='new_army')return 'Local-pool army creation has no authoritative domain path';
+  if(plan.destination.kind==='new_army') {
+    const f=state.factions.get(plan.factionId);
+    if(!f||plan.factionId===state.playerFactionId)return 'Local formation requires an AI-controlled faction';
+    if(operationId&&(state.armies.has(formationArmyId(operationId))||f.armies.includes(formationArmyId(operationId))))return 'Local army identity already exists';
+    return null;
+  }
   if(plan.destination.kind==='army') {
     const a=state.armies.get(plan.destination.armyId);
     if(!a||a.owner!==plan.factionId||a.location!==t.id||armyHasActiveStrategicOperation(a))return 'Selected destination force missing, remote or engaged';
@@ -32,11 +39,19 @@ export function allocateReinforcement(state:GameState,plan:ReinforcePlan,operati
   const problem=reinforcementProblem(state,plan,operationId);
   if(problem)throw new Error(problem);
   const c=[...state.operationClaims.values()].find(c=>c.operationId===operationId&&c.kind==='local_troops');
-  if(c?.quantity!==plan.quantity)throw new Error('Exact local quantity reservation missing');
+  const op=state.operations.get(operationId);
+  const destinationClaim=state.operationClaims.get(plan.destination.kind==='army'?`force:${plan.destination.armyId}`:`garrison:${plan.territoryId}`);
+  if(c?.subjectId!==plan.territoryId||c.quantity!==plan.quantity||!op||op.terminal||op.plan?.id!==plan.id
+    ||destinationClaim?.operationId!==operationId)throw new Error('Exact local allocation ownership missing');
   state.territoryRecruitment.get(plan.territoryId)!.troops-=plan.quantity;
   if(plan.destination.kind==='garrison')state.territories.get(plan.territoryId)!.garrison+=plan.quantity;
   else if(plan.destination.kind==='army')state.armies.get(plan.destination.armyId)!.soldiers+=plan.quantity;
-  else throw new Error('Unsupported local army creation');
+  else {
+    const army=localFormationArmy(plan,operationId);
+    state.armies.set(army.id,army);
+    state.factions.get(plan.factionId)!.armies.push(army.id);
+    op.links.armyId=army.id;
+  }
 }
 
 /** Complete declared bounded batch scope: full measured shortfall, one meaningful

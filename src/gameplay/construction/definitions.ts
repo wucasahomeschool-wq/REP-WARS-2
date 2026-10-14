@@ -1,6 +1,6 @@
 import { Resources, ResourceType } from '../../types';
 import { ConstructionProject, ConstructionProjectType, GameState } from '../../types/GameState';
-import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
+import { OrchestrationError, ErrorCode, OrchestrationErrorBody } from '../../orchestration/errors';
 import { requireTerritory } from '../../orchestration/helpers';
 import { cityIdFor, ensureCity, syncCityFortification } from '../cities/city';
 import { GAMEPLAY_CONFIG } from '../config';
@@ -47,11 +47,28 @@ export function isConstructionProjectType(value: unknown): value is Construction
     || value === 'LUMBER';
 }
 
-function assertOwnedTerritory(ctx: ConstructionStartContext): void {
-  const territory = requireTerritory(ctx.state, ctx.territoryId);
-  if (territory.owner !== ctx.factionId) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Can only start construction on owned territory');
+/** Pure prerequisite probe shared with authoritative command validation.
+ * Ordinary unavailable candidates need no Error/stack allocation. Resource,
+ * slot and timing validation remain in their existing execution paths. */
+export function constructionStartProblem(type: ConstructionProjectType, ctx: ConstructionStartContext): OrchestrationErrorBody | null {
+  const territory = ctx.state.territories.get(ctx.territoryId);
+  if (!territory) return { code: ErrorCode.INVALID_TERRITORY, message: `Unknown territory: ${ctx.territoryId}`, details: { territoryId: ctx.territoryId } };
+  const unavailable = (message: string): OrchestrationErrorBody => ({ code: ErrorCode.ACTION_NOT_ALLOWED, message });
+  if (territory.owner !== ctx.factionId) return unavailable('Can only start construction on owned territory');
+  switch (type) {
+    case 'CITY':
+      return ctx.state.cities.get(cityIdFor(ctx.territoryId)) ? unavailable('Territory already has a city') : null;
+    case 'FORTIFICATION':
+      if (!ctx.state.cities.get(cityIdFor(ctx.territoryId))) return unavailable('Fortification requires a city on the territory');
+      return territory.fortification >= GAMEPLAY_CONFIG.maxFortificationLevel ? unavailable('Territory is already at maximum fortification') : null;
+    case 'FARM': return ctx.state.territoryInfrastructure.get(ctx.territoryId)?.farmCompletedAtTick != null ? unavailable('Territory already has a farm') : null;
+    case 'MINE': return ctx.state.territoryInfrastructure.get(ctx.territoryId)?.mineCompletedAtTick != null ? unavailable('Territory already has a mine') : null;
+    case 'LUMBER': return ctx.state.territoryInfrastructure.get(ctx.territoryId)?.lumberCompletedAtTick != null ? unavailable('Territory already has a lumber operation') : null;
   }
+}
+function assertConstructionCanStart(type: ConstructionProjectType, ctx: ConstructionStartContext): void {
+  const problem = constructionStartProblem(type, ctx);
+  if (problem) throw new OrchestrationError(problem.code, problem.message, problem.details);
 }
 
 function completeDevelopment(
@@ -73,10 +90,7 @@ const CITY_DEFINITION: ConstructionProjectDefinition = {
   },
   durationTicks: GAMEPLAY_CONFIG.cityConstructionDurationTicks,
   assertCanStart(ctx) {
-    assertOwnedTerritory(ctx);
-    if (ctx.state.cities.get(cityIdFor(ctx.territoryId))) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Territory already has a city');
-    }
+    assertConstructionCanStart('CITY', ctx);
   },
   onComplete(ctx) {
     ensureCity(ctx.state, ctx.project.territoryId, ctx.project.factionId);
@@ -91,14 +105,7 @@ const FORTIFICATION_DEFINITION: ConstructionProjectDefinition = {
   },
   durationTicks: GAMEPLAY_CONFIG.defaultConstructionDurationTicks,
   assertCanStart(ctx) {
-    assertOwnedTerritory(ctx);
-    const territory = requireTerritory(ctx.state, ctx.territoryId);
-    if (!ctx.state.cities.get(cityIdFor(ctx.territoryId))) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Fortification requires a city on the territory');
-    }
-    if (territory.fortification >= GAMEPLAY_CONFIG.maxFortificationLevel) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Territory is already at maximum fortification');
-    }
+    assertConstructionCanStart('FORTIFICATION', ctx);
   },
   onComplete(ctx) {
     const territory = requireTerritory(ctx.state, ctx.project.territoryId);
@@ -123,11 +130,7 @@ const FARM_DEFINITION: ConstructionProjectDefinition = {
   },
   durationTicks: GAMEPLAY_CONFIG.farmConstructionDurationTicks,
   assertCanStart(ctx) {
-    assertOwnedTerritory(ctx);
-    const infra = ctx.state.territoryInfrastructure.get(ctx.territoryId);
-    if (infra?.farmCompletedAtTick != null) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Territory already has a farm');
-    }
+    assertConstructionCanStart('FARM', ctx);
   },
   onComplete(ctx) {
     completeDevelopment(ctx, 'farmCompletedAtTick');
@@ -142,11 +145,7 @@ const MINE_DEFINITION: ConstructionProjectDefinition = {
   },
   durationTicks: GAMEPLAY_CONFIG.mineConstructionDurationTicks,
   assertCanStart(ctx) {
-    assertOwnedTerritory(ctx);
-    const infra = ctx.state.territoryInfrastructure.get(ctx.territoryId);
-    if (infra?.mineCompletedAtTick != null) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Territory already has a mine');
-    }
+    assertConstructionCanStart('MINE', ctx);
   },
   onComplete(ctx) {
     completeDevelopment(ctx, 'mineCompletedAtTick');
@@ -161,11 +160,7 @@ const LUMBER_DEFINITION: ConstructionProjectDefinition = {
   },
   durationTicks: GAMEPLAY_CONFIG.lumberConstructionDurationTicks,
   assertCanStart(ctx) {
-    assertOwnedTerritory(ctx);
-    const infra = ctx.state.territoryInfrastructure.get(ctx.territoryId);
-    if (infra?.lumberCompletedAtTick != null) {
-      throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Territory already has a lumber operation');
-    }
+    assertConstructionCanStart('LUMBER', ctx);
   },
   onComplete(ctx) {
     completeDevelopment(ctx, 'lumberCompletedAtTick');

@@ -17,6 +17,7 @@ import {startProactiveTimer,timerRemaining} from '../../engine/proactiveCognitio
 import {finishDecisionInitiation} from '../../engine/decisionOpportunities';
 import {accrueDurationProgress,durationRemainingMs,TemporalPresence} from '../../world/timeToTick';
 import {calculateMovementDuration} from '../../army/movement';
+import {rememberDeclinedTrade} from './declinedContext';
 export const proposalLive=(p:TradeProposal)=>p.status==='initiating'||p.status==='pending';
 export const shipmentLive=(s:TradeShipment)=>s.phase!=='delivered';
 export const liveTradeProposals=(s:GameState)=>liveTradeRecords(s.tradeProposals,proposalLive);
@@ -80,6 +81,7 @@ export function settleTradeProposal(s:GameState,id:string,status:Exclude<TradePr
   p.status=status;p.resolvedAtMs=s.aiClock.nowMs;p.responseTimer=null;
   const released=tradeResourceClaims(p.plan,p.operationId).length;
   if(!settleOperation(s,p.operationId,status==='accepted'?'completed':'failed',`Trade proposal ${status}`))throw new Error('Trade proposal lost owning operation');
+  if(status==='declined')rememberDeclinedTrade(s,p);
   s.tradeProposals.set(id,p);if(m){m.reservationsReleased+=released;if(status==='declined')m.declines++;if(status==='counteroffered')m.counteroffers++;}
   record(s,id,status,p.proposer,p.recipient,m);return true;
 }

@@ -19,6 +19,8 @@ import {goalPreference} from '../cognition/goals';
 import {factionDecisionView} from '../cognition/decisionView';
 import {opinionPreference} from '../cognition/opinion';
 import { SeededRNG } from '../utils/SeededRNG';
+import { strategicAccessOpportunity } from '../army/strategicAccess';
+import { fieldRecoveryOpportunity } from '../army/fieldRecovery';
 
 export function saturatingMagnitude(value:number,scale:number):number {
   if(!Number.isFinite(value)||!Number.isFinite(scale)||scale<=0)throw new Error('Invalid comparison fact/normalization');
@@ -80,7 +82,8 @@ export class ContextPlanComparator {
       add('initiation:time','TIMING_SUPPORT','timeliness',-saturatingMagnitude(march,T.timingScaleTicks)*T.timingWeight,'Authored staging travel only; engagement resolution is contingent');
     } else if(plan.action==='MOVE'||plan.action==='RETREAT') {
       const dest=plan.action==='MOVE'?plan.destinationTerritoryId:plan.fallbackTerritoryId;
-      const position=evaluators.forcePositionValue(plan.factionId,plan.armyId,dest,plan.originTerritoryId);
+      const target=source.kind==='STRATEGIC_ACCESS'?strategicAccessOpportunity(state,plan.factionId,plan.armyId)?.targetTerritoryId:undefined;
+      const position=evaluators.forcePositionValue(plan.factionId,plan.armyId,dest,plan.originTerritoryId,target);
       const time=evaluators.support.logistics(plan.route).timing;
       const before=evaluators.localDanger(plan.factionId,plan.originTerritoryId),after=evaluators.localDanger(plan.factionId,dest,undefined,plan.armyId,time.remainingTicks);
       assessments.push(position,before,after);
@@ -90,7 +93,8 @@ export class ContextPlanComparator {
       add('initiation:time','TIMING_SUPPORT','timeliness',-saturatingMagnitude(time.remainingTicks,T.timingScaleTicks)*T.timingWeight,'Authoritative exact route travel bounds');
       downside=after.facts.dangerRatio;
     } else if(plan.action==='REINFORCE') {
-      const allocation=evaluators.localAllocationValue(plan,source.kind==='HOSTILE_OPPORTUNITY'?source.subjectId:undefined);assessments.push(allocation);
+      const target=source.kind==='HOSTILE_OPPORTUNITY'?source.subjectId:source.kind==='FIELD_FORCE_GAP'?fieldRecoveryOpportunity(state,plan.factionId)?.targetTerritoryId:undefined;
+      const allocation=evaluators.localAllocationValue(plan,target);assessments.push(allocation);
       add('allocation:local_effect','FORCE_POSITION_VALUE','source_resolution',saturatingMagnitude(allocation.facts.additionalUtility,T.powerScale)*T.positionWeight,'Marginal exact local defensive/offensive capacity; no new troops','bounded');
       add('allocation:pool_flexibility','FORCE_POSITION_VALUE','opportunity_cost',-allocation.facts.consumedFraction*RECRUITMENT_TUNING.reserveFlexibilityWeight,'Exact consumed local reserve fraction; one owner for foregone local use');
       downside=0; // Uncertain hostile timing is not a fabricated loss probability.

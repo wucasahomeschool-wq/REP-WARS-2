@@ -1,0 +1,15 @@
+{
+  "original": {
+    "checked": 118,
+    "mismatches": []
+  },
+  "production": {
+    "checked": 8,
+    "mismatches": []
+  },
+  "testInclusiveDiagnostics": {
+    "baseline": 28,
+    "current": 28,
+    "sameFileCodeMessageIdentities": true
+  }
+}

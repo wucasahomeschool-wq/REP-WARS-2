@@ -1,0 +1,70 @@
+[
+  {
+    "case": "medium-11-online-1440",
+    "operationId": "cmt_b_1dsm2he_933_kw_ATTACK_t_003|\"f_ai_0\"",
+    "terminal": {
+      "outcome": "failed",
+      "reason": "failed",
+      "atTick": 936
+    },
+    "attention": {
+      "factionId": "f_ai_0",
+      "cost": 3,
+      "acquiredAtTick": 933,
+      "releasedAtTick": 936,
+      "grandfathered": false
+    },
+    "claimIds": [],
+    "liveOwnClaims": [],
+    "armyExistsAtFinal": false,
+    "defensiveBattles": [
+      {
+        "observedBatchTick": 935,
+        "inputTurn": 933,
+        "forceBefore": [
+          101
+        ],
+        "defenderRemaining": 76,
+        "defenderLosses": 25,
+        "winner": "defender"
+      }
+    ],
+    "failedOperationObservationTicks": [
+      940
+    ]
+  },
+  {
+    "case": "medium-11-online-1440",
+    "operationId": "cmt_b_1dsm2hf_1326_t0_ATTACK_t_007|\"f_ai_1\"",
+    "terminal": {
+      "outcome": "failed",
+      "reason": "failed",
+      "atTick": 1328
+    },
+    "attention": {
+      "factionId": "f_ai_1",
+      "cost": 3,
+      "acquiredAtTick": 1326,
+      "releasedAtTick": 1328,
+      "grandfathered": false
+    },
+    "claimIds": [],
+    "liveOwnClaims": [],
+    "armyExistsAtFinal": false,
+    "defensiveBattles": [
+      {
+        "observedBatchTick": 1330,
+        "inputTurn": 1327,
+        "forceBefore": [
+          101
+        ],
+        "defenderRemaining": 76,
+        "defenderLosses": 25,
+        "winner": "defender"
+      }
+    ],
+    "failedOperationObservationTicks": [
+      1330
+    ]
+  }
+]

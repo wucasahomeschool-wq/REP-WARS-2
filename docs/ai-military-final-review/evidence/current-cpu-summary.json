@@ -1,0 +1,429 @@
+{
+  "selfTop": [
+    [
+      "OrchestrationError src/orchestration/errors.ts:38",
+      47666430
+    ],
+    [
+      "structuredClone node:internal/worker/js_transferable:113",
+      10539111
+    ],
+    [
+      "decodePersistable src/persistence/serialization.ts:47",
+      8195722
+    ],
+    [
+      "encodePersistable src/persistence/serialization.ts:13",
+      7900975
+    ],
+    [
+      "(garbage collector) :0",
+      5856063
+    ],
+    [
+      "canonical src/types/AIConcretePlan.ts:13",
+      5670302
+    ],
+    [
+      "conflictStateProblems src/state/conflictInvariants.ts:6",
+      5335628
+    ],
+    [
+      "cloneConcretePlan src/types/AIConcretePlan.ts:40",
+      4874297
+    ],
+    [
+      "tradeDemand src/gameplay/trade/candidates.ts:14",
+      3699296
+    ],
+    [
+      "assertCanStart src/gameplay/construction/definitions.ts:68",
+      3428282
+    ],
+    [
+      "makeConcretePlan src/types/AIConcretePlan.ts:34",
+      2417330
+    ],
+    [
+      " src/types/AIConcretePlan.ts:18",
+      2372030
+    ],
+    [
+      "structuredClone :0",
+      2270561
+    ],
+    [
+      " src/state/cloneGameState.ts:293",
+      2073292
+    ],
+    [
+      "checkGameStateInvariants src/state/gameStateInvariants.ts:66",
+      2048668
+    ],
+    [
+      "inspectConcretePlan src/types/AIConcretePlan.ts:70",
+      1934086
+    ],
+    [
+      "tradeCandidates src/gameplay/trade/candidates.ts:38",
+      1662086
+    ],
+    [
+      " src/state/cloneGameState.ts:323",
+      1606660
+    ],
+    [
+      "concretePlanProblem src/types/AIConcretePlan.ts:62",
+      1356703
+    ],
+    [
+      "mergeFrom src/memory/MemorySystem.ts:153",
+      1273355
+    ],
+    [
+      "buildAvailable src/engine/concretePlans.ts:19",
+      1264309
+    ],
+    [
+      "sourceParts src/state/pressureInvariants.ts:11",
+      1251365
+    ],
+    [
+      "observeSources src/engine/strategicPressure.ts:300",
+      1220320
+    ],
+    [
+      "observableTradeCounterparties src/gameplay/trade/candidates.ts:67",
+      1091441
+    ],
+    [
+      "cloneMap src/state/cloneGameState.ts:21",
+      1025447
+    ],
+    [
+      "sourcePlanPredicates src/engine/strategicPressure.ts:43",
+      1022557
+    ],
+    [
+      "conflictPairId src/conflict/ledger.ts:14",
+      986062
+    ],
+    [
+      "cloneOperation src/engine/operations.ts:55",
+      984502
+    ],
+    [
+      "assertCanStart src/gameplay/construction/definitions.ts:112",
+      925952
+    ],
+    [
+      "cognitionStateProblems src/state/cognitionInvariants.ts:6",
+      834304
+    ],
+    [
+      "fieldRecoveryOpportunity src/army/fieldRecovery.ts:15",
+      832990
+    ],
+    [
+      "m.<computed> file:///tmp/military-review-profile.cjs:15",
+      828759
+    ],
+    [
+      "deriveSources src/engine/strategicPressure.ts:227",
+      810979
+    ],
+    [
+      "canonical src/simulation/longrun/runner.ts:20",
+      797712
+    ],
+    [
+      "freezeTerminal src/engine/operations.ts:33",
+      759505
+    ],
+    [
+      "freezeDeep src/types/AIConcretePlan.ts:27",
+      733683
+    ],
+    [
+      "peacePairId src/gameplay/diplomacy/relationships.ts:14",
+      701777
+    ],
+    [
+      "tradeRoute src/gameplay/trade/policy.ts:47",
+      678634
+    ],
+    [
+      "ownedTravel src/army/strategicAccess.ts:18",
+      672699
+    ],
+    [
+      "assessConcretePlanFeasibility src/engine/concretePlans.ts:123",
+      669167
+    ]
+  ],
+  "fileTop": [
+    [
+      "src/orchestration/errors.ts",
+      47666430
+    ],
+    [
+      "src/types/AIConcretePlan.ts",
+      20706525
+    ],
+    [
+      "src/persistence/serialization.ts",
+      16096697
+    ],
+    [
+      "node:internal/worker/js_transferable",
+      10539111
+    ],
+    [
+      "",
+      8439984
+    ],
+    [
+      "src/gameplay/trade/candidates.ts",
+      6512165
+    ],
+    [
+      "src/state/cloneGameState.ts",
+      6048659
+    ],
+    [
+      "src/engine/strategicPressure.ts",
+      6000846
+    ],
+    [
+      "src/gameplay/construction/definitions.ts",
+      5722744
+    ],
+    [
+      "src/state/conflictInvariants.ts",
+      5442775
+    ],
+    [
+      "src/engine/operations.ts",
+      3117774
+    ],
+    [
+      "src/engine/concretePlans.ts",
+      2503327
+    ],
+    [
+      "src/state/gameStateInvariants.ts",
+      2052971
+    ],
+    [
+      "src/simulation/longrun/runner.ts",
+      1879843
+    ],
+    [
+      "node_modules/typescript/lib/typescript.js",
+      1855337
+    ],
+    [
+      "src/state/pressureInvariants.ts",
+      1582245
+    ],
+    [
+      "src/engine/DecisionEngine.ts",
+      1441649
+    ],
+    [
+      "src/memory/MemorySystem.ts",
+      1273355
+    ],
+    [
+      "src/gameplay/diplomacy/relationships.ts",
+      1245910
+    ],
+    [
+      "file:///tmp/military-review-profile.cjs",
+      1166417
+    ],
+    [
+      "src/conflict/ledger.ts",
+      1002854
+    ],
+    [
+      "src/army/fieldRecovery.ts",
+      990290
+    ],
+    [
+      "src/army/strategicAccess.ts",
+      927210
+    ],
+    [
+      "src/state/cognitionInvariants.ts",
+      834304
+    ],
+    [
+      "src/gameplay/trade/resources.ts",
+      833628
+    ]
+  ],
+  "inclusiveTop": [
+    [
+      "",
+      1518557982
+    ],
+    [
+      "m.<computed>",
+      215590438
+    ],
+    [
+      "wrapModuleLoad",
+      171476977
+    ],
+    [
+      "require.extensions.<computed>",
+      171057609
+    ],
+    [
+      "(root)",
+      165181893
+    ],
+    [
+      "executeUserEntryPoint",
+      159046919
+    ],
+    [
+      "runSimulation",
+      155935509
+    ],
+    [
+      "withRequestParameters",
+      137210995
+    ],
+    [
+      "execute",
+      110491709
+    ],
+    [
+      "module.<computed>",
+      105759734
+    ],
+    [
+      "runStateTransaction",
+      105034280
+    ],
+    [
+      "executeAtAuthoritativeReceipt",
+      102406996
+    ],
+    [
+      "executeCommand",
+      102404902
+    ],
+    [
+      "handleSyncPlayerWorld",
+      100598962
+    ],
+    [
+      "catchUpWorld",
+      100592705
+    ],
+    [
+      "handleAdvanceWorld",
+      98779389
+    ],
+    [
+      "advance",
+      98410398
+    ],
+    [
+      "progressProactiveThrough",
+      96938992
+    ],
+    [
+      "process",
+      95962116
+    ],
+    [
+      "progressProactive",
+      95168345
+    ],
+    [
+      "handleAiDecide",
+      92995682
+    ],
+    [
+      "prepareProactiveDecision",
+      82698847
+    ],
+    [
+      "observeSources",
+      79517071
+    ],
+    [
+      "tradeDemand",
+      56294187
+    ],
+    [
+      "assertCanStart",
+      53539990
+    ],
+    [
+      "inspectSourceActionability",
+      50968356
+    ],
+    [
+      "OrchestrationError",
+      47666430
+    ],
+    [
+      "commitGameplaySession",
+      44172528
+    ],
+    [
+      "sourcePlanPredicates",
+      43585066
+    ],
+    [
+      "tradeCandidates",
+      36258187
+    ],
+    [
+      "decodePersistable",
+      35279644
+    ],
+    [
+      "encodePersistable",
+      33118918
+    ],
+    [
+      "deriveSources",
+      32539040
+    ],
+    [
+      "save",
+      28699435
+    ],
+    [
+      "ensurePlayerWorld",
+      28271295
+    ],
+    [
+      "load",
+      28269240
+    ],
+    [
+      "hydratePersistedPayload",
+      28258815
+    ],
+    [
+      "observableTradeCounterparties",
+      26769606
+    ],
+    [
+      "cloneGameState",
+      21961747
+    ],
+    [
+      "snapshotGameState",
+      20136570
+    ]
+  ],
+  "sampleTimeSeconds": 165.181893
+}

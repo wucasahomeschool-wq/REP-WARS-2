@@ -1,0 +1,1201 @@
+{
+  "config": {
+    "size": "small",
+    "seed": 11,
+    "ticks": 10080,
+    "presence": "online",
+    "stepTicks": 5,
+    "reloadEvery": 60
+  },
+  "completed": true,
+  "processedTick": 10080,
+  "earnedTick": 10080,
+  "elapsedSeconds": 92.507344729,
+  "error": null,
+  "nestedErrors": [],
+  "stateDigest": "54fa6eed74457ccf9db1bae675ad43e9b7bc2c517db0fd6c079010759ba49c98",
+  "decisions": 75,
+  "decisionActions": {
+    "WAIT": 18,
+    "ATTACK": 24,
+    "BUILD": 32,
+    "MOVE": 1
+  },
+  "operations": 59,
+  "operationActions": {
+    "ATTACK": 24,
+    "BUILD": 32,
+    "MOVE": 3
+  },
+  "operationStatuses": {
+    "completed": 44,
+    "failed": 15
+  },
+  "battles": 11,
+  "captures": 22,
+  "peakConcurrentOperations": 6,
+  "upkeepPaid": 900,
+  "failedUpkeepCycles": 236,
+  "conservation": {
+    "initial": {
+      "resources": {
+        "gold": 3040,
+        "food": 2700,
+        "wood": 1360,
+        "iron": 660,
+        "stone": 1210
+      },
+      "troops": 5260,
+      "siege": 6
+    },
+    "final": {
+      "resources": {
+        "gold": 39202,
+        "food": 92458,
+        "wood": 42669,
+        "iron": 22928,
+        "stone": 46060
+      },
+      "troops": 91229,
+      "siege": 1
+    },
+    "recruited": 90740,
+    "eventAndOwnershipTroopDelta": -343,
+    "conflictLosses": {
+      "troops": 4428,
+      "siege": 5
+    },
+    "troopResidual": 0,
+    "siegeResidual": 0,
+    "resourceResidual": {
+      "gold": 0,
+      "food": 0,
+      "wood": 0,
+      "iron": 0,
+      "stone": 0
+    },
+    "observedNetResourceChanges": {
+      "gold": 36162,
+      "food": 89758,
+      "wood": 41309,
+      "iron": 22268,
+      "stone": 44850
+    }
+  },
+  "factions": [
+    {
+      "id": "f_ai_0",
+      "personality": "aggressive",
+      "territories": 0,
+      "armies": 0,
+      "resources": {
+        "gold": 960,
+        "food": 900,
+        "iron": 20,
+        "wood": 35,
+        "stone": 400
+      },
+      "stability": 70,
+      "localTroops": 0,
+      "goals": [
+        {
+          "id": "goal_0",
+          "type": "dominant_faction",
+          "priority": 90,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_0",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_1",
+          "type": "destroy_rival",
+          "priority": 80,
+          "targetFaction": "f_ai_2",
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 100,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_0",
+            "objective": {
+              "kind": "ELIMINATE_FACTION",
+              "factionId": "f_ai_2"
+            },
+            "status": "COMPLETED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 21,
+            "reason": "Canonical objective satisfied"
+          }
+        },
+        {
+          "id": "goal_2",
+          "type": "expand_to_resources",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_0",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "sim-development:f_ai_0",
+          "type": "develop_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_0",
+            "objective": {
+              "kind": "DEVELOPMENT",
+              "territoryId": "t_000",
+              "projectType": "FARM"
+            },
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": 58,
+            "reason": "Owner is not ACTIVE"
+          }
+        },
+        {
+          "id": "sim-border:f_ai_0",
+          "type": "control_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 1,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_0",
+            "objective": {
+              "kind": "CONTROL_TERRITORY",
+              "territoryId": "t_003"
+            },
+            "status": "COMPLETED",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": 17,
+            "reason": "Canonical objective satisfied"
+          }
+        }
+      ],
+      "lastDecisionTick": 56
+    },
+    {
+      "id": "f_ai_1",
+      "personality": "economic",
+      "territories": 9,
+      "armies": 1,
+      "resources": {
+        "gold": 570,
+        "food": 0,
+        "iron": 220,
+        "wood": 120,
+        "stone": 10
+      },
+      "stability": 0,
+      "localTroops": 90397,
+      "goals": [
+        {
+          "id": "goal_0",
+          "type": "economic_growth",
+          "priority": 90,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_1",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_1",
+          "type": "expand_to_resources",
+          "priority": 70,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_1",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_2",
+          "type": "form_alliance",
+          "priority": 55,
+          "targetFaction": "f_observer",
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_1",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "sim-development:f_ai_1",
+          "type": "develop_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 1,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_1",
+            "objective": {
+              "kind": "DEVELOPMENT",
+              "territoryId": "t_003",
+              "projectType": "FARM"
+            },
+            "status": "COMPLETED",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": 6021,
+            "reason": "Canonical objective satisfied"
+          }
+        },
+        {
+          "id": "sim-border:f_ai_1",
+          "type": "control_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 1,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_1",
+            "objective": {
+              "kind": "CONTROL_TERRITORY",
+              "territoryId": "t_002"
+            },
+            "status": "COMPLETED",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": 1,
+            "reason": "Canonical objective satisfied"
+          }
+        }
+      ],
+      "lastDecisionTick": 6023
+    },
+    {
+      "id": "f_ai_2",
+      "personality": "diplomatic",
+      "territories": 0,
+      "armies": 0,
+      "resources": {
+        "gold": 0,
+        "food": 900,
+        "iron": 100,
+        "wood": 650,
+        "stone": 480
+      },
+      "stability": 70,
+      "localTroops": 0,
+      "goals": [
+        {
+          "id": "goal_0",
+          "type": "form_alliance",
+          "priority": 85,
+          "targetFaction": "f_observer",
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_2",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_1",
+          "type": "economic_growth",
+          "priority": 75,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_2",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_2",
+          "type": "prepare_for_invasion",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_2",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "sim-development:f_ai_2",
+          "type": "develop_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_2",
+            "objective": {
+              "kind": "DEVELOPMENT",
+              "territoryId": "t_008",
+              "projectType": "FARM"
+            },
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": 21,
+            "reason": "Owner is not ACTIVE"
+          }
+        },
+        {
+          "id": "sim-border:f_ai_2",
+          "type": "seek_peace",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_2",
+            "objective": {
+              "kind": "PEACE",
+              "factionId": "f_ai_0"
+            },
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": 21,
+            "reason": "Owner is not ACTIVE"
+          }
+        }
+      ],
+      "lastDecisionTick": 19
+    }
+  ],
+  "peace": {},
+  "trade": {},
+  "shipments": {},
+  "responseContexts": 7,
+  "activeClaims": 0,
+  "historyRows": 0,
+  "checkpointDigests": [
+    {
+      "tick": 60,
+      "digest": "27c0c380a72858a1f99b3403cf82f7bca0a6a6143df54b0d64663836af7b4474"
+    },
+    {
+      "tick": 120,
+      "digest": "fa7db420a09cbf9b0cd2c35c7400f17bce69ba9b9d213729c0819c619e157297"
+    },
+    {
+      "tick": 180,
+      "digest": "d758e51420e2dd0f232ac1ed7f4f87c13eaa6d97dbfbd159f802453e8d24b092"
+    },
+    {
+      "tick": 240,
+      "digest": "81ef6eb0317003c6b549e63f38a38d39f6d9fcc65a11876bc21c15d6050ec3c0"
+    },
+    {
+      "tick": 300,
+      "digest": "f086df118bd3ad69c4ebadaed867b75808b1d539ae815d6eaf82fe091b0afa31"
+    },
+    {
+      "tick": 360,
+      "digest": "663c9017959f040dcf394ce1c1f989c9f5c0c80d82b306c8f447f9a391f6c3b5"
+    },
+    {
+      "tick": 420,
+      "digest": "0d1c5fd6df25959da1c3b14d4349f2050e18479e89ec32e1d6daa534ce64bf4c"
+    },
+    {
+      "tick": 480,
+      "digest": "ab908714201a39dad11797ffd1fd20e1d74b80402c3f34cfa4fbdee33ea747e5"
+    },
+    {
+      "tick": 540,
+      "digest": "6a6e8fad130e5d09cade3dd795456c5be896ae1564212d7f3c7d2c041287d68b"
+    },
+    {
+      "tick": 600,
+      "digest": "0ad7b942c4f8b7b72c4c19b0dab96e7f40cb6b910d8481fd659e24ecd95960d9"
+    },
+    {
+      "tick": 660,
+      "digest": "3413ab7eae2b7f3f949b13e795c29bf61e15171917a0994a7f6a358616c85858"
+    },
+    {
+      "tick": 720,
+      "digest": "5c13a19d87c1d74aaa8e5b13bdd1be430ca90b8c6119bcbb1692ca8e5c0f3b91"
+    },
+    {
+      "tick": 780,
+      "digest": "6b6234b4ea4aff5bd035c9981eae98956344a7f546c5ad8316519b5aecfb35c1"
+    },
+    {
+      "tick": 840,
+      "digest": "9d32c9f0af8a7f67e67ba64eda58637e83555eba9ed23c9e191a4044ee7b1a16"
+    },
+    {
+      "tick": 900,
+      "digest": "f3ef1808fe9c22804ecb5411bcc992ab11f67185fd23faf3318c9f5b0dd36e35"
+    },
+    {
+      "tick": 960,
+      "digest": "e3b219945f5be7918667955ce310740564bcf9528573724f726a0bcc98f0da19"
+    },
+    {
+      "tick": 1020,
+      "digest": "c1d241ba163142556dd7d637fe3914221686951788c796aa9d84b54a77b7a790"
+    },
+    {
+      "tick": 1080,
+      "digest": "80ed41e357db7b6c7091768c49ac659fb383991c577f0744bd43ffbceab79240"
+    },
+    {
+      "tick": 1140,
+      "digest": "774e5b1452a461a088b85588b1a421059d2f0a4bcac8f0d83645fe25a5144187"
+    },
+    {
+      "tick": 1200,
+      "digest": "cb32d34fd34c5dc989d9db42f53dac2cb30e179adb49cc42abc8665e528d1a58"
+    },
+    {
+      "tick": 1260,
+      "digest": "25cf1443b036f2271ec58b428e7199c5e821bd3ee974145aff894abfdc762939"
+    },
+    {
+      "tick": 1320,
+      "digest": "84b5249e2a3c1970cb2ae92aa705579a0fb854a62d45d9a6292d25bb2c245a80"
+    },
+    {
+      "tick": 1380,
+      "digest": "5d3e162fde39dd6961582c3218f3e2ae6d30feb860b850aa7541626cc44eda97"
+    },
+    {
+      "tick": 1440,
+      "digest": "0ad9cb04f1f1c666ac577a321371d7ed0a21096c34afc504bcf7accd648e68f3"
+    },
+    {
+      "tick": 1500,
+      "digest": "9e164d1a6285ae412daa2dd42d415c22a4df08919e13c0b9b4c5bd698f9ff1f1"
+    },
+    {
+      "tick": 1560,
+      "digest": "214afed9baaccfc196f3f998b13cc0b9c8d209684da25da0b7734b0f1cb1039f"
+    },
+    {
+      "tick": 1620,
+      "digest": "06655f274a48aa5d26c976b471d9743c5b9b6bdf8898f497fcdebceb2111ce9d"
+    },
+    {
+      "tick": 1680,
+      "digest": "3ba6168c95fcc80979e4174ea4e38781d2c019b3fa20e13029e69c3494d80a10"
+    },
+    {
+      "tick": 1740,
+      "digest": "e28469c0b133e8ced2c5c26813e8078d8a05b9ddae7964e1971f93472c33d3be"
+    },
+    {
+      "tick": 1800,
+      "digest": "220d4376429b1f82fac15afbf9f65b54b1b23832c57c549518a619a06fe183cc"
+    },
+    {
+      "tick": 1860,
+      "digest": "589b19b60766786da912d138f7f8b6541cddb862d8a257b3dafd025ed6ac180a"
+    },
+    {
+      "tick": 1920,
+      "digest": "14f49530c997d59273b41be3284a2404f697b89ec4b86eadc86c9c103de1ec78"
+    },
+    {
+      "tick": 1980,
+      "digest": "a015b0fdaa19299ff80272e1903867d31c8915c4bc7759eb6c4a246d1bd58abe"
+    },
+    {
+      "tick": 2040,
+      "digest": "6c594c3a638e0b65cd40ca38b53f4f3bdbb2b83e318ac888fd609ba14b807f67"
+    },
+    {
+      "tick": 2100,
+      "digest": "03a8824c1c879545394e5cd905e09c0107e164765ba68522c87b4eae488bbf93"
+    },
+    {
+      "tick": 2160,
+      "digest": "b528666a8f930373fe16775873109057fb9d62e8173b7091955ddbd9825f50d3"
+    },
+    {
+      "tick": 2220,
+      "digest": "d7ba6798111d240586c2fcd4a41b9eb402a794c8069f21dc1b0792c46139e971"
+    },
+    {
+      "tick": 2280,
+      "digest": "fa82a412a9b98201159500753076505da82e56bc2496f58b4247a346bb4ddbf8"
+    },
+    {
+      "tick": 2340,
+      "digest": "6ca721cc38c0eb94b85e60ff01628d0280897c59fdcd439a7706e9ffeb87847d"
+    },
+    {
+      "tick": 2400,
+      "digest": "df68923e65a107eaa7428e0c6704e578ca993dded188ce8352ab1d6c7b0688ca"
+    },
+    {
+      "tick": 2460,
+      "digest": "4bab72c1a2690c4d0c23da3343fd4854c3f327d94561808c6aaa40a06cb85293"
+    },
+    {
+      "tick": 2520,
+      "digest": "f69f5c742055760fd574996f0cef0259ae80afd21668e9a5cbd89e9413cac3e4"
+    },
+    {
+      "tick": 2580,
+      "digest": "99454243f8b22e0afad0c31114f00e383a62aa42d22ca281c751f7eb761c479e"
+    },
+    {
+      "tick": 2640,
+      "digest": "dfaba5db925a0f64cc3984ac21ca4d0e57edb9f781bc6b458297e22122c4ac4e"
+    },
+    {
+      "tick": 2700,
+      "digest": "c23e1c607bc395429a315da0ac36b94859087575180676ed5ff71d2e72bde0c3"
+    },
+    {
+      "tick": 2760,
+      "digest": "14c979c4c69b53eea7854224b2fed38a68d2a87a16e26715f5426e448e26108b"
+    },
+    {
+      "tick": 2820,
+      "digest": "115ff7debbe20a1640f80caf4c61ba27deba150a19ab531865b275bacbd202b1"
+    },
+    {
+      "tick": 2880,
+      "digest": "6383ffa03eef0c490c4cd0d333d055b899450d8809cb371b837c813e8e412325"
+    },
+    {
+      "tick": 2940,
+      "digest": "94570e6c88ad61b0c17ae764463667c13b41d5aeefb54dec4b7859b1bbaf2030"
+    },
+    {
+      "tick": 3000,
+      "digest": "989814ab968efda53ac1df8f8948ab3c7b5ced2a1d67606fed869eec6a167b82"
+    },
+    {
+      "tick": 3060,
+      "digest": "f75363cb539e6d298727f9769efaf4bfcecf2ac971f293edfdc33c5af350acb5"
+    },
+    {
+      "tick": 3120,
+      "digest": "c6bafc043a1450196e59754d670c62ed965aa4182c6427031775058959eb6cac"
+    },
+    {
+      "tick": 3180,
+      "digest": "ca60cfb4754d938359ddda632269aa47b9c03f2747bb19491c211962cd86b051"
+    },
+    {
+      "tick": 3240,
+      "digest": "615f55c93de6f64893801f128810c6f74e8bdd9341d192f4f288f1bcda649ec5"
+    },
+    {
+      "tick": 3300,
+      "digest": "64e0a1e3dff08e2ea5dbe66350f75043adaf83ff6b04bfae08dadfe7b28e2ba3"
+    },
+    {
+      "tick": 3360,
+      "digest": "c8ba701f87adadf6f0cf3d6e328310a993e05aec8f0da6f90157cdcc45b5a374"
+    },
+    {
+      "tick": 3420,
+      "digest": "ee052fc0d980a50315abfcb606bf48e09ba59a1ecb23c6e5ec6d8a9b98c779ea"
+    },
+    {
+      "tick": 3480,
+      "digest": "88a1905655ae57cf7d6213ab1cbceaec5f85e7d68bde2beaae7a40816ff1edc4"
+    },
+    {
+      "tick": 3540,
+      "digest": "c8361eb74cc19c0e9d093ef51fa7cdcf8bf21064b946354777fdf9410f3c36b9"
+    },
+    {
+      "tick": 3600,
+      "digest": "f72f95c2931b67b6f198ef4f3c472fff5f9b0cc1829c7275577b6a18cbdc8a47"
+    },
+    {
+      "tick": 3660,
+      "digest": "9e7a0fefda5c186bcf2abf061dbe2623b075c9a38195abb091a0a8bff1f88d59"
+    },
+    {
+      "tick": 3720,
+      "digest": "721c17ad5fbb690660c5da5df7431977b229bb477e26146fdddb5ea3de23892c"
+    },
+    {
+      "tick": 3780,
+      "digest": "80ebd9a92dc506232b880b979dd84ea05c3f99161b08fcd7417d7ca6fa97eea6"
+    },
+    {
+      "tick": 3840,
+      "digest": "2b527ee9c2d443e4df2fd01db04d64e7a4ff2820031eec9e414993c88ba48f96"
+    },
+    {
+      "tick": 3900,
+      "digest": "707b02354b642a529945fef2f609b7ecf7bf7c3738926507c61955e0ac7e0284"
+    },
+    {
+      "tick": 3960,
+      "digest": "449b1a18cdb01aa408497e8fb9f231d1f1c414d93db43fb930907214233c13e3"
+    },
+    {
+      "tick": 4020,
+      "digest": "4a29df30bb775ac23a469cc68c16dfa583341b8506f61cc91a21f554c321e54d"
+    },
+    {
+      "tick": 4080,
+      "digest": "c303ec728a21e306c9cc687b0fac0eaf4321e47e23f88153e8856b0774116cbc"
+    },
+    {
+      "tick": 4140,
+      "digest": "f45d4d433db4a74e09a0ab3602f38a5a10a325f90e6882b9a5958b6e0c2ddcda"
+    },
+    {
+      "tick": 4200,
+      "digest": "db7b1c2ec7e76dbf7ff708e9c216e7bda56f0fb6232ab7f76247a7d1911145bb"
+    },
+    {
+      "tick": 4260,
+      "digest": "b6b85cd22401ec13b901c4b92ffe95551c3dfaf9038e16779355b7c21f377782"
+    },
+    {
+      "tick": 4320,
+      "digest": "dbf86034a4b7980e108c90c34cc156a7374b0adfe87518576ff72b8ef2279855"
+    },
+    {
+      "tick": 4380,
+      "digest": "24ea822274b3bd80fe40e3b5864e79b5480c0d438ecf935705ca464d73abce47"
+    },
+    {
+      "tick": 4440,
+      "digest": "8e4b63513fb1dd2756257f09d82cc311591d0dcd962b9d90b6b460729e22de09"
+    },
+    {
+      "tick": 4500,
+      "digest": "70b1c5af12dcd11f966080af0dcc52b15071ab8717a3ac59ae3c7db82c31b7ee"
+    },
+    {
+      "tick": 4560,
+      "digest": "98e97b53af7daad881293c4808464a90afc520dc4f565f2aa3e7a149c84404e7"
+    },
+    {
+      "tick": 4620,
+      "digest": "ae1bbe9e63bb982980a0c1a94ca3fd767fcfaa19c55a36b1b885689df477a3ff"
+    },
+    {
+      "tick": 4680,
+      "digest": "17adce5e0063764623f434223da2f3d2fb39d2987c94da6aef8edc5cbc247ce8"
+    },
+    {
+      "tick": 4740,
+      "digest": "4fc976cbde0d4bc8a943568d95d4db57a7f841ce7e31e4addecfa1399383b91e"
+    },
+    {
+      "tick": 4800,
+      "digest": "1686f13f7c1b88da9eee563979c5c7581564f7b31ede2cc6277c4f70397414d4"
+    },
+    {
+      "tick": 4860,
+      "digest": "604bc469b654c7fcc923e026d090df6e3c5b405630f8cac8ac8e6722b8552b67"
+    },
+    {
+      "tick": 4920,
+      "digest": "99758e63dfecb71a6034b086c3ce239a136717974c2158f6e96f0cb70854d3f9"
+    },
+    {
+      "tick": 4980,
+      "digest": "c34e78c7f538c074f857293f3c2bb999a70cc8dcd984c4cad1b63000d3a8ce85"
+    },
+    {
+      "tick": 5040,
+      "digest": "a5ae1b92ee5c8d7994a36f1a9bad1f049216123a653e01a58cb0399641e075d7"
+    },
+    {
+      "tick": 5100,
+      "digest": "f17fb4cbcd258a5c1cef57e013cd8209fa9dd196e70b39b0b33d76b235a1a941"
+    },
+    {
+      "tick": 5160,
+      "digest": "0cd11bbc886754bab8ba95fd14d48915ccfc550fc289c02d9fcb9d3536ac80c5"
+    },
+    {
+      "tick": 5220,
+      "digest": "6127a5ba61eb9776e4e5d5ab7ea09726d7e25ba15605bff698093fddeb96048a"
+    },
+    {
+      "tick": 5280,
+      "digest": "9dcb85e0b85574442948d68b4c676b6dd417d2eef025481edcb3462885537f2b"
+    },
+    {
+      "tick": 5340,
+      "digest": "423596888c167ec22ee78569cfb7316930863cde06134734dd4558ec4775a513"
+    },
+    {
+      "tick": 5400,
+      "digest": "177211803ae1a8686829fa8622e296d24b72fca0314fc09e86b4eaec84d40184"
+    },
+    {
+      "tick": 5460,
+      "digest": "0c8f29ee902ce407baa0801e0d4fa79885ec23d05ddd7891832457cb2bdffbe4"
+    },
+    {
+      "tick": 5520,
+      "digest": "44b113d72eb08938a2811a62da8e18d9fec6d2a52e6bb984b25aa074690dc812"
+    },
+    {
+      "tick": 5580,
+      "digest": "50561fcf52e49b56cc8b751f44235e2bc55bf1d4087c0cd11a10b867b3c0fe93"
+    },
+    {
+      "tick": 5640,
+      "digest": "6d8bd926cf6a22be41588d25bd23f7601a8bd80393c536ee67c4c1eee090324c"
+    },
+    {
+      "tick": 5700,
+      "digest": "f5a31cdcf6ea492597945edac12fbc1d102aeb7e59bacbb21bcea42e2db46fc1"
+    },
+    {
+      "tick": 5760,
+      "digest": "0d2a30fa9d7b9670229171afb85eabb8a71ecd7def28498245362fb769e64cab"
+    },
+    {
+      "tick": 5820,
+      "digest": "94d748d93ef26609213a317d66cbd084d031b5e92330b299d67c73ffc2cc35c6"
+    },
+    {
+      "tick": 5880,
+      "digest": "8cb0c15015c73440812a18c3cce7793aaac408aa86d0626c38fba8983a94be88"
+    },
+    {
+      "tick": 5940,
+      "digest": "b0591b07f667e04660770093cec227e55275b9a48fd164c29e0839b2c631a2ab"
+    },
+    {
+      "tick": 6000,
+      "digest": "08954b2b0f0ae113e8b2e1c94f9f552646d4f860b1a8cbe6c21ed5503e1d8106"
+    },
+    {
+      "tick": 6060,
+      "digest": "faff5b3fdaabbb7b8cf5553376315d4da253ca6a669b465de39d1a8f17114c9e"
+    },
+    {
+      "tick": 6120,
+      "digest": "104020137a92feb7f3acbdfe4558b6fbb8a2dfbf1535adb1a7d0b7e229d09796"
+    },
+    {
+      "tick": 6180,
+      "digest": "b062af32545ff78ebc49918144f4057ed72bae06253afc632f52cacbc22bdf88"
+    },
+    {
+      "tick": 6240,
+      "digest": "50bd6687999b2b269a02f0768e3b4a99f9e1691a3e2436b60b917648daf0e27d"
+    },
+    {
+      "tick": 6300,
+      "digest": "0e41976b5af0731c24d9c8b1e625985d5b8520058a74e1f4c5622194818aaee2"
+    },
+    {
+      "tick": 6360,
+      "digest": "a7a57c87b3fbe7b18c3030d4498577193f29c1cf61147f99da937a1e43cc7d76"
+    },
+    {
+      "tick": 6420,
+      "digest": "dd82e7c38baf3486bcf24f16f28ef8d6328f14cb694a6577fdff710ab3861f2c"
+    },
+    {
+      "tick": 6480,
+      "digest": "1fe9e0debf0a48f7f04a85d7ce730ccc5c3f5634513b5a2012969a90cab54c1e"
+    },
+    {
+      "tick": 6540,
+      "digest": "2deefe6e7d563c6ecbc3d91eb59382dea51f93102288046d00d2a25dc926c218"
+    },
+    {
+      "tick": 6600,
+      "digest": "d0da4db682f92071f8a01f58d679031597173519e47807c59cf584c7b97a828c"
+    },
+    {
+      "tick": 6660,
+      "digest": "10805099373e06b3bb740560a274fe5b7bc16d3a6c560eeedacc9c0c499b818d"
+    },
+    {
+      "tick": 6720,
+      "digest": "42fb39ec7e78ec231e6b7ee4527ecf13584c66eeb3ad4549c30604329ce3fd01"
+    },
+    {
+      "tick": 6780,
+      "digest": "a08e53099e02fc09f5554e33b0127722486dc0941a0259fa05df4f3dd6413ed4"
+    },
+    {
+      "tick": 6840,
+      "digest": "9f31c41b56491a1ec06b4257361ff9005edb1c7817871ec9f1568721f985b2bd"
+    },
+    {
+      "tick": 6900,
+      "digest": "4486ddc9e845edce4b30560fc95e354988273f4d28c5355c39f08dc8be1756f7"
+    },
+    {
+      "tick": 6960,
+      "digest": "e7d3a163dc72313b3eaff1a8aaeadd9c1851141e98a2c34c84d8df923fd6f0ef"
+    },
+    {
+      "tick": 7020,
+      "digest": "05e8eaedb4fb6d94bf23459742569c07047d008321c11b4ca01c090d5b938f83"
+    },
+    {
+      "tick": 7080,
+      "digest": "996c932bea475b86fa8abfb102b850f2133a73f1313460afbfd79c93c989a6cd"
+    },
+    {
+      "tick": 7140,
+      "digest": "ba75c7eba263612fb266e2713a4b21258014f4db7c173e7aabd0f0b516eb6b3b"
+    },
+    {
+      "tick": 7200,
+      "digest": "346a4d157ecc230ba05549e51cacf6d840f2127ebfb33bccdfc4be024e999a45"
+    },
+    {
+      "tick": 7260,
+      "digest": "9a68c79d81e083d5c2ea7d9a5060426e1f6069afb30627c1ea28e51f7a3fb06a"
+    },
+    {
+      "tick": 7320,
+      "digest": "d6262916d40369361c958d4d089bec1c8c16de56d075893987eb43380ff52c7f"
+    },
+    {
+      "tick": 7380,
+      "digest": "8261aecfdd59574df7a4776ed6892742b5ec2fc4d6b67c83b49f1b8a03f2daf1"
+    },
+    {
+      "tick": 7440,
+      "digest": "b87c4cc050bfa69ef71d7ac716de72024022d893df5d64a70f90c6b8c292ff01"
+    },
+    {
+      "tick": 7500,
+      "digest": "32e9a2b12d865e930a3dd60e9eb6bb33c83081c656ee02f85ebf54aea2b5f317"
+    },
+    {
+      "tick": 7560,
+      "digest": "99d605296d123a111e4f298ed124c052c69f6a0b767fa6695c26769008f4137b"
+    },
+    {
+      "tick": 7620,
+      "digest": "8f54c508e3052be361b779cf1534e80b5eb176332024c9446162dc21c8d29ffe"
+    },
+    {
+      "tick": 7680,
+      "digest": "3699918ec2614251ca4d9e2430e56de46cdd2fcd23087653a058f72659060443"
+    },
+    {
+      "tick": 7740,
+      "digest": "59261c80d6f017810ddc06d9fa23add45c6a99daedfcce87c52a4762289d3522"
+    },
+    {
+      "tick": 7800,
+      "digest": "c99e888cedd5522b55583a708c946a3693d6047b4e5a9512c23646a4b1ce1c5a"
+    },
+    {
+      "tick": 7860,
+      "digest": "eb4be4dfda8a5ec5a84f95f8ca513ca51e2291f1d50e61de11f36fa3ceaa7747"
+    },
+    {
+      "tick": 7920,
+      "digest": "5e5ed83c59ab7a24ad80877a81fc4583b8699b77332589634c2aa174742df10f"
+    },
+    {
+      "tick": 7980,
+      "digest": "06e3785d088981bf27bfe01c783c91937ae6fb39c81f098139e5fff55c89869a"
+    },
+    {
+      "tick": 8040,
+      "digest": "6c853c42b0766eb6b173580011cf7bd3484764b84264aadb6d188a7162155493"
+    },
+    {
+      "tick": 8100,
+      "digest": "3a38058618fdeb88d282392deef2844c4062aa5aad2f301a33e3ede986e8a21d"
+    },
+    {
+      "tick": 8160,
+      "digest": "7b0c2b8e4656085f00a10845cc1f3b7881f499583c870c0f4f7dfa2efaa4ead6"
+    },
+    {
+      "tick": 8220,
+      "digest": "7533f4b438557a3a42fe8d4d6d6bf0dfe98e6942ba0e69ff7bfa3036b7a14dc0"
+    },
+    {
+      "tick": 8280,
+      "digest": "4075eabaa64b7856841f3c4893b6237c0ad0199b54ae536363ac3631af4bd8ac"
+    },
+    {
+      "tick": 8340,
+      "digest": "0b0c9d84657c2632541b47ec54ebb6a5ff0fad7ab32fe1e596e8a1635a7fa494"
+    },
+    {
+      "tick": 8400,
+      "digest": "963372c6fc153504b4ddafca31f83eb4569a0e2803f6f7d155dd6d7185bda194"
+    },
+    {
+      "tick": 8460,
+      "digest": "3e24f2774174d24294179623c780910c7c6c2f64158c5a9fbf703a2a1961e347"
+    },
+    {
+      "tick": 8520,
+      "digest": "0a5b1248f98c0e83f68f8ed64098e724e81786e91e3903ca6933e9d7876eafc4"
+    },
+    {
+      "tick": 8580,
+      "digest": "ffe18ef824f6983c29de47a617a9097602ab768cb13b46f5b344a734c522f276"
+    },
+    {
+      "tick": 8640,
+      "digest": "79e53148adf17342dd184b7019f4f77582327c3c9801e58db187770927bd5b50"
+    },
+    {
+      "tick": 8700,
+      "digest": "6157ecad92150b91da38b8cbdd0d633d5d378addf05574b87761d8836ae00bea"
+    },
+    {
+      "tick": 8760,
+      "digest": "13f2d6729523e5ff447406e48b574987f51b92a723b96743b2e832c8af4f60e4"
+    },
+    {
+      "tick": 8820,
+      "digest": "8a79f7d3af0c3800dcb6b72cd229bf5a19ab2f218e0cf58dddc6658b6cb4dff6"
+    },
+    {
+      "tick": 8880,
+      "digest": "825db64256b083624f4da1eb09f4acde7d4bdee78a6fcb1b318976fc755b1504"
+    },
+    {
+      "tick": 8940,
+      "digest": "9b9dfa04c1381af9367a99014e48107e1b147c2bb4c997bc19eb9ebfceba8485"
+    },
+    {
+      "tick": 9000,
+      "digest": "346fba3d88d4f0a484d4acfa60554af4e06ca2e97aae5882c224213fb20d8adb"
+    },
+    {
+      "tick": 9060,
+      "digest": "2bfcbfaf95d91e48989737204ccf57b4464bd0dc27beee149b73f825f3020763"
+    },
+    {
+      "tick": 9120,
+      "digest": "21a2b27b90d1ce46e49b1d0020373e05a0f4bd9488b9e3ab7cd37b5fd500f27e"
+    },
+    {
+      "tick": 9180,
+      "digest": "936eb802f4012564ef1a04223acc275987f8ea8d1f098f7a6bdb485667d79106"
+    },
+    {
+      "tick": 9240,
+      "digest": "f41b1a726249e7445149e9e1044ae7a10a878c9a46a63ffb69dbe61c7a4b99e7"
+    },
+    {
+      "tick": 9300,
+      "digest": "e43c433bfd25d85873d357d1b2ea49a2919dd7b3db76d14e935c5b19cfd32b27"
+    },
+    {
+      "tick": 9360,
+      "digest": "54244bcce4411ba12b94611a5547cbfe765de8bf9cafcb6b464c82b1d392ec0d"
+    },
+    {
+      "tick": 9420,
+      "digest": "db63136e8bb07a8358565112e17cc1d021ac17bb9c8036ced74c68af9a2e10a1"
+    },
+    {
+      "tick": 9480,
+      "digest": "16713f1e435cb1e0b01640e0b53754d8ac1e3e676e974595583a22b9f2249a05"
+    },
+    {
+      "tick": 9540,
+      "digest": "a41b05bbc095599e521ef433493b4c288066e7b3bddcd593769c03b3452f72eb"
+    },
+    {
+      "tick": 9600,
+      "digest": "b021726c8f044221f951882822a1f2bc10ba6c8695c9df66a603013fb0544cb5"
+    },
+    {
+      "tick": 9660,
+      "digest": "e9cd49ba70776286ca9cabfdf905a9e114f9bd187d28b6d3e80853dba2e130fd"
+    },
+    {
+      "tick": 9720,
+      "digest": "afb77b774d5b9af3418a2e09ebd8843980124ca93c1cc1ecaa8fe4baa9f3572c"
+    },
+    {
+      "tick": 9780,
+      "digest": "d4a625b661d4a0028ebea6c0b06b3edc98f7b63e769ed41d148aae06fb3890ee"
+    },
+    {
+      "tick": 9840,
+      "digest": "e747f89c1055f5368eb28a2be3b34648c35add8c32368732d5ba3ba32460eb36"
+    },
+    {
+      "tick": 9900,
+      "digest": "ac79b54381db345478c2435e08d6bf4027e3d6683ab8df9475a3b5e2cb84879b"
+    },
+    {
+      "tick": 9960,
+      "digest": "a71785b8acf23b23174b1be493d559df643bf42da36afcd9e3b3f9a6d9b96d74"
+    },
+    {
+      "tick": 10020,
+      "digest": "512e341c5f75c4711f2d2dd0ae047021043e2f38120e2c29a3a129b8420df138"
+    },
+    {
+      "tick": 10080,
+      "digest": "54fa6eed74457ccf9db1bae675ad43e9b7bc2c517db0fd6c079010759ba49c98"
+    }
+  ],
+  "engine": "military-recovery-candidate",
+  "formations": [],
+  "recoveredFactions": [],
+  "memory": {
+    "rssBefore": 328413184,
+    "rssAfter": 537432064,
+    "heapBefore": 133003104,
+    "heapAfter": 85991240,
+    "maxRssBytes": 567619584,
+    "note": "Fresh process per case; includes TypeScript/bootstrap, retained diagnostics and serialization, not pure engine memory."
+  },
+  "uncommittedArmies": 1,
+  "unservedReachableFrontiers": [],
+  "militaryRecoveryBlocked": [],
+  "failedAiUpkeepCycles": 68,
+  "bankStarvedWithLocalFood": [
+    "f_ai_1"
+  ],
+  "repeatedDeclinedExactOffers": 0,
+  "declinedTermGroups": 0,
+  "contextBlockedPlans": 0,
+  "decisionDomains": {
+    "DEVELOPMENT": 45,
+    "MILITARY_INITIATIVE": 27,
+    "FORCE_POSITIONING": 3
+  }
+}

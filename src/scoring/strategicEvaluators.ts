@@ -12,6 +12,8 @@ import { ECONOMY_CONFIG } from '../gameplay/economy/config';
 import { GAMEPLAY_CONFIG } from '../gameplay/config';
 import { FactualSupport } from './factualSupport';
 import { MIN_ATTACKING_TROOPS } from '../army/strategicAttack';
+import { ownedTravel } from '../army/strategicAccess';
+import { localFormationArmy } from '../gameplay/recruitment/formation';
 
 export const deterministicFacts:FactualUncertainty=Object.freeze({branches:Object.freeze(['specified effect']),realizationStructure:'deterministic',confidence:'high',timingSensitivity:false,unresolvedExternalChoice:false});
 export const contingentFacts:FactualUncertainty=Object.freeze({branches:Object.freeze(['attacker victory','defender victory','held/draw']),realizationStructure:'contingent',confidence:'bounded',timingSensitivity:true,unresolvedExternalChoice:false});
@@ -130,18 +132,33 @@ export class StrategicEvaluators {
         if(!a)throw new Error('Local allocation lost factual defender identity');
         return destination?.id===id?{...a,soldiers:a.soldiers+plan.quantity}:a;
       });
+      if(plan.destination.kind==='new_army')defenders.push(localFormationArmy(plan,'assessment'));
       const garrison=t.garrison+(plan.destination.kind==='garrison'?plan.quantity:0);
       const afterDefense=computeDefenderPower(defenders,garrison,t).effectivePower;
       const defenseGain=Math.min(Math.max(0,afterDefense-danger.defensePower),danger.shortfall);
       let attackGap=0;
       let offensiveGain=0;
+      if(plan.destination.kind==='new_army'&&targetTerritoryId&&this.support.hostile(plan.factionId,this.support.territories.get(targetTerritoryId)?.owner??null)) {
+        const target=this.support.territories.get(targetTerritoryId)!;
+        const travel=ownedTravel(this.support.territories,plan.factionId,t.id,(from,to)=>this.support.logistics([from.id,to.id]).timing.remainingTicks);
+        const remaining=Math.min(...target.neighboring.filter(n=>travel.distance.has(n)).map(n=>travel.distance.get(n)!));
+        const force=computeAttackerPower([localFormationArmy(plan,'assessment')]).effectivePower;
+        // Deployable capacity against this existing reachable objective, over a
+        // baseline with no field force. Neither conquest nor a future RNG win.
+        offensiveGain=Number.isFinite(remaining)?force/(1+remaining):0;
+      }
       // Preparation is factual support for the already-selected offensive
       // objective, never an internal search for a different hostile target.
       if(destination && targetTerritoryId && this.support.hostile(plan.factionId,this.support.territories.get(targetTerritoryId)?.owner??null)) {
         const outlook=this.battleOutlook(destination.id,targetTerritoryId).facts;
         attackGap=Math.max(0,outlook.defenderEffectiveStrength-outlook.attackerEffectiveStrength);
         const afterAttack=computeAttackerPower([{...destination,soldiers:destination.soldiers+plan.quantity}]).effectivePower;
-        offensiveGain=Math.min(Math.max(0,afterAttack-outlook.attackerEffectiveStrength),attackGap);
+        const beforeEligible=destination.soldiers+destination.knights>MIN_ATTACKING_TROOPS;
+        const afterEligible=destination.soldiers+destination.knights+plan.quantity>MIN_ATTACKING_TROOPS;
+        // Below the existing eligibility floor there is no usable offensive
+        // force, even against an empty target. Allocation can restore that
+        // factual capability; it does not promise conquest or alter combat.
+        offensiveGain=!beforeEligible&&afterEligible?afterAttack:Math.min(Math.max(0,afterAttack-outlook.attackerEffectiveStrength),attackGap);
       }
       return assessment('FORCE_POSITION_VALUE',{territoryId:t.id,quantity:plan.quantity,availablePool:pool.available,
         additionalUtility:Math.max(defenseGain,offensiveGain),defenseGain,offensiveGain,
@@ -149,8 +166,8 @@ export class StrategicEvaluators {
         ['Exact local pool availability minus canonical quantity claims','LOCAL_DANGER factual shortfall','CombatPower marginal soldiers','BATTLE_OUTLOOK target-bound preparation'],contingentFacts);
     });
   }
-  forcePositionValue(factionId:string,armyId:string,territoryId:string,baselineTerritoryId:string) {
-    return this.memo('FORCE_POSITION_VALUE',[factionId,armyId,territoryId,baselineTerritoryId],()=>{
+  forcePositionValue(factionId:string,armyId:string,territoryId:string,baselineTerritoryId:string,strategicTargetTerritoryId?:string) {
+    return this.memo('FORCE_POSITION_VALUE',[factionId,armyId,territoryId,baselineTerritoryId,strategicTargetTerritoryId??null],()=>{
       const a=this.support.armies.get(armyId)!;
       const usefulness=(id:string,arrivalTicks:number)=>{
         const t=this.support.territories.get(id)!;
@@ -163,10 +180,21 @@ export class StrategicEvaluators {
           const responseTicks=arrivalTicks+this.support.logistics([id,n]).timing.remainingTicks;
           return sum+(danger.earliestThreatTicks===null||responseTicks<=danger.earliestThreatTicks?Math.min(power,danger.shortfall)/(1+responseTicks):0);
         },0);
-        const access=t.neighboring.filter(n=>this.support.hostile(factionId,this.support.territories.get(n)?.owner??null)).reduce((sum,n)=>{
+        let access=t.neighboring.filter(n=>this.support.hostile(factionId,this.support.territories.get(n)?.owner??null)).reduce((sum,n)=>{
           const outlook=this.battleOutlook(armyId,n).facts;
           return sum+Math.max(0,outlook.relativeAdvantage)*T.powerScale/(1+this.support.logistics([id,n]).timing.remainingTicks);
         },0);
+        if(strategicTargetTerritoryId) {
+          const target=this.support.territories.get(strategicTargetTerritoryId);
+          const travel=ownedTravel(this.support.territories,factionId,id,(from,to)=>this.support.logistics([from.id,to.id]).timing.remainingTicks);
+          const frontiers=target?.neighboring.filter(n=>this.support.territories.get(n)?.owner===factionId&&travel.distance.has(n))??[];
+          const remaining=frontiers.length?Math.min(...frontiers.map(n=>travel.distance.get(n)!)):Infinity;
+          const outlook=target?this.battleOutlook(armyId,target.id).facts:null;
+          // Same units as coverage/response: usable physical force capacity,
+          // discounted by remaining authoritative travel. No Goal or flat bonus.
+          // This replaces, never adds to, the source's offensive access term.
+          access=outlook&&Number.isFinite(remaining)?Math.max(0,outlook.attackerEffectiveStrength-outlook.defenderEffectiveStrength)/(1+remaining):0;
+        }
         return {coverage,response,access,arrivalTicks,total:coverage+response+access};
       };
       const arrival=territoryId===baselineTerritoryId?0:this.support.logistics([baselineTerritoryId,territoryId]).timing.remainingTicks;

@@ -1,0 +1,2637 @@
+{
+  "base": "6f38eec6516682e64937b08744a5607f54bbba91",
+  "included": [
+    "docs/AI_LONGRUN_BEHAVIORAL_FIXES.md",
+    "docs/AI_LONGRUN_CHECKPOINT.md",
+    "docs/AI_LONGRUN_CHECKPOINT_SCOPE.json",
+    "docs/AI_LONGRUN_SIMULATION.md",
+    "docs/AI_MILITARY_RECOVERY_FINAL_REVIEW.md",
+    "docs/AI_MILITARY_RECOVERY_PROVISIONING.md",
+    "docs/ai-behavior-fixes/ARTIFACTS.md",
+    "docs/ai-behavior-fixes/MANIFEST.json",
+    "docs/ai-behavior-fixes/VALIDATION.md",
+    "docs/ai-behavior-fixes/evidence/final-production-fingerprints.json",
+    "docs/ai-behavior-fixes/evidence/integrity-verification.json",
+    "docs/ai-behavior-fixes/evidence/original-file-hashes.json",
+    "docs/ai-behavior-fixes/evidence/repository-hygiene.json",
+    "docs/ai-behavior-fixes/evidence/residual-frontier-assessments.jsonl",
+    "docs/ai-behavior-fixes/evidence/root-cause-before.jsonl",
+    "docs/ai-behavior-fixes/results/COMPARISON.json",
+    "docs/ai-behavior-fixes/results/COMPARISON.md",
+    "docs/ai-behavior-fixes/results/after/large-11-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/after/large-11-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/after/large-29-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/after/large-29-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/after/medium-11-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/after/medium-11-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/after/medium-29-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/after/medium-29-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/after/medium-47-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/after/medium-47-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/after/small-11-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/after/small-11-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/after/small-29-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/after/small-29-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/after/small-47-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/after/small-47-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/large-11-online-1440/scenario.json",
+    "docs/ai-behavior-fixes/results/before/large-11-online-1440/summary.json",
+    "docs/ai-behavior-fixes/results/before/large-11-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/large-11-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/large-29-offline-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/large-29-offline-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/large-29-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/large-29-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/large-47-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/large-47-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/medium-11-online-1440/scenario.json",
+    "docs/ai-behavior-fixes/results/before/medium-11-online-1440/summary.json",
+    "docs/ai-behavior-fixes/results/before/medium-11-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/medium-11-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/medium-29-offline-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/medium-29-offline-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/medium-29-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/medium-29-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/medium-47-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/medium-47-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/small-11-online-10080/scenario.json",
+    "docs/ai-behavior-fixes/results/before/small-11-online-10080/summary.json",
+    "docs/ai-behavior-fixes/results/before/small-11-online-1440/scenario.json",
+    "docs/ai-behavior-fixes/results/before/small-11-online-1440/summary.json",
+    "docs/ai-behavior-fixes/results/before/small-11-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/small-11-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/small-29-offline-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/small-29-offline-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/small-29-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/small-29-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/before/small-47-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/before/small-47-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/large-11-online-1440/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/large-11-online-1440/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/large-11-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/large-11-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/large-29-offline-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/large-29-offline-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/large-29-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/large-29-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/large-47-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/large-47-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/medium-11-online-1440/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/medium-11-online-1440/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/medium-11-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/medium-11-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/medium-29-offline-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/medium-29-offline-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/medium-29-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/medium-29-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/medium-47-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/medium-47-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-10080/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-10080/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-1440/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-1440/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/small-29-offline-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/small-29-offline-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/small-29-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/small-29-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/final-after/small-47-online-360/scenario.json",
+    "docs/ai-behavior-fixes/results/final-after/small-47-online-360/summary.json",
+    "docs/ai-behavior-fixes/results/smoke/matrix.json",
+    "docs/ai-behavior-fixes/results/smoke/small-11-online-60/scenario.json",
+    "docs/ai-behavior-fixes/results/smoke/small-11-online-60/summary.json",
+    "docs/ai-longrun/MANIFEST.json",
+    "docs/ai-longrun/VALIDATION.md",
+    "docs/ai-longrun/results/RESULTS.md",
+    "docs/ai-longrun/results/analysis.json",
+    "docs/ai-longrun/results/large-six-hours/large-11-online-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/large-six-hours/large-11-online-360/scenario.json",
+    "docs/ai-longrun/results/large-six-hours/large-11-online-360/summary.json",
+    "docs/ai-longrun/results/large-six-hours/large-29-online-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/large-six-hours/large-29-online-360/scenario.json",
+    "docs/ai-longrun/results/large-six-hours/large-29-online-360/summary.json",
+    "docs/ai-longrun/results/large-six-hours/large-47-online-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/large-six-hours/large-47-online-360/scenario.json",
+    "docs/ai-longrun/results/large-six-hours/large-47-online-360/summary.json",
+    "docs/ai-longrun/results/large-six-hours/matrix.json",
+    "docs/ai-longrun/results/offline-six-hours/large-29-offline-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/offline-six-hours/large-29-offline-360/scenario.json",
+    "docs/ai-longrun/results/offline-six-hours/large-29-offline-360/summary.json",
+    "docs/ai-longrun/results/offline-six-hours/matrix.json",
+    "docs/ai-longrun/results/offline-six-hours/medium-29-offline-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/offline-six-hours/medium-29-offline-360/scenario.json",
+    "docs/ai-longrun/results/offline-six-hours/medium-29-offline-360/summary.json",
+    "docs/ai-longrun/results/offline-six-hours/small-29-offline-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/offline-six-hours/small-29-offline-360/scenario.json",
+    "docs/ai-longrun/results/offline-six-hours/small-29-offline-360/summary.json",
+    "docs/ai-longrun/results/one-day/large-11-online-1440/operation-lifecycle.json",
+    "docs/ai-longrun/results/one-day/large-11-online-1440/scenario.json",
+    "docs/ai-longrun/results/one-day/large-11-online-1440/summary.json",
+    "docs/ai-longrun/results/one-day/matrix.json",
+    "docs/ai-longrun/results/one-day/medium-11-online-1440/operation-lifecycle.json",
+    "docs/ai-longrun/results/one-day/medium-11-online-1440/scenario.json",
+    "docs/ai-longrun/results/one-day/medium-11-online-1440/summary.json",
+    "docs/ai-longrun/results/one-day/small-11-online-1440/operation-lifecycle.json",
+    "docs/ai-longrun/results/one-day/small-11-online-1440/scenario.json",
+    "docs/ai-longrun/results/one-day/small-11-online-1440/summary.json",
+    "docs/ai-longrun/results/one-week/matrix.json",
+    "docs/ai-longrun/results/one-week/small-11-online-10080/operation-lifecycle.json",
+    "docs/ai-longrun/results/one-week/small-11-online-10080/scenario.json",
+    "docs/ai-longrun/results/one-week/small-11-online-10080/summary.json",
+    "docs/ai-longrun/results/six-hours/matrix.json",
+    "docs/ai-longrun/results/six-hours/medium-11-online-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/six-hours/medium-11-online-360/scenario.json",
+    "docs/ai-longrun/results/six-hours/medium-11-online-360/summary.json",
+    "docs/ai-longrun/results/six-hours/medium-29-online-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/six-hours/medium-29-online-360/scenario.json",
+    "docs/ai-longrun/results/six-hours/medium-29-online-360/summary.json",
+    "docs/ai-longrun/results/six-hours/medium-47-online-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/six-hours/medium-47-online-360/scenario.json",
+    "docs/ai-longrun/results/six-hours/medium-47-online-360/summary.json",
+    "docs/ai-longrun/results/six-hours/small-11-online-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/six-hours/small-11-online-360/scenario.json",
+    "docs/ai-longrun/results/six-hours/small-11-online-360/summary.json",
+    "docs/ai-longrun/results/six-hours/small-29-online-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/six-hours/small-29-online-360/scenario.json",
+    "docs/ai-longrun/results/six-hours/small-29-online-360/summary.json",
+    "docs/ai-longrun/results/six-hours/small-47-online-360/operation-lifecycle.json",
+    "docs/ai-longrun/results/six-hours/small-47-online-360/scenario.json",
+    "docs/ai-longrun/results/six-hours/small-47-online-360/summary.json",
+    "docs/ai-military-final-review/MANIFEST.json",
+    "docs/ai-military-final-review/evidence/archive-checks.cjs",
+    "docs/ai-military-final-review/evidence/baseline-cpu-summary.json",
+    "docs/ai-military-final-review/evidence/baseline-profile.json",
+    "docs/ai-military-final-review/evidence/current-cpu-summary.json",
+    "docs/ai-military-final-review/evidence/current-profile.json",
+    "docs/ai-military-final-review/evidence/existing-results.json",
+    "docs/ai-military-final-review/evidence/formed-army-outcomes.json",
+    "docs/ai-military-final-review/evidence/invalidated-attacks.json",
+    "docs/ai-military-final-review/evidence/large-29-exit.txt",
+    "docs/ai-military-final-review/evidence/optimized-cpu-summary.json",
+    "docs/ai-military-final-review/evidence/optimized-profile.json",
+    "docs/ai-military-final-review/evidence/pre-performance-src_engine_strategicPressure.ts.txt",
+    "docs/ai-military-final-review/evidence/pre-performance-src_gameplay_construction_definitions.ts.txt",
+    "docs/ai-military-final-review/evidence/pre-performance-src_gameplay_trade_candidates.ts.txt",
+    "docs/ai-military-final-review/evidence/prerequisite-parity.cjs",
+    "docs/ai-military-final-review/evidence/profile.cjs",
+    "docs/ai-military-final-review/evidence/replay-comparison.json",
+    "docs/ai-military-final-review/evidence/review-integrity.json",
+    "docs/ai-military-final-review/evidence/small-week-exit.txt",
+    "docs/ai-military-final-review/evidence/stack-count.cjs",
+    "docs/ai-military-final-review/evidence/targeted-results.json",
+    "docs/ai-military-final-review/evidence/typescript-identity-comparison.json",
+    "docs/ai-military-final-review/results/large-29-online-360/scenario.json",
+    "docs/ai-military-final-review/results/large-29-online-360/summary.json",
+    "docs/ai-military-final-review/results/small-11-online-10080/scenario.json",
+    "docs/ai-military-final-review/results/small-11-online-10080/summary.json",
+    "docs/ai-recovery-provisioning/MANIFEST.json",
+    "docs/ai-recovery-provisioning/evidence/contained-physical-failures.json",
+    "docs/ai-recovery-provisioning/evidence/final-production-fingerprints.json",
+    "docs/ai-recovery-provisioning/evidence/pre-capability-aiBehavioralFixes.ts.txt",
+    "docs/ai-recovery-provisioning/evidence/production-fingerprints.json",
+    "docs/ai-recovery-provisioning/evidence/residual-medium-29-recovery.json",
+    "docs/ai-recovery-provisioning/evidence/validation-integrity.json",
+    "docs/ai-recovery-provisioning/reference-smoke/scenario.json",
+    "docs/ai-recovery-provisioning/reference-smoke/summary.json",
+    "docs/ai-recovery-provisioning/results/COMPARISON.json",
+    "docs/ai-recovery-provisioning/results/COMPARISON.md",
+    "docs/ai-recovery-provisioning/results/after/large-11-online-1440/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/large-11-online-1440/summary.json",
+    "docs/ai-recovery-provisioning/results/after/large-11-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/large-11-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/after/large-29-offline-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/large-29-offline-360/summary.json",
+    "docs/ai-recovery-provisioning/results/after/large-29-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/large-29-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/after/large-47-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/large-47-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/after/medium-11-online-1440/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/medium-11-online-1440/summary.json",
+    "docs/ai-recovery-provisioning/results/after/medium-11-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/medium-11-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/after/medium-29-offline-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/medium-29-offline-360/summary.json",
+    "docs/ai-recovery-provisioning/results/after/medium-29-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/medium-29-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/after/medium-47-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/medium-47-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-10080/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-10080/summary.json",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-1440/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-1440/summary.json",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/after/small-29-offline-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/small-29-offline-360/summary.json",
+    "docs/ai-recovery-provisioning/results/after/small-29-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/small-29-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/after/small-47-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/after/small-47-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/large-11-online-1440/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/large-11-online-1440/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/large-11-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/large-11-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/large-29-offline-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/large-29-offline-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/large-29-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/large-29-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/large-47-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/large-47-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/medium-11-online-1440/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/medium-11-online-1440/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/medium-11-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/medium-11-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/medium-29-offline-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/medium-29-offline-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/medium-29-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/medium-29-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/medium-47-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/medium-47-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-10080/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-10080/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-1440/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-1440/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-29-offline-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-29-offline-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-29-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-29-online-360/summary.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-47-online-360/scenario.json",
+    "docs/ai-recovery-provisioning/results/final-after/small-47-online-360/summary.json",
+    "scripts/ai-behavioral-baseline.cjs",
+    "scripts/ai-behavioral-matrix.cjs",
+    "scripts/ai-recovery-compare.cjs",
+    "scripts/ai-recovery-matrix.cjs",
+    "src/army/fieldRecovery.ts",
+    "src/army/strategicAccess.ts",
+    "src/engine/strategicPressure.ts",
+    "src/gameplay/construction/definitions.ts",
+    "src/gameplay/recruitment/formation.ts",
+    "src/gameplay/recruitment/reinforcement.ts",
+    "src/gameplay/trade/candidates.ts",
+    "src/gameplay/trade/declinedContext.ts",
+    "src/gameplay/trade/trade.ts",
+    "src/scoring/contextPlanComparison.ts",
+    "src/scoring/strategicEvaluators.ts",
+    "src/simulation/longrun/analyze.ts",
+    "src/simulation/longrun/behavioralRun.ts",
+    "src/simulation/longrun/cli.ts",
+    "src/simulation/longrun/compareBehavior.ts",
+    "src/simulation/longrun/recoveryRun.ts",
+    "src/simulation/longrun/runner.ts",
+    "src/simulation/longrun/scenarios.ts",
+    "src/state/pressureInvariants.ts",
+    "src/types/AIPressure.ts",
+    "tests/aiBehavioralFixes.ts",
+    "tests/aiLongRunSimulation.ts",
+    "tests/aiMilitaryRecovery.ts",
+    "tests/aiMilitaryReview.ts",
+    "tests/aiRecruitment.ts",
+    "tests/fixtures/ai-behavioral/README.md",
+    "tests/fixtures/ai-behavioral/idle-small-state.json.gz",
+    "tests/fixtures/ai-behavioral/idle-small-world.json"
+  ],
+  "excluded": [
+    {
+      "path": "docs/ai-behavior-fixes/evidence/behavioral-tests.log",
+      "sha256": "8f90c173b51ee1055f02aa4d9e6f277682530258006f2a45005a940558074f9a",
+      "bytes": 2493,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/evidence/existing-harness-tests.log",
+      "sha256": "6b63c29827a7b200c220b36a84526f2a63d262a97ab075c9be930b234342ed41",
+      "bytes": 1288,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/evidence/expected-baseline-regression-failures.log",
+      "sha256": "d745a0b3337bc31d2d337db4dbc7b77c47a2418094f98dadc662fbd4ffa9e756",
+      "bytes": 2421,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/evidence/focused-a-l.log",
+      "sha256": "3e6443f6389fb0fc0d1b944140504cd5cac7a08dbf8f47ad2d43e8a99c8d7665",
+      "bytes": 67927,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/evidence/full-backend.log",
+      "sha256": "0210ec54295c6a656150385370c45e33595eae75daf14a630d1e9043a3a4d95b",
+      "bytes": 153912,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/evidence/integration.log",
+      "sha256": "e023e9374a03f5707c0bebd6b3bd8300f1f0796b781a2ad1d5e2943b2cab8bef",
+      "bytes": 23306,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/evidence/matrix-before.log",
+      "sha256": "8231f6810aaab47e58990d0f4fea95964c19bc39dbd5ae04a7aa4922453277f1",
+      "bytes": 7222,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/evidence/matrix-final-after.log",
+      "sha256": "3e1d8fb5c22a1a61c39c00b578e46c3b00642565a1053dae1ece76e4529c1d0f",
+      "bytes": 5411,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/evidence/production-typescript.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/evidence/test-inclusive-typescript.log",
+      "sha256": "d1d4864b018a161a3cd4adf9f017fa2bd79bb3accbb2f778886bd3688f9920ca",
+      "bytes": 7310,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/large-11-online-360/final-state.json.gz",
+      "sha256": "c15f3f6dac720f36c7024844de27dec5bb9b9c749a41ce19692883bfffea07ff",
+      "bytes": 112218,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/large-11-online-360/timeline.jsonl.gz",
+      "sha256": "d8c10ec572cbb6dfcc60843d56366af54277699a8417f177b7bb885ba51cb9f0",
+      "bytes": 1461631,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/large-11-online-360/timeline.md",
+      "sha256": "73aaad181b0b0b379886d4a503851fd2aa6013ae376c2c40e4939a82e52516e5",
+      "bytes": 163129,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/large-29-online-360/final-state.json.gz",
+      "sha256": "a6fa545fd99bf3a8bb26b56723e9ad5e12f8027220ba4839351eaa148d6997df",
+      "bytes": 80502,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/large-29-online-360/timeline.jsonl.gz",
+      "sha256": "420a4cd302efdeddad9d74fc1a93b0639bc6065f8eca75c1a7993cea37d8f9a8",
+      "bytes": 2458198,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/large-29-online-360/timeline.md",
+      "sha256": "4a4dbfc26650bf1968314d9938b2a9da04133072387723a40c649caab18e9cab",
+      "bytes": 152919,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/medium-11-online-360/final-state.json.gz",
+      "sha256": "1025bb8d1efc6ffd3284418d1a99d3896afae9fbb9346dbb553a3da6f127d297",
+      "bytes": 48807,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/medium-11-online-360/timeline.jsonl.gz",
+      "sha256": "fad7a4021e8464e6978c1dd42c2351f0879c9c245cb399c4080e0dcb18efdbf3",
+      "bytes": 880255,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/medium-11-online-360/timeline.md",
+      "sha256": "ddef7f1833b3acb08995e7d6d1f0d048d724025d8d0242527a81cf7dcc713c6a",
+      "bytes": 74680,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/medium-29-online-360/final-state.json.gz",
+      "sha256": "7314db7276cd304bfde3c8611316e82ac50fabbc66ff392fe79fed4b3237532c",
+      "bytes": 42826,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/medium-29-online-360/timeline.jsonl.gz",
+      "sha256": "dd2350e8839dc440c81dd56a18cfda421f808876053a5d3fee8d7557c506137e",
+      "bytes": 740516,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/medium-29-online-360/timeline.md",
+      "sha256": "cbb274e446cfb01fbd0bbd34481fd87979d3d5f0d8a7896886f3fb69573a46e5",
+      "bytes": 70421,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/medium-47-online-360/final-state.json.gz",
+      "sha256": "b1a33855a783dba94bc5136515aa4eb4284f2dd89ba95ae3ad6c7cb4ad555164",
+      "bytes": 43657,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/medium-47-online-360/timeline.jsonl.gz",
+      "sha256": "ac77dd63939640448ddf49e8dbc340043a713946fee2cb36bdf41f1d6d9ecfd3",
+      "bytes": 1019054,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/medium-47-online-360/timeline.md",
+      "sha256": "a278803f94c2680e5ccd2c3776bc353d4ce3fe11fe337994a4320f1622f51824",
+      "bytes": 84006,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/small-11-online-360/final-state.json.gz",
+      "sha256": "0b0a947e7c5b93a70fa50a422ded1145f768d68a7e76904c36530bbf15dab494",
+      "bytes": 20371,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/small-11-online-360/timeline.jsonl.gz",
+      "sha256": "d6117f1498658dae344861e6783accb734ca390ca67aa9589ce1de4ea59f94ce",
+      "bytes": 101879,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/small-11-online-360/timeline.md",
+      "sha256": "19c41219d57ca5884a12e6e8c35051948a639c01d4fe313fc42282883525b8b5",
+      "bytes": 14345,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/small-29-online-360/final-state.json.gz",
+      "sha256": "ae0cc8355c969235571fe81c9475764ed18d1ccb6dca3f192a1978ab724e92e9",
+      "bytes": 18000,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/small-29-online-360/timeline.jsonl.gz",
+      "sha256": "773824e90c1a5917eb870f551a264094c90713ca18c5f8761c0be6b8b72291b4",
+      "bytes": 85721,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/small-29-online-360/timeline.md",
+      "sha256": "f4ab1cfef08876af86afdef7df9008c379324db1294957c5db3413e80243b00c",
+      "bytes": 13515,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/small-47-online-360/final-state.json.gz",
+      "sha256": "65cddfaebbca89a19819f40be284f2f53892ae295387243d209e82358f8eadcc",
+      "bytes": 15425,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/small-47-online-360/timeline.jsonl.gz",
+      "sha256": "a1d2a1714c5c3f78adb3d19018c8d2a8f1e6bce6a11dc6037452ec425147c997",
+      "bytes": 56063,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/after/small-47-online-360/timeline.md",
+      "sha256": "6989f954aafd3960bcc3e0765dc35ba7e5bedfc3717c54a2bed1de744eb386dd",
+      "bytes": 8222,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-11-online-1440/final-state.json.gz",
+      "sha256": "bb6597eb5662d22824321cf9813562db77dd4af1f78f3bfe99f8567e60c56599",
+      "bytes": 98446,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-11-online-1440/timeline.jsonl.gz",
+      "sha256": "bb35b41506b752ff66fe5cec8fc0eeac2d7bde228a64c24937a92e67501ed107",
+      "bytes": 1289469,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-11-online-1440/timeline.md",
+      "sha256": "f131aa3cc47a23867b780a033b239dab040461b4d073928c7271bfdd60ccb755",
+      "bytes": 120935,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-11-online-360/final-state.json.gz",
+      "sha256": "6e13b99bad8220dc65c9fefe169e4cce92f6ef8efe7d925d486b1058c871499f",
+      "bytes": 98615,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-11-online-360/timeline.jsonl.gz",
+      "sha256": "3d96c8e21666fec8213a056f86cf195bf4cff8dbea88a57bb790591aef5ff3d8",
+      "bytes": 1343831,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-11-online-360/timeline.md",
+      "sha256": "61a0a126e4ded3d73dda018d37ce0f0fb1c0cafd405f8ef5d6a390b770fd99e7",
+      "bytes": 141240,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-29-offline-360/final-state.json.gz",
+      "sha256": "f9c2705f4976edb1f7e97c4acc17a3c66f55a71f1cda717be6eb1c03f48a7a9e",
+      "bytes": 67325,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-29-offline-360/timeline.jsonl.gz",
+      "sha256": "c20dd3e63a6b8bc565cfadc807e964f40626add1dc6f41bdc9e392d13eddaac7",
+      "bytes": 359564,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-29-offline-360/timeline.md",
+      "sha256": "e0163025e9e99fa04f40fd2bbc40157a29b9b43c20ead70994ba86cb49e8633c",
+      "bytes": 42688,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-29-online-360/final-state.json.gz",
+      "sha256": "6977fe150cdddf9c677892b31cdf3ca560cfb1ddec111b722c09b20faf4abb81",
+      "bytes": 106598,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-29-online-360/timeline.jsonl.gz",
+      "sha256": "08d8e835f34efd811b0a323e7887139afc68e230e54e21f2fcff1e76ec77370d",
+      "bytes": 1838774,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-29-online-360/timeline.md",
+      "sha256": "a0cce2e18442e99a964b8d2c3af9f3f318f8450887f09736a72a4c621b393f18",
+      "bytes": 175897,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-47-online-360/final-state.json.gz",
+      "sha256": "8a8a60b7caa86e52b2b3a2f9e2cbc5004a03d8932b557b69f37a8eba6012db71",
+      "bytes": 98686,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-47-online-360/timeline.jsonl.gz",
+      "sha256": "336989bc3ed3a9cbddf4a1c7fe6310530125589b8ffc85e0d799bcca4aa9e897",
+      "bytes": 1684001,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/large-47-online-360/timeline.md",
+      "sha256": "fce5363e4c0cf75f59476c0b7c491056eacde4e2abf992b3188ce958d4e817e8",
+      "bytes": 147118,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-11-online-1440/final-state.json.gz",
+      "sha256": "fef1f44ecb67fb0a3fefc948cbb49457c8a09c0136dd813cc8722e51d51d8f20",
+      "bytes": 48813,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-11-online-1440/timeline.jsonl.gz",
+      "sha256": "470f38096bec8a375d1e73d8d07cf1ec38d190bcb4c8f339aac28d0304e353d4",
+      "bytes": 863438,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-11-online-1440/timeline.md",
+      "sha256": "a3ca888bff875b8febcde0e81edbe57e51ab1c4f8a13961cc88a8fab16944338",
+      "bytes": 68783,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-11-online-360/final-state.json.gz",
+      "sha256": "1025bb8d1efc6ffd3284418d1a99d3896afae9fbb9346dbb553a3da6f127d297",
+      "bytes": 48807,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-11-online-360/timeline.jsonl.gz",
+      "sha256": "fad7a4021e8464e6978c1dd42c2351f0879c9c245cb399c4080e0dcb18efdbf3",
+      "bytes": 880255,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-11-online-360/timeline.md",
+      "sha256": "ed0b6fb829eabdcafa3636aa428ffdb06d8493ce8e92521d6c2c1a7bbd612c79",
+      "bytes": 74681,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-29-offline-360/final-state.json.gz",
+      "sha256": "018643002879b9c201c0d6f8855387517f2a33150dabcf92bd67b70d717f6335",
+      "bytes": 37817,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-29-offline-360/timeline.jsonl.gz",
+      "sha256": "579a752ea1ca03bfa75829322c00375c10fae790c3215c3cb81b35e4b65f83ae",
+      "bytes": 243458,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-29-offline-360/timeline.md",
+      "sha256": "fde3d98247aa7c41306204672ec0921cc42967c8f51ef959fb078a38a05fcd0a",
+      "bytes": 23621,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-29-online-360/final-state.json.gz",
+      "sha256": "284c1370addf0dd2a0d191d76fc80ea0e99ce010ccfaa234ac04ad3f4a70664c",
+      "bytes": 42656,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-29-online-360/timeline.jsonl.gz",
+      "sha256": "bfc86d2fc1ccafe9b8c4028e217c7ea45a0bee4777424ed148c72f736dce570a",
+      "bytes": 730448,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-29-online-360/timeline.md",
+      "sha256": "908c4d77f4a8103bbb06ac443af38df880ee738d87aa4728b2e607cf622aaabf",
+      "bytes": 70818,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-47-online-360/final-state.json.gz",
+      "sha256": "66ea7b829e0a69ae6b714f9283711bf57a4ab5a30585c9599d8ed446586f6730",
+      "bytes": 43592,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-47-online-360/timeline.jsonl.gz",
+      "sha256": "f659d1fa2cae9c1e619ded0aa14acec227b952ae318653eabb37d542cf58ee69",
+      "bytes": 849116,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/medium-47-online-360/timeline.md",
+      "sha256": "daae6a4250a264d0697af9963a86c24102da1102a3a1fd3dfc6f9ea031afdf88",
+      "bytes": 79211,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-11-online-10080/final-state.json.gz",
+      "sha256": "2e802afc7aec34747113fd258b75fcaa26c13ed618346ef2783cecdf835043c6",
+      "bytes": 19006,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-11-online-10080/timeline.jsonl.gz",
+      "sha256": "e564491e2cf1bf8be89d9e5775942578d02eb2e53e4f5a60ac5ad7f94b158f06",
+      "bytes": 88339,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-11-online-10080/timeline.md",
+      "sha256": "9420be09a955b57faf7fed4d18cb710f22567400bb1d5c0d703c81842648a8ae",
+      "bytes": 12187,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-11-online-1440/final-state.json.gz",
+      "sha256": "ecf4b3c7c823a6223c1f350554bc23a596dd63fc5e6dbcf9d5d893936fd603d6",
+      "bytes": 18157,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-11-online-1440/timeline.jsonl.gz",
+      "sha256": "8eefa700ed9671fe78bd7000cb478418cafafeb9091b3ee7cff5b9be962063bb",
+      "bytes": 85348,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-11-online-1440/timeline.md",
+      "sha256": "3ee3e5889ac6ace41f540e8e299f58cbcdfefcefeb18241ae31ac69b0a12861f",
+      "bytes": 10230,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-11-online-360/final-state.json.gz",
+      "sha256": "d2d88ab8152f3009bc99bcfbb80b04c55bee5018332cfa83e57f659671ebe119",
+      "bytes": 18141,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-11-online-360/timeline.jsonl.gz",
+      "sha256": "d83c0ac0f98b2ba74a977bc0697d0ece074beb311792431c5d8b09f653c5cd74",
+      "bytes": 86604,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-11-online-360/timeline.md",
+      "sha256": "b2c5601bd5f444321f7593b7768426bb98ad80d90a455b811c13912a64d92465",
+      "bytes": 11740,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-29-offline-360/final-state.json.gz",
+      "sha256": "f783e1799950abea99697ab411651aae1faf9f18bfc6a7af86d4dcaf8773b1c0",
+      "bytes": 19354,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-29-offline-360/timeline.jsonl.gz",
+      "sha256": "1ab62a7791fe99946aadd3a66886bcc1262275d413540bcc26286c81e2563b76",
+      "bytes": 72618,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-29-offline-360/timeline.md",
+      "sha256": "56663553fefeb4c9cea1f78996a77e9fb7ce9fd7fc52d2583659569b65637292",
+      "bytes": 9871,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-29-online-360/final-state.json.gz",
+      "sha256": "ae0cc8355c969235571fe81c9475764ed18d1ccb6dca3f192a1978ab724e92e9",
+      "bytes": 18000,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-29-online-360/timeline.jsonl.gz",
+      "sha256": "773824e90c1a5917eb870f551a264094c90713ca18c5f8761c0be6b8b72291b4",
+      "bytes": 85721,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-29-online-360/timeline.md",
+      "sha256": "34037e9df4e5cd101e11afb43cd10a8b282e4315602d5636cdc648acfcd3c91a",
+      "bytes": 13516,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-47-online-360/final-state.json.gz",
+      "sha256": "65cddfaebbca89a19819f40be284f2f53892ae295387243d209e82358f8eadcc",
+      "bytes": 15425,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-47-online-360/timeline.jsonl.gz",
+      "sha256": "a1d2a1714c5c3f78adb3d19018c8d2a8f1e6bce6a11dc6037452ec425147c997",
+      "bytes": 56063,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/before/small-47-online-360/timeline.md",
+      "sha256": "b52a5a7e74e413aeb4562d0f6cc4fe419ab1d275db528de67d5850d2045ac6ad",
+      "bytes": 8223,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-11-online-1440/final-state.json.gz",
+      "sha256": "c7f72c4cb90ab4a01c30ccaa88c0f3a8d870f175570b1b4a32eadce6577b4ab7",
+      "bytes": 112258,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-11-online-1440/timeline.jsonl.gz",
+      "sha256": "607c89cab01c0dcbc798b1014f970df01d2f92008b48883528561c4c4493cc06",
+      "bytes": 1509905,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-11-online-1440/timeline.md",
+      "sha256": "0a89782ea9c7559b3dd5252801d3c8cb42cd32ade2b319d1e28cb293e7139f74",
+      "bytes": 172638,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-11-online-360/final-state.json.gz",
+      "sha256": "c15f3f6dac720f36c7024844de27dec5bb9b9c749a41ce19692883bfffea07ff",
+      "bytes": 112218,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-11-online-360/timeline.jsonl.gz",
+      "sha256": "d8c10ec572cbb6dfcc60843d56366af54277699a8417f177b7bb885ba51cb9f0",
+      "bytes": 1461631,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-11-online-360/timeline.md",
+      "sha256": "73aaad181b0b0b379886d4a503851fd2aa6013ae376c2c40e4939a82e52516e5",
+      "bytes": 163129,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-29-offline-360/final-state.json.gz",
+      "sha256": "f9c2705f4976edb1f7e97c4acc17a3c66f55a71f1cda717be6eb1c03f48a7a9e",
+      "bytes": 67325,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-29-offline-360/timeline.jsonl.gz",
+      "sha256": "c20dd3e63a6b8bc565cfadc807e964f40626add1dc6f41bdc9e392d13eddaac7",
+      "bytes": 359564,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-29-offline-360/timeline.md",
+      "sha256": "e25999c90b672572f54614822b5c26764b81cb9e2777e59d46c630c37da86eb0",
+      "bytes": 42687,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-29-online-360/final-state.json.gz",
+      "sha256": "5fd7560f310e8b1b5ca4c76acc0ffbdcbbd71a2197a14cb57b92b058050da521",
+      "bytes": 80461,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-29-online-360/timeline.jsonl.gz",
+      "sha256": "a0a6c599a382c44efda1ba311a1669f236abbf4d5f0890ec48187409f2f54b9f",
+      "bytes": 2454514,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-29-online-360/timeline.md",
+      "sha256": "7e5b48017f27be9f6a0354d2e7a15675796e709ea3910bf880156731064da7d5",
+      "bytes": 152283,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-47-online-360/final-state.json.gz",
+      "sha256": "8a8a60b7caa86e52b2b3a2f9e2cbc5004a03d8932b557b69f37a8eba6012db71",
+      "bytes": 98686,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-47-online-360/timeline.jsonl.gz",
+      "sha256": "336989bc3ed3a9cbddf4a1c7fe6310530125589b8ffc85e0d799bcca4aa9e897",
+      "bytes": 1684001,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/large-47-online-360/timeline.md",
+      "sha256": "21c2a3b87e2b7201c517b60f474e7f587d164e8434462bbdd88af5da3caa9b01",
+      "bytes": 147117,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-11-online-1440/final-state.json.gz",
+      "sha256": "fef1f44ecb67fb0a3fefc948cbb49457c8a09c0136dd813cc8722e51d51d8f20",
+      "bytes": 48813,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-11-online-1440/timeline.jsonl.gz",
+      "sha256": "470f38096bec8a375d1e73d8d07cf1ec38d190bcb4c8f339aac28d0304e353d4",
+      "bytes": 863438,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-11-online-1440/timeline.md",
+      "sha256": "3971f330a018bf3634c404519ff5324cba6a1893d6dc6326183f0df2c6859e81",
+      "bytes": 68782,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-11-online-360/final-state.json.gz",
+      "sha256": "1025bb8d1efc6ffd3284418d1a99d3896afae9fbb9346dbb553a3da6f127d297",
+      "bytes": 48807,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-11-online-360/timeline.jsonl.gz",
+      "sha256": "fad7a4021e8464e6978c1dd42c2351f0879c9c245cb399c4080e0dcb18efdbf3",
+      "bytes": 880255,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-11-online-360/timeline.md",
+      "sha256": "ddef7f1833b3acb08995e7d6d1f0d048d724025d8d0242527a81cf7dcc713c6a",
+      "bytes": 74680,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-29-offline-360/final-state.json.gz",
+      "sha256": "018643002879b9c201c0d6f8855387517f2a33150dabcf92bd67b70d717f6335",
+      "bytes": 37817,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-29-offline-360/timeline.jsonl.gz",
+      "sha256": "579a752ea1ca03bfa75829322c00375c10fae790c3215c3cb81b35e4b65f83ae",
+      "bytes": 243458,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-29-offline-360/timeline.md",
+      "sha256": "53a19de5068cee459828347ad8a5b48d6820474b983099c13f5a6df7ce00ac80",
+      "bytes": 23620,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-29-online-360/final-state.json.gz",
+      "sha256": "7314db7276cd304bfde3c8611316e82ac50fabbc66ff392fe79fed4b3237532c",
+      "bytes": 42826,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-29-online-360/timeline.jsonl.gz",
+      "sha256": "dd2350e8839dc440c81dd56a18cfda421f808876053a5d3fee8d7557c506137e",
+      "bytes": 740516,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-29-online-360/timeline.md",
+      "sha256": "cbb274e446cfb01fbd0bbd34481fd87979d3d5f0d8a7896886f3fb69573a46e5",
+      "bytes": 70421,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-47-online-360/final-state.json.gz",
+      "sha256": "b1a33855a783dba94bc5136515aa4eb4284f2dd89ba95ae3ad6c7cb4ad555164",
+      "bytes": 43657,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-47-online-360/timeline.jsonl.gz",
+      "sha256": "ac77dd63939640448ddf49e8dbc340043a713946fee2cb36bdf41f1d6d9ecfd3",
+      "bytes": 1019054,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/medium-47-online-360/timeline.md",
+      "sha256": "a278803f94c2680e5ccd2c3776bc353d4ce3fe11fe337994a4320f1622f51824",
+      "bytes": 84006,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-11-online-10080/final-state.json.gz",
+      "sha256": "1f6c3067332ea9cfde0580df6cbccebe0ca5bd95e81646eabb24d25e169ed081",
+      "bytes": 21603,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-11-online-10080/timeline.jsonl.gz",
+      "sha256": "21fa1e5512af1d76ea75ac19c624aad7bc94f2f156feea52f99340c1bd7f4fc2",
+      "bytes": 105033,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-11-online-10080/timeline.md",
+      "sha256": "3c523531e793d052867832b5c08dd97c4f2bd5de84130d9c65d5183c77a259fb",
+      "bytes": 15361,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-11-online-1440/final-state.json.gz",
+      "sha256": "f9ca30463c6e433df903d1d1a62dc523027f7c215c463225e93eee3ea1a68e5e",
+      "bytes": 20375,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-11-online-1440/timeline.jsonl.gz",
+      "sha256": "59b93de81c1029221db334883086f06a3011b890a384939972a1c5a9a0ced4cd",
+      "bytes": 100406,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-11-online-1440/timeline.md",
+      "sha256": "342e6c6911498ad674ac62dec4aa9a976cafd2588b70e0559b609847f98125c3",
+      "bytes": 12419,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-11-online-360/final-state.json.gz",
+      "sha256": "0b0a947e7c5b93a70fa50a422ded1145f768d68a7e76904c36530bbf15dab494",
+      "bytes": 20371,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-11-online-360/timeline.jsonl.gz",
+      "sha256": "d6117f1498658dae344861e6783accb734ca390ca67aa9589ce1de4ea59f94ce",
+      "bytes": 101879,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-11-online-360/timeline.md",
+      "sha256": "19c41219d57ca5884a12e6e8c35051948a639c01d4fe313fc42282883525b8b5",
+      "bytes": 14345,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-29-offline-360/final-state.json.gz",
+      "sha256": "f783e1799950abea99697ab411651aae1faf9f18bfc6a7af86d4dcaf8773b1c0",
+      "bytes": 19354,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-29-offline-360/timeline.jsonl.gz",
+      "sha256": "1ab62a7791fe99946aadd3a66886bcc1262275d413540bcc26286c81e2563b76",
+      "bytes": 72618,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-29-offline-360/timeline.md",
+      "sha256": "2cf552f423bec5d4741e9684c9384ebea52cbf1daf306e0ee8ba8f110354db1a",
+      "bytes": 9870,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-29-online-360/final-state.json.gz",
+      "sha256": "ae0cc8355c969235571fe81c9475764ed18d1ccb6dca3f192a1978ab724e92e9",
+      "bytes": 18000,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-29-online-360/timeline.jsonl.gz",
+      "sha256": "773824e90c1a5917eb870f551a264094c90713ca18c5f8761c0be6b8b72291b4",
+      "bytes": 85721,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-29-online-360/timeline.md",
+      "sha256": "f4ab1cfef08876af86afdef7df9008c379324db1294957c5db3413e80243b00c",
+      "bytes": 13515,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-47-online-360/final-state.json.gz",
+      "sha256": "65cddfaebbca89a19819f40be284f2f53892ae295387243d209e82358f8eadcc",
+      "bytes": 15425,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-47-online-360/timeline.jsonl.gz",
+      "sha256": "a1d2a1714c5c3f78adb3d19018c8d2a8f1e6bce6a11dc6037452ec425147c997",
+      "bytes": 56063,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/final-after/small-47-online-360/timeline.md",
+      "sha256": "6989f954aafd3960bcc3e0765dc35ba7e5bedfc3717c54a2bed1de744eb386dd",
+      "bytes": 8222,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/smoke/small-11-online-60/final-state.json.gz",
+      "sha256": "769931056bc1d5058f10b09b7bb075b2482db3a8d32069bcd5d946d8a64954fb",
+      "bytes": 20596,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/smoke/small-11-online-60/timeline.jsonl.gz",
+      "sha256": "922ca79c3f92df9c6ad143a5bccb4d11a4825a68b0a90d140ca79bc9a343a5a9",
+      "bytes": 100182,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-behavior-fixes/results/smoke/small-11-online-60/timeline.md",
+      "sha256": "215480b68260247b06fe72163c01a1c9680a08f9ed8b27c99bcc3603efacf8bb",
+      "bytes": 14176,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/evidence/focused-a-l.log",
+      "sha256": "3e6443f6389fb0fc0d1b944140504cd5cac7a08dbf8f47ad2d43e8a99c8d7665",
+      "bytes": 67927,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/evidence/full-backend.log",
+      "sha256": "04faff6820b3aef5ac78404c26535afde3735eca88fa8aaeb2ee1299cb564bc4",
+      "bytes": 153912,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/evidence/independent-medium-batching.log",
+      "sha256": "4f825945abc486fdb0bd881dfee8fd84829d9627d800f7a8c34ea6836d070e64",
+      "bytes": 200,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/evidence/insertion-order-details.log",
+      "sha256": "3b0f460526217f9c289b46bbbd88734785c2566ba481c97cb28b6b3c20c3a199",
+      "bytes": 206,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/evidence/integration.log",
+      "sha256": "e6f89e7c329edf0cfeb6a4d41d14c5307d0f7173ad135c270c973e9e8b6d32e7",
+      "bytes": 23306,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/evidence/production-typescript.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/evidence/simulation-tests.log",
+      "sha256": "6b63c29827a7b200c220b36a84526f2a63d262a97ab075c9be930b234342ed41",
+      "bytes": 1288,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/evidence/test-inclusive-typescript.log",
+      "sha256": "d1d4864b018a161a3cd4adf9f017fa2bd79bb3accbb2f778886bd3688f9920ca",
+      "bytes": 7310,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/large-six-hours/large-11-online-360/final-state.json.gz",
+      "sha256": "6e13b99bad8220dc65c9fefe169e4cce92f6ef8efe7d925d486b1058c871499f",
+      "bytes": 98615,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/large-six-hours/large-11-online-360/timeline.jsonl.gz",
+      "sha256": "3d96c8e21666fec8213a056f86cf195bf4cff8dbea88a57bb790591aef5ff3d8",
+      "bytes": 1343831,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/large-six-hours/large-11-online-360/timeline.md",
+      "sha256": "5f5ba1b3cbbcf84de759d9eea0b08f0e1478a44df290719382abf78401090f4d",
+      "bytes": 143680,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/large-six-hours/large-29-online-360/final-state.json.gz",
+      "sha256": "6977fe150cdddf9c677892b31cdf3ca560cfb1ddec111b722c09b20faf4abb81",
+      "bytes": 106598,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/large-six-hours/large-29-online-360/timeline.jsonl.gz",
+      "sha256": "08d8e835f34efd811b0a323e7887139afc68e230e54e21f2fcff1e76ec77370d",
+      "bytes": 1838774,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/large-six-hours/large-29-online-360/timeline.md",
+      "sha256": "3a1208d6df93d0c97c16c7e6c3bd2e37ea1e90962bba98699956c45f616cc856",
+      "bytes": 178499,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/large-six-hours/large-47-online-360/final-state.json.gz",
+      "sha256": "8a8a60b7caa86e52b2b3a2f9e2cbc5004a03d8932b557b69f37a8eba6012db71",
+      "bytes": 98686,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/large-six-hours/large-47-online-360/timeline.jsonl.gz",
+      "sha256": "336989bc3ed3a9cbddf4a1c7fe6310530125589b8ffc85e0d799bcca4aa9e897",
+      "bytes": 1684001,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/large-six-hours/large-47-online-360/timeline.md",
+      "sha256": "bab42b2474c05a0eef7a5b522775e3acc26d2792338470e84b44cde0935fcf7b",
+      "bytes": 149864,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/offline-six-hours/large-29-offline-360/final-state.json.gz",
+      "sha256": "f9c2705f4976edb1f7e97c4acc17a3c66f55a71f1cda717be6eb1c03f48a7a9e",
+      "bytes": 67325,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/offline-six-hours/large-29-offline-360/timeline.jsonl.gz",
+      "sha256": "c20dd3e63a6b8bc565cfadc807e964f40626add1dc6f41bdc9e392d13eddaac7",
+      "bytes": 359564,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/offline-six-hours/large-29-offline-360/timeline.md",
+      "sha256": "16d9cf285aa2fe534a53b3cb7d03f43969eca9814e3680be63237f9a4a08ac0b",
+      "bytes": 44102,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/offline-six-hours/medium-29-offline-360/final-state.json.gz",
+      "sha256": "018643002879b9c201c0d6f8855387517f2a33150dabcf92bd67b70d717f6335",
+      "bytes": 37817,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/offline-six-hours/medium-29-offline-360/timeline.jsonl.gz",
+      "sha256": "579a752ea1ca03bfa75829322c00375c10fae790c3215c3cb81b35e4b65f83ae",
+      "bytes": 243458,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/offline-six-hours/medium-29-offline-360/timeline.md",
+      "sha256": "18a95e1fe46832be8dbd344670b1b52f810668c04ca0b3480aa3a0cdb0d6b56b",
+      "bytes": 24207,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/offline-six-hours/small-29-offline-360/final-state.json.gz",
+      "sha256": "f783e1799950abea99697ab411651aae1faf9f18bfc6a7af86d4dcaf8773b1c0",
+      "bytes": 19354,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/offline-six-hours/small-29-offline-360/timeline.jsonl.gz",
+      "sha256": "1ab62a7791fe99946aadd3a66886bcc1262275d413540bcc26286c81e2563b76",
+      "bytes": 72618,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/offline-six-hours/small-29-offline-360/timeline.md",
+      "sha256": "2ad526b47fc3f22c6db7087d05f8dc7ffe90334e89cb0ed860e18b3505f81363",
+      "bytes": 10241,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-day/large-11-online-1440/final-state.json.gz",
+      "sha256": "bb6597eb5662d22824321cf9813562db77dd4af1f78f3bfe99f8567e60c56599",
+      "bytes": 98446,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-day/large-11-online-1440/timeline.jsonl.gz",
+      "sha256": "bb35b41506b752ff66fe5cec8fc0eeac2d7bde228a64c24937a92e67501ed107",
+      "bytes": 1289469,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-day/large-11-online-1440/timeline.md",
+      "sha256": "8c1f2bdabc779bd5ede1ad1eb02f4876940b420e41196c24662c6812c38ca2d3",
+      "bytes": 123375,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-day/medium-11-online-1440/final-state.json.gz",
+      "sha256": "fef1f44ecb67fb0a3fefc948cbb49457c8a09c0136dd813cc8722e51d51d8f20",
+      "bytes": 48813,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-day/medium-11-online-1440/timeline.jsonl.gz",
+      "sha256": "470f38096bec8a375d1e73d8d07cf1ec38d190bcb4c8f339aac28d0304e353d4",
+      "bytes": 863438,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-day/medium-11-online-1440/timeline.md",
+      "sha256": "b2adad9a52b54b129a5e0a18962c71d38387f982bdc4c862348b75f3e9a7e584",
+      "bytes": 69945,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-day/small-11-online-1440/final-state.json.gz",
+      "sha256": "ecf4b3c7c823a6223c1f350554bc23a596dd63fc5e6dbcf9d5d893936fd603d6",
+      "bytes": 18157,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-day/small-11-online-1440/timeline.jsonl.gz",
+      "sha256": "8eefa700ed9671fe78bd7000cb478418cafafeb9091b3ee7cff5b9be962063bb",
+      "bytes": 85348,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-day/small-11-online-1440/timeline.md",
+      "sha256": "a38979004cbb3c12bd1f45eff91771aa18d31befaa8d689a96d68a8fba6c0b7b",
+      "bytes": 10564,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-week/small-11-online-10080/final-state.json.gz",
+      "sha256": "2e802afc7aec34747113fd258b75fcaa26c13ed618346ef2783cecdf835043c6",
+      "bytes": 19006,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-week/small-11-online-10080/timeline.jsonl.gz",
+      "sha256": "e564491e2cf1bf8be89d9e5775942578d02eb2e53e4f5a60ac5ad7f94b158f06",
+      "bytes": 88339,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/one-week/small-11-online-10080/timeline.md",
+      "sha256": "c9861a66f3b60c8a4687de202803491ecc805f0a35d98e731ff45a18bd0feb36",
+      "bytes": 12521,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/medium-11-online-360/final-state.json.gz",
+      "sha256": "22f068214ac8148cbc3eabbba1ec09666479c100b1a4a2e91b956444029504e1",
+      "bytes": 46395,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/medium-11-online-360/timeline.jsonl.gz",
+      "sha256": "72f6f0e442c12b325f56aac1e1d14efcdfcb39c9ab1ff0dbebacf3aeeea595c0",
+      "bytes": 846741,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/medium-11-online-360/timeline.md",
+      "sha256": "8f36f609aa78b54b97d9c0e73c7cd0ea21ed1a7ad357eb2f03e182008eafad10",
+      "bytes": 75843,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/medium-29-online-360/final-state.json.gz",
+      "sha256": "fe82fd4526c1ee89ff3b148d53a8e056deebe91459beb1161b53757ed1d9c7ca",
+      "bytes": 40566,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/medium-29-online-360/timeline.jsonl.gz",
+      "sha256": "1964f8739bc8196d076d6071bbd4932e651018903643e3f503facf15bf8f2ea3",
+      "bytes": 701208,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/medium-29-online-360/timeline.md",
+      "sha256": "27fa6f0c52412198361b24d29cfe03f7702795c35b41c0e411f1b774cdb0267e",
+      "bytes": 71620,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/medium-47-online-360/final-state.json.gz",
+      "sha256": "8ae12849277d1dff6dc56f89f76cfa58be4714cb07f7467f06229ca164f8e809",
+      "bytes": 41439,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/medium-47-online-360/timeline.jsonl.gz",
+      "sha256": "f587640888a79b550fafc6db0745c0bf2521f0083ce6739b6cddb894305d5fc4",
+      "bytes": 812725,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/medium-47-online-360/timeline.md",
+      "sha256": "499b4aff73509218130c962a9a77c6d52c841dc08848466fde680d432820959e",
+      "bytes": 79995,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/small-11-online-360/final-state.json.gz",
+      "sha256": "f75d43c9690f5412ef89c823d725662adf09f28bf8fb3b5ccabd39addfed0bfb",
+      "bytes": 17458,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/small-11-online-360/timeline.jsonl.gz",
+      "sha256": "5695a0ef5873417164fa8d7d96b7fa459761a18613c1a3133e7288c657b177b3",
+      "bytes": 85228,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/small-11-online-360/timeline.md",
+      "sha256": "e7214a06f9cdc493a4407fdb0b5400e45c015f64570a5fbc2c08b63dfadbe46b",
+      "bytes": 12074,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/small-29-online-360/final-state.json.gz",
+      "sha256": "78be7fb1182d51933b850b53b9d05187d67c44ef1b0045df55f4052ca109edb9",
+      "bytes": 17396,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/small-29-online-360/timeline.jsonl.gz",
+      "sha256": "9d1934672a52a2aa56527f21ff8a7348c0943c8f16a88e07568a9ddc4240cddf",
+      "bytes": 84475,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/small-29-online-360/timeline.md",
+      "sha256": "8606fc0cb1e5d0f3b7f50995921baad8b5f0af25cf4bf24fedd99ee32c72f109",
+      "bytes": 13814,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/small-47-online-360/final-state.json.gz",
+      "sha256": "5a78dd2362fa80acaa479929d27aa78aa50c7ea031b268e58e6326cefd072980",
+      "bytes": 14971,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/small-47-online-360/timeline.jsonl.gz",
+      "sha256": "9db776928a140588b2c77b11c69cb6062c00891566d4ce7dcc74386051b1de56",
+      "bytes": 55227,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-longrun/results/six-hours/small-47-online-360/timeline.md",
+      "sha256": "989b9865272e877f62337138640b787ab73ddf28054e36c59df22ba3e97a3bc1",
+      "bytes": 8467,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/aiBehavioralFixes.log",
+      "sha256": "b556af13df10a20a2d1991276470a5c19dc18c296c1df325eee0537fd32a2b8c",
+      "bytes": 2503,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/aiLongRunSimulation.log",
+      "sha256": "6b63c29827a7b200c220b36a84526f2a63d262a97ab075c9be930b234342ed41",
+      "bytes": 1288,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/aiMilitaryRecovery.log",
+      "sha256": "22a31ef78bfec353aff5ade0dce3216ce3b3c17b43a8577b30948092ac792922",
+      "bytes": 2687,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/aiMilitaryReview.log",
+      "sha256": "60692de7356588e59f7e2c678c923670dd34bda4f87d7e1a61c116c3701c76ce",
+      "bytes": 476,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/archive-checks-initial-fixture-error.log",
+      "sha256": "2afc7a8261b54a11fd4b6870b3963a5a432f6ea232328ddc8b85b3e3f9e801a1",
+      "bytes": 1024,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/archive-checks.log",
+      "sha256": "b09e4793404e3d59d5ba1291b1e004a24ad3f9133fc0f97217ddc7d7617200c2",
+      "bytes": 129,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/baseline-profile-state.json.gz",
+      "sha256": "61117b0c5ed2e35a6053fa08ff686288782d251252e7d48dffe84f809addc6a7",
+      "bytes": 48810,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/baseline-profile-timeline.jsonl.gz",
+      "sha256": "2c426882b308753a407bf0ef728663d2230b5eb3b93928d1a7a96e03fc048be6",
+      "bytes": 863438,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/baseline-profile.log",
+      "sha256": "2d9b8ebe21db6129dddcb5090d46b70828469d1690ed9a292eaedcfe78875a14",
+      "bytes": 817,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/baseline.cpuprofile",
+      "sha256": "f8856ec3e0bc41672e5110ba7b9c95b31be80ff1e01817559ba338f698073f5b",
+      "bytes": 7629480,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/current-profile-state.json.gz",
+      "sha256": "213764eeeb7108a3c4043de3e55627dee7da29655f2614ab235a1b4f60f5f9f6",
+      "bytes": 137311,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/current-profile-timeline.jsonl.gz",
+      "sha256": "1eba42fe5372989eab553779332bd51d4b5bbfb550d930e1de124955f0efbc84",
+      "bytes": 4449396,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/current-profile.log",
+      "sha256": "ae81dec03e87b5f032acf5f7e0a0b6fa7d9d6847aeeb57f02f580854caa7734d",
+      "bytes": 918,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/current.cpuprofile",
+      "sha256": "4e9677918f6c4614a8a4b6d241f3458251543b1f7f5b3655d8e6aadec7fb8143",
+      "bytes": 9372193,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/focused-a-l.log",
+      "sha256": "5862ec58fcf912abf51bcb962fe1361c95f62b893ed10ffeeccc14a8e1267325",
+      "bytes": 67945,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/full-backend.log",
+      "sha256": "c3a0b422c405e1de7bc0831fd8e534316dae9bbe3b6e15bdacaff06a92372f27",
+      "bytes": 153930,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/integration.log",
+      "sha256": "0223c518716e796170567b6c5389b4370f76da0be8e36957c8d2ceb48578b7d0",
+      "bytes": 23306,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/large-29-replay.log",
+      "sha256": "1f360c853135ce70b82878af8121d83ef8b96b5bc38c2fa2dd94b0fd950bb89c",
+      "bytes": 384,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/optimized-profile-state.json.gz",
+      "sha256": "213764eeeb7108a3c4043de3e55627dee7da29655f2614ab235a1b4f60f5f9f6",
+      "bytes": 137311,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/optimized-profile-timeline.jsonl.gz",
+      "sha256": "1eba42fe5372989eab553779332bd51d4b5bbfb550d930e1de124955f0efbc84",
+      "bytes": 4449396,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/optimized-profile.log",
+      "sha256": "cf4f61d55883ba43b2d22bc4f92d7ab79df24565fa52271746dcd9065021338d",
+      "bytes": 923,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/optimized-stack-count.log",
+      "sha256": "8839aa3fa9ab3a46c32fd9f9b02570b566cff8937694de39f76e6c8cba258f35",
+      "bytes": 60,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/optimized.cpuprofile",
+      "sha256": "1936bf511fcb8f11c16069fd887cda62147e8528e7517280db62d2dbe7e10ef7",
+      "bytes": 9326532,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/performance-regressions.log",
+      "sha256": "60692de7356588e59f7e2c678c923670dd34bda4f87d7e1a61c116c3701c76ce",
+      "bytes": 476,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/pre-performance-stack-count.log",
+      "sha256": "08b3670c9c0b18f622f3cb4e1d234f46b1ce129aa602aecbe56680e32e8340cf",
+      "bytes": 61,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/prerequisite-parity-initial-comparison.log",
+      "sha256": "d06b5d3ba854668010de0b10d26b9dbd7985badeff68a45b8745d0aab37cf74b",
+      "bytes": 1440,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/prerequisite-parity.log",
+      "sha256": "bd150b8d47826b03e4d54bbde83f956f11e80446802a6e78666b8adb04fdbdab",
+      "bytes": 99,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/production-typescript.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/small-week-replay.log",
+      "sha256": "8c04b55215378ac4bfcd172cd6493b3435846d45dfb094dfbfe710afce65fa3e",
+      "bytes": 358,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/evidence/test-inclusive-typescript.log",
+      "sha256": "d1d4864b018a161a3cd4adf9f017fa2bd79bb3accbb2f778886bd3688f9920ca",
+      "bytes": 7310,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/results/large-29-online-360/final-state.json.gz",
+      "sha256": "7adced29d6646c738744213fee12485118b0016cf6d8ebe7fa665200c8fd2172",
+      "bytes": 82545,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/results/large-29-online-360/timeline.jsonl.gz",
+      "sha256": "4b34101278d114815b665e592a6bb3129a466ffd14ae4ff43bf08a757619cd9e",
+      "bytes": 2367544,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/results/large-29-online-360/timeline.md",
+      "sha256": "d331814ac5aead1c336e788ed8d7d144a8b22a792678a5c13db0fbdce84027c1",
+      "bytes": 152452,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/results/small-11-online-10080/final-state.json.gz",
+      "sha256": "1f6c3067332ea9cfde0580df6cbccebe0ca5bd95e81646eabb24d25e169ed081",
+      "bytes": 21603,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/results/small-11-online-10080/timeline.jsonl.gz",
+      "sha256": "21fa1e5512af1d76ea75ac19c624aad7bc94f2f156feea52f99340c1bd7f4fc2",
+      "bytes": 105033,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-military-final-review/results/small-11-online-10080/timeline.md",
+      "sha256": "3c523531e793d052867832b5c08dd97c4f2bd5de84130d9c65d5183c77a259fb",
+      "bytes": 15361,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/behavioral-tests.log",
+      "sha256": "b556af13df10a20a2d1991276470a5c19dc18c296c1df325eee0537fd32a2b8c",
+      "bytes": 2503,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/comparison.log",
+      "sha256": "a9a2cab7fd7e0b7998ab10107371f8a8937b27235280f0141d222a123e0ab83f",
+      "bytes": 914,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/expected-baseline-eligibility-failure.log",
+      "sha256": "a029a3b5a3419d97a5b6e23b16fbb18d949a7d1aa3257671e38897c977ef4025",
+      "bytes": 1320,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/final-matrix.log",
+      "sha256": "2027d989edc115ea28f5df01267c257a850ea377835f90ef86c11146d79daafb",
+      "bytes": 6608,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/focused-a-l.log",
+      "sha256": "5862ec58fcf912abf51bcb962fe1361c95f62b893ed10ffeeccc14a8e1267325",
+      "bytes": 67945,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/formation-only-matrix.log",
+      "sha256": "54d943bfa116d250e1b50a39d5143366191b48a02b685b55ba8fd3501eead8fb",
+      "bytes": 6449,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/full-backend.log",
+      "sha256": "88e7b86dac59bf12c19933bb25f0eb5d11cc961d1ef0db8c78d9709ca4e22e6d",
+      "bytes": 153930,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/integration.log",
+      "sha256": "8f66652704fadb5aa43c45541630d306ecfe4d0c6428a46636bee75075692c33",
+      "bytes": 23306,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/military-tests.log",
+      "sha256": "d6b646a6f53de6574bc55a431654aaeeecaf2bc91d6b9ffec7ad4b0a00a2a696",
+      "bytes": 2686,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/production-typescript.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/reference-smoke.log",
+      "sha256": "fde0757c97a42af3fbaa9a0fb66d05c0cd22c4cc0c688d65d7fc4e931f654420",
+      "bytes": 430,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/simulation-tests.log",
+      "sha256": "6b63c29827a7b200c220b36a84526f2a63d262a97ab075c9be930b234342ed41",
+      "bytes": 1288,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/evidence/test-inclusive-typescript.log",
+      "sha256": "d1d4864b018a161a3cd4adf9f017fa2bd79bb3accbb2f778886bd3688f9920ca",
+      "bytes": 7310,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/reference-smoke/final-state.json.gz",
+      "sha256": "d2d88ab8152f3009bc99bcfbb80b04c55bee5018332cfa83e57f659671ebe119",
+      "bytes": 18141,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/reference-smoke/timeline.jsonl.gz",
+      "sha256": "d83c0ac0f98b2ba74a977bc0697d0ece074beb311792431c5d8b09f653c5cd74",
+      "bytes": 86604,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/reference-smoke/timeline.md",
+      "sha256": "b2c5601bd5f444321f7593b7768426bb98ad80d90a455b811c13912a64d92465",
+      "bytes": 11740,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-11-online-1440/final-state.json.gz",
+      "sha256": "e69a57b843e471fb0ff75e84868a395e2bbedade69b7521362b7025213ed7fdd",
+      "bytes": 116295,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-11-online-1440/timeline.jsonl.gz",
+      "sha256": "1cf885a6c20e4fa38b15466d39744400c82e340617e9b55d9eca03cb026a9b57",
+      "bytes": 2900955,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-11-online-1440/timeline.md",
+      "sha256": "c3b56ffdf763a537fc247079c94367011aac37bc9117b6f5beb16db9424978f2",
+      "bytes": 236851,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-11-online-360/final-state.json.gz",
+      "sha256": "aa7a07942ad213cb33781878d4d937c772706689abe302370eb793af17d5e62e",
+      "bytes": 116101,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-11-online-360/timeline.jsonl.gz",
+      "sha256": "4e9ac00dcdcf59a77d0af62edccf9c79b73e6d2e6200b5607f2d7e07dbcb6717",
+      "bytes": 1603255,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-11-online-360/timeline.md",
+      "sha256": "35129574a144b97e6ee4246e844575432c349a70438802742012d7c8ee56cee9",
+      "bytes": 163092,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-29-offline-360/final-state.json.gz",
+      "sha256": "b0694d5c0fc36e51a74dd849fcca939145a034ad6a7289e7547f0fdb0a56dc72",
+      "bytes": 68115,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-29-offline-360/timeline.jsonl.gz",
+      "sha256": "f3873a479b892ea0028cbd973ecf37779478d27621adf7fb0f5d0e8be9f43dd8",
+      "bytes": 359784,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-29-offline-360/timeline.md",
+      "sha256": "f92b08a710720d7cbdff8f84d171720447f433e0bf886bb24332c9a14708cf07",
+      "bytes": 42798,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-29-online-360/final-state.json.gz",
+      "sha256": "7adced29d6646c738744213fee12485118b0016cf6d8ebe7fa665200c8fd2172",
+      "bytes": 82545,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-29-online-360/timeline.jsonl.gz",
+      "sha256": "4b34101278d114815b665e592a6bb3129a466ffd14ae4ff43bf08a757619cd9e",
+      "bytes": 2367544,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-29-online-360/timeline.md",
+      "sha256": "d331814ac5aead1c336e788ed8d7d144a8b22a792678a5c13db0fbdce84027c1",
+      "bytes": 152452,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-47-online-360/final-state.json.gz",
+      "sha256": "83e381b84488e6d9ec86e950ba339b6ec72fe7b70ecd165c0288cc30b3eea78c",
+      "bytes": 94826,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-47-online-360/timeline.jsonl.gz",
+      "sha256": "18f815ef863d5ad604a8cd8b6f626bd3614259a40550e43fbf6c4ada2a1fddb3",
+      "bytes": 1970564,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/large-47-online-360/timeline.md",
+      "sha256": "a4df49266160bc4992a3c7c43d4c361731627e30070709b51ea692e62d6028f3",
+      "bytes": 154087,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-11-online-1440/final-state.json.gz",
+      "sha256": "a0ee773f2c1e034f00432f3019d6dea2f64378784c39fa35ca7fa973841012b8",
+      "bytes": 66764,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-11-online-1440/timeline.jsonl.gz",
+      "sha256": "7ba3929c8ecb812d11ed4db16b3bd98dd837a42f800c7fa7f0c1794f10e5f5f7",
+      "bytes": 3526369,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-11-online-1440/timeline.md",
+      "sha256": "2fed49aa2c718eacb19ee338a04e055f0d8ea6acc087bc8f05071c34b003381c",
+      "bytes": 179492,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-11-online-360/final-state.json.gz",
+      "sha256": "d9b34314dc1dd9238f6d5c1567b41fe93232301d4b19ed04b474ef1379ddb72e",
+      "bytes": 66363,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-11-online-360/timeline.jsonl.gz",
+      "sha256": "a1773276e3e583b816837626152697411a7377edd497e3740350c744ecc50fdb",
+      "bytes": 1191483,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-11-online-360/timeline.md",
+      "sha256": "7e77e24990f6708abf5265128cf17aeff77447eabbc7a68bc5a0701fb3a92971",
+      "bytes": 95468,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-29-offline-360/final-state.json.gz",
+      "sha256": "c5c1db07e28081a55d013fb5405e531e9657e08c7d9889d179b907313f9c5e4d",
+      "bytes": 39545,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-29-offline-360/timeline.jsonl.gz",
+      "sha256": "fa88cc3197bc3da7f25c9b11020e0f2608f77db9f419ecaf89a4cd257be39078",
+      "bytes": 246855,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-29-offline-360/timeline.md",
+      "sha256": "6d4d245bedadd9ed461b05b41c04b5c1768a453bd946ddbf07dcf4d78cdd39f5",
+      "bytes": 23978,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-29-online-360/final-state.json.gz",
+      "sha256": "7770af9ccf9e2de476cb1a48b5a10d86f6913c7b0c77564e3d47d1b28218d391",
+      "bytes": 56378,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-29-online-360/timeline.jsonl.gz",
+      "sha256": "31e42a354c27cb2cf804e3365cd7090ba8c3ea3534a14e09974295b839dbee02",
+      "bytes": 1015001,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-29-online-360/timeline.md",
+      "sha256": "419c12e0e6c6fbd47cb764f3f06582adfb70f0a586ea53c9d555e81ea1bcc49b",
+      "bytes": 83146,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-47-online-360/final-state.json.gz",
+      "sha256": "69119dce70a7541fde38e7b9e388609584c8562421c089dddb375120b3ff4ac1",
+      "bytes": 53636,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-47-online-360/timeline.jsonl.gz",
+      "sha256": "85745a4680ddab26fa6016e76b346fc44b43bd469d0d2b38413237bda84ae50a",
+      "bytes": 1283894,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/medium-47-online-360/timeline.md",
+      "sha256": "45721dc474a410df6367cb9071e5254f5a2bd194acf07d495c03290ba995d29d",
+      "bytes": 89495,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-11-online-10080/final-state.json.gz",
+      "sha256": "1f6c3067332ea9cfde0580df6cbccebe0ca5bd95e81646eabb24d25e169ed081",
+      "bytes": 21603,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-11-online-10080/timeline.jsonl.gz",
+      "sha256": "21fa1e5512af1d76ea75ac19c624aad7bc94f2f156feea52f99340c1bd7f4fc2",
+      "bytes": 105033,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-11-online-10080/timeline.md",
+      "sha256": "3c523531e793d052867832b5c08dd97c4f2bd5de84130d9c65d5183c77a259fb",
+      "bytes": 15361,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-11-online-1440/final-state.json.gz",
+      "sha256": "f9ca30463c6e433df903d1d1a62dc523027f7c215c463225e93eee3ea1a68e5e",
+      "bytes": 20375,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-11-online-1440/timeline.jsonl.gz",
+      "sha256": "59b93de81c1029221db334883086f06a3011b890a384939972a1c5a9a0ced4cd",
+      "bytes": 100406,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-11-online-1440/timeline.md",
+      "sha256": "342e6c6911498ad674ac62dec4aa9a976cafd2588b70e0559b609847f98125c3",
+      "bytes": 12419,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-11-online-360/final-state.json.gz",
+      "sha256": "0b0a947e7c5b93a70fa50a422ded1145f768d68a7e76904c36530bbf15dab494",
+      "bytes": 20371,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-11-online-360/timeline.jsonl.gz",
+      "sha256": "d6117f1498658dae344861e6783accb734ca390ca67aa9589ce1de4ea59f94ce",
+      "bytes": 101879,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-11-online-360/timeline.md",
+      "sha256": "19c41219d57ca5884a12e6e8c35051948a639c01d4fe313fc42282883525b8b5",
+      "bytes": 14345,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-29-offline-360/final-state.json.gz",
+      "sha256": "fb7d54ccacb6d67668937a43b262990ce362c19994496b6b7edb488f432cb442",
+      "bytes": 19360,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-29-offline-360/timeline.jsonl.gz",
+      "sha256": "c0932c3db203f686b0da6ad2f36632a9e5d0439124b7f1b310dbcda1f7761e87",
+      "bytes": 73033,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-29-offline-360/timeline.md",
+      "sha256": "e9a6ee296ed44e50f9635a41cd3af5aaf6183da8ea5c928ce662b3af9f50154f",
+      "bytes": 9914,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-29-online-360/final-state.json.gz",
+      "sha256": "ae0cc8355c969235571fe81c9475764ed18d1ccb6dca3f192a1978ab724e92e9",
+      "bytes": 18000,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-29-online-360/timeline.jsonl.gz",
+      "sha256": "773824e90c1a5917eb870f551a264094c90713ca18c5f8761c0be6b8b72291b4",
+      "bytes": 85721,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-29-online-360/timeline.md",
+      "sha256": "f4ab1cfef08876af86afdef7df9008c379324db1294957c5db3413e80243b00c",
+      "bytes": 13515,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-47-online-360/final-state.json.gz",
+      "sha256": "65cddfaebbca89a19819f40be284f2f53892ae295387243d209e82358f8eadcc",
+      "bytes": 15425,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-47-online-360/timeline.jsonl.gz",
+      "sha256": "a1d2a1714c5c3f78adb3d19018c8d2a8f1e6bce6a11dc6037452ec425147c997",
+      "bytes": 56063,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/after/small-47-online-360/timeline.md",
+      "sha256": "6989f954aafd3960bcc3e0765dc35ba7e5bedfc3717c54a2bed1de744eb386dd",
+      "bytes": 8222,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-11-online-1440/final-state.json.gz",
+      "sha256": "1fd9cd54ff5a6b653bbe54365dfe33e3a2b9fcd438cbc225338d3395e75fa7fc",
+      "bytes": 164934,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-11-online-1440/timeline.jsonl.gz",
+      "sha256": "219ac44ab3ed5753e2f08f63667ce7c9d08dfb59225606517001144707326337",
+      "bytes": 1950090,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-11-online-1440/timeline.md",
+      "sha256": "526fc62ed5c7c9b6c4b9f8073b848483924a07da0b2f4cb1bb3d002687b4fc0b",
+      "bytes": 216345,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-11-online-360/final-state.json.gz",
+      "sha256": "ba04782ad0a06bf4425b5d0c0d47d5da3c4c55d8912c2298e48e1ee39c74d37b",
+      "bytes": 129547,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-11-online-360/timeline.jsonl.gz",
+      "sha256": "667abf15903b90c8492661952f0cbbd425a814b4e887b100be2ece6f0a27bc94",
+      "bytes": 1615740,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-11-online-360/timeline.md",
+      "sha256": "cef76806f273e3422048ad79d13b61ad65bc771154db5f9d8ac81aae100a9527",
+      "bytes": 177574,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-29-offline-360/final-state.json.gz",
+      "sha256": "b0694d5c0fc36e51a74dd849fcca939145a034ad6a7289e7547f0fdb0a56dc72",
+      "bytes": 68115,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-29-offline-360/timeline.jsonl.gz",
+      "sha256": "f3873a479b892ea0028cbd973ecf37779478d27621adf7fb0f5d0e8be9f43dd8",
+      "bytes": 359784,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-29-offline-360/timeline.md",
+      "sha256": "f92b08a710720d7cbdff8f84d171720447f433e0bf886bb24332c9a14708cf07",
+      "bytes": 42798,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-29-online-360/final-state.json.gz",
+      "sha256": "7adced29d6646c738744213fee12485118b0016cf6d8ebe7fa665200c8fd2172",
+      "bytes": 82545,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-29-online-360/timeline.jsonl.gz",
+      "sha256": "4b34101278d114815b665e592a6bb3129a466ffd14ae4ff43bf08a757619cd9e",
+      "bytes": 2367544,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-29-online-360/timeline.md",
+      "sha256": "d331814ac5aead1c336e788ed8d7d144a8b22a792678a5c13db0fbdce84027c1",
+      "bytes": 152452,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-47-online-360/final-state.json.gz",
+      "sha256": "ae7e2e5481c42a39d4e6f02dbdcadada070f64a3bf73de5e3683ab335102d26f",
+      "bytes": 107784,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-47-online-360/timeline.jsonl.gz",
+      "sha256": "67f8dfe02bd673a15f6ed06d59a27c81718686d9e7fde8db646cc79b39d27bb4",
+      "bytes": 1871812,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/large-47-online-360/timeline.md",
+      "sha256": "1a87bd39216446e9730724bc5a2a89df465498ffab01b3ab426ae123d61cfb4b",
+      "bytes": 165600,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-11-online-1440/final-state.json.gz",
+      "sha256": "23a83c1dfea29676966e59c7981640126e0388c8a1ec2e1f5f9dcae06248c8cf",
+      "bytes": 137313,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-11-online-1440/timeline.jsonl.gz",
+      "sha256": "79e25197be7f9dbe343a79b30cffaea5ca73f1bb4576c62b5321df1b366f7ca5",
+      "bytes": 4449400,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-11-online-1440/timeline.md",
+      "sha256": "9999a5c3ca798726f405c37a736be9611b9107bf50bc9cf8c92cacda762e83ba",
+      "bytes": 252534,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-11-online-360/final-state.json.gz",
+      "sha256": "4dbbd34c2976f8e004cd377cec3d304759463db1c6884ad461ad353659a6ef15",
+      "bytes": 68654,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-11-online-360/timeline.jsonl.gz",
+      "sha256": "a714fc2686b13d726f13a94aadd09a09caf50fd9cdbee238ef64f927c4bb602f",
+      "bytes": 1208824,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-11-online-360/timeline.md",
+      "sha256": "81c80036acc3eabbffae8d1049438f7605ab64ff730e9a6590255318116dbe5b",
+      "bytes": 99133,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-29-offline-360/final-state.json.gz",
+      "sha256": "a4cf353df13c49ee629d94c5015809b4dbb73f0aa3b46ad47987679ab53393c2",
+      "bytes": 38935,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-29-offline-360/timeline.jsonl.gz",
+      "sha256": "8f63d8a0b8735f685e3b77557ef96f41914d8fec9e7fc7e674c65888f5b50f64",
+      "bytes": 252565,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-29-offline-360/timeline.md",
+      "sha256": "2c77ae865f209ed7609b0cfb84306741a5cd8ef067f07c000b594d92dcc0db14",
+      "bytes": 23984,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-29-online-360/final-state.json.gz",
+      "sha256": "abce3f4e4fac5d71081ae297210c0f8a8d3154513d25950810c480775309cfc2",
+      "bytes": 65651,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-29-online-360/timeline.jsonl.gz",
+      "sha256": "cc1555fb35e9729a29d93f3e850dce767d4f64ad2347b9947ca51a055a296266",
+      "bytes": 969032,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-29-online-360/timeline.md",
+      "sha256": "32c4cdedebe228a7b5498e281319e3c025de5e4bf8455c927b673d8f1524c432",
+      "bytes": 95428,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-47-online-360/final-state.json.gz",
+      "sha256": "b82016e609db9211fbb8c14f4c765f6971d857cb77d69fc7c0997838fb9b0b04",
+      "bytes": 68060,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-47-online-360/timeline.jsonl.gz",
+      "sha256": "213c33e4ca9486f1e20597e684dac12e63f0d801b420085597b862018784bce9",
+      "bytes": 1363127,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/medium-47-online-360/timeline.md",
+      "sha256": "1b31aca5e988be8df5a7fce69554cd8e805c50085a497271fcd7cf7fb5da068b",
+      "bytes": 105493,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-11-online-10080/final-state.json.gz",
+      "sha256": "1f6c3067332ea9cfde0580df6cbccebe0ca5bd95e81646eabb24d25e169ed081",
+      "bytes": 21603,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-11-online-10080/timeline.jsonl.gz",
+      "sha256": "21fa1e5512af1d76ea75ac19c624aad7bc94f2f156feea52f99340c1bd7f4fc2",
+      "bytes": 105033,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-11-online-10080/timeline.md",
+      "sha256": "3c523531e793d052867832b5c08dd97c4f2bd5de84130d9c65d5183c77a259fb",
+      "bytes": 15361,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-11-online-1440/final-state.json.gz",
+      "sha256": "f9ca30463c6e433df903d1d1a62dc523027f7c215c463225e93eee3ea1a68e5e",
+      "bytes": 20375,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-11-online-1440/timeline.jsonl.gz",
+      "sha256": "59b93de81c1029221db334883086f06a3011b890a384939972a1c5a9a0ced4cd",
+      "bytes": 100406,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-11-online-1440/timeline.md",
+      "sha256": "342e6c6911498ad674ac62dec4aa9a976cafd2588b70e0559b609847f98125c3",
+      "bytes": 12419,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-11-online-360/final-state.json.gz",
+      "sha256": "0b0a947e7c5b93a70fa50a422ded1145f768d68a7e76904c36530bbf15dab494",
+      "bytes": 20371,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-11-online-360/timeline.jsonl.gz",
+      "sha256": "d6117f1498658dae344861e6783accb734ca390ca67aa9589ce1de4ea59f94ce",
+      "bytes": 101879,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-11-online-360/timeline.md",
+      "sha256": "19c41219d57ca5884a12e6e8c35051948a639c01d4fe313fc42282883525b8b5",
+      "bytes": 14345,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-29-offline-360/final-state.json.gz",
+      "sha256": "fb7d54ccacb6d67668937a43b262990ce362c19994496b6b7edb488f432cb442",
+      "bytes": 19360,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-29-offline-360/timeline.jsonl.gz",
+      "sha256": "c0932c3db203f686b0da6ad2f36632a9e5d0439124b7f1b310dbcda1f7761e87",
+      "bytes": 73033,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-29-offline-360/timeline.md",
+      "sha256": "e9a6ee296ed44e50f9635a41cd3af5aaf6183da8ea5c928ce662b3af9f50154f",
+      "bytes": 9914,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-29-online-360/final-state.json.gz",
+      "sha256": "ae0cc8355c969235571fe81c9475764ed18d1ccb6dca3f192a1978ab724e92e9",
+      "bytes": 18000,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-29-online-360/timeline.jsonl.gz",
+      "sha256": "773824e90c1a5917eb870f551a264094c90713ca18c5f8761c0be6b8b72291b4",
+      "bytes": 85721,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-29-online-360/timeline.md",
+      "sha256": "f4ab1cfef08876af86afdef7df9008c379324db1294957c5db3413e80243b00c",
+      "bytes": 13515,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-47-online-360/final-state.json.gz",
+      "sha256": "65cddfaebbca89a19819f40be284f2f53892ae295387243d209e82358f8eadcc",
+      "bytes": 15425,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-47-online-360/timeline.jsonl.gz",
+      "sha256": "a1d2a1714c5c3f78adb3d19018c8d2a8f1e6bce6a11dc6037452ec425147c997",
+      "bytes": 56063,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    },
+    {
+      "path": "docs/ai-recovery-provisioning/results/final-after/small-47-online-360/timeline.md",
+      "sha256": "6989f954aafd3960bcc3e0765dc35ba7e5bedfc3717c54a2bed1de744eb386dd",
+      "bytes": 8222,
+      "reason": "Reproducible full timeline, snapshot, raw CPU profile or console log; preserved locally"
+    }
+  ],
+  "includedSha256": {
+    "docs/AI_LONGRUN_BEHAVIORAL_FIXES.md": "a2cdcb7b11bb21f81c1c2b002d932c5bd931b632365c76174dea098029244264",
+    "docs/AI_LONGRUN_CHECKPOINT.md": "98763395e728ba56011a440c9ffea3c13ba115f8a1d8af8797abc18b100299a8",
+    "docs/AI_LONGRUN_SIMULATION.md": "843b5aab39f95ab01219b66e807c86d43d8f2b51a5768cebabd684d7b0781ae8",
+    "docs/AI_MILITARY_RECOVERY_FINAL_REVIEW.md": "1508a5cf563f222e2d5e95368d808b48ffcef4f5d1344e28f704c2867ae86935",
+    "docs/AI_MILITARY_RECOVERY_PROVISIONING.md": "e09a381bae10dc323572b81efa16ad2546be9c076c316ffa94dcf76cc813157f",
+    "docs/ai-behavior-fixes/ARTIFACTS.md": "a60be7ded1ed0440683dc447bef2bcc5750a10428adb5bbcaf741e3c3adaf24a",
+    "docs/ai-behavior-fixes/MANIFEST.json": "c146dad2f1c96eaa36c6e3ad4222ae5d1a358a7e454249ac31a6ee3df3ab863f",
+    "docs/ai-behavior-fixes/VALIDATION.md": "1e11814a651ecbe7abbaae120ef18531e94cccb61f15a33f268f7685d8a006d1",
+    "docs/ai-behavior-fixes/evidence/final-production-fingerprints.json": "6a6f7720a6076c1cb6286d8a472bde6456db68ab01ab3c2544c6a3362e111741",
+    "docs/ai-behavior-fixes/evidence/integrity-verification.json": "7f6bedc38e52c2ad94cfa87fc9f366420eded83f7010749686ad849e2d452e8a",
+    "docs/ai-behavior-fixes/evidence/original-file-hashes.json": "1f475a3a70bfb4acd2372efc4cfde63a72056dffbd71fd7f2f467e29a5b79a81",
+    "docs/ai-behavior-fixes/evidence/repository-hygiene.json": "e77c4f4e8c7a9c453336bb85a242995712a5c2e6e3c4977b5dc07de45c6ebc11",
+    "docs/ai-behavior-fixes/evidence/residual-frontier-assessments.jsonl": "347adbb620558d8bb6fcdc76166fcb9fb7fecf20e99e7b67a5b7b6a80a86739c",
+    "docs/ai-behavior-fixes/evidence/root-cause-before.jsonl": "04ed53bc1f285e650496bad7b439e1c0401de3e31e952e556493bf72e4a635a7",
+    "docs/ai-behavior-fixes/results/COMPARISON.json": "65989f7e2d3eff5e5dc434edfda3dd8103bf8dd44537f2d08fb39296b4ee403f",
+    "docs/ai-behavior-fixes/results/COMPARISON.md": "76650695e25ed969dd0fa67a6930c8877d2d12bface37e287347ca0e8fcdcbd5",
+    "docs/ai-behavior-fixes/results/after/large-11-online-360/scenario.json": "844e4ddb181dbe8aea537ca5954e6ddab9ce4632b033c16b0004fcc272f665d3",
+    "docs/ai-behavior-fixes/results/after/large-11-online-360/summary.json": "7adf3ab8bc90dc51389beff7a800927e901ac709e95495a5338825b629786ef9",
+    "docs/ai-behavior-fixes/results/after/large-29-online-360/scenario.json": "4dff4b4e245e3b2bb0932e4cba551b0cb1fd02097b322f991c8fbd163ee570b8",
+    "docs/ai-behavior-fixes/results/after/large-29-online-360/summary.json": "82b2ee99d71b72750302101d1bbe3c75927f2c12e707e4fc5bef20971cbad9f8",
+    "docs/ai-behavior-fixes/results/after/medium-11-online-360/scenario.json": "0ad28cc4f0d30806d1b03e5a2be40e73ce382bc2925b47c5cbd4ee29322af50a",
+    "docs/ai-behavior-fixes/results/after/medium-11-online-360/summary.json": "1722aab349c1b78380d9791d806311e654f02d26f2ba85d4527df03045b41074",
+    "docs/ai-behavior-fixes/results/after/medium-29-online-360/scenario.json": "a168618b60fec953c2e8a0533d2e38552a56bad00e3c020a3a375c48925b560e",
+    "docs/ai-behavior-fixes/results/after/medium-29-online-360/summary.json": "bb425d40c7a85ee27f9ed19ade73cf29ef126e2f1c7cc05704dda232305c7fed",
+    "docs/ai-behavior-fixes/results/after/medium-47-online-360/scenario.json": "2f75f4aff509e3981bc91ba2a1288cb8ddc6705725bd148ae954c7dd88b88e8f",
+    "docs/ai-behavior-fixes/results/after/medium-47-online-360/summary.json": "7db2d66d143128f90660381e837ba1b2025e48ed15cf00ae5bdc6b9caf45c969",
+    "docs/ai-behavior-fixes/results/after/small-11-online-360/scenario.json": "d1feeac811fa7bbd463eaee4653513a7037063bc152e6ca2f21269b21f93b96b",
+    "docs/ai-behavior-fixes/results/after/small-11-online-360/summary.json": "d4b50ebded4b73ee943d621155e9ddecf6e5b7998db438edf90f748ceebd890a",
+    "docs/ai-behavior-fixes/results/after/small-29-online-360/scenario.json": "a7496b0cdd80961705af194f15330debc9f6e1fda1753561ea67054773f09e33",
+    "docs/ai-behavior-fixes/results/after/small-29-online-360/summary.json": "d72dc3372b15159260e1565f08295d9a79fbf7c4f041f8f4dc73ccb34b622868",
+    "docs/ai-behavior-fixes/results/after/small-47-online-360/scenario.json": "4dde262b95494e4a132b9621145b500fef34eba872fe611b5d581be37fd2503a",
+    "docs/ai-behavior-fixes/results/after/small-47-online-360/summary.json": "0e197b10913ecf5bf74929ca6b0637220ec7617c4c72a36e2ec1bc782db5bd2e",
+    "docs/ai-behavior-fixes/results/before/large-11-online-1440/scenario.json": "431ed4aef1a14c5cfb3d2f7479ac23f0f9b271785713a195ddf405863409295f",
+    "docs/ai-behavior-fixes/results/before/large-11-online-1440/summary.json": "7af55b126d397267ac08c1ce69951fcff716cadc0304402690233ab52fea9459",
+    "docs/ai-behavior-fixes/results/before/large-11-online-360/scenario.json": "844e4ddb181dbe8aea537ca5954e6ddab9ce4632b033c16b0004fcc272f665d3",
+    "docs/ai-behavior-fixes/results/before/large-11-online-360/summary.json": "82004923bae1ec7163c61608b7103b7d606b931bfdf518718b374a1563e4a073",
+    "docs/ai-behavior-fixes/results/before/large-29-offline-360/scenario.json": "45a480bf2f545c927bad5327a7f255752e286de43d3cc9a06f95271bfdbce74c",
+    "docs/ai-behavior-fixes/results/before/large-29-offline-360/summary.json": "505f420515df1d8402c3ae87ca9104f3b133d1eddebd1d149bead374dd47685d",
+    "docs/ai-behavior-fixes/results/before/large-29-online-360/scenario.json": "4dff4b4e245e3b2bb0932e4cba551b0cb1fd02097b322f991c8fbd163ee570b8",
+    "docs/ai-behavior-fixes/results/before/large-29-online-360/summary.json": "abefe49061e7ddc0341a8c8d338bfac482152e7914d0c7cd5dcf79854cef7ff8",
+    "docs/ai-behavior-fixes/results/before/large-47-online-360/scenario.json": "d5c6df2b6a039384e6cd4f46454318a25ceb4283767060a5b5bd06c04a4f0fdd",
+    "docs/ai-behavior-fixes/results/before/large-47-online-360/summary.json": "80f1412c715616b645290a51a104c8bb304e35a082958200096f2151ba4a5ddb",
+    "docs/ai-behavior-fixes/results/before/medium-11-online-1440/scenario.json": "507728b6f72067ccb5c2d1e76babe36e24b7fc7b3f757b3ee1502e4bbfa00746",
+    "docs/ai-behavior-fixes/results/before/medium-11-online-1440/summary.json": "26f70b3a6b6276caef5f8fbd1ba33cab58fc1e0f7076af0c170adc7996529d1c",
+    "docs/ai-behavior-fixes/results/before/medium-11-online-360/scenario.json": "0ad28cc4f0d30806d1b03e5a2be40e73ce382bc2925b47c5cbd4ee29322af50a",
+    "docs/ai-behavior-fixes/results/before/medium-11-online-360/summary.json": "a7f5854f7214ea8cedb42cd49bbd429936702446f1e5a0d8ef9ca088987fee20",
+    "docs/ai-behavior-fixes/results/before/medium-29-offline-360/scenario.json": "bd2ffe6bdcba159c15bcb4af9d6758709a7c58c71e3b06f6769a54fe594235dd",
+    "docs/ai-behavior-fixes/results/before/medium-29-offline-360/summary.json": "041aa51318e3891240465b2e0096d1c00d7f0c94c4514cfc2b32b327e0ecb801",
+    "docs/ai-behavior-fixes/results/before/medium-29-online-360/scenario.json": "a168618b60fec953c2e8a0533d2e38552a56bad00e3c020a3a375c48925b560e",
+    "docs/ai-behavior-fixes/results/before/medium-29-online-360/summary.json": "f45e49ab2a21b171d0115ef4e1fecd60c72ba2a89671b7e5ed67d1379761d95c",
+    "docs/ai-behavior-fixes/results/before/medium-47-online-360/scenario.json": "2f75f4aff509e3981bc91ba2a1288cb8ddc6705725bd148ae954c7dd88b88e8f",
+    "docs/ai-behavior-fixes/results/before/medium-47-online-360/summary.json": "9776b6f1e701397771c15a135efab4dfb65142e39859d3dde340110b5b27b97f",
+    "docs/ai-behavior-fixes/results/before/small-11-online-10080/scenario.json": "370ba133946a370bdf9de9755a31e5ff9b6165fa37286c3cc3c79d554d7ee935",
+    "docs/ai-behavior-fixes/results/before/small-11-online-10080/summary.json": "c34616c0ebaa43518492186575d15049e5900de2c917a5e53c5831dfe4aafa12",
+    "docs/ai-behavior-fixes/results/before/small-11-online-1440/scenario.json": "70d93d00199e9d2eabb90355e4f64545791bc2923978247da3fe5df69b450ffc",
+    "docs/ai-behavior-fixes/results/before/small-11-online-1440/summary.json": "a89e3628abd89a7de7a9bc277a54c363995cb3a6080c000726414c48d13108bf",
+    "docs/ai-behavior-fixes/results/before/small-11-online-360/scenario.json": "d1feeac811fa7bbd463eaee4653513a7037063bc152e6ca2f21269b21f93b96b",
+    "docs/ai-behavior-fixes/results/before/small-11-online-360/summary.json": "9696e84290fc789449533728d3bf86781bfcbd85e227cc3ff2cbd0a2b015cde5",
+    "docs/ai-behavior-fixes/results/before/small-29-offline-360/scenario.json": "364b5cd0fc6fb6c778a4f100e18f861f6433e9b43a9338fec6e7829a391fa0fb",
+    "docs/ai-behavior-fixes/results/before/small-29-offline-360/summary.json": "9747e13c635d8929ad9e07e66438568fa2aaba8cfc58fe36f93fa4a8c2bdf3fd",
+    "docs/ai-behavior-fixes/results/before/small-29-online-360/scenario.json": "a7496b0cdd80961705af194f15330debc9f6e1fda1753561ea67054773f09e33",
+    "docs/ai-behavior-fixes/results/before/small-29-online-360/summary.json": "5196a17d861c83e35eb5226ebf541ba1c86fd17550dd54cf167676fdbed1b2bb",
+    "docs/ai-behavior-fixes/results/before/small-47-online-360/scenario.json": "4dde262b95494e4a132b9621145b500fef34eba872fe611b5d581be37fd2503a",
+    "docs/ai-behavior-fixes/results/before/small-47-online-360/summary.json": "e2a7caa31949a0eda34d02a39bbb0ef39b4fffbd0a67bf1c5664a6088eb26850",
+    "docs/ai-behavior-fixes/results/final-after/large-11-online-1440/scenario.json": "431ed4aef1a14c5cfb3d2f7479ac23f0f9b271785713a195ddf405863409295f",
+    "docs/ai-behavior-fixes/results/final-after/large-11-online-1440/summary.json": "fa04e8a2b2d4c693b9cdea573e36c5c9b89f53a9e70d75b1e1542b8d97d72844",
+    "docs/ai-behavior-fixes/results/final-after/large-11-online-360/scenario.json": "844e4ddb181dbe8aea537ca5954e6ddab9ce4632b033c16b0004fcc272f665d3",
+    "docs/ai-behavior-fixes/results/final-after/large-11-online-360/summary.json": "9fa576951a74840a6e46d1599fc7729102f54c36283a29a16497376347bc2719",
+    "docs/ai-behavior-fixes/results/final-after/large-29-offline-360/scenario.json": "45a480bf2f545c927bad5327a7f255752e286de43d3cc9a06f95271bfdbce74c",
+    "docs/ai-behavior-fixes/results/final-after/large-29-offline-360/summary.json": "a55dac8d70cfb480666e7ad65b0c9fb9ccf06278c30e3dea9f183da9dbad121a",
+    "docs/ai-behavior-fixes/results/final-after/large-29-online-360/scenario.json": "4dff4b4e245e3b2bb0932e4cba551b0cb1fd02097b322f991c8fbd163ee570b8",
+    "docs/ai-behavior-fixes/results/final-after/large-29-online-360/summary.json": "ae2bf7541e9a90b3624cdb092bd7ad4ad9135e1c1051ef01e8fc75b2905e1d7e",
+    "docs/ai-behavior-fixes/results/final-after/large-47-online-360/scenario.json": "d5c6df2b6a039384e6cd4f46454318a25ceb4283767060a5b5bd06c04a4f0fdd",
+    "docs/ai-behavior-fixes/results/final-after/large-47-online-360/summary.json": "dd882f8120bd02494458ea3e0c5c4515a8095de8f75b897d66b2f51a66db3991",
+    "docs/ai-behavior-fixes/results/final-after/medium-11-online-1440/scenario.json": "507728b6f72067ccb5c2d1e76babe36e24b7fc7b3f757b3ee1502e4bbfa00746",
+    "docs/ai-behavior-fixes/results/final-after/medium-11-online-1440/summary.json": "88aebc218ca378d35e6d5a901bd9afa0a919811098a9be8bb305add64bc76534",
+    "docs/ai-behavior-fixes/results/final-after/medium-11-online-360/scenario.json": "0ad28cc4f0d30806d1b03e5a2be40e73ce382bc2925b47c5cbd4ee29322af50a",
+    "docs/ai-behavior-fixes/results/final-after/medium-11-online-360/summary.json": "3ae3cdcf3e635aa3ef20fb5c45e21b0545fdb284797926f9ccdd2f652eadc5cc",
+    "docs/ai-behavior-fixes/results/final-after/medium-29-offline-360/scenario.json": "bd2ffe6bdcba159c15bcb4af9d6758709a7c58c71e3b06f6769a54fe594235dd",
+    "docs/ai-behavior-fixes/results/final-after/medium-29-offline-360/summary.json": "b9c444f1482dda2d67b68b97080c8461686d09672a1185b436e2e4a13442a081",
+    "docs/ai-behavior-fixes/results/final-after/medium-29-online-360/scenario.json": "a168618b60fec953c2e8a0533d2e38552a56bad00e3c020a3a375c48925b560e",
+    "docs/ai-behavior-fixes/results/final-after/medium-29-online-360/summary.json": "dd7d3a06085ac725fb283d0411ef8946d5835b55be81a01fd9a24bbb19147a78",
+    "docs/ai-behavior-fixes/results/final-after/medium-47-online-360/scenario.json": "2f75f4aff509e3981bc91ba2a1288cb8ddc6705725bd148ae954c7dd88b88e8f",
+    "docs/ai-behavior-fixes/results/final-after/medium-47-online-360/summary.json": "c157fd30cd18b00d16b468e43408ee241cd0274391a6fcff169bf058ac6f5659",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-10080/scenario.json": "370ba133946a370bdf9de9755a31e5ff9b6165fa37286c3cc3c79d554d7ee935",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-10080/summary.json": "a7377967b215955ac4a840d33544be909b896e6c0d13f8c9faec9a9bced2c8f2",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-1440/scenario.json": "70d93d00199e9d2eabb90355e4f64545791bc2923978247da3fe5df69b450ffc",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-1440/summary.json": "3e4301650ced034c84ea1540d5239b81979e25f244bfe1a9417b217363bf04e3",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-360/scenario.json": "d1feeac811fa7bbd463eaee4653513a7037063bc152e6ca2f21269b21f93b96b",
+    "docs/ai-behavior-fixes/results/final-after/small-11-online-360/summary.json": "e3fa7454927a326c4b8111f816a783b996813b3f4d537085bce7fe02b3752a07",
+    "docs/ai-behavior-fixes/results/final-after/small-29-offline-360/scenario.json": "364b5cd0fc6fb6c778a4f100e18f861f6433e9b43a9338fec6e7829a391fa0fb",
+    "docs/ai-behavior-fixes/results/final-after/small-29-offline-360/summary.json": "912b6a528e67843b7ec1cf64e4924ddf1f5e23fce74cadc779ccd970e0874ac4",
+    "docs/ai-behavior-fixes/results/final-after/small-29-online-360/scenario.json": "a7496b0cdd80961705af194f15330debc9f6e1fda1753561ea67054773f09e33",
+    "docs/ai-behavior-fixes/results/final-after/small-29-online-360/summary.json": "d6d6b8b6946541a39797a344fef8f4d7339b7381022d078d4c24b0356077f6d3",
+    "docs/ai-behavior-fixes/results/final-after/small-47-online-360/scenario.json": "4dde262b95494e4a132b9621145b500fef34eba872fe611b5d581be37fd2503a",
+    "docs/ai-behavior-fixes/results/final-after/small-47-online-360/summary.json": "d9f351944c21c209dafa8d5ee39852d8a865f14ebad6d9568b3006b076bdad3a",
+    "docs/ai-behavior-fixes/results/smoke/matrix.json": "37949110917f934565750662afb59ae54b990cc01ee4b05ec2fccbfbb23b3d95",
+    "docs/ai-behavior-fixes/results/smoke/small-11-online-60/scenario.json": "01ede50d1c469fa33147f09890095ab6422a02912e9c875e9820dcfea185f79a",
+    "docs/ai-behavior-fixes/results/smoke/small-11-online-60/summary.json": "87ec4cf42ff388a116a68e4f4283f90025e24be04454f55d1ddce3ef90d6a2fb",
+    "docs/ai-longrun/MANIFEST.json": "f52d3f83d26c43ef360e36cb201a351014df9c20b103013da63dcdb443970b8e",
+    "docs/ai-longrun/VALIDATION.md": "a40081340126105c71b954dc95e265747921543c128f47cb59f3ddffe7688d11",
+    "docs/ai-longrun/results/RESULTS.md": "058a1b58a5fb0766ecd46a6af7deae3c9b9867555eb123e694cf74bcb8ffb1b1",
+    "docs/ai-longrun/results/analysis.json": "6a296ac725f6ab1df64032da05b83af5481c3ce9fcb40f29292d2ed4e9d95a9d",
+    "docs/ai-longrun/results/large-six-hours/large-11-online-360/operation-lifecycle.json": "1773a50e87809c3b3d8ab901f6434d2d4b9ee7df8937c0d444fc53b4cc6fbdb7",
+    "docs/ai-longrun/results/large-six-hours/large-11-online-360/scenario.json": "844e4ddb181dbe8aea537ca5954e6ddab9ce4632b033c16b0004fcc272f665d3",
+    "docs/ai-longrun/results/large-six-hours/large-11-online-360/summary.json": "4cd5265840900bd9cee9163bd40110f5e373b8bf034502d7e287f4ce002d5182",
+    "docs/ai-longrun/results/large-six-hours/large-29-online-360/operation-lifecycle.json": "28015a5ba164eb3713dfabe92d07522bbc09701db0df2eaa0f637a29b5efcca6",
+    "docs/ai-longrun/results/large-six-hours/large-29-online-360/scenario.json": "4dff4b4e245e3b2bb0932e4cba551b0cb1fd02097b322f991c8fbd163ee570b8",
+    "docs/ai-longrun/results/large-six-hours/large-29-online-360/summary.json": "ece1a0dfa6c8ffc6ce1f2428ae29a41c960c0f9551c20ad5a2c5eb60af494adb",
+    "docs/ai-longrun/results/large-six-hours/large-47-online-360/operation-lifecycle.json": "7398175d2ae1852378752f6612bdec0023f0cb152f1f5ba320e497bbf8937b73",
+    "docs/ai-longrun/results/large-six-hours/large-47-online-360/scenario.json": "d5c6df2b6a039384e6cd4f46454318a25ceb4283767060a5b5bd06c04a4f0fdd",
+    "docs/ai-longrun/results/large-six-hours/large-47-online-360/summary.json": "4f1b29d1485285bb4890cb29d8d871c8663262d5265057f0095af764054020e1",
+    "docs/ai-longrun/results/large-six-hours/matrix.json": "c65406d8087aed86cf9eb0be6bf635aa0ed9a4fa0e1c938c24d6de9794adb763",
+    "docs/ai-longrun/results/offline-six-hours/large-29-offline-360/operation-lifecycle.json": "9a869a59cecbab9d653ebecb2b779089ba0da46bcfb998c5e156ebdd4242655c",
+    "docs/ai-longrun/results/offline-six-hours/large-29-offline-360/scenario.json": "45a480bf2f545c927bad5327a7f255752e286de43d3cc9a06f95271bfdbce74c",
+    "docs/ai-longrun/results/offline-six-hours/large-29-offline-360/summary.json": "de32dadc153e449e5f6f8f3b064681281c903fcc08f7cde7debc9bd2a68e6f4e",
+    "docs/ai-longrun/results/offline-six-hours/matrix.json": "29c9c7232e2d6e044a39a671f898001db5758220b8edad62e28c178981b6239b",
+    "docs/ai-longrun/results/offline-six-hours/medium-29-offline-360/operation-lifecycle.json": "b338cf524d51f22f506e59d22934e1149b9cdc9677db6beb39a364ade9816b4e",
+    "docs/ai-longrun/results/offline-six-hours/medium-29-offline-360/scenario.json": "bd2ffe6bdcba159c15bcb4af9d6758709a7c58c71e3b06f6769a54fe594235dd",
+    "docs/ai-longrun/results/offline-six-hours/medium-29-offline-360/summary.json": "22f1bdcb75227e1ed8134520e53eba004b5f1d800414e1f3891e9d0a007cbbb3",
+    "docs/ai-longrun/results/offline-six-hours/small-29-offline-360/operation-lifecycle.json": "088955ca925a1b8626c96380cacafdfcf0b3733ec0b410f768c7d97c4e582f6e",
+    "docs/ai-longrun/results/offline-six-hours/small-29-offline-360/scenario.json": "364b5cd0fc6fb6c778a4f100e18f861f6433e9b43a9338fec6e7829a391fa0fb",
+    "docs/ai-longrun/results/offline-six-hours/small-29-offline-360/summary.json": "2ad7d06164a3716f41c3f1deb41ff7121fd70dfbcd329e0b9dede6982196b6fb",
+    "docs/ai-longrun/results/one-day/large-11-online-1440/operation-lifecycle.json": "3cfb077b09e009965bfb72fdf461859e10cac46429c4b6f7c4d314a339a8c568",
+    "docs/ai-longrun/results/one-day/large-11-online-1440/scenario.json": "431ed4aef1a14c5cfb3d2f7479ac23f0f9b271785713a195ddf405863409295f",
+    "docs/ai-longrun/results/one-day/large-11-online-1440/summary.json": "b53477b95ff13e4e90f6efc7421fe17454b092c2f32a010664c644c643b33e63",
+    "docs/ai-longrun/results/one-day/matrix.json": "dfa6b0787dbd7cc9e35c667ee928fc88b260ae9b99852210957e67f83c19367d",
+    "docs/ai-longrun/results/one-day/medium-11-online-1440/operation-lifecycle.json": "b537144d516a3d0ccc07223125ae0b181bb9010ef8189c1b31af390da473527b",
+    "docs/ai-longrun/results/one-day/medium-11-online-1440/scenario.json": "507728b6f72067ccb5c2d1e76babe36e24b7fc7b3f757b3ee1502e4bbfa00746",
+    "docs/ai-longrun/results/one-day/medium-11-online-1440/summary.json": "31e98e98b040540af23765e47c4450540f4d57d9d2287a287f8c1a845b3c72db",
+    "docs/ai-longrun/results/one-day/small-11-online-1440/operation-lifecycle.json": "dc0df94306c62fa91860b870b7ce6fd8904e8fe6765a356ae8ee071d2485e26c",
+    "docs/ai-longrun/results/one-day/small-11-online-1440/scenario.json": "70d93d00199e9d2eabb90355e4f64545791bc2923978247da3fe5df69b450ffc",
+    "docs/ai-longrun/results/one-day/small-11-online-1440/summary.json": "2c33549f5d44cfc96fd4978307abdcb2acf87c104d95accb31bc658de879ec3b",
+    "docs/ai-longrun/results/one-week/matrix.json": "e535eec702a0be812290fe4ad56dacf93a8f16d9ec94f1f0011b42457f02b033",
+    "docs/ai-longrun/results/one-week/small-11-online-10080/operation-lifecycle.json": "da837d1c52f69fb09ef6abec268ae07e05e5271a0960b8986cf22b1c7daec0f8",
+    "docs/ai-longrun/results/one-week/small-11-online-10080/scenario.json": "370ba133946a370bdf9de9755a31e5ff9b6165fa37286c3cc3c79d554d7ee935",
+    "docs/ai-longrun/results/one-week/small-11-online-10080/summary.json": "f6baddae3f9e0de19ec36f191b992ae9efda5dcbd29bf6c8b245f63133f5ede4",
+    "docs/ai-longrun/results/six-hours/matrix.json": "2032f57910d1341d70ff01b6c48e54bc6fbfef364f45c86d4bfa92c75b8614a8",
+    "docs/ai-longrun/results/six-hours/medium-11-online-360/operation-lifecycle.json": "b537144d516a3d0ccc07223125ae0b181bb9010ef8189c1b31af390da473527b",
+    "docs/ai-longrun/results/six-hours/medium-11-online-360/scenario.json": "0ad28cc4f0d30806d1b03e5a2be40e73ce382bc2925b47c5cbd4ee29322af50a",
+    "docs/ai-longrun/results/six-hours/medium-11-online-360/summary.json": "8a35b5964e041ee1a8772d8acc9c414291d99aa6b896db3c67e102c9bf9b423c",
+    "docs/ai-longrun/results/six-hours/medium-29-online-360/operation-lifecycle.json": "fe608f3bc72dcddc668587b5d24a392b28a163742502d1a96409df16a434db2a",
+    "docs/ai-longrun/results/six-hours/medium-29-online-360/scenario.json": "a168618b60fec953c2e8a0533d2e38552a56bad00e3c020a3a375c48925b560e",
+    "docs/ai-longrun/results/six-hours/medium-29-online-360/summary.json": "23ef56790d6c122672e006e7aa69dd95fe4aa595c56f578b0bb751ff10ee024c",
+    "docs/ai-longrun/results/six-hours/medium-47-online-360/operation-lifecycle.json": "af035c038bb6e314c2251bd63755ee7a54a4793c423a91142a422184ddd4fb75",
+    "docs/ai-longrun/results/six-hours/medium-47-online-360/scenario.json": "2f75f4aff509e3981bc91ba2a1288cb8ddc6705725bd148ae954c7dd88b88e8f",
+    "docs/ai-longrun/results/six-hours/medium-47-online-360/summary.json": "81b2c9d6a017a9a699ed51ebfa7e26862f4f35924836d9343371b885f7771a48",
+    "docs/ai-longrun/results/six-hours/small-11-online-360/operation-lifecycle.json": "dc0df94306c62fa91860b870b7ce6fd8904e8fe6765a356ae8ee071d2485e26c",
+    "docs/ai-longrun/results/six-hours/small-11-online-360/scenario.json": "d1feeac811fa7bbd463eaee4653513a7037063bc152e6ca2f21269b21f93b96b",
+    "docs/ai-longrun/results/six-hours/small-11-online-360/summary.json": "098cb82d3adf68288bee5bdd86e0517456fe6a2902366155f27dd6f3aa804be3",
+    "docs/ai-longrun/results/six-hours/small-29-online-360/operation-lifecycle.json": "47b1e1f84a95018ef1abd1983d71b13d11b6b61edb66c78090f878f8994018db",
+    "docs/ai-longrun/results/six-hours/small-29-online-360/scenario.json": "a7496b0cdd80961705af194f15330debc9f6e1fda1753561ea67054773f09e33",
+    "docs/ai-longrun/results/six-hours/small-29-online-360/summary.json": "adc959d6cd9a626447ad5af8d2ba137ee4c13f23e0e6ccdd937ce1b4407e739e",
+    "docs/ai-longrun/results/six-hours/small-47-online-360/operation-lifecycle.json": "ba77785984149243e1461947ac9174884352df85c1f7228d24d2ee7e2b7aca99",
+    "docs/ai-longrun/results/six-hours/small-47-online-360/scenario.json": "4dde262b95494e4a132b9621145b500fef34eba872fe611b5d581be37fd2503a",
+    "docs/ai-longrun/results/six-hours/small-47-online-360/summary.json": "997ee0fd6426a1f7b3d8fe849d2fdef87b1258572a2043446fcd0d9d4967e05b",
+    "docs/ai-military-final-review/MANIFEST.json": "77e787a0f7fcd626e685cd70fcacd11b2a4e637b9876136f8240ba209b2f516e",
+    "docs/ai-military-final-review/evidence/archive-checks.cjs": "d3bed7ea8fc0c2918ca181b0ffdf59460d946b7f93e33fa31e97d8e3e693fb0b",
+    "docs/ai-military-final-review/evidence/baseline-cpu-summary.json": "fb4e9a7ef14936a66c763192b1693e63c4e2ef1534ae6ed6ad38d44b980b2ff2",
+    "docs/ai-military-final-review/evidence/baseline-profile.json": "18c5e201c551b5991bf0502c5f61e5367f759ebedbcc56018d5acb6a6652ef28",
+    "docs/ai-military-final-review/evidence/current-cpu-summary.json": "a186299bb220ca650ec86caa7793c8c4c97ddc094eceb9bd32c834d8db1424af",
+    "docs/ai-military-final-review/evidence/current-profile.json": "e3f628cc16ba12df5c1812492237336d402d13fc0d37dce663a0eff1287fa6dd",
+    "docs/ai-military-final-review/evidence/existing-results.json": "d4dbd04946ea351203328243d5874defa450d82ecf6307c58383fed93a46f448",
+    "docs/ai-military-final-review/evidence/formed-army-outcomes.json": "f08329e395f5c75ff5da19a3d4327ec38f63c383f79f35b6ed208b0b9b127124",
+    "docs/ai-military-final-review/evidence/invalidated-attacks.json": "95c983093c07b727631743ca50c7046d171b7165f84c894fb60fd9984afdb756",
+    "docs/ai-military-final-review/evidence/large-29-exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "docs/ai-military-final-review/evidence/optimized-cpu-summary.json": "3c56c4027d0aa2535ddd13f8557b8f1135cc395dc4d0da344b5ba2bcc2220ae7",
+    "docs/ai-military-final-review/evidence/optimized-profile.json": "26e41a6f6e56326e45cf2eb133a33d162979b9eb3275de916ce3e6a89f6341df",
+    "docs/ai-military-final-review/evidence/pre-performance-src_engine_strategicPressure.ts.txt": "9feca09b652c4551bfc7d0dbed471eea41a3f241ba273106e349902c37714a7c",
+    "docs/ai-military-final-review/evidence/pre-performance-src_gameplay_construction_definitions.ts.txt": "608680eb45bb6b8961b2f3dcae1c68fd5387053e41a7a8e1c48cb36c3ea3dcef",
+    "docs/ai-military-final-review/evidence/pre-performance-src_gameplay_trade_candidates.ts.txt": "b0efc585fad78f7a62a4b6606cd3dd90e787ba585802eca5eb97235e6686f998",
+    "docs/ai-military-final-review/evidence/prerequisite-parity.cjs": "8425f8425868d5e392dc187d227e33beaaabdc1bdb051348643acd922858b228",
+    "docs/ai-military-final-review/evidence/profile.cjs": "ac5ef222526e058e852988700abb2d5cb92f21857977160028c464a9698714ff",
+    "docs/ai-military-final-review/evidence/replay-comparison.json": "a90bac36f5677d75dff0f08ef3bdc2703eeadaf90bcaf08d488bae353e1f3421",
+    "docs/ai-military-final-review/evidence/review-integrity.json": "fc1dccdb2554915f1ef4276a95209328c85e13fd997960813c60798cf761f7c6",
+    "docs/ai-military-final-review/evidence/small-week-exit.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "docs/ai-military-final-review/evidence/stack-count.cjs": "34969636d203982346b9cb6b038eb861ac7ca0121321b1f01a785f3686b36e3f",
+    "docs/ai-military-final-review/evidence/targeted-results.json": "1d4718abfb7a6bcbf6c02dd734df014ab61a98ebce5888e16df5107b02d73118",
+    "docs/ai-military-final-review/evidence/typescript-identity-comparison.json": "61ebbeffaa673fa6eb3be9bc35612101b73aee1305f12091b006b2a2f29be8fa",
+    "docs/ai-military-final-review/results/large-29-online-360/scenario.json": "4dff4b4e245e3b2bb0932e4cba551b0cb1fd02097b322f991c8fbd163ee570b8",
+    "docs/ai-military-final-review/results/large-29-online-360/summary.json": "37219fd0bd595910dabd2df090f8415f75362a10b8140f0e0c970a91e50568a1",
+    "docs/ai-military-final-review/results/small-11-online-10080/scenario.json": "370ba133946a370bdf9de9755a31e5ff9b6165fa37286c3cc3c79d554d7ee935",
+    "docs/ai-military-final-review/results/small-11-online-10080/summary.json": "6232c7186e3bb2826dcbd6d2b2785b7a89122fbeb000de2815c3a3ac7ec72912",
+    "docs/ai-recovery-provisioning/MANIFEST.json": "a75ea93a616e3bb00a206253e3dad4224f56f1f3c38559415316a57ccea30106",
+    "docs/ai-recovery-provisioning/evidence/contained-physical-failures.json": "c6a5feade39db0ef9df460692d7cf750f26a76cd0b971872c59d97752339333d",
+    "docs/ai-recovery-provisioning/evidence/final-production-fingerprints.json": "5dcee7954c66288356aa36bbff4c56049e4d75db573c5d4298f64300daf8ece6",
+    "docs/ai-recovery-provisioning/evidence/pre-capability-aiBehavioralFixes.ts.txt": "83ea787e7bdf27564256f518223345f84416f95c34ad7c2d153429c1db7b55e9",
+    "docs/ai-recovery-provisioning/evidence/production-fingerprints.json": "b603dea5abaae660f7a9c8d386337a8ecbfdf689bee9ada3fcb2a0eda90d987c",
+    "docs/ai-recovery-provisioning/evidence/residual-medium-29-recovery.json": "fb9031a4884b2ed35b73efefc0011814a6e6119678eda89a08768e9467b33337",
+    "docs/ai-recovery-provisioning/evidence/validation-integrity.json": "7dd6cb8004beabdcaacfd33850040470784e39fdebce9f418bfa76226a1201fc",
+    "docs/ai-recovery-provisioning/reference-smoke/scenario.json": "d1feeac811fa7bbd463eaee4653513a7037063bc152e6ca2f21269b21f93b96b",
+    "docs/ai-recovery-provisioning/reference-smoke/summary.json": "876f8b2af08b5117a064e4093614fbbe060f33ddd8dfd16868afc0e54a66174c",
+    "docs/ai-recovery-provisioning/results/COMPARISON.json": "81a2b43a4b9701519f44094de0b03bb08b48509a63e8ae15d69f750503bbd9f3",
+    "docs/ai-recovery-provisioning/results/COMPARISON.md": "e7030191fddf13d424b21fe69b0d2195b95890de422f46041469bc7ac12694f5",
+    "docs/ai-recovery-provisioning/results/after/large-11-online-1440/scenario.json": "431ed4aef1a14c5cfb3d2f7479ac23f0f9b271785713a195ddf405863409295f",
+    "docs/ai-recovery-provisioning/results/after/large-11-online-1440/summary.json": "c10398bcb32f0edc8fee86f1c459605db0a688011e98938dd1efa4c5effe6de9",
+    "docs/ai-recovery-provisioning/results/after/large-11-online-360/scenario.json": "844e4ddb181dbe8aea537ca5954e6ddab9ce4632b033c16b0004fcc272f665d3",
+    "docs/ai-recovery-provisioning/results/after/large-11-online-360/summary.json": "42e84b4594907fbcd9d780ac0276292fa6a0bf52d97e30c4fbe5777e3a4e66a7",
+    "docs/ai-recovery-provisioning/results/after/large-29-offline-360/scenario.json": "45a480bf2f545c927bad5327a7f255752e286de43d3cc9a06f95271bfdbce74c",
+    "docs/ai-recovery-provisioning/results/after/large-29-offline-360/summary.json": "06dd49c39742557cd0486435215e6a8dea513f919773f11a624c37e7a2747bfb",
+    "docs/ai-recovery-provisioning/results/after/large-29-online-360/scenario.json": "4dff4b4e245e3b2bb0932e4cba551b0cb1fd02097b322f991c8fbd163ee570b8",
+    "docs/ai-recovery-provisioning/results/after/large-29-online-360/summary.json": "9e0a77ed41bb3191502f42d8a4d1e71b0de62cb1a1326c4256dfff759b8cfc37",
+    "docs/ai-recovery-provisioning/results/after/large-47-online-360/scenario.json": "d5c6df2b6a039384e6cd4f46454318a25ceb4283767060a5b5bd06c04a4f0fdd",
+    "docs/ai-recovery-provisioning/results/after/large-47-online-360/summary.json": "13d22a0cb4aac2d9bcecd3bdfbf4cb1418e86e0d38c4f842cc46be2e8f1aac35",
+    "docs/ai-recovery-provisioning/results/after/medium-11-online-1440/scenario.json": "507728b6f72067ccb5c2d1e76babe36e24b7fc7b3f757b3ee1502e4bbfa00746",
+    "docs/ai-recovery-provisioning/results/after/medium-11-online-1440/summary.json": "51cecbf8c422568b48bab1a95ad74181e366755b22e012310510d83b892516ff",
+    "docs/ai-recovery-provisioning/results/after/medium-11-online-360/scenario.json": "0ad28cc4f0d30806d1b03e5a2be40e73ce382bc2925b47c5cbd4ee29322af50a",
+    "docs/ai-recovery-provisioning/results/after/medium-11-online-360/summary.json": "3605c82595f4fb04a868cd614ea1a238e946195397b1f498771d43d0aa3b38b4",
+    "docs/ai-recovery-provisioning/results/after/medium-29-offline-360/scenario.json": "bd2ffe6bdcba159c15bcb4af9d6758709a7c58c71e3b06f6769a54fe594235dd",
+    "docs/ai-recovery-provisioning/results/after/medium-29-offline-360/summary.json": "24ea42ae65ad04cf18b9a0fa939da26787bfc778181151d489c015d61911b1b2",
+    "docs/ai-recovery-provisioning/results/after/medium-29-online-360/scenario.json": "a168618b60fec953c2e8a0533d2e38552a56bad00e3c020a3a375c48925b560e",
+    "docs/ai-recovery-provisioning/results/after/medium-29-online-360/summary.json": "772553ffb33bfe11bad7491110c9c4d99522ae9f54b2636c7c1978d9c53c8ed2",
+    "docs/ai-recovery-provisioning/results/after/medium-47-online-360/scenario.json": "2f75f4aff509e3981bc91ba2a1288cb8ddc6705725bd148ae954c7dd88b88e8f",
+    "docs/ai-recovery-provisioning/results/after/medium-47-online-360/summary.json": "72c67bbbff1659b69b89127dbf46c8f3f70a26c02f04d6aefd33a0c99726a9a1",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-10080/scenario.json": "370ba133946a370bdf9de9755a31e5ff9b6165fa37286c3cc3c79d554d7ee935",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-10080/summary.json": "b1f833b18f74fc5b52297ed8c4221d0f55c87d6d84091b7b29247f6feb76fe1f",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-1440/scenario.json": "70d93d00199e9d2eabb90355e4f64545791bc2923978247da3fe5df69b450ffc",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-1440/summary.json": "ee8326f16d48a34f6cc25c52dc35108724d6873a87ceb14fb627178207572a24",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-360/scenario.json": "d1feeac811fa7bbd463eaee4653513a7037063bc152e6ca2f21269b21f93b96b",
+    "docs/ai-recovery-provisioning/results/after/small-11-online-360/summary.json": "cdf82893facff2717644e334990c30aae8b05e493c727383db64ec7b5c8b2595",
+    "docs/ai-recovery-provisioning/results/after/small-29-offline-360/scenario.json": "364b5cd0fc6fb6c778a4f100e18f861f6433e9b43a9338fec6e7829a391fa0fb",
+    "docs/ai-recovery-provisioning/results/after/small-29-offline-360/summary.json": "f1caba53d7d8d77b704ff59a5a67052aff7fcb8c9e71cbdf59c0be1eedd28473",
+    "docs/ai-recovery-provisioning/results/after/small-29-online-360/scenario.json": "a7496b0cdd80961705af194f15330debc9f6e1fda1753561ea67054773f09e33",
+    "docs/ai-recovery-provisioning/results/after/small-29-online-360/summary.json": "0059a617d729f58c71508f03996def60184b2914d0c404c2effc449da4711e2a",
+    "docs/ai-recovery-provisioning/results/after/small-47-online-360/scenario.json": "4dde262b95494e4a132b9621145b500fef34eba872fe611b5d581be37fd2503a",
+    "docs/ai-recovery-provisioning/results/after/small-47-online-360/summary.json": "aec0f528c8f8cb08ada668bb04be67d262ceb3c1e7eac192760dceb7df1cb952",
+    "docs/ai-recovery-provisioning/results/final-after/large-11-online-1440/scenario.json": "431ed4aef1a14c5cfb3d2f7479ac23f0f9b271785713a195ddf405863409295f",
+    "docs/ai-recovery-provisioning/results/final-after/large-11-online-1440/summary.json": "0526c2858e58b1677810a2321bb5efefccaebb87d40e2d5b13f9b1a52c77a21e",
+    "docs/ai-recovery-provisioning/results/final-after/large-11-online-360/scenario.json": "844e4ddb181dbe8aea537ca5954e6ddab9ce4632b033c16b0004fcc272f665d3",
+    "docs/ai-recovery-provisioning/results/final-after/large-11-online-360/summary.json": "807d72ca029bf38d3d2becde7e1cae693eb9512e299cd92c765dee7ca17d1d1a",
+    "docs/ai-recovery-provisioning/results/final-after/large-29-offline-360/scenario.json": "45a480bf2f545c927bad5327a7f255752e286de43d3cc9a06f95271bfdbce74c",
+    "docs/ai-recovery-provisioning/results/final-after/large-29-offline-360/summary.json": "311900515d132f8b305a63d15993b779d07f1a630f026b9b2eae2bf8a36a3929",
+    "docs/ai-recovery-provisioning/results/final-after/large-29-online-360/scenario.json": "4dff4b4e245e3b2bb0932e4cba551b0cb1fd02097b322f991c8fbd163ee570b8",
+    "docs/ai-recovery-provisioning/results/final-after/large-29-online-360/summary.json": "7b05d194d58045c694c3ff2bec1d4f797e84ff352ef552f553a0a3499e5bf59f",
+    "docs/ai-recovery-provisioning/results/final-after/large-47-online-360/scenario.json": "d5c6df2b6a039384e6cd4f46454318a25ceb4283767060a5b5bd06c04a4f0fdd",
+    "docs/ai-recovery-provisioning/results/final-after/large-47-online-360/summary.json": "561a55d8bf8aa337ce52e569d742d6f8be5f1a563e97063568e271ad297d2c90",
+    "docs/ai-recovery-provisioning/results/final-after/medium-11-online-1440/scenario.json": "507728b6f72067ccb5c2d1e76babe36e24b7fc7b3f757b3ee1502e4bbfa00746",
+    "docs/ai-recovery-provisioning/results/final-after/medium-11-online-1440/summary.json": "bc15eaeb6db7d4058539a8b2ef48138e22ed8ab22d9c6d4c7425fda177c80a00",
+    "docs/ai-recovery-provisioning/results/final-after/medium-11-online-360/scenario.json": "0ad28cc4f0d30806d1b03e5a2be40e73ce382bc2925b47c5cbd4ee29322af50a",
+    "docs/ai-recovery-provisioning/results/final-after/medium-11-online-360/summary.json": "68bb220448c8b6628b28cfb31d0f979859c48c95a4b63e1f92dd618bccb1fbd3",
+    "docs/ai-recovery-provisioning/results/final-after/medium-29-offline-360/scenario.json": "bd2ffe6bdcba159c15bcb4af9d6758709a7c58c71e3b06f6769a54fe594235dd",
+    "docs/ai-recovery-provisioning/results/final-after/medium-29-offline-360/summary.json": "52003424aa9c12d2185bd6c8cc452eca72fbc4cb72c5f30f737c01340a0b6d0c",
+    "docs/ai-recovery-provisioning/results/final-after/medium-29-online-360/scenario.json": "a168618b60fec953c2e8a0533d2e38552a56bad00e3c020a3a375c48925b560e",
+    "docs/ai-recovery-provisioning/results/final-after/medium-29-online-360/summary.json": "32b40e23dc5ce24b6eab02ccce3f6a78fc58136c87edeb718fa46b1107e61820",
+    "docs/ai-recovery-provisioning/results/final-after/medium-47-online-360/scenario.json": "2f75f4aff509e3981bc91ba2a1288cb8ddc6705725bd148ae954c7dd88b88e8f",
+    "docs/ai-recovery-provisioning/results/final-after/medium-47-online-360/summary.json": "5df8fbff52e5e04eea730aff70946e33ec15e8494555a9c43a367968467fe656",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-10080/scenario.json": "370ba133946a370bdf9de9755a31e5ff9b6165fa37286c3cc3c79d554d7ee935",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-10080/summary.json": "a210a60c67d8420f718fdf0855aa3cfaef32d0301b2af989ee870b5b4c37a0ce",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-1440/scenario.json": "70d93d00199e9d2eabb90355e4f64545791bc2923978247da3fe5df69b450ffc",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-1440/summary.json": "942adf5b7ca10936ce71c26d6cd2c4b647b59623fdd3bb91224de320195a513d",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-360/scenario.json": "d1feeac811fa7bbd463eaee4653513a7037063bc152e6ca2f21269b21f93b96b",
+    "docs/ai-recovery-provisioning/results/final-after/small-11-online-360/summary.json": "dda7d09cbdfba246acfd44f85cbd739f48c2d717f8ec5bc0ad1c14f43230eff4",
+    "docs/ai-recovery-provisioning/results/final-after/small-29-offline-360/scenario.json": "364b5cd0fc6fb6c778a4f100e18f861f6433e9b43a9338fec6e7829a391fa0fb",
+    "docs/ai-recovery-provisioning/results/final-after/small-29-offline-360/summary.json": "4cd7389c329a4186c20652c4db847853bacf108b59a5f4fde9c971a54b6a58e6",
+    "docs/ai-recovery-provisioning/results/final-after/small-29-online-360/scenario.json": "a7496b0cdd80961705af194f15330debc9f6e1fda1753561ea67054773f09e33",
+    "docs/ai-recovery-provisioning/results/final-after/small-29-online-360/summary.json": "0d0a4101b18f47747b7943dd949dc1108604a59da7d9849d4868cf87c9ccd119",
+    "docs/ai-recovery-provisioning/results/final-after/small-47-online-360/scenario.json": "4dde262b95494e4a132b9621145b500fef34eba872fe611b5d581be37fd2503a",
+    "docs/ai-recovery-provisioning/results/final-after/small-47-online-360/summary.json": "4365aeaa6247d775bae81b4323069427fa0e703c7e3d4b781420c0bc2645e59d",
+    "scripts/ai-behavioral-baseline.cjs": "62d05e9294fcf141a70889e6eeba4098e30866abf0a431aceb29bff000f7df73",
+    "scripts/ai-behavioral-matrix.cjs": "0ab52298fa3793b4247f5d9ee20d77448b94493938dffb05b5af5600004ba2c6",
+    "scripts/ai-recovery-compare.cjs": "b634d20329fc8fc9e00c2f9e0553768075cc9eeed83413b031fd3b64c9c2fc9e",
+    "scripts/ai-recovery-matrix.cjs": "dd49303ace4dfd3399316308a2ca1dcf8b788d2091e4d82a6b80a83fc323b2c1",
+    "src/army/fieldRecovery.ts": "75fe6dad2c5ccfd1ad8fcd019070cdae84d4701b9b57b708fa8f35e530827009",
+    "src/army/strategicAccess.ts": "df708e5c6156f052e24993df2c8bf4384b981eff93308d6703e3a5ae62c8c1b6",
+    "src/engine/strategicPressure.ts": "6ced2331067d3e4b01c31ccc1bbc2300833d9cd1da2ec3aa5e31bf3b0ed59b04",
+    "src/gameplay/construction/definitions.ts": "6736a48cdc34b33b6f0154d3990311dfc9e3c8e457b027f5e42ad2ef703fc488",
+    "src/gameplay/recruitment/formation.ts": "a81493826cd8b0662eef7bdab85abb1221fa167ee48d8e1fb80a5702e0ae3365",
+    "src/gameplay/recruitment/reinforcement.ts": "d1ef9e62b8e2b6101d8105a4c68dab54f3d7dcd2cea28602706c957831ea491d",
+    "src/gameplay/trade/candidates.ts": "061747391163b1b30831233ebf16a2f60087674b2281e607404dfc157030005f",
+    "src/gameplay/trade/declinedContext.ts": "60cd9c4a179451aae3f824e3f028b400c4aeed5a2916925803dd480be2af5024",
+    "src/gameplay/trade/trade.ts": "ba50f91bcb4d6dc7de0b50e233f5ac12f66098b9ceefe969cc3e62c5d5297a95",
+    "src/scoring/contextPlanComparison.ts": "b88d5f3ca26a7b17e69907e6cf21fd9cae685adbe2b83de37a875ad6a7efe6b8",
+    "src/scoring/strategicEvaluators.ts": "24192cc49952b234f89f2fa3479b4a569bfde776a06385961f11e19746608704",
+    "src/simulation/longrun/analyze.ts": "2bba2b1375634c4ff2a510a7952fa567473b76d683413a4f73b3f18abc3521e6",
+    "src/simulation/longrun/behavioralRun.ts": "e0c562853c4848b6590f2ebd7e3d1bea541fc337eee7f50cc8aed6e63ae55f28",
+    "src/simulation/longrun/cli.ts": "cf133b23757e76cd00b9311de55f276dd9894aa81c723873a6a99ce307252e52",
+    "src/simulation/longrun/compareBehavior.ts": "0db53920362495ccf3a1094e3e5a8d8a3b51ef2c8e04431ca8d26c68a3a9c9e9",
+    "src/simulation/longrun/recoveryRun.ts": "0e3b5a67dcdf137b7152155b4cd8964762b7e730dfded7b0af62d8f825b77928",
+    "src/simulation/longrun/runner.ts": "7074fa69f6052337e5deaec21a96e4f35d77bf74abe4f28e1074178d9ff82bb0",
+    "src/simulation/longrun/scenarios.ts": "0fd4f3846c96f15c19351a22fa775e613b0987f45cedbaa38ee64bc604ee453a",
+    "src/state/pressureInvariants.ts": "16c33d967fc1a3bc5f2a4ab8d64e69ee591f7ec13ec4785c09c399c27e8de4b8",
+    "src/types/AIPressure.ts": "6122fabe006918ab4e998550145d0756b18bb7d69c520f1392610f6a2697a709",
+    "tests/aiBehavioralFixes.ts": "8f6570a63d44fa772c84362d92b0ce116e8ac09303c32c1c778fdd4f22aba5b6",
+    "tests/aiLongRunSimulation.ts": "a28014f03b9d6c866f309ca84ece370f2cb4b4edc3b7b70d8c9bf96a00b871a5",
+    "tests/aiMilitaryRecovery.ts": "95b8e6cbc33381d9a5726eb6e0fc9dc547c2da8d4a9618b20b4d2428d34b018c",
+    "tests/aiMilitaryReview.ts": "d08710d1273c0b35f81b74abf40f0096e74debc94411e8e46bd7137ab148eeff",
+    "tests/aiRecruitment.ts": "48f5292e0ecbf8106b52f1ca197867be551c36a67a1f514286465995144b602e",
+    "tests/fixtures/ai-behavioral/README.md": "b9376122deb829f954084a9b3d1ff08acb30183aec3e5c0a9702bf883883d5d3",
+    "tests/fixtures/ai-behavioral/idle-small-state.json.gz": "2e802afc7aec34747113fd258b75fcaa26c13ed618346ef2783cecdf835043c6",
+    "tests/fixtures/ai-behavioral/idle-small-world.json": "370ba133946a370bdf9de9755a31e5ff9b6165fa37286c3cc3c79d554d7ee935"
+  },
+  "selfHashExcluded": "docs/AI_LONGRUN_CHECKPOINT_SCOPE.json",
+  "validationExecutedDuringCheckpoint": [
+    {
+      "suite": "aiMilitaryReview",
+      "exit": 0,
+      "result": "{\"passed\":5,\"failed\":0,\"skipped\":0}"
+    },
+    {
+      "suite": "aiMilitaryRecovery",
+      "exit": 0,
+      "result": "{\"passed\":31,\"failed\":0,\"skipped\":0}"
+    },
+    {
+      "suite": "aiBehavioralFixes",
+      "exit": 0,
+      "result": "{\"passed\":31,\"failed\":0,\"skipped\":0}"
+    },
+    {
+      "suite": "aiLongRunSimulation",
+      "exit": 0,
+      "result": "{\"passed\":19,\"failed\":0,\"skipped\":0}"
+    }
+  ],
+  "productionTypeScriptDuringCheckpoint": "PASS",
+  "exclusionPolicy": "Preserve all excluded files locally; omit generated full timelines, snapshots, CPU profiles and console logs from this source/compact-evidence commit."
+}

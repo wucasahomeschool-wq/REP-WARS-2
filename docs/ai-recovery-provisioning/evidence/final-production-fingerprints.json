@@ -1,0 +1,13 @@
+{
+  "src/army/fieldRecovery.ts": "75fe6dad2c5ccfd1ad8fcd019070cdae84d4701b9b57b708fa8f35e530827009",
+  "src/army/strategicAccess.ts": "df708e5c6156f052e24993df2c8bf4384b981eff93308d6703e3a5ae62c8c1b6",
+  "src/engine/strategicPressure.ts": "9feca09b652c4551bfc7d0dbed471eea41a3f241ba273106e349902c37714a7c",
+  "src/gameplay/recruitment/formation.ts": "a81493826cd8b0662eef7bdab85abb1221fa167ee48d8e1fb80a5702e0ae3365",
+  "src/gameplay/recruitment/reinforcement.ts": "d1ef9e62b8e2b6101d8105a4c68dab54f3d7dcd2cea28602706c957831ea491d",
+  "src/gameplay/trade/declinedContext.ts": "60cd9c4a179451aae3f824e3f028b400c4aeed5a2916925803dd480be2af5024",
+  "src/gameplay/trade/trade.ts": "ba50f91bcb4d6dc7de0b50e233f5ac12f66098b9ceefe969cc3e62c5d5297a95",
+  "src/scoring/contextPlanComparison.ts": "b88d5f3ca26a7b17e69907e6cf21fd9cae685adbe2b83de37a875ad6a7efe6b8",
+  "src/scoring/strategicEvaluators.ts": "24192cc49952b234f89f2fa3479b4a569bfde776a06385961f11e19746608704",
+  "src/state/pressureInvariants.ts": "16c33d967fc1a3bc5f2a4ab8d64e69ee591f7ec13ec4785c09c399c27e8de4b8",
+  "src/types/AIPressure.ts": "6122fabe006918ab4e998550145d0756b18bb7d69c520f1392610f6a2697a709"
+}
