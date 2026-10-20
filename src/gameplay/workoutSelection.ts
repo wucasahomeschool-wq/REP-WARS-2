@@ -23,7 +23,8 @@ import {
 import { getAuthoredWorkoutCatalog } from '../fitness/authoring/registry';
 import { WORKOUT_SIZES, WorkoutSize } from '../fitness/authoring/types';
 import { ensurePlayerProgression } from '../fitness/progression/apply';
-import { selectAuthoredWorkout, AuthoredWorkoutSelection } from '../fitness/progression/select';
+import { selectAuthoredWorkout, eligibleAuthoredWorkouts, AuthoredWorkoutSelection } from '../fitness/progression/select';
+import { workoutStartBlockReason } from './workoutStart';
 import { emptyPlayerProgressionState } from '../fitness/progression/types';
 import { GameState, Level1TutorialBeat } from '../types/GameState';
 import { OrchestrationError, ErrorCode } from '../orchestration/errors';
@@ -70,8 +71,7 @@ export interface WorkoutSelectionView {
 }
 
 function sessionBusy(state: GameState): boolean {
-  const active = state.playerFitness.activeSession;
-  return !!active && active.state !== 'COMPLETED' && active.state !== 'ABANDONED';
+  return workoutStartBlockReason(state) !== null;
 }
 
 export function usesAuthoredWorkoutSelection(state: GameState): boolean {
@@ -164,6 +164,17 @@ export interface StartWorkoutResolution {
   source: WorkoutSelectionSource;
   definition: WorkoutDefinition;
   authored?: AuthoredWorkoutSelection;
+}
+
+/** All resolved authored starts, including explicit IDs and tutorial-ID collisions, share eligibility. */
+export function assertResolvedWorkoutEligible(state: GameState, definition: WorkoutDefinition): void {
+  if (!definition.metadata.authored) return;
+  const catalog = getAuthoredWorkoutCatalog();
+  ensurePlayerProgression(state);
+  if (!catalog || !eligibleAuthoredWorkouts(catalog, state.playerFitness.progression,
+    { size: definition.metadata.authored.size }).some(workout => workout.id === definition.id)) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Workout is not eligible for current movement readiness and progression window');
+  }
 }
 
 export function resolveStartWorkout(

@@ -462,7 +462,7 @@ export async function runGameplaySessionLifecycleTests(
       commandId: 'START_WORKOUT',
       playerId: 'player_workout',
       requestId: 'workout-start',
-      parameters: { purpose: 'NORMAL_TROOPS', sessionId: 'workout-local-1', now: 1_000 },
+      parameters: { purpose: 'GOLDEN_YIELD', sessionId: 'workout-local-1', now: 1_000 },
     });
     assert.strictEqual(started.success, true, started.errors[0]?.message);
     assert.strictEqual(load(store, 'player_workout').gameplaySessionLeases.length, 0);

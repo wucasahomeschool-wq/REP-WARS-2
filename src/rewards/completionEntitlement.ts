@@ -72,7 +72,7 @@ export function cloneCompletionRewardEntitlement(value: CompletionRewardEntitlem
   });
 }
 
-/** Pure server-side construction helper. R1-C does not call this from START_WORKOUT. */
+/** Pure server-side construction helper; START_WORKOUT supplies resolved authoritative content. */
 export function createCompletionRewardEntitlement(input: {
   session: SessionBinding;
   size: WorkoutSize;

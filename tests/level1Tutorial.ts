@@ -1,3 +1,4 @@
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 import { fixtureCommitments } from './aiOperationFixtures';
 import assert from 'assert';
 import {
@@ -73,12 +74,12 @@ function finishActiveWorkout(orch: Orchestrator, now = 2_000): void {
 }
 
 function completeTroopsWorkout(orch: Orchestrator, sessionId: string, now: number): void {
-  const started = orch.execute(cmd('START_WORKOUT', {
+  const started = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
     purpose: 'NORMAL_TROOPS',
     sessionId,
     now,
   }, `${sessionId}_start`));
-  assert.strictEqual(started.success, true, started.errors[0]?.message);
+  assert.strictEqual(started.state, 'ACTIVE');
   finishActiveWorkout(orch, now + 1_000);
   assert.strictEqual(orch.execute(cmd('SUBMIT_WORKOUT_FEEDBACK', { value: 'ABOUT_RIGHT', now: now + 10_000 }, `${sessionId}_fb`)).success, true);
   const finalized = orch.execute(cmd('FINALIZE_WORKOUT', { now: now + 11_000 }, `${sessionId}_fin`));
@@ -124,7 +125,7 @@ export function registerLevel1TutorialTests(api: Level1TutorialTestApi): void {
     assert.strictEqual(spectator.level1Tutorial, null);
   });
 
-  test('ATTACK is gated until the first workout, then first attack advances into the scripted raid', () => {
+  test("legacy-session compatibility: ATTACK is gated until the first workout, then first attack advances into the scripted raid", () => {
     const recorder = createTelemetryRecorder();
     const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 3 }).state, undefined, recorder);
     const blocked = orch.execute(cmd('ATTACK', { territoryId: FIRST_ENEMY, commitAmount: 120, seed: 1 }, 'atk_early'));
@@ -210,7 +211,7 @@ export function registerLevel1TutorialTests(api: Level1TutorialTestApi): void {
     assert.strictEqual(orch.getState().territories.get(FINAL_ENEMY)?.owner, 'f_ai_01');
   });
 
-  test('defense workout is the only path out of DEFENSE_PENDING and repeated commands do not duplicate the raid', () => {
+  test("legacy-session compatibility: defense workout is the only path out of DEFENSE_PENDING and repeated commands do not duplicate the raid", () => {
     const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 5 }).state);
     completeTroopsWorkout(orch, 'wses_d1', 1_000);
     const troops = orch.getState().playerRewards.bankedTroops;
@@ -336,14 +337,14 @@ export function registerLevel1TutorialTests(api: Level1TutorialTestApi): void {
     assert.strictEqual(orch.getState().level1Tutorial?.scriptedInvasionId, invasionId);
   });
 
-  test('Level 1 first workout finalizes without feedback, awards Troops, and advances the tutorial', () => {
+  test("legacy-session compatibility: Level 1 first workout finalizes without feedback, awards Troops, and advances the tutorial", () => {
     const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 11 }).state);
-    const started = orch.execute(cmd('START_WORKOUT', {
+    const started = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_first_nofb',
       now: 1_000,
     }, 'first_nofb_start'));
-    assert.strictEqual(started.success, true, started.errors[0]?.message);
+    assert.strictEqual(started.state, 'ACTIVE');
     finishActiveWorkout(orch, 2_000);
     const session = orch.getState().playerFitness.activeSession!;
     assert.strictEqual(session.state, 'COMPLETED');
@@ -358,7 +359,7 @@ export function registerLevel1TutorialTests(api: Level1TutorialTestApi): void {
     assert.strictEqual(orch.getState().playerFitness.activeSession, null);
   });
 
-  test('later Level 1 troops workouts still require SUBMIT_WORKOUT_FEEDBACK', () => {
+  test("legacy-session compatibility: later Level 1 troops workouts still require SUBMIT_WORKOUT_FEEDBACK", () => {
     const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 12 }).state);
     completeTroopsWorkout(orch, 'wses_later_first', 1_000);
     const firstTroops = orch.getState().playerRewards.bankedTroops;
@@ -371,12 +372,12 @@ export function registerLevel1TutorialTests(api: Level1TutorialTestApi): void {
     completeDefenseWorkout(orch, invasionId, 'wses_later_def', 40_000);
     assert.strictEqual(tutorialOf(orch).beat, 'FINAL_WORKOUT_PENDING');
 
-    const started = orch.execute(cmd('START_WORKOUT', {
+    const started = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_later_second',
       now: 50_000,
     }, 'later_start'));
-    assert.strictEqual(started.success, true, started.errors[0]?.message);
+    assert.strictEqual(started.state, 'ACTIVE');
     finishActiveWorkout(orch, 51_000);
     const session = orch.getState().playerFitness.activeSession!;
     assert.strictEqual(session.state, 'COMPLETED');

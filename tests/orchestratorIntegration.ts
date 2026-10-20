@@ -1,3 +1,4 @@
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 import assert from 'assert';
 import {
   COMMAND_INDEX,
@@ -171,7 +172,7 @@ export function registerOrchestratorIntegrationTests(api: OrchestratorIntegratio
     assert.strictEqual(orch.getState().playerEmpirePause.paused, false);
   });
 
-  test('vertical slice: Level 1 workout → troops → attack → persist → reload', () => {
+  test("legacy-session compatibility: vertical slice: Level 1 workout → troops → attack → persist → reload", () => {
     const store = new InMemoryGameStateStore();
     const history = new InMemoryWorkoutHistoryStore();
     const created = initializePlayerWorld({ playerId: PLAYER_ID, seed: 9, store });
@@ -188,13 +189,13 @@ export function registerOrchestratorIntegrationTests(api: OrchestratorIntegratio
     const uncommittedSoldiers = homeArmy.soldiers;
     const uncommittedKnights = homeArmy.knights;
 
-    const start = orch.execute(cmd('START_WORKOUT', {
+    const start = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_slice',
       now: 1_000,
     }, 'slice_start'));
-    assert.strictEqual(start.success, true, start.errors[0]?.message);
-    assert.strictEqual(start.payload.workoutId, WORKOUT_ID);
+    assert.strictEqual(start.state, 'ACTIVE');
+    assert.strictEqual(start.workoutId, WORKOUT_ID);
     finishActiveWorkout(orch);
     assert.strictEqual(orch.execute(cmd('SUBMIT_WORKOUT_FEEDBACK', { value: 'ABOUT_RIGHT', now: 40_000 }, 'slice_fb')).success, true);
     const finalized = orch.execute(cmd('FINALIZE_WORKOUT', { now: 41_000 }, 'slice_fin'));
@@ -288,7 +289,7 @@ export function registerOrchestratorIntegrationTests(api: OrchestratorIntegratio
 
     const events = recorder.getEvents();
     const workout = reconstructChain(events, 'wses_slice');
-    assert.ok(workout.some((e) => e.eventType === 'workout.started'));
+    assert.ok(workout.some((e) => e.eventType === 'workout.exercise_recorded'));
     assert.ok(workout.some((e) => e.eventType === 'workout.feedback_submitted'));
     assert.ok(workout.some((e) => e.eventType === 'workout.completed'));
     assert.ok(workout.some((e) => e.eventType === 'workout.fitness_result'));

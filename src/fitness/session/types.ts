@@ -138,7 +138,7 @@ export interface WorkoutSessionAuthoredRef {
 }
 
 export interface WorkoutSession {
-  /** Absent = legacy reward handling. R1-C defines storage only; START_WORKOUT does not mint locks yet. */
+  /** Absent = legacy reward handling. New NORMAL_TROOPS starts lock server-authored completion terms. */
   readonly completionRewardEntitlement?: CompletionRewardEntitlement;
   sessionId: WorkoutSessionId;
   playerId: string;

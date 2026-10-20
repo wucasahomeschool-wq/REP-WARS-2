@@ -1,3 +1,4 @@
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 import assert from 'assert';
 import {
   ALL_STRETCH_EXERCISE_IDS,
@@ -211,7 +212,7 @@ export function registerFitnessLibraryTests(api: FitnessLibraryTestApi): void {
     assert.deepStrictEqual(sessionCrunch.prescription, crunch.prescription);
   });
 
-  test('Level 1 selection and wk_moderate_full_body content are unchanged', () => {
+  test("legacy-session compatibility: Level 1 selection and wk_moderate_full_body content are unchanged", () => {
     assert.strictEqual(selectedWorkoutIdForPurpose('NORMAL_TROOPS'), 'wk_moderate_full_body');
     assert.strictEqual(selectedWorkoutIdForPurpose('DEFENSE'), 'wk_moderate_full_body');
     const moderate = getWorkoutDefinition('wk_moderate_full_body')!;
@@ -237,26 +238,26 @@ export function registerFitnessLibraryTests(api: FitnessLibraryTestApi): void {
     assert.ok(workouts.some((row) => row.id === 'wk_upper_01'));
     assert.ok(workouts.some((row) => row.id === 'wk_lower_01'));
     assert.ok(workouts.length >= 5 + LIBRARY_TEMPLATES.length);
-    const started = orch.execute(cmd('START_WORKOUT', {
+    const started = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_lib_l1',
       now: 1_000,
     }));
-    assert.strictEqual(started.success, true, started.errors[0]?.message);
-    assert.strictEqual(started.payload.workoutId, 'wk_moderate_full_body');
+    assert.strictEqual(started.state, 'ACTIVE');
+    assert.strictEqual(started.workoutId, 'wk_moderate_full_body');
   });
 
-  test('an imported template can start a session without becoming the purpose-selection default', () => {
+  test("legacy-session compatibility: an imported template can start a session without becoming the purpose-selection default", () => {
     const orch = new Orchestrator(createGameState({ seed: 2, playerFactionId: null }));
-    const started = orch.execute(cmd('START_WORKOUT', {
+    const started = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       workoutId: 'wk_upper_01',
       sessionId: 'wses_lib_upper',
       now: 1_000,
     }));
-    assert.strictEqual(started.success, true, started.errors[0]?.message);
-    assert.strictEqual(started.payload.workoutId, 'wk_upper_01');
-    assert.strictEqual(started.payload.selectedWorkoutId, 'wk_moderate_full_body');
+    assert.strictEqual(started.state, 'ACTIVE');
+    assert.strictEqual(started.workoutId, 'wk_upper_01');
+    assert.strictEqual(orch.execute(cmd('GET_WORKOUT_SELECTION', { purpose: 'NORMAL_TROOPS' })).payload.selectedWorkoutId, 'wk_moderate_full_body');
     assert.deepStrictEqual(
       orch.getState().playerFitness.activeSession?.prescribedWorkout.exercises.map((step) => step.exerciseId),
       [...LIBRARY_TEMPLATES.find((row) => row.id === 'wk_upper_01')!.exerciseIds],

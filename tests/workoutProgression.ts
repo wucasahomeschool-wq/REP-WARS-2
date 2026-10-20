@@ -1,3 +1,4 @@
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 import assert from 'assert';
 import {
   COMMAND_INDEX,
@@ -88,13 +89,13 @@ function finishActiveWorkout(orch: Orchestrator, actualScale = 1, now = 2_000): 
 }
 
 function completeAuthored(orch: Orchestrator, feedback: string, sessionId: string, size?: string): void {
-  const start = orch.execute(cmd('START_WORKOUT', {
+  const start = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
     purpose: 'NORMAL_TROOPS',
     sessionId,
     now: 1_000,
     ...(size ? { size } : {}),
   }));
-  assert.strictEqual(start.success, true, start.errors[0]?.message);
+  assert.strictEqual(start.state, 'ACTIVE');
   finishActiveWorkout(orch, 1, 2_000);
   const fb = orch.execute(cmd('SUBMIT_WORKOUT_FEEDBACK', { value: feedback, now: 20_000 }));
   assert.strictEqual(fb.success, true, fb.errors[0]?.message);
@@ -183,17 +184,17 @@ export function registerWorkoutProgressionTests(api: WorkoutProgressionTestApi):
     assert.ok(eligibleAuthoredWorkouts(catalog, ready).some((row) => row.id === 'aw_squat_stage2'));
   });
 
-  test('GET_WORKOUT_SELECTION and START_WORKOUT use the authored catalog when installed', () => {
+  test("specialized GET_WORKOUT_SELECTION and START_WORKOUT use the authored catalog when installed", () => {
     withCatalog((catalog) => {
       const { orch } = orchWithCatalog();
       try {
-        const selection = orch.execute(cmd('GET_WORKOUT_SELECTION', { purpose: 'NORMAL_TROOPS', size: 'SHORT' }));
+        const selection = orch.execute(cmd('GET_WORKOUT_SELECTION', { purpose: 'GOLDEN_YIELD', size: 'SHORT' }));
         assert.strictEqual(selection.success, true, selection.errors[0]?.message);
         assert.strictEqual(selection.payload.source, 'authored');
         assert.strictEqual(selection.payload.selectedWorkoutId, 'aw_foundations_short');
         assert.strictEqual(selection.payload.prescribedWorkout.personalized, false);
         const started = orch.execute(cmd('START_WORKOUT', {
-          purpose: 'NORMAL_TROOPS',
+          purpose: 'GOLDEN_YIELD',
           size: 'SHORT',
           sessionId: 'wses_authored_short',
           now: 1_000,
@@ -213,11 +214,11 @@ export function registerWorkoutProgressionTests(api: WorkoutProgressionTestApi):
     });
   });
 
-  test('authored prescriptions stay distinct from recorded performance', () => {
+  test('specialized authored prescriptions stay distinct from recorded performance', () => {
     const { orch } = orchWithCatalog();
     try {
       const started = orch.execute(cmd('START_WORKOUT', {
-        purpose: 'NORMAL_TROOPS',
+        purpose: 'GOLDEN_YIELD',
         workoutId: 'aw_foundations_short',
         sessionId: 'wses_authored_perf',
         now: 1_000,
@@ -295,12 +296,12 @@ export function registerWorkoutProgressionTests(api: WorkoutProgressionTestApi):
     assert.strictEqual(second.bandAfter, 'band_1b');
   });
 
-  test('abandoned sessions do not produce advancement evidence', () => {
+  test('abandoned specialized sessions do not produce advancement evidence', () => {
     const catalog = compileFixture();
     const { orch } = orchWithCatalog();
     try {
       orch.execute(cmd('START_WORKOUT', {
-        purpose: 'NORMAL_TROOPS',
+        purpose: 'GOLDEN_YIELD',
         workoutId: 'aw_foundations_short',
         sessionId: 'wses_authored_abandon',
         now: 1_000,
@@ -323,7 +324,7 @@ export function registerWorkoutProgressionTests(api: WorkoutProgressionTestApi):
     }
   });
 
-  test('completion still runs the existing reward pipeline', () => {
+  test('legacy-session compatibility: completion still runs the existing reward pipeline', () => {
     const { orch } = orchWithCatalog();
     try {
       completeAuthored(orch, 'ABOUT_RIGHT', 'wses_authored_reward', 'SHORT');
@@ -353,7 +354,7 @@ export function registerWorkoutProgressionTests(api: WorkoutProgressionTestApi):
     assert.ok(def!.optionalParameters.some((p) => p.name === 'size'));
   });
 
-  test('workout.selected telemetry precedes workout.started', () => {
+  test("specialized workout.selected telemetry precedes workout.started", () => {
     const catalog = compileFixture();
     installAuthoredWorkoutCatalog(catalog);
     const recorder = createTelemetryRecorder();
@@ -364,7 +365,7 @@ export function registerWorkoutProgressionTests(api: WorkoutProgressionTestApi):
     );
     try {
       const started = orch.execute(cmd('START_WORKOUT', {
-        purpose: 'NORMAL_TROOPS',
+        purpose: 'GOLDEN_YIELD',
         size: 'SHORT',
         sessionId: 'wses_tel_select',
         now: 1_000,
@@ -379,11 +380,11 @@ export function registerWorkoutProgressionTests(api: WorkoutProgressionTestApi):
     }
   });
 
-  test('applyAuthoredProgression is a no-op without a catalog', () => {
+  test("legacy-session compatibility: applyAuthoredProgression is a no-op without a catalog", () => {
     installAuthoredWorkoutCatalog(null);
     const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 9, playerFactionId: PLAYER_FACTION }));
     orch.execute(cmd('START_WORKOUT', {
-      purpose: 'NORMAL_TROOPS',
+      purpose: 'GOLDEN_YIELD',
       workoutId: 'wk_very_easy_mobility',
       sessionId: 'wses_no_catalog',
       now: 1_000,

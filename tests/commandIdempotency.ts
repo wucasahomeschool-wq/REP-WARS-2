@@ -205,18 +205,18 @@ export async function runCommandIdempotencyTests(
     assert.strictEqual(state.nextArmySequence, 1);
   });
 
-  await report('finalizing a workout twice does not grant a second reward', async () => {
+  await report('finalizing a specialized workout twice does not grant a second effect', async () => {
     const { store, host, history } = harness();
     const opened = await host.openGameplaySession('cmd_workout', 'open-1');
     let sequence = 1;
     const started = await host.execute(command('cmd_workout', opened.sessionId, 'workout-start', sequence, 'START_WORKOUT', {
-      purpose: 'NORMAL_TROOPS',
+      purpose: 'GOLDEN_YIELD',
       sessionId: 'wses-idem',
       now: 1_000,
     }));
     assert.strictEqual(started.success, true, started.errors[0]?.message);
     const replayStart = await host.execute(command('cmd_workout', opened.sessionId, 'workout-start', sequence, 'START_WORKOUT', {
-      purpose: 'NORMAL_TROOPS',
+      purpose: 'GOLDEN_YIELD',
       sessionId: 'wses-other',
       now: 9_000,
     }));
@@ -251,6 +251,7 @@ export async function runCommandIdempotencyTests(
     assert.strictEqual(finalized.success, true, finalized.errors[0]?.message);
     const banked = load(store, 'cmd_workout').playerRewards.bankedTroops;
     const rewards = load(store, 'cmd_workout').playerRewards.appliedRewards.length;
+    assert.strictEqual(load(store, 'cmd_workout').playerRewards.pendingGoldenYieldEffects.length, 1);
     assert.ok(history.get('cmd_workout', 'wses-idem'));
     const replay = await host.execute(command('cmd_workout', opened.sessionId, 'workout-final', sequence, 'FINALIZE_WORKOUT', {
       now: clock + 9_000,
@@ -259,6 +260,7 @@ export async function runCommandIdempotencyTests(
     assert.strictEqual(replay.payload.applicationId, finalized.payload.applicationId);
     assert.strictEqual(load(store, 'cmd_workout').playerRewards.bankedTroops, banked);
     assert.strictEqual(load(store, 'cmd_workout').playerRewards.appliedRewards.length, rewards);
+    assert.strictEqual(load(store, 'cmd_workout').playerRewards.pendingGoldenYieldEffects.length, 1);
     assert.ok(history.get('cmd_workout', 'wses-idem'));
     assert.strictEqual(history.get('cmd_workout', 'wses-other'), null);
   });

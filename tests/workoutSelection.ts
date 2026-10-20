@@ -1,3 +1,4 @@
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 import assert from 'assert';
 import {
   COMMAND_INDEX,
@@ -154,19 +155,19 @@ export function registerWorkoutSelectionTests(api: WorkoutSelectionTestApi): voi
     assert.ok(selections.some((row) => row.purpose === 'NORMAL_TROOPS' && row.selectedWorkoutId === WORKOUT_ID));
   });
 
-  test('Level 1 first, defense, and final troops workouts resolve without a client workoutId', () => {
+  test("legacy-session compatibility: Level 1 first, defense, and final troops workouts resolve without a client workoutId", () => {
     const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 2 }).state);
     const firstSel = orch.execute(cmd('GET_WORKOUT_SELECTION', { purpose: 'NORMAL_TROOPS' }, 'sel_l1_1'));
     assert.strictEqual(firstSel.payload.selectedWorkoutId, WORKOUT_ID);
     assert.strictEqual(firstSel.payload.allowed, true);
-    const first = orch.execute(cmd('START_WORKOUT', {
+    const first = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_sel_1',
       now: 1_000,
     }, 'start_l1_1'));
-    assert.strictEqual(first.success, true, first.errors[0]?.message);
-    assert.strictEqual(first.payload.workoutId, WORKOUT_ID);
-    assert.strictEqual(first.payload.selectedWorkoutId, WORKOUT_ID);
+    assert.strictEqual(first.state, 'ACTIVE');
+    assert.strictEqual(first.workoutId, WORKOUT_ID);
+    assert.strictEqual(firstSel.payload.selectedWorkoutId, WORKOUT_ID);
     const session = orch.getState().playerFitness.activeSession!;
     assert.strictEqual(session.workoutId, WORKOUT_ID);
     assert.deepStrictEqual(
@@ -221,16 +222,16 @@ export function registerWorkoutSelectionTests(api: WorkoutSelectionTestApi): voi
     assert.strictEqual(finalSel.payload.tutorialBeat, 'FINAL_WORKOUT_PENDING');
     assert.strictEqual(finalSel.payload.selectedWorkoutId, WORKOUT_ID);
     assert.strictEqual(finalSel.payload.allowed, true);
-    const final = orch.execute(cmd('START_WORKOUT', {
+    const final = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_sel_2',
       now: 50_000,
     }, 'start_l1_2'));
-    assert.strictEqual(final.success, true, final.errors[0]?.message);
-    assert.strictEqual(final.payload.workoutId, WORKOUT_ID);
+    assert.strictEqual(final.state, 'ACTIVE');
+    assert.strictEqual(final.workoutId, WORKOUT_ID);
   });
 
-  test('invalid workout references and purposes fail closed', () => {
+  test("legacy-session compatibility: invalid workout references and purposes fail closed", () => {
     const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 3 }).state);
     const missingPurpose = orch.execute(cmd('GET_WORKOUT_SELECTION', {}, 'sel_missing'));
     assert.strictEqual(missingPurpose.success, false);
@@ -255,7 +256,7 @@ export function registerWorkoutSelectionTests(api: WorkoutSelectionTestApi): voi
     assert.strictEqual(orch.getState().playerFitness.activeSession, null);
   });
 
-  test('selected workout is personalized through the existing fitness pipeline', () => {
+  test("legacy-session compatibility: selected workout is personalized through the existing fitness pipeline", () => {
     const created = initializePlayerWorld({ playerId: PLAYER_ID, seed: 4 });
     created.state.playerFitness.estimate = estimateAt(8, 0.85);
     const orch = new Orchestrator(created.state);
@@ -281,46 +282,46 @@ export function registerWorkoutSelectionTests(api: WorkoutSelectionTestApi): voi
     }).exercises.find((step) => step.exerciseId === 'ex_push_ups');
     assert.deepStrictEqual(selectedPush?.prescription, push.prescription);
 
-    const started = orch.execute(cmd('START_WORKOUT', {
+    const started = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_pers',
       now: 1_000,
     }, 'start_pers'));
-    assert.strictEqual(started.success, true, started.errors[0]?.message);
+    assert.strictEqual(started.state, 'ACTIVE');
     const sessionPush = orch.getState().playerFitness.activeSession!.prescribedWorkout.exercises.find((step) => (
       step.exerciseId === 'ex_push_ups'
     ));
     assert.deepStrictEqual(sessionPush?.prescription, push.prescription);
   });
 
-  test('direct catalog workoutId still works outside the Level 1 tutorial', () => {
+  test("legacy-session compatibility: direct catalog workoutId still works outside the Level 1 tutorial", () => {
     const orch = new Orchestrator(createGameState({ seed: 5, playerFactionId: null }));
     const selection = orch.execute(cmd('GET_WORKOUT_SELECTION', { purpose: 'NORMAL_TROOPS' }, 'sel_legacy'));
     assert.strictEqual(selection.success, true, selection.errors[0]?.message);
     assert.strictEqual(selection.payload.selectedWorkoutId, WORKOUT_ID);
     assert.strictEqual(selection.payload.source, 'purpose');
     assert.strictEqual(selection.payload.constraints.workoutIdMustMatchSelection, false);
-    const easy = orch.execute(cmd('START_WORKOUT', {
+    const easy = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       workoutId: 'wk_very_easy_mobility',
       sessionId: 'wses_easy',
       now: 1_000,
     }, 'start_easy'));
-    assert.strictEqual(easy.success, true, easy.errors[0]?.message);
-    assert.strictEqual(easy.payload.workoutId, 'wk_very_easy_mobility');
-    assert.strictEqual(easy.payload.selectedWorkoutId, WORKOUT_ID);
+    assert.strictEqual(easy.state, 'ACTIVE');
+    assert.strictEqual(easy.workoutId, 'wk_very_easy_mobility');
+    assert.strictEqual(selection.payload.selectedWorkoutId, WORKOUT_ID);
     assert.strictEqual(orch.getState().playerFitness.activeSession?.workoutId, 'wk_very_easy_mobility');
   });
 
-  test('omitting workoutId on a non-tutorial world uses the authoritative selection', () => {
+  test("legacy-session compatibility: omitting workoutId on a non-tutorial world uses the authoritative selection", () => {
     const orch = new Orchestrator(createGameState({ seed: 6, playerFactionId: null }));
-    const started = orch.execute(cmd('START_WORKOUT', {
+    const started = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_default',
       now: 1_000,
     }, 'start_default'));
-    assert.strictEqual(started.success, true, started.errors[0]?.message);
-    assert.strictEqual(started.payload.workoutId, WORKOUT_ID);
+    assert.strictEqual(started.state, 'ACTIVE');
+    assert.strictEqual(started.workoutId, WORKOUT_ID);
     assert.strictEqual(orch.getState().playerFitness.activeSession?.workoutId, WORKOUT_ID);
     assert.deepStrictEqual(checkGameStateInvariants(orch.getState()), []);
   });

@@ -92,6 +92,7 @@ import { registerDefenseTroopAccountingTests } from './defenseTroopAccounting';
 import { registerArmyIdentityTests } from './armyIdentity';
 import { registerBattleSeedAuthorityTests } from './battleSeedAuthority';
 import { registerWorkoutRewardContractTests } from './workoutRewardContracts';
+import { runWorkoutStartRewardTests } from './workoutStartRewards';
 import { registerAiEconomyTests } from './aiEconomy';
 import { registerInvasionLifecycleTests } from './invasionLifecycle';
 import { registerPersistenceTests } from './persistence';
@@ -3229,6 +3230,10 @@ registerOrchestratorIntegrationTests({ test });
 registerLevelAnchorTests({ test });
 
 void (async () => {
+  await runWorkoutStartRewardTests(async (name, fn) => {
+    try { await fn(); passed++; console.log(`  ✓ ${name}`); }
+    catch (err) { failed++; console.error(`  ✗ ${name}`); console.error(err instanceof Error ? err.message : String(err)); }
+  });
   console.log('HTTP command bridge');
   try {
     await runHttpBridgeTest();

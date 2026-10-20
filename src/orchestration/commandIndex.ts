@@ -349,13 +349,13 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   cmd({
     commandId: 'START_WORKOUT',
     category: 'FITNESS',
-    description: 'Start an authoritative workout session. Omit workoutId so the backend selects the next appropriate authored workout (or the purpose-table workout when no authored catalog is installed). DEFENSE requires a matching active invasion and must start before the response deadline.',
+    description: 'Start an authoritative workout session. NORMAL_TROOPS requires an eligible authored workout, an authored world reward policy and a server-issued sequenced gameplay session; the server locks its completion entitlement. Specialized purposes retain their context-specific behavior. DEFENSE must start before the response deadline.',
     required: [p('purpose', 'string', 'WorkoutPurpose')],
     optional: [
       p('workoutId', 'string', 'Catalog workout id; omit to let the backend select. Level 1 tutorial requires the selected id when provided.'),
       p('intendedDifficulty', 'string', 'Override difficulty'),
       p('size', 'string', 'SHORT, STANDARD, or LONG for authored selection when workoutId is omitted'),
-      p('sessionId', 'string', 'Optional session id'),
+      p('sessionId', 'string', 'Legacy specialized-workout id only; ignored for NORMAL_TROOPS'),
       p('invasionId', 'string', 'Required for DEFENSE'),
       p('constructionId', 'string', 'Live construction target'),
       p('collectionTerritoryId', 'string', 'Live Golden Yield territory'),

@@ -1,3 +1,4 @@
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 import assert from 'assert';
 import {
   COMMAND_INDEX,
@@ -35,13 +36,13 @@ function freshState(seed = 21): GameState {
 }
 
 function startMobility(orch: Orchestrator, sessionId: string, now: number): void {
-  const started = orch.execute(cmd('START_WORKOUT', {
+  const started = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
     purpose: 'NORMAL_TROOPS',
     workoutId: WORKOUT_ID,
     sessionId,
     now,
   }, `${sessionId}_start`));
-  assert.strictEqual(started.success, true, started.errors[0]?.message);
+  assert.strictEqual(started.state, 'ACTIVE');
   assert.strictEqual(orch.getState().playerFitness.activeSession?.state, 'ACTIVE');
 }
 

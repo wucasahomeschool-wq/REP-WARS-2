@@ -1,4 +1,6 @@
 import { isWorkoutDifficulty } from '../fitness/difficulty';
+import { assertWorkoutSessionIdAvailable, availableDefaultWorkoutSessionId, lockWorkoutStartReward, rewardWorkoutSessionId, workoutStartBlockReason } from '../gameplay/workoutStart';
+import { cloneCompletionRewardEntitlement } from '../rewards/completionEntitlement';
 import { isWorkoutPurpose } from '../fitness/purpose';
 import {
   beginWorkoutSession,
@@ -33,6 +35,7 @@ import {
   shouldWaiveWorkoutFeedback,
 } from '../gameplay/tutorial/level1';
 import {
+  assertResolvedWorkoutEligible,
   parseWorkoutSize,
   resolveStartWorkout,
   serializeWorkoutSelectionView,
@@ -226,18 +229,17 @@ export function handleStartWorkout(state: GameState, ctx: GameplayHandlerContext
   }
   const purpose: WorkoutPurpose = purposeRaw;
   assertLevel1TutorialWorkoutAllowed(state, purpose);
+  const blocked = workoutStartBlockReason(state);
+  if (blocked) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, blocked);
   const size = parseWorkoutSize(paramString(ctx.req, 'size'));
   const resolved = resolveStartWorkout(state, purpose, paramString(ctx.req, 'workoutId'), size);
   const workoutId = resolved.workoutId;
   const selectedWorkoutId = resolved.selectedWorkoutId;
   const definition = resolved.definition;
+  assertResolvedWorkoutEligible(state, definition);
   const difficultyRaw = paramString(ctx.req, 'intendedDifficulty') ?? definition.intendedDifficulty;
   if (!isWorkoutDifficulty(difficultyRaw)) {
     throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'intendedDifficulty is invalid');
-  }
-  const active = state.playerFitness.activeSession;
-  if (active && active.state !== 'COMPLETED' && active.state !== 'ABANDONED') {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'An active workout session is already in progress');
   }
 
   const invasionId = paramString(ctx.req, 'invasionId');
@@ -289,7 +291,7 @@ export function handleStartWorkout(state: GameState, ctx: GameplayHandlerContext
     workout: definition,
     workoutId,
     fitnessEstimate: definition.metadata.authored ? undefined : state.playerFitness.estimate ?? undefined,
-    sessionId: paramString(ctx.req, 'sessionId'),
+    sessionId: purpose === 'NORMAL_TROOPS' ? rewardWorkoutSessionId(state, ctx.req) : paramString(ctx.req, 'sessionId'),
     now: sessionNow(state, ctx),
     gameplayContext: {
       invasionId,
@@ -301,24 +303,36 @@ export function handleStartWorkout(state: GameState, ctx: GameplayHandlerContext
   if (!created.ok) {
     throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, created.error.message);
   }
-  state.playerFitness.activeSession = created.value;
+  const started = purpose !== 'NORMAL_TROOPS' && paramString(ctx.req, 'sessionId') === undefined
+    ? { ...created.value, sessionId: availableDefaultWorkoutSessionId(state, created.value.sessionId, ctx.req.playerId, ctx.registry.workoutHistory) }
+    : created.value;
+  assertWorkoutSessionIdAvailable(state, started.sessionId, purpose === 'NORMAL_TROOPS');
+  if (ctx.registry.workoutHistory?.get(ctx.req.playerId, started.sessionId)) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Workout session identity was already used');
+  }
+  const session = purpose === 'NORMAL_TROOPS'
+    ? { ...started, completionRewardEntitlement: lockWorkoutStartReward(state, started) }
+    : started;
+  state.playerFitness.activeSession = session;
   if (purpose === 'DEFENSE' && invasionId) {
-    attachDefenseWorkoutToInvasion(state, invasionId, created.value.sessionId, startedAtWorldTick);
+    attachDefenseWorkoutToInvasion(state, invasionId, session.sessionId, startedAtWorldTick);
   }
   return {
     ...emptyResult(),
     payload: {
-      sessionId: created.value.sessionId,
-      purpose: created.value.purpose,
-      state: created.value.state,
+      sessionId: session.sessionId,
+      purpose: session.purpose,
+      state: session.state,
       invasionId,
       workoutId: created.value.workoutId,
       selectedWorkoutId,
+      ...(session.completionRewardEntitlement
+        ? { completionRewardEntitlement: cloneCompletionRewardEntitlement(session.completionRewardEntitlement, session) } : {}),
       selection: {
         source: resolved.source,
         selectedWorkoutId,
         workoutId: created.value.workoutId,
-        size: size ?? created.value.authoredCatalog?.size ?? null,
+        size: created.value.authoredCatalog?.size ?? null,
         catalogId: created.value.authoredCatalog?.catalogId ?? null,
         catalogVersion: created.value.authoredCatalog?.catalogVersion ?? null,
         engineVersion: created.value.authoredCatalog?.engineVersion ?? null,
@@ -436,6 +450,11 @@ export function handleFinalizeWorkout(state: GameState, ctx: GameplayHandlerCont
   const session = state.playerFitness.activeSession;
   if (!session) {
     throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, 'No active workout session');
+  }
+  // R1-D enables start locks only. Do not route a locked session through the
+  // legacy PhysicalResult payout while R1-E settlement is not implemented.
+  if (session.completionRewardEntitlement !== undefined) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Locked workout completion settlement is not enabled yet');
   }
   if (!isEligibleForFitnessEvaluation(session)) {
     throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, 'Session is not eligible for completion');

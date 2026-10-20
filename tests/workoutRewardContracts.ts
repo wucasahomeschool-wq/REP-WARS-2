@@ -339,15 +339,13 @@ export function registerWorkoutRewardContractTests({ test }: { test: (name: stri
     assert.ok(loaded.ok);
     if (loaded.ok) assert.deepStrictEqual(loaded.state.playerFitness.activeSession!.completionRewardEntitlement, lock());
   });
-  test('R1-C client-supplied entitlement terms cannot activate START_WORKOUT locking', () => {
+  test('R1-C client-supplied entitlement terms cannot replace missing authoritative start data', () => {
     const orch = new Orchestrator(state(null));
     const result = orch.execute({ commandId: 'START_WORKOUT', playerId: 'contract-player', requestId: 'start-contract',
       parameters: { purpose: 'NORMAL_TROOPS', workoutId: 'wk_very_easy_mobility', intendedDifficulty: 'VERY_EASY',
         completionRewardEntitlement: lock(), soldiers: 999_999, workoutRewards: policy() } });
-    assert.strictEqual(result.success, true, JSON.stringify(result.errors));
-    const active = orch.getState().playerFitness.activeSession!;
-    assert.ok(active);
-    assert.strictEqual(workoutCompletionRewardMode(active), 'LEGACY');
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(orch.getState().playerFitness.activeSession, null);
     assert.strictEqual(orch.getState().playerRewards.bankedTroops, 0);
   });
   test('R1-C contracts alone do not change legacy finalization amounts or settlement identity', () => {

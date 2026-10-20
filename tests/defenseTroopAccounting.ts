@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 import { BattleEngine, BattleInput, BattleResult } from '../src/battle/BattleEngine';
 import { createGameStateFromWorld } from '../src/worldDefinition/instantiate';
 import { loadProductionLevel2Definition, requireWorldDefinition } from '../src/worldDefinition/catalog';
@@ -254,7 +255,11 @@ export function registerDefenseTroopAccountingTests(api: { test: (name: string, 
     };
     const workout = (purpose: string) => {
       const invasionId = [...orch.getState().activeInvasions.keys()][0];
-      command('START_WORKOUT', { purpose, invasionId, sessionId: `c1_workout_${sequence}`, now: time });
+      if (purpose === 'NORMAL_TROOPS') {
+        // C1 covers defense accounting after a pre-R1-D normal workout, not new reward locking.
+        seedLegacyWorkoutSession(orch, { commandId: 'START_WORKOUT', playerId: 'player_c1',
+          parameters: { purpose, sessionId: `c1_workout_${sequence}`, now: time } });
+      } else command('START_WORKOUT', { purpose, invasionId, sessionId: `c1_workout_${sequence}`, now: time });
       while (orch.getState().playerFitness.activeSession!.state === 'ACTIVE') {
         const session = orch.getState().playerFitness.activeSession!;
         const step = session.prescribedWorkout.exercises[session.currentExerciseIndex!]!;

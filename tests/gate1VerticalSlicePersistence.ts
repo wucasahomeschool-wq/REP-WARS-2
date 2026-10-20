@@ -1,3 +1,4 @@
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 /**
  * Gate 1 Phase 1D — the offensive loop survives the real persistence boundary.
  *
@@ -102,12 +103,12 @@ function completeAuthoredWorkout(state: GameState): { state: GameState; history:
   registry.workoutHistory = history;
   try {
     const orch = new Orchestrator(state, registry, createTelemetryRecorder());
-    const start = orch.execute(cmd('START_WORKOUT', {
+    const start = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: SESSION_ID,
       now: 1_000,
     }, 'g1d_start'));
-    assert.strictEqual(start.success, true, start.errors[0]?.message);
+    assert.strictEqual(start.state, 'ACTIVE');
     finishActiveWorkout(orch);
     const feedback = orch.execute(cmd('SUBMIT_WORKOUT_FEEDBACK', {
       value: 'ABOUT_RIGHT',

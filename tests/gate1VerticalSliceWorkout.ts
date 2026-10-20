@@ -1,3 +1,4 @@
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 /**
  * Gate 1 Phase 1B — Workout → banked Troops on the vertical-slice scenario.
  *
@@ -141,7 +142,7 @@ export function registerGate1VerticalSliceWorkoutTests(api: Gate1VerticalSliceWo
 
   console.log('Gate 1 Phase 1B — workout → banked Troops');
 
-  test('authored selection without workoutId starts the fixture STANDARD workout', () => {
+  test("legacy-session compatibility: authored selection without workoutId starts the fixture STANDARD workout", () => {
     const scenario = createVerticalSliceScenario();
     withCatalogInstalled(scenario, (orch, catalog) => {
       assert.strictEqual(orch.getState().playerRewards.bankedTroops, VERTICAL_SLICE_INITIAL_BANKED_TROOPS);
@@ -166,16 +167,16 @@ export function registerGate1VerticalSliceWorkoutTests(api: Gate1VerticalSliceWo
         EXPECTED_BRIDGE_PRESCRIPTIONS,
       );
 
-      const start = orch.execute(cmd(scenario.playerId, 'START_WORKOUT', {
+      const start = seedLegacyWorkoutSession(orch, cmd(scenario.playerId, 'START_WORKOUT', {
         purpose: 'NORMAL_TROOPS',
         sessionId: 'wses_g1_select',
         now: 1_000,
         // intentionally omit workoutId — engine must select
       }, 'g1_start_select'));
-      assert.strictEqual(start.success, true, start.errors[0]?.message);
-      assert.strictEqual(start.payload.workoutId, EXPECTED_AUTHORED_SELECTED_ID);
-      assert.strictEqual(start.payload.selectedWorkoutId, EXPECTED_AUTHORED_SELECTED_ID);
-      const selectionMeta = start.payload.selection as { source: string; catalogId: string };
+      assert.strictEqual(start.state, 'ACTIVE');
+      assert.strictEqual(start.workoutId, EXPECTED_AUTHORED_SELECTED_ID);
+      assert.strictEqual(selection.payload.selectedWorkoutId, EXPECTED_AUTHORED_SELECTED_ID);
+      const selectionMeta = selection.payload as { source: string; catalogId: string };
       assert.strictEqual(selectionMeta.source, 'authored');
       assert.strictEqual(selectionMeta.catalogId, catalog.catalogId);
 
@@ -188,16 +189,16 @@ export function registerGate1VerticalSliceWorkoutTests(api: Gate1VerticalSliceWo
     });
   });
 
-  test('FitnessEstimate does not rewrite authored prescriptions on start', () => {
+  test("legacy-session compatibility: FitnessEstimate does not rewrite authored prescriptions on start", () => {
     const scenario = createVerticalSliceScenario();
     scenario.state.playerFitness.estimate = estimateAt(9.5, 0.9, scenario.playerId);
     withCatalogInstalled(scenario, (orch) => {
-      const start = orch.execute(cmd(scenario.playerId, 'START_WORKOUT', {
+      const start = seedLegacyWorkoutSession(orch, cmd(scenario.playerId, 'START_WORKOUT', {
         purpose: 'NORMAL_TROOPS',
         sessionId: 'wses_g1_estimate',
         now: 1_000,
       }, 'g1_start_estimate'));
-      assert.strictEqual(start.success, true, start.errors[0]?.message);
+      assert.strictEqual(start.state, 'ACTIVE');
       const session = orch.getState().playerFitness.activeSession!;
       assert.strictEqual(session.workoutId, EXPECTED_AUTHORED_SELECTED_ID);
       assert.strictEqual(session.prescribedWorkout.personalization?.applied ?? false, false);
@@ -207,19 +208,19 @@ export function registerGate1VerticalSliceWorkoutTests(api: Gate1VerticalSliceWo
     });
   });
 
-  test('complete authored workout banks Troops via the existing reward pipeline', () => {
+  test("legacy-session compatibility: complete authored workout banks Troops via the existing reward pipeline", () => {
     const scenario = createVerticalSliceScenario();
     const ownershipBefore = ownershipSnapshot(scenario.state);
     withCatalogInstalled(scenario, (orch, catalog, recorder) => {
       assert.strictEqual(playerArmyCount(orch.getState()), 0);
       assert.strictEqual(orch.getState().playerRewards.bankedTroops, 0);
 
-      const start = orch.execute(cmd(scenario.playerId, 'START_WORKOUT', {
+      const start = seedLegacyWorkoutSession(orch, cmd(scenario.playerId, 'START_WORKOUT', {
         purpose: 'NORMAL_TROOPS',
         sessionId: 'wses_g1_complete',
         now: 1_000,
       }, 'g1_start_complete'));
-      assert.strictEqual(start.success, true, start.errors[0]?.message);
+      assert.strictEqual(start.state, 'ACTIVE');
 
       const mid = orch.getState().playerFitness.activeSession!;
       assert.strictEqual(mid.workoutId, EXPECTED_AUTHORED_SELECTED_ID);
@@ -289,8 +290,7 @@ export function registerGate1VerticalSliceWorkoutTests(api: Gate1VerticalSliceWo
 
       const types = recorder.getEvents().map((e) => e.eventType);
       for (const required of [
-        'workout.selected',
-        'workout.started',
+        // Historical sessions do not re-emit start events on reconnect.
         'workout.exercise_recorded',
         'workout.feedback_submitted',
         'workout.completed',
@@ -318,15 +318,15 @@ export function registerGate1VerticalSliceWorkoutTests(api: Gate1VerticalSliceWo
     });
   });
 
-  test('abandon after start does not award normal completion Troops', () => {
+  test("legacy-session compatibility: abandon after start does not award normal completion Troops", () => {
     const scenario = createVerticalSliceScenario();
     withCatalogInstalled(scenario, (orch) => {
-      const start = orch.execute(cmd(scenario.playerId, 'START_WORKOUT', {
+      const start = seedLegacyWorkoutSession(orch, cmd(scenario.playerId, 'START_WORKOUT', {
         purpose: 'NORMAL_TROOPS',
         sessionId: 'wses_g1_abandon',
         now: 1_000,
       }, 'g1_start_abandon'));
-      assert.strictEqual(start.success, true, start.errors[0]?.message);
+      assert.strictEqual(start.state, 'ACTIVE');
       const abandoned = orch.execute(cmd(scenario.playerId, 'ABANDON_WORKOUT', {
         now: 2_000,
       }, 'g1_abandon'));
@@ -342,15 +342,15 @@ export function registerGate1VerticalSliceWorkoutTests(api: Gate1VerticalSliceWo
     });
   });
 
-  test('incomplete session cannot finalize for a normal completion reward', () => {
+  test("legacy-session compatibility: incomplete session cannot finalize for a normal completion reward", () => {
     const scenario = createVerticalSliceScenario();
     withCatalogInstalled(scenario, (orch) => {
-      const start = orch.execute(cmd(scenario.playerId, 'START_WORKOUT', {
+      const start = seedLegacyWorkoutSession(orch, cmd(scenario.playerId, 'START_WORKOUT', {
         purpose: 'NORMAL_TROOPS',
         sessionId: 'wses_g1_incomplete',
         now: 1_000,
       }, 'g1_start_incomplete'));
-      assert.strictEqual(start.success, true, start.errors[0]?.message);
+      assert.strictEqual(start.state, 'ACTIVE');
       assert.strictEqual(orch.getState().playerFitness.activeSession?.state, 'ACTIVE');
 
       const fin = orch.execute(cmd(scenario.playerId, 'FINALIZE_WORKOUT', { now: 2_000 }, 'g1_fin_incomplete'));

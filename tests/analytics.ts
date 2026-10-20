@@ -245,7 +245,7 @@ export function registerAnalyticsTests(api: AnalyticsTestApi): void {
   test('events can be queried by importance, player, world, and session', () => {
     const { orch, recorder } = instrumented();
     orch.execute(cmd('START_WORKOUT', {
-      purpose: 'NORMAL_TROOPS',
+      purpose: 'GOLDEN_YIELD',
       workoutId: 'wk_very_easy_mobility',
       sessionId: 'wses_query',
       now: 1_000,
@@ -265,7 +265,7 @@ export function registerAnalyticsTests(api: AnalyticsTestApi): void {
   test('workout → fitness → reward chain can be reconstructed', () => {
     const { orch, recorder } = instrumented();
     const start = orch.execute(cmd('START_WORKOUT', {
-      purpose: 'NORMAL_TROOPS',
+      purpose: 'GOLDEN_YIELD',
       workoutId: 'wk_very_easy_mobility',
       sessionId: 'wses_chain',
       now: 1_000,
@@ -433,14 +433,14 @@ export function registerAnalyticsTests(api: AnalyticsTestApi): void {
     assert.strictEqual(state.playerEmpirePause.paused, false);
   });
 
-  test('scenario harness: workout → troops → attack → battle → construction/resources', () => {
+  test("scenario harness: specialized workout → effect → attack → battle → construction/resources", () => {
     const state = playerState();
     plantOwnedCities(state);
     const { orch, recorder } = instrumented(state);
     assert.ok(getWorkoutDefinition('wk_very_easy_mobility'));
 
     const started = orch.execute(cmd('START_WORKOUT', {
-      purpose: 'NORMAL_TROOPS',
+      purpose: 'GOLDEN_YIELD',
       workoutId: 'wk_very_easy_mobility',
       sessionId: 'wses_scenario',
       now: 1_000,

@@ -11,6 +11,10 @@ import { RoutingHistoryStore } from '../src/persistence/supabase/commandHistoryB
 import { createDevelopmentPersistence, createInMemoryPersistence } from '../src/server/persistencePort';
 import { createSessionHost, PersistenceFailedError } from '../src/server/session';
 import { GameState } from '../src/types/GameState';
+import { SupabaseGameStateStore } from '../src/persistence/supabase/adapter';
+import { initializePlayerWorld } from '../src/persistence/initializePlayerWorld';
+import { Orchestrator } from '../src/orchestration/orchestrator';
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 
 export interface ServerRestartTestApi {
   test: (name: string, fn: () => void) => void;
@@ -93,7 +97,7 @@ export async function assertFailedWorldSaveRollsHistoryBack(): Promise<void> {
     commandId: 'START_WORKOUT',
     playerId,
     requestId: 'start',
-    parameters: { purpose: 'NORMAL_TROOPS', sessionId: SESSION_ID, now: 1_000 },
+    parameters: { purpose: 'GOLDEN_YIELD', sessionId: SESSION_ID, now: 1_000 },
   });
   assert.strictEqual(started.success, true, started.errors[0]?.message);
   await assert.rejects(
@@ -259,11 +263,8 @@ function stopDevelopmentServer(child: ChildProcess): Promise<void> {
 }
 
 async function finishWorkout(port: number, playerId: string): Promise<void> {
-  await command(port, playerId, 'START_WORKOUT', {
-    purpose: 'NORMAL_TROOPS',
-    sessionId: SESSION_ID,
-    now: 1_000,
-  }, 'start');
+  // A pre-R1-D active session is persisted before server boot. New reward
+  // settlement is intentionally not enabled by this infrastructure test.
   let clock = 2_000;
   for (let step = 0; step < 80; step += 1) {
     const state = await gameSnapshot(port, playerId, `peek_${step}`);
@@ -298,6 +299,13 @@ export async function runSupabaseServerRestart(): Promise<void> {
   const historyTable = new SupabaseWorkoutHistoryTable();
   const servers: ChildProcess[] = [];
   try {
+    const store = new SupabaseGameStateStore(worlds);
+    const boot = initializePlayerWorld({ playerId, store, seed: 17 });
+    const legacy = new Orchestrator(boot.state);
+    seedLegacyWorkoutSession(legacy, { commandId: 'START_WORKOUT', playerId,
+      parameters: { purpose: 'NORMAL_TROOPS', sessionId: SESSION_ID, now: 1000 } });
+    const seeded = store.save(playerId, legacy.getState(), boot.record!.stateVersion);
+    assert.ok(seeded.ok);
     const firstPort = await freePort();
     const first = await startDevelopmentServer(firstPort);
     servers.push(first);

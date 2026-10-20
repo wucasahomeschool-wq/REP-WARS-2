@@ -1,3 +1,4 @@
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 import assert from 'assert';
 import {
   ErrorCode,
@@ -86,17 +87,17 @@ export function registerPlayerIdentityTests(api: PlayerIdentityTestApi): void {
     assert.strictEqual(again.state.worldSeed, first.state.worldSeed);
   });
 
-  test('account association keeps the same playerId and does not mint a second empire', () => {
+  test("legacy-session compatibility: account association keeps the same playerId and does not mint a second empire", () => {
     const store = new InMemoryGameStateStore();
     const history = new InMemoryWorkoutHistoryStore();
     const boot = ensurePlayerWorld({ playerId: PLAYER_ID, seed: 7, store });
     const orch = new Orchestrator(boot.state);
-    const started = orch.execute(cmd('START_WORKOUT', {
+    const started = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_identity',
       now: 1_000,
     }));
-    assert.strictEqual(started.success, true, started.errors[0]?.message);
+    assert.strictEqual(started.state, 'ACTIVE');
     finishActiveWorkout(orch, 2_000);
     assert.strictEqual(orch.execute(cmd('SUBMIT_WORKOUT_FEEDBACK', { value: 'ABOUT_RIGHT', now: 20_000 })).success, true);
     const finalized = orch.execute(cmd('FINALIZE_WORKOUT', { now: 21_000 }));
@@ -205,11 +206,11 @@ export function registerPlayerIdentityTests(api: PlayerIdentityTestApi): void {
     assert.strictEqual(loaded.state.playerRewards.bankedTroops, 50);
   });
 
-  test('persisted identity round-trip hydrates the same empire', () => {
+  test("legacy-session compatibility: persisted identity round-trip hydrates the same empire", () => {
     const store = new InMemoryGameStateStore();
     const boot = ensurePlayerWorld({ playerId: PLAYER_ID, seed: 2, store });
     const orch = new Orchestrator(boot.state);
-    orch.execute(cmd('START_WORKOUT', { purpose: 'NORMAL_TROOPS', sessionId: 'wses_rt', now: 1_000 }));
+    seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', { purpose: 'NORMAL_TROOPS', sessionId: 'wses_rt', now: 1_000 }));
     const mid = orch.getState();
     const saved = store.save(PLAYER_ID, mid, boot.record.stateVersion);
     assert.strictEqual(saved.ok, true);

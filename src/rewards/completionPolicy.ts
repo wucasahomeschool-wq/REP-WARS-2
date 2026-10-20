@@ -1,6 +1,6 @@
 import type { WorkoutSize } from '../fitness/authoring/types';
 
-/** R1 contracts only. No runtime payout or START_WORKOUT caller yet. */
+/** Start-lock contracts. This calculation does not itself settle a reward. */
 export const COMPLETION_REWARD_UNITS: Readonly<Record<WorkoutSize, number>> = Object.freeze({
   SHORT: 60, STANDARD: 100, LONG: 145,
 });

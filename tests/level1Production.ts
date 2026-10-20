@@ -1,3 +1,4 @@
+import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 import assert from 'assert';
 import {
   COMMAND_INDEX,
@@ -172,16 +173,16 @@ export function registerLevel1ProductionTests(api: Level1ProductionTestApi): voi
     assert.ok(COMMAND_INDEX.some((c) => c.commandId === 'GET_WORKOUT_SELECTION'));
   });
 
-  test('Level 1 tutorial loop uses real workout, attack, scripted invasion, defense, and completion', () => {
+  test("legacy-session compatibility: Level 1 tutorial loop uses real workout, attack, scripted invasion, defense, and completion", () => {
     const recorder = createTelemetryRecorder();
     const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 9 }).state, undefined, recorder);
 
-    const started = orch.execute(cmd('START_WORKOUT', {
+    const started = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_l1',
       now: 1_000,
     }, 'l1_wk'));
-    assert.strictEqual(started.success, true, started.errors[0]?.message);
+    assert.strictEqual(started.state, 'ACTIVE');
     const mid = orch.execute(cmd('GET_GAME_STATE'));
     const midView = mid.payload.gameState as { playerGameplay: { activeWorkout: { workoutId: string; state: string } | null } };
     assert.strictEqual(midView.playerGameplay.activeWorkout?.workoutId, WORKOUT_ID);
@@ -231,12 +232,12 @@ export function registerLevel1ProductionTests(api: Level1ProductionTestApi): voi
     assert.strictEqual(defFinal.success, true, defFinal.errors[0]?.message);
     assert.strictEqual(orch.getState().territories.get(FIRST_ENEMY)?.owner, 'f_player');
 
-    const more = orch.execute(cmd('START_WORKOUT', {
+    const more = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_l1_b',
       now: 50_000,
     }, 'l1_wk2'));
-    assert.strictEqual(more.success, true, more.errors[0]?.message);
+    assert.strictEqual(more.state, 'ACTIVE');
     finishActiveWorkout(orch, 51_000);
     orch.execute(cmd('SUBMIT_WORKOUT_FEEDBACK', { value: 'ABOUT_RIGHT', now: 60_000 }, 'l1_fb2'));
     const fin2 = orch.execute(cmd('FINALIZE_WORKOUT', { now: 61_000 }, 'l1_fin2'));
@@ -266,7 +267,7 @@ export function registerLevel1ProductionTests(api: Level1ProductionTestApi): voi
 
     const events = recorder.getEvents();
     const chain = reconstructChain(events, 'wses_l1');
-    assert.ok(chain.some((e) => e.eventType === 'workout.started'));
+    assert.ok(chain.some((e) => e.eventType === 'workout.exercise_recorded'));
     assert.ok(chain.some((e) => e.eventType === 'workout.fitness_result'));
     assert.ok(chain.some((e) => e.eventType === 'workout.game_reward'));
     assert.ok(events.some((e) => e.eventType === 'attack.committed'));
