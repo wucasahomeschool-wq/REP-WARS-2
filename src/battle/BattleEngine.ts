@@ -40,6 +40,8 @@ export interface BattleInput {
   attackerArmies: ArmyLike[];
   defenderArmies?: ArmyLike[];
   defenderGarrison?: number;
+  /** Temporary soldiers already included in defenderArmies for combat only. */
+  temporaryDefenderSoldiers?: number;
   territory: TerritoryLike & {
     id: string;
     /** Optional display label (region name). Falls back to territory id. */
@@ -127,6 +129,13 @@ export interface BattleResult {
   battleIntensity: number;
   attacker: BattleSideBreakdown;
   defender: BattleSideBreakdown;
+  /** Real defenders at the same native casualty rate, excluding temporary power.
+   * Combat/narrative totals above still include every combat participant. */
+  defenderPhysical?: {
+    initial: UnitBreakdown;
+    remaining: UnitBreakdown;
+    casualties: CasualtyBreakdown;
+  };
   territoryOutcome: TerritoryOutcome;
   /**
    * True when the territory was captured (i.e. `territoryOutcome ===
@@ -205,6 +214,13 @@ export class BattleEngine {
       (s, a) => s + Math.max(0, a.soldiers) + Math.max(0, a.knights), 0,
     );
     const defenderGarrison = Math.max(0, input.defenderGarrison ?? 0);
+    if (input.temporaryDefenderSoldiers !== undefined) {
+      const temporary = input.temporaryDefenderSoldiers;
+      const soldiers = (input.defenderArmies ?? []).reduce((s, a) => s + Math.max(0, a.soldiers), 0);
+      if (!Number.isSafeInteger(temporary) || temporary < 0 || temporary > soldiers) {
+        errors.push('Temporary defense must be a non-negative safe integer included in defending soldiers');
+      }
+    }
     if (defenderField + defenderGarrison <= 0) errors.push('Defender has no troops');
     if (!input.territory?.id) errors.push('No territory provided for battle');
     if (!input.attackerFactionId) errors.push('Missing attacker faction');
@@ -313,6 +329,24 @@ export class BattleEngine {
 
     const atkCas = splitCasualties(atkInit, atkCasRate);
     const defCas = splitCasualties(defInit, defCasRate);
+
+    // Reuse the exact sampled combat rate and per-category rounding. Never
+    // infer it from rounded public casualty percentages or draw more RNG.
+    let defenderPhysical: BattleResult['defenderPhysical'];
+    if ((input.temporaryDefenderSoldiers ?? 0) > 0) {
+      const initial = { ...defInit, soldiers: defInit.soldiers - input.temporaryDefenderSoldiers! };
+      const casualties = splitCasualties(initial, defCasRate);
+      defenderPhysical = {
+        initial,
+        casualties,
+        remaining: {
+          soldiers: initial.soldiers - casualties.soldiers,
+          knights: initial.knights - casualties.knights,
+          siegeEngines: initial.siegeEngines - casualties.siegeEngines,
+          garrison: (initial.garrison ?? 0) - (casualties.garrison ?? 0),
+        },
+      };
+    }
 
     const atkRemaining = {
       soldiers: Math.max(0, atkInit.soldiers - atkCas.soldiers),
@@ -505,6 +539,7 @@ export class BattleEngine {
       battleIntensity: round3((atkCas.casualtyRate + defCas.casualtyRate) / 2),
       attacker: attackerBreakdown,
       defender: defenderBreakdown,
+      ...(defenderPhysical ? { defenderPhysical } : {}),
       territoryOutcome,
       defenderSurrendered,
       events,

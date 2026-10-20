@@ -244,7 +244,8 @@ export function applyBattleResultToGameState(
   const resultFingerprint=JSON.stringify([result.territoryId,result.winner,result.territoryOutcome,
     result.attacker.initialTroops,result.defender.initialTroops,result.attacker.casualties,result.defender.casualties,
     result.attacker.remaining,result.defender.remaining,result.attacker.moraleChange,result.defender.moraleChange,
-    attackingArmies.map(a=>a.id).sort(),defendingArmies.map(a=>a.id).sort()]);
+    attackingArmies.map(a=>a.id).sort(),defendingArmies.map(a=>a.id).sort(),
+    ...(result.defenderPhysical ? [result.defenderPhysical] : [])]);
   const prior=state.conflictEventReceipts.get(conflictEventId(battleIdentity,'BATTLE',result.attacker.factionId,result.defender.factionId));
   if(prior){
     if(JSON.parse(prior.signature).resultFingerprint!==resultFingerprint)throw new Error('Resolved battle identity reused with different consequences');
@@ -252,12 +253,23 @@ export function applyBattleResultToGameState(
   }
   const physicalDefenderInitial=territory.garrison+defendingArmies.reduce((n,a)=>n+a.soldiers+a.knights,0);
   const physicalDefenderSiege=defendingArmies.reduce((n,a)=>n+a.siegeEngines,0);
+  const physical = result.defenderPhysical;
+  const initial = physical?.initial ?? result.defender.unitBreakdown;
+  // Refuse a combined virtual/real result without physical provenance, or a
+  // result for different real participants. This check precedes all mutations.
+  if (initial.soldiers !== defendingArmies.reduce((n,a)=>n+a.soldiers,0)
+    || initial.knights !== defendingArmies.reduce((n,a)=>n+a.knights,0)
+    || initial.siegeEngines !== physicalDefenderSiege
+    || (initial.garrison ?? 0) !== territory.garrison) {
+    throw new Error('Battle physical defender settlement does not match current defenders');
+  }
+  const defenderRemaining = physical?.remaining ?? result.defender.remaining;
   const recordBattle=()=>{
     const virtual=result.defender.initialTroops!==physicalDefenderInitial;
-    const actualDefenderLoss=virtual?Math.max(0,physicalDefenderInitial-territory.garrison-defendingArmies.reduce((n,a)=>n+(state.armies.has(a.id)?a.soldiers+a.knights:0),0)):result.defender.casualties.total;
+    const actualDefenderLoss=physical?.casualties.total??result.defender.casualties.total;
     recordConflictFact(state,battleIdentity,{
       kind:'BATTLE',actor:result.attacker.factionId,target:result.defender.factionId,territoryId:territory.id,outcome:result.winner,
-      troopLosses:[result.attacker.casualties.total,actualDefenderLoss],siegeLosses:[result.attacker.casualties.siegeEngines,virtual?Math.max(0,physicalDefenderSiege-defendingArmies.reduce((n,a)=>n+(state.armies.has(a.id)?a.siegeEngines:0),0)):result.defender.casualties.siegeEngines],
+      troopLosses:[result.attacker.casualties.total,actualDefenderLoss],siegeLosses:[result.attacker.casualties.siegeEngines,physical?.casualties.siegeEngines??result.defender.casualties.siegeEngines],
       resultFingerprint,casualtyBasis:virtual?'physical_settlement_excluding_virtual_defense':'battle_result'});
   };
 
@@ -274,7 +286,7 @@ export function applyBattleResultToGameState(
   }
 
   const gFrom = territory.garrison;
-  territory.garrison = Math.max(0, result.defender.remaining.garrison ?? 0);
+  territory.garrison = Math.max(0, defenderRemaining.garrison ?? 0);
   changes.push({
     entity: 'territory',
     id: territory.id,
@@ -303,7 +315,7 @@ export function applyBattleResultToGameState(
     }
   } else if (result.winner === 'defender') {
     eliminateArmies(state, attackingArmies, armyChanges);
-    applySurvivingArmies(defendingArmies, result.defender.remaining, result.defender.moraleChange, armyChanges);
+    applySurvivingArmies(defendingArmies, defenderRemaining, result.defender.moraleChange, armyChanges);
     recordBattle();
     if (attacker && defender) {
       pushMemory(attacker, turn, 'battle_lost', defender.id, territory.id, 10, { outcome: result.outcomeType });
@@ -311,7 +323,7 @@ export function applyBattleResultToGameState(
     }
   } else {
     applySurvivingArmies(attackingArmies, result.attacker.remaining, result.attacker.moraleChange, armyChanges);
-    applySurvivingArmies(defendingArmies, result.defender.remaining, result.defender.moraleChange, armyChanges);
+    applySurvivingArmies(defendingArmies, defenderRemaining, result.defender.moraleChange, armyChanges);
     recordBattle();
   }
 

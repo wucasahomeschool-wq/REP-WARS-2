@@ -88,6 +88,7 @@ import { registerEconomyCitiesTests } from './economyCities';
 import { registerEconomyFoundationTests } from './economyFoundation';
 import { registerEconomyDevelopmentsTests } from './economyDevelopments';
 import { registerTerritoryDefenseTests } from './territoryDefense';
+import { registerDefenseTroopAccountingTests } from './defenseTroopAccounting';
 import { registerAiEconomyTests } from './aiEconomy';
 import { registerInvasionLifecycleTests } from './invasionLifecycle';
 import { registerPersistenceTests } from './persistence';
@@ -3161,6 +3162,7 @@ registerEconomyCitiesTests({ test });
 registerEconomyFoundationTests({ test });
 registerEconomyDevelopmentsTests({ test });
 registerTerritoryDefenseTests({ test });
+registerDefenseTroopAccountingTests({ test });
 registerAiEconomyTests({ test });
 
 registerInvasionLifecycleTests({ test });

@@ -236,6 +236,7 @@ export function resolveInvasionBattle(
     defenderFactionName: defenderSnap.name,
     attackerArmies: attackers,
     defenderArmies: [...realDefenders, ...virtualDefender],
+    temporaryDefenderSoldiers: defensePower,
     defenderGarrison: target.garrison,
     territory: withTerritoryCombatView(state, target),
   };
