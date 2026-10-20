@@ -102,8 +102,9 @@ import { GameRewardResult } from '../rewards/types';
  * 25 = Concrete Goal lifecycle and idempotent directed Opinion event receipts (Phase J).
  * 26 = Canonical factual conflict episodes/aggregates and replay receipts (Phase K).
  * 27 = Canonical non-proactive response contexts and primary response scheduler (Phase L).
+ * 28 = Durable runtime army identity high-water mark (C2).
  */
-export const GAME_STATE_SCHEMA_VERSION = 27;
+export const GAME_STATE_SCHEMA_VERSION = 28;
 
 export type InvasionId = string;
 
@@ -511,6 +512,8 @@ export interface GameState {
 
   // ---- armies ----
   armies: Map<ArmyId, Army>;
+  /** Next runtime army identity. Never decreases when armies are removed. */
+  nextArmySequence: number;
 
   // ---- canonical independently identified AI operations ----
   /** Physical domain truth remains in armies, constructions and invasions.

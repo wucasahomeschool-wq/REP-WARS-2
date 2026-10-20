@@ -237,6 +237,7 @@ export function overwriteGameState(target: GameState, source: GameState): void {
  */
 export function adoptOwnedTransactionState(target: GameState, next: GameState): void {
   target.schemaVersion = next.schemaVersion;
+  target.nextArmySequence = next.nextArmySequence;
   target.turn = next.turn;
   target.worldTick = next.worldTick;
   target.lastProcessedAtMs = next.lastProcessedAtMs;
@@ -327,6 +328,7 @@ function cloneGameplaySessionLease(
 export function cloneGameState(state: GameState): GameState {
   return {
     schemaVersion: state.schemaVersion,
+    nextArmySequence: state.nextArmySequence,
     turn: state.turn,
     worldTick: state.worldTick,
     lastProcessedAtMs: state.lastProcessedAtMs,

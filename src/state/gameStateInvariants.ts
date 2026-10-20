@@ -1,4 +1,5 @@
 import { RESPONSE_POLICY } from '../constants/aiResponse';
+import { armySequenceFloor } from '../army/identity';
 import {responseStateProblems} from './responseInvariants';
 import {conflictStateProblems} from './conflictInvariants';
 import {cognitionStateProblems} from './cognitionInvariants';
@@ -192,6 +193,10 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     if (key !== t.id) {
       push('territory.key_id_mismatch', `territories map key ${key} does not match Territory.id ${t.id}`);
     }
+  }
+  if (!Number.isSafeInteger(state.nextArmySequence) || state.nextArmySequence < 0
+    || state.nextArmySequence < armySequenceFloor(state.armies.keys())) {
+    push('army.invalid_identity_sequence', 'Army identity sequence is missing, invalid or below existing runtime identities');
   }
   for (const [key, a] of state.armies.entries()) {
     if (key !== a.id) {

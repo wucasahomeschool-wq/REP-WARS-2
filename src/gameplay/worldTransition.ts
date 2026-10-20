@@ -147,6 +147,7 @@ export function buildNextWorldState(
   }
 
   const next = createGameStateFromWorld(loaded.definition, { seed: state.worldSeed });
+  next.nextArmySequence = state.nextArmySequence;
   carryPlayerScopedFitness(state.playerFitness, next.playerFitness);
   next.level1Tutorial = null;
   return {

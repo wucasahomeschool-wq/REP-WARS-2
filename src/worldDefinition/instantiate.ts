@@ -214,6 +214,7 @@ export function createGameStateFromWorld(
     regions,
     territories,
     armies,
+    nextArmySequence: 0,
     operations: createOperationMap(),
     operationClaims: new Map(),
     activeEvents: [],

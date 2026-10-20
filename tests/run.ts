@@ -89,6 +89,7 @@ import { registerEconomyFoundationTests } from './economyFoundation';
 import { registerEconomyDevelopmentsTests } from './economyDevelopments';
 import { registerTerritoryDefenseTests } from './territoryDefense';
 import { registerDefenseTroopAccountingTests } from './defenseTroopAccounting';
+import { registerArmyIdentityTests } from './armyIdentity';
 import { registerAiEconomyTests } from './aiEconomy';
 import { registerInvasionLifecycleTests } from './invasionLifecycle';
 import { registerPersistenceTests } from './persistence';
@@ -1665,7 +1666,7 @@ test('createGameState() contains the expected major state domains', () => {
     'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiResponses', 'aiResponseScheduler', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'conflictLedger', 'conflictEventReceipts', 'opinionEvents', 'operationClaims', 'operations', 'constructions',
     'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
     'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'tradeProposals', 'tradeShipments', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
-    'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick',
+    'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick', 'nextArmySequence',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
   assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
@@ -2075,6 +2076,7 @@ function buildOrchestratorAttackScenario(): { orchestrator: Orchestrator; attack
   for (const fid of snap.allFactionIds) commitments.set(fid, null);
   const state: GameState = {
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
+    nextArmySequence: 0,
     turn: snap.turn,
     ...emptyWorldClock(),
     ...emptyRewardApplicationState(),
@@ -2291,6 +2293,7 @@ function snapshotToGameState(snap: GameStateSnapshot, playerFactionId: FactionId
   for (const fid of snap.allFactionIds) commitments.set(fid, null);
   return {
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
+    nextArmySequence: 0,
     turn: snap.turn,
     ...emptyWorldClock(),
     ...emptyRewardApplicationState(),
@@ -2553,6 +2556,7 @@ function buildRetreatOrchestratorState(): GameState {
   const snap = makeSelf(fid, { territories: ['home'], armies: ['atk_army'] });
   return {
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
+    nextArmySequence: 0,
     turn: 1,
     ...emptyWorldClock(),
     ...emptyRewardApplicationState(),
@@ -3163,6 +3167,7 @@ registerEconomyFoundationTests({ test });
 registerEconomyDevelopmentsTests({ test });
 registerTerritoryDefenseTests({ test });
 registerDefenseTroopAccountingTests({ test });
+registerArmyIdentityTests({ test });
 registerAiEconomyTests({ test });
 
 registerInvasionLifecycleTests({ test });

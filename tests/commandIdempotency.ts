@@ -201,7 +201,8 @@ export async function runCommandIdempotencyTests(
     assert.strictEqual((replay.payload.battleResult as { winner?: string }).winner, winner);
     const state = load(store, 'cmd_attack');
     assert.strictEqual(state.playerRewards.bankedTroops, banked);
-    assert.strictEqual([...state.armies.keys()].filter((id) => String(id).startsWith('banked_')).length, 1);
+    assert.ok(state.armies.has(String(armyId)));
+    assert.strictEqual(state.nextArmySequence, 1);
   });
 
   await report('finalizing a workout twice does not grant a second reward', async () => {
@@ -309,7 +310,7 @@ export async function runCommandIdempotencyTests(
     assert.strictEqual(read.success, true, read.errors[0]?.message);
     assert.strictEqual(load(store, 'cmd_read').gameplaySessionLeases[0]!.lastCommandSequence, null);
     assert.strictEqual(load(store, 'cmd_read').gameplaySessionLeases[0]!.lastCommandReceipt, null);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 27);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 28);
   });
 
   await report('many commands keep one command receipt', async () => {

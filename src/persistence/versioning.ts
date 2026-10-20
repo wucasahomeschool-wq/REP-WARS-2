@@ -1,4 +1,5 @@
 import { registerRequiredResponse } from '../engine/nonProactiveCognition';
+import { armySequenceFloor } from '../army/identity';
 import {initializeCognition} from '../cognition/migration';
 import { initializeRecruitment, simulationWork } from '../gameplay/recruitment/recruitment';
 import { migratePeaceState } from './peaceMigration';
@@ -217,6 +218,14 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   state.lastAiDecisionTick = coerceMap(state.lastAiDecisionTick);
   state.territories = coerceMap(state.territories);
   state.armies = coerceMap(state.armies);
+  if (schema < 28) {
+    // Old allocators never emitted the reserved runtime namespace. Retain a
+    // supplied high-water mark and floor imported IDs without renaming armies
+    // or inventing missing historical entities. Current-schema damage is not
+    // repaired: invariants reject a missing/invalid mark instead of resetting.
+    state.nextArmySequence = Math.max(nonNegativeSafeInt(state.nextArmySequence) ?? 0,
+      armySequenceFloor((state.armies as Map<string, unknown>).keys()));
+  }
   // Schema 18 adds exact plans. Missing historical plans remain missing: the old
   // action/target records never persisted a force, route, quantity or build type.
   // The resolver has an explicit legacy branch; migration must not invent plans.

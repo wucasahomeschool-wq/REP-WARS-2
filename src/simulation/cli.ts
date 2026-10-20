@@ -809,6 +809,7 @@ async function runAttackChainDemo(opts: CliOpts): Promise<void> {
   const defSnap: WarlordSnapshot = { ...atkSnap, id: def, name: 'Defender', territories: ['front'], armies: [], totalMilitaryPower: 10 };
   const state = {
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
+    nextArmySequence: 0,
     turn: 1,
     ...emptyWorldClock(),
     ...emptyRewardApplicationState(),

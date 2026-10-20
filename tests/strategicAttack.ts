@@ -68,6 +68,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
     const defSnap = makeSelf(DEF, { territories: ['front'], armies: [] });
     const state: GameState = {
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
+      nextArmySequence: 0,
       turn: 1,
       ...emptyWorldClock(),
       ...emptyRewardApplicationState(),
@@ -92,6 +93,7 @@ export function registerStrategicAttackTests(api: StrategicAttackTestApi): void 
     const a = army('atk_army', 'home');
     return {
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
+      nextArmySequence: 0,
       turn: 1,
       ...emptyWorldClock(),
       ...emptyRewardApplicationState(),

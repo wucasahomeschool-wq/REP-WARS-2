@@ -91,6 +91,7 @@ export function createLegacySampleMapGameState(options: CreateLegacySampleMapOpt
     regions: new Map(),
     territories: snapshot.territories,
     armies: snapshot.armies,
+    nextArmySequence: 0,
     operations: createOperationMap(),
     operationClaims: new Map(),
     activeEvents: [],

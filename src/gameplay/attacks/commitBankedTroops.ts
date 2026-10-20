@@ -1,4 +1,5 @@
 import { Army } from '../../types';
+import { allocateArmyId } from '../../army/identity';
 import { GameState } from '../../types/GameState';
 import { MIN_ATTACKING_TROOPS, startStrategicAttack, StrategicAttackHost } from '../../army/strategicAttack';
 import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
@@ -58,10 +59,7 @@ export function commitBankedTroopsAndAttack(
   requireTerritory(state, params.territoryId);
 
   const spawnId = pickSpawnTerritory(state, params.factionId, params.territoryId);
-  const armyId = `banked_${params.factionId}_${state.worldTick}_${amount}_${state.armies.size}`;
-  if (state.armies.has(armyId)) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'A committed attack army id collided');
-  }
+  const armyId = allocateArmyId(state);
   const army: Army = {
     id: armyId,
     owner: params.factionId,

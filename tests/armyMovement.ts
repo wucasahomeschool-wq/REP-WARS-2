@@ -42,6 +42,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
     const snap = makeSelf(MARCH_FID, { territories: ['home'], armies: ['march_army'] });
     return {
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
+      nextArmySequence: 0,
       turn: 1,
       ...emptyWorldClock(),
       ...emptyRewardApplicationState(),
@@ -273,6 +274,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
     const snap = makeSelf(MARCH_FID, { territories: ['home'], armies: ['army_a', 'army_z'] });
     const state: GameState = {
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
+      nextArmySequence: 0,
       turn: 1,
       ...emptyWorldClock(),
       ...emptyRewardApplicationState(),
@@ -326,6 +328,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
     const snap = makeSelf(MARCH_FID, { territories: ['home'], armies: ['zz_army', 'aa_army'] });
     const state: GameState = {
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
+      nextArmySequence: 0,
       turn: 1,
       ...emptyWorldClock(),
       ...emptyRewardApplicationState(),
@@ -388,6 +391,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
     const defSnap = makeSelf(def, { territories: ['front'], armies: [] });
     const state: GameState = {
       schemaVersion: GAME_STATE_SCHEMA_VERSION,
+      nextArmySequence: 0,
       turn: 1,
       ...emptyWorldClock(),
       ...emptyRewardApplicationState(),
