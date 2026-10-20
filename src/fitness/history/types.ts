@@ -9,6 +9,7 @@
  * not eligible for completed-workout fitness evaluation.
  */
 import { FitnessEvidence } from '../evaluation/types';
+import type { CompletionRewardEntitlement } from '../../rewards/completionEntitlement';
 import { PhysicalResult } from '../physicalResult/types';
 import {
   ExercisePerformance,
@@ -28,6 +29,8 @@ export const WORKOUT_HISTORY_FORMAT = 'workout-history.v1' as const;
 export type WorkoutHistoryCompletionState = 'COMPLETED' | 'ABANDONED';
 
 export interface WorkoutHistoryEntry {
+  /** Audit copy of the session's lock; applied-reward ledger remains settlement authority. */
+  readonly completionRewardEntitlement?: CompletionRewardEntitlement;
   formatVersion: typeof WORKOUT_HISTORY_FORMAT;
   playerId: string;
   sessionId: WorkoutSessionId;

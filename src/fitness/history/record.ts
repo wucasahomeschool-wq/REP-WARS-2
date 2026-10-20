@@ -1,4 +1,5 @@
 import { cloneFitnessEvidence } from '../evaluation/clone';
+import { cloneCompletionRewardEntitlement } from '../../rewards/completionEntitlement';
 import { clonePhysicalResult } from '../physicalResult/clone';
 import { cloneExercisePerformance, cloneSessionPrescribedWorkout, cloneFeedbackRecord, cloneIntegrityFlag } from '../session/clone';
 import { WorkoutSession } from '../session/types';
@@ -37,6 +38,8 @@ export function cloneWorkoutHistoryEntry(entry: WorkoutHistoryEntry): WorkoutHis
     rewardApplicationId: entry.rewardApplicationId,
     gameplayContext: entry.gameplayContext ? { ...entry.gameplayContext } : null,
     sessionState: entry.sessionState,
+    ...(entry.completionRewardEntitlement !== undefined
+      ? { completionRewardEntitlement: cloneCompletionRewardEntitlement(entry.completionRewardEntitlement, entry) } : {}),
   };
 }
 
@@ -83,5 +86,7 @@ export function toWorkoutHistoryEntry(
     rewardApplicationId: extras.rewardApplicationId ?? null,
     gameplayContext: session.gameplayContext ? { ...session.gameplayContext } : null,
     sessionState: session.state,
+    ...(session.completionRewardEntitlement !== undefined
+      ? { completionRewardEntitlement: cloneCompletionRewardEntitlement(session.completionRewardEntitlement, session) } : {}),
   };
 }

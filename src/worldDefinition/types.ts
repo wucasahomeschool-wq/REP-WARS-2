@@ -6,6 +6,7 @@
  * runtime fields only — polygons are not duplicated into the tick snapshot.
  */
 import { FactionId, RegionId, RelationshipState, Resources, TerrainType, TerritoryId } from '../types';
+import type { WorldWorkoutRewardPolicy } from '../rewards/completionPolicy';
 
 export const WORLD_FORMAT_VERSION = 'rep-wars-world.v1' as const;
 export type WorldFormatVersion = typeof WORLD_FORMAT_VERSION;
@@ -162,6 +163,8 @@ export interface WorldCompositionDefinition {
 }
 
 export interface WorldDefinition {
+  /** Absent on legacy content. Never infer a ratio; new-policy callers must require it. */
+  workoutRewards?: WorldWorkoutRewardPolicy;
   formatVersion: WorldFormatVersion;
   worldId: string;
   level: number;

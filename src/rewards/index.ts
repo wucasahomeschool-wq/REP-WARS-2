@@ -67,3 +67,13 @@ export type {
 
 export { retryPendingWorkoutReward, runWorkoutRewardPipeline } from './pipeline/runWorkoutRewardPipeline';
 export type { WorkoutPipelineResult, WorkoutPipelineOptions } from './pipeline/runWorkoutRewardPipeline';
+export {
+  COMPLETION_REWARD_UNITS, SOLDIER_RATIO_SCALE, WORKOUT_REWARD_POLICY_VERSION,
+  calculateCompletionSoldiers, requireWorldWorkoutRewardPolicy, validateWorldWorkoutRewardPolicy,
+} from './completionPolicy';
+export type { WorldWorkoutRewardPolicy } from './completionPolicy';
+export {
+  COMPLETION_ENTITLEMENT_VERSION, completionEntitlementId, createCompletionRewardEntitlement,
+  cloneCompletionRewardEntitlement, validateCompletionRewardEntitlement, workoutCompletionRewardMode,
+} from './completionEntitlement';
+export type { CompletionRewardEntitlement } from './completionEntitlement';

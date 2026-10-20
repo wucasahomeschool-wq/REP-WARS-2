@@ -1,4 +1,5 @@
 import { RESPONSE_POLICY } from '../constants/aiResponse';
+import { validateCompletionRewardEntitlement } from '../rewards/completionEntitlement';
 import { armySequenceFloor } from '../army/identity';
 import {responseStateProblems} from './responseInvariants';
 import {conflictStateProblems} from './conflictInvariants';
@@ -863,6 +864,14 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
     push('fitness.invalid_estimate', 'playerFitness.estimate.level must be non-negative');
   } else {
     const session = state.playerFitness.activeSession;
+    if (session?.completionRewardEntitlement !== undefined) {
+      try {
+        validateCompletionRewardEntitlement(session.completionRewardEntitlement, session);
+        if (session.prescribedWorkout.workoutId !== session.workoutId) throw new Error('Workout prescription identity mismatch');
+      } catch {
+        push('fitness.invalid_completion_entitlement', 'Workout completion entitlement has invalid terms or session binding');
+      }
+    }
     if (session && (session.state === 'ACTIVE' || session.state === 'PAUSED') && session.purpose === 'DEFENSE') {
       const invasionId = session.gameplayContext?.invasionId;
       const invasion = invasionId ? state.activeInvasions.get(invasionId) : undefined;

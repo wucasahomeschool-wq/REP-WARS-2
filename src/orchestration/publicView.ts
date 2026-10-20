@@ -1,4 +1,5 @@
 import {publicTradeState} from '../gameplay/trade/trade';
+import { cloneCompletionRewardEntitlement } from '../rewards/completionEntitlement';
 import { activeOperations } from '../engine/operations';
 import { publicPeaceState } from '../gameplay/diplomacy/peace';
 import { isArmyMoving } from '../army/movement';
@@ -63,6 +64,8 @@ function serializeActiveWorkout(session: WorkoutSession | null): Record<string, 
     integrityFlagCount: session.integrityFlags.length,
     gameplayContext: session.gameplayContext ? { ...session.gameplayContext } : null,
     authoredCatalog: session.authoredCatalog ? { ...session.authoredCatalog } : null,
+    ...(session.completionRewardEntitlement !== undefined
+      ? { completionRewardEntitlement: cloneCompletionRewardEntitlement(session.completionRewardEntitlement, session) } : {}),
   };
 }
 

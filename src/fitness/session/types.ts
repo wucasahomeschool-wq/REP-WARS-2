@@ -6,6 +6,7 @@
  * for a future Fitness Engine; this module does not score fitness or awards.
  */
 
+import type { CompletionRewardEntitlement } from '../../rewards/completionEntitlement';
 import {
   BodySection,
   ExerciseId,
@@ -137,6 +138,8 @@ export interface WorkoutSessionAuthoredRef {
 }
 
 export interface WorkoutSession {
+  /** Absent = legacy reward handling. R1-C defines storage only; START_WORKOUT does not mint locks yet. */
+  readonly completionRewardEntitlement?: CompletionRewardEntitlement;
   sessionId: WorkoutSessionId;
   playerId: string;
   workoutId: WorkoutId;

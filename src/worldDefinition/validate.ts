@@ -1,4 +1,5 @@
 import { TerrainType } from '../types';
+import { validateWorldWorkoutRewardPolicy } from '../rewards/completionPolicy';
 import { collectNeighborGraphIssues } from '../map/graphInvariants';
 import {
   allVerticesInside,
@@ -96,6 +97,14 @@ function graphConnected(ids: string[], neighborsOf: (id: string) => string[]): b
 export function validateWorldDefinition(def: WorldDefinition): WorldValidationIssue[] {
   const issues: WorldValidationIssue[] = [];
   const push = (code: string, message: string) => issues.push(issue(code, message));
+
+  if (def.workoutRewards !== undefined) {
+    try {
+      validateWorldWorkoutRewardPolicy(def.workoutRewards);
+    } catch {
+      push('world.invalid_workout_rewards', 'workoutRewards must contain an explicit version, revision and positive safe-integer soldier ratio');
+    }
+  }
 
   if (def.formatVersion !== WORLD_FORMAT_VERSION) {
     push('format.unsupported', `formatVersion must be ${WORLD_FORMAT_VERSION}`);

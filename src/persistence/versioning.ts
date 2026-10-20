@@ -332,6 +332,12 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
 
   const fitness = state.playerFitness as Record<string, unknown> | undefined;
   if (fitness && typeof fitness === 'object') {
+    // Schema 28 and earlier never minted completion entitlements. Do not fabricate
+    // locks from duration/names, or accept a future lock smuggled into legacy state.
+    const session = fitness.activeSession as Record<string, unknown> | null | undefined;
+    if (schema < 29 && session && Object.prototype.hasOwnProperty.call(session, 'completionRewardEntitlement')) {
+      throw new PersistenceError('persistence.corrupt', 'Legacy workout session cannot contain a completion entitlement');
+    }
     if (!Array.isArray(fitness.compactHistory)) fitness.compactHistory = [];
     if (!('pendingReward' in fitness)) fitness.pendingReward = null;
     if (!('activeSession' in fitness)) fitness.activeSession = null;

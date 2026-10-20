@@ -103,8 +103,9 @@ import { GameRewardResult } from '../rewards/types';
  * 26 = Canonical factual conflict episodes/aggregates and replay receipts (Phase K).
  * 27 = Canonical non-proactive response contexts and primary response scheduler (Phase L).
  * 28 = Durable runtime army identity high-water mark (C2).
+ * 29 = Optional immutable workout completion entitlement (R1-C). Legacy sessions remain unlocked.
  */
-export const GAME_STATE_SCHEMA_VERSION = 28;
+export const GAME_STATE_SCHEMA_VERSION = 29;
 
 export type InvasionId = string;
 

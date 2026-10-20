@@ -1,4 +1,5 @@
 import { clonePrescription } from '../guards';
+import { cloneCompletionRewardEntitlement } from '../../rewards/completionEntitlement';
 import {
   ExercisePerformance,
   PauseInterval,
@@ -99,5 +100,7 @@ export function cloneWorkoutSession(session: WorkoutSession): WorkoutSession {
     feedback: session.feedback ? cloneFeedbackRecord(session.feedback) : null,
     ...(session.gameplayContext ? { gameplayContext: { ...session.gameplayContext } } : {}),
     ...(session.authoredCatalog ? { authoredCatalog: { ...session.authoredCatalog } } : {}),
+    ...(session.completionRewardEntitlement !== undefined
+      ? { completionRewardEntitlement: cloneCompletionRewardEntitlement(session.completionRewardEntitlement, session) } : {}),
   };
 }

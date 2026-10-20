@@ -11,6 +11,14 @@ export { DecisionEngine, WarlordState, validateCommitmentTarget, isActiveCommitm
 export { EXECUTABLE_CONCRETE_ACTIONS, EXECUTABLE_COMMITMENT_ACTIONS, UNSUPPORTED_COMMITMENT_ACTIONS, isExecutableCommitmentAction } from './engine/executableActions';
 export { BattleEngine, BattleInput, BattleResult, BattleCalculation, BattleSideBreakdown, CasualtyBreakdown } from './battle/BattleEngine';
 export {
+  COMPLETION_REWARD_UNITS, SOLDIER_RATIO_SCALE, WORKOUT_REWARD_POLICY_VERSION,
+  COMPLETION_ENTITLEMENT_VERSION, calculateCompletionSoldiers, requireWorldWorkoutRewardPolicy,
+  validateWorldWorkoutRewardPolicy, completionEntitlementId, createCompletionRewardEntitlement,
+  cloneCompletionRewardEntitlement, validateCompletionRewardEntitlement, workoutCompletionRewardMode,
+} from './rewards';
+export type { WorldWorkoutRewardPolicy, CompletionRewardEntitlement } from './rewards';
+
+export {
   ArmyLike,
   TerritoryLike,
   UnitBreakdown,
