@@ -120,7 +120,6 @@ export const COMMAND_INDEX: CommandDefinition[] = [
     required: [p('territoryId', 'string', 'Target territory to attack')],
     optional: [
       p('factionId', 'string', 'Attacking faction'),
-      p('seed', 'number', 'Optional battle seed override'),
       p('commitAmount', 'number', 'Banked Troops to commit. Remaining banked Troops stay unused.'),
     ],
     validation: ['Target must be foreign-owned', 'Attacker needs an eligible force on a legal owned staging tile, or one adjacent hop to one'],

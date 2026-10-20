@@ -5,6 +5,7 @@
  * startStrategicAttack → BattleEngine. Does not add a Gate 1 combat formula.
  */
 import assert from 'assert';
+import { deriveAuthoritativeBattleSeed } from '../src/orchestration/helpers';
 import {
   ErrorCode,
   Orchestrator,
@@ -238,7 +239,9 @@ export function registerGate1VerticalSliceAttackTests(api: Gate1VerticalSliceAtt
     const battle = battleOf(res);
     assert.strictEqual(battle.winner, 'attacker');
     assert.strictEqual(battle.territoryOutcome, 'captured');
-    assert.strictEqual(battle.seedUsed, VICTORY_SEED);
+    assert.strictEqual(battle.seedUsed, deriveAuthoritativeBattleSeed(scenario.state,
+      VERTICAL_SLICE_PLAYER_FACTION_ID, VERTICAL_SLICE_AI_1_FACTION_ID,
+      VERTICAL_SLICE_TERRITORY_B, [String(res.payload.committedArmyId)]));
     assert.strictEqual(battle.unopposed, false);
 
     const state = orch.getState();

@@ -8,7 +8,7 @@ import { assertClaimAvailable } from '../../engine/operations';
 import { Army } from '../../types';
 import { ActiveInvasion, createActiveInvasion, GameState } from '../../types/GameState';
 import { listImmediateAttackingArmies } from '../../army/strategicAttack';
-import { deriveBattleSeed, requireTerritory } from '../../orchestration/helpers';
+import { deriveAuthoritativeBattleSeed, requireTerritory } from '../../orchestration/helpers';
 import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
 import { HandlerResult } from '../../orchestration/protocol';
 import { defenseResponseTicks } from '../config';
@@ -39,6 +39,7 @@ export function beginInvasionAgainstPlayer(
     commitmentId?: string | null;
     /** Existing authoritative command identity; only the factual chain uses it. */
     requestId?: string;
+    /** Trusted seed transferred from canonical delayed intent, or internal fixture. Never request data. */
     battleSeed?: number;
     /** Tutorial/scripted invasions skip 24h protection and attacker cooldown. Pause still blocks. */
     bypassPlayerDefenseGates?: boolean;
@@ -86,7 +87,7 @@ export function beginInvasionAgainstPlayer(
     notifiedAtTick,
     responseDeadlineTick: notifiedAtTick + defenseResponseTicks(),
     attackingArmyIds: params.armies.map((a) => a.id),
-    battleSeed: params.battleSeed ?? deriveBattleSeed(state.worldSeed, state.turn, params.attackerId, state.playerFactionId, params.territoryId),
+    battleSeed: params.battleSeed ?? deriveAuthoritativeBattleSeed(state, params.attackerId, state.playerFactionId, params.territoryId, params.armies.map(a => a.id)),
     commitmentId: params.commitmentId ?? null,
   });
   invasion.conflictFactId=hostileFactIdentity(state,params.territoryId,params.armies.map(a=>a.id),params.commitmentId,params.requestId);

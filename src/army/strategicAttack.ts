@@ -14,10 +14,9 @@ import { isOpenInvasion } from '../gameplay/invasion/deadlines';
 import {
   armiesInTerritory,
   classifyFactionInteraction,
-  deriveBattleSeed,
+  deriveAuthoritativeBattleSeed,
   factionArmies,
   isAdjacent,
-  paramNumber,
   pushMemory,
   requireFactionSnapshot,
   requireTerritory,
@@ -300,8 +299,7 @@ function resolveStrategicBattle(
   const defendingArmies = armiesInTerritory(state, target.id).filter((a) => a.owner === defenderId);
   const defenderField = defendingArmies.reduce((sum, army) => sum + army.soldiers + army.knights, 0);
   const battleSeed = plannedBattleSeed
-    ?? paramNumber(host.req, 'seed')
-    ?? deriveBattleSeed(state.worldSeed, state.turn, attackerId, defenderId, target.id);
+    ?? deriveAuthoritativeBattleSeed(state, attackerId, defenderId, target.id, attackingArmies.map(a => a.id));
 
   pushMemory(attackerSnap, state.turn, 'attack_made', defenderId, target.id, 8, { target: target.id });
   pushMemory(defenderSnap, state.turn, 'attack_received', attackerId, target.id, 10, { attacker: attackerSnap.name });
@@ -534,8 +532,7 @@ export function startStrategicAttack(
   // Direct player attacks need the same physical clearance ownership as AI
   // operations even when their strategic intent invalidates during this march.
   army.movement!.hostileCounterpartyId = defenderId;
-  const battleSeed = paramNumber(host.req, 'seed')
-    ?? deriveBattleSeed(state.worldSeed, state.turn, attackerId, defenderId, target.id);
+  const battleSeed = deriveAuthoritativeBattleSeed(state, attackerId, defenderId, target.id, [army.id]);
   const conflictFactId=hostileFactIdentity(state,target.id,[army.id],commitmentId,host.req.requestId);
   const intent: StrategicAttackIntent = {
     conflictFactId,

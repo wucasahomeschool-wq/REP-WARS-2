@@ -90,6 +90,7 @@ import { registerEconomyDevelopmentsTests } from './economyDevelopments';
 import { registerTerritoryDefenseTests } from './territoryDefense';
 import { registerDefenseTroopAccountingTests } from './defenseTroopAccounting';
 import { registerArmyIdentityTests } from './armyIdentity';
+import { registerBattleSeedAuthorityTests } from './battleSeedAuthority';
 import { registerAiEconomyTests } from './aiEconomy';
 import { registerInvasionLifecycleTests } from './invasionLifecycle';
 import { registerPersistenceTests } from './persistence';
@@ -3168,6 +3169,7 @@ registerEconomyDevelopmentsTests({ test });
 registerTerritoryDefenseTests({ test });
 registerDefenseTroopAccountingTests({ test });
 registerArmyIdentityTests({ test });
+registerBattleSeedAuthorityTests({ test });
 registerAiEconomyTests({ test });
 
 registerInvasionLifecycleTests({ test });

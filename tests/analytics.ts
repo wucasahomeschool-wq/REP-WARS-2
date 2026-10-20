@@ -634,6 +634,7 @@ export function registerAnalyticsTests(api: AnalyticsTestApi): void {
 
   test('conquest with city and farm emits building.destroyed', () => {
     const state = playerState();
+    state.worldSeed = 2; // Canonical victory fixture; request seeds are not authority.
     plantCity(state, TARGET);
     const territory = state.territories.get(TARGET)!;
     territory.fortification = 2;
@@ -657,6 +658,7 @@ export function registerAnalyticsTests(api: AnalyticsTestApi): void {
 
   test('conquest of an empty tile does not emit building.destroyed', () => {
     const state = playerState();
+    state.worldSeed = 2; // Canonical victory fixture; request seeds are not authority.
     const territory = state.territories.get(TARGET)!;
     territory.fortification = 0;
     state.playerRewards.bankedTroops = 500;

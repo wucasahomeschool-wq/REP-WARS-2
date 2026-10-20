@@ -9,13 +9,24 @@ export function deriveBattleSeed(
   attackerId: string,
   defenderId: string,
   territoryId: string,
+  eventIdentity?: string,
 ): number {
-  const s = `${turn}_${attackerId}_${defenderId}_${territoryId}`;
+  const s = eventIdentity === undefined ? `${turn}_${attackerId}_${defenderId}_${territoryId}`
+    : JSON.stringify([turn, attackerId, defenderId, territoryId, eventIdentity]);
   let h = 0;
   for (let i = 0; i < s.length; i++) {
     h = ((h << 5) - h + s.charCodeAt(i)) | 0;
   }
   return (h ^ baseSeed) >>> 0;
+}
+
+/** Fresh physical battle identity. Request IDs and request seed fields are not
+ * RNG authority. Delayed work persists this seed and never re-derives at arrival. */
+export function deriveAuthoritativeBattleSeed(
+  state: GameState, attackerId: string, defenderId: string, territoryId: string, armyIds: readonly string[],
+): number {
+  return deriveBattleSeed(state.worldSeed, state.turn, attackerId, defenderId, territoryId,
+    JSON.stringify([state.worldTick, [...armyIds].sort()]));
 }
 
 export function paramString(req: CommandRequest, name: string): string | undefined {

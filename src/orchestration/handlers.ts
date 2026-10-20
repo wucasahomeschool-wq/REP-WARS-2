@@ -283,7 +283,6 @@ export function executeAttack(state: GameState, ctx: HandlerContext, territoryId
     armies: immediate,
     commitmentId,
     requestId: ctx.req.requestId,
-    battleSeed: paramNumber(ctx.req, 'seed'),
   });
   if (held) return held;
 
