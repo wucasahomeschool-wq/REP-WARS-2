@@ -73,6 +73,7 @@ import {
   TerritoryChange,
 } from './protocol';
 import { serializePublicGameState, serializeVisibleWorld } from './publicView';
+import { workoutRewardView } from '../rewards/workoutRewardView';
 import { resolveViewerFactionId } from './authorization';
 import { formatWorldLoadFailure, isLegacyDefinitionWorldId, resolveWorldDefinition } from '../worldDefinition/catalog';
 import { serializeWorldDefinitionForClient } from '../worldDefinition/clientView';
@@ -152,6 +153,17 @@ export function handleGetGameState(state: GameState, ctx: HandlerContext): Handl
   const viewer = resolveViewerFactionId(state, ctx.req);
   const snapshot = serializePublicGameState(cloneGameState(state), viewer);
   return { ...emptyResult(), payload: { gameState: snapshot } };
+}
+
+export function handleGetWorkoutReward(state: GameState, ctx: HandlerContext): HandlerResult {
+  const sessionId = requireString(ctx.req, 'sessionId');
+  const active = state.playerFitness.activeSession;
+  const isActive = active?.sessionId === sessionId && active.playerId === ctx.req.playerId;
+  const source = isActive ? active : ctx.registry.workoutHistory?.get(ctx.req.playerId, sessionId);
+  if (!source || source.playerId !== ctx.req.playerId || source.sessionId !== sessionId) {
+    throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, 'Workout reward is not available');
+  }
+  return { ...emptyResult(), payload: { workoutReward: workoutRewardView(state, source, isActive) } };
 }
 
 export function handleGetVisibleWorld(state: GameState, ctx: HandlerContext): HandlerResult {
@@ -951,6 +963,7 @@ export type ReadOnlyHandler = (state: GameState, ctx: HandlerContext) => Handler
 export const READ_ONLY_HANDLERS: Record<string, ReadOnlyHandler> = {
   GET_COMMAND_INDEX: handleGetCommandIndex,
   GET_GAME_STATE: handleGetGameState,
+  GET_WORKOUT_REWARD: handleGetWorkoutReward,
   GET_VISIBLE_WORLD: handleGetVisibleWorld,
   GET_WORLD_DEFINITION: handleGetWorldDefinition,
   GET_FITNESS_CATALOG: handleGetFitnessCatalog,

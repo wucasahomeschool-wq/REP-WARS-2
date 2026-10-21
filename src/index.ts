@@ -10,6 +10,7 @@ export { ScoringHelpers, ActionScorer, ScorerInput } from './scoring/ActionScore
 export { DecisionEngine, WarlordState, validateCommitmentTarget, isActiveCommitmentStatus, cloneCommitment } from './engine/DecisionEngine';
 export { EXECUTABLE_CONCRETE_ACTIONS, EXECUTABLE_COMMITMENT_ACTIONS, UNSUPPORTED_COMMITMENT_ACTIONS, isExecutableCommitmentAction } from './engine/executableActions';
 export { BattleEngine, BattleInput, BattleResult, BattleCalculation, BattleSideBreakdown, CasualtyBreakdown } from './battle/BattleEngine';
+export type { WorkoutRewardView } from './rewards/workoutRewardView';
 export {
   COMPLETION_REWARD_UNITS, SOLDIER_RATIO_SCALE, WORKOUT_REWARD_POLICY_VERSION,
   COMPLETION_ENTITLEMENT_VERSION, calculateCompletionSoldiers, requireWorldWorkoutRewardPolicy,

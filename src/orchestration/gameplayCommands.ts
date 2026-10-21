@@ -1,6 +1,7 @@
 import { isWorkoutDifficulty } from '../fitness/difficulty';
 import { assertWorkoutSessionIdAvailable, availableDefaultWorkoutSessionId, lockWorkoutStartReward, rewardWorkoutSessionId, workoutStartBlockReason } from '../gameplay/workoutStart';
 import { cloneCompletionRewardEntitlement } from '../rewards/completionEntitlement';
+import { workoutRewardView } from '../rewards/workoutRewardView';
 import { cloneWorkoutSession } from '../fitness/session/clone';
 import { evaluateLockedWorkoutFitness } from '../rewards/pipeline/settleLockedWorkout';
 import { isWorkoutPurpose } from '../fitness/purpose';
@@ -325,6 +326,7 @@ export function handleStartWorkout(state: GameState, ctx: GameplayHandlerContext
       sessionId: session.sessionId,
       purpose: session.purpose,
       state: session.state,
+      workoutReward: workoutRewardView(state, session, true),
       invasionId,
       workoutId: created.value.workoutId,
       selectedWorkoutId,
@@ -364,7 +366,8 @@ export function handleRecordExercise(state: GameState, ctx: GameplayHandlerConte
   state.playerFitness.activeSession = applyFirstWorkoutFeedbackWaiver(state, next.value) ?? next.value;
   return {
     ...emptyResult(),
-    payload: { sessionId: next.value.sessionId, state: next.value.state, currentExerciseIndex: next.value.currentExerciseIndex },
+    payload: { sessionId: next.value.sessionId, state: next.value.state, currentExerciseIndex: next.value.currentExerciseIndex,
+      workoutReward: workoutRewardView(state, state.playerFitness.activeSession!, true) },
   };
 }
 
@@ -384,7 +387,8 @@ export function handleSkipRest(state: GameState, ctx: GameplayHandlerContext): H
   state.playerFitness.activeSession = applyFirstWorkoutFeedbackWaiver(state, next.value) ?? next.value;
   return {
     ...emptyResult(),
-    payload: { sessionId: next.value.sessionId, state: next.value.state },
+    payload: { sessionId: next.value.sessionId, state: next.value.state,
+      workoutReward: workoutRewardView(state, state.playerFitness.activeSession!, true) },
   };
 }
 
@@ -404,6 +408,7 @@ export function handlePauseWorkout(state: GameState, ctx: GameplayHandlerContext
       sessionId: next.value.sessionId,
       state: next.value.state,
       pauseCount: next.value.pauseCount,
+      workoutReward: workoutRewardView(state, next.value, true),
     },
   };
 }
@@ -424,6 +429,7 @@ export function handleResumeWorkout(state: GameState, ctx: GameplayHandlerContex
       sessionId: next.value.sessionId,
       state: next.value.state,
       pauseCount: next.value.pauseCount,
+      workoutReward: workoutRewardView(state, next.value, true),
     },
   };
 }
@@ -463,7 +469,8 @@ export function handleSubmitWorkoutFeedback(state: GameState, ctx: GameplayHandl
   }
   return {
     ...emptyResult(),
-    payload: { sessionId: next.value.sessionId, feedbackState: next.value.feedbackState },
+    payload: { sessionId: next.value.sessionId, feedbackState: next.value.feedbackState,
+      workoutReward: workoutRewardView(state, next.value, state.playerFitness.activeSession?.sessionId === next.value.sessionId) },
   };
 }
 
@@ -513,6 +520,7 @@ export function handleFinalizeWorkout(state: GameState, ctx: GameplayHandlerCont
       ...fail(ErrorCode.ACTION_NOT_ALLOWED, result.error?.message ?? 'Workout reward pipeline failed'),
       payload: {
         sessionId: result.sessionId,
+        workoutReward: workoutRewardView(state, session, true),
         pendingReward: !!state.playerFitness.pendingReward,
         error: result.error,
         progression: serializeProgressionPayload(progression),
@@ -526,6 +534,7 @@ export function handleFinalizeWorkout(state: GameState, ctx: GameplayHandlerCont
     payload: {
       sessionId: result.sessionId,
       purpose: result.purpose,
+      workoutReward: workoutRewardView(state, session, state.playerFitness.activeSession?.sessionId === session.sessionId),
       alreadyProcessed: result.alreadyProcessed,
       physicalOutput: result.physicalOutput,
       bankedTroops: state.playerRewards.bankedTroops,
@@ -572,6 +581,7 @@ export function handleAbandonWorkout(state: GameState, ctx: GameplayHandlerConte
       sessionId: next.value.sessionId,
       state: next.value.state,
       abandonmentReason: next.value.abandonmentReason,
+      workoutReward: workoutRewardView(state, next.value, true),
       invasionOutcome,
       progression: serializeProgressionPayload(progression),
     },
@@ -609,6 +619,7 @@ export function handleRecordIntegrityFlag(state: GameState, ctx: GameplayHandler
       sessionId: next.value.sessionId,
       state: next.value.state,
       integrityFlagCount: next.value.integrityFlags.length,
+      workoutReward: workoutRewardView(state, next.value, true),
       abandonmentReason: next.value.abandonmentReason,
       invasionOutcome,
     },

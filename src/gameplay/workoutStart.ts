@@ -68,17 +68,17 @@ export function assertWorkoutSessionIdAvailable(state: GameState, sessionId: str
 export function lockWorkoutStartReward(state: GameState, session: WorkoutSession): CompletionRewardEntitlement {
   const authored = session.authoredCatalog;
   if (!authored) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Normal workouts require an authored workout size and catalog identity');
+    throw new OrchestrationError(ErrorCode.WORKOUT_CONFIGURATION_UNAVAILABLE, 'Normal workouts require an authored workout size and catalog identity');
   }
   const loaded = state.definitionWorldId ? resolveWorldDefinition(state.definitionWorldId) : null;
-  if (!loaded?.ok) throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE, 'Current authored world is unavailable for workout rewards');
+  if (!loaded?.ok) throw new OrchestrationError(ErrorCode.WORKOUT_CONFIGURATION_UNAVAILABLE, 'Current authored world is unavailable for workout rewards');
+  assertWorldIdentity(state, loaded.definition);
   try {
-    assertWorldIdentity(state, loaded.definition);
     const policy = requireWorldWorkoutRewardPolicy(loaded.definition);
     return createCompletionRewardEntitlement({ session, size: authored.size, catalogId: authored.catalogId,
       catalogVersion: authored.catalogVersion,
       world: { worldId: loaded.definition.worldId, formatVersion: loaded.definition.formatVersion, level: loaded.definition.level }, policy });
   } catch {
-    throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE, 'Current world has no valid authored workout reward policy');
+    throw new OrchestrationError(ErrorCode.WORKOUT_CONFIGURATION_UNAVAILABLE, 'Current world has no valid authored workout reward policy');
   }
 }

@@ -1,5 +1,6 @@
 import {publicTradeState} from '../gameplay/trade/trade';
 import { cloneCompletionRewardEntitlement } from '../rewards/completionEntitlement';
+import { workoutRewardView } from '../rewards/workoutRewardView';
 import { activeOperations } from '../engine/operations';
 import { publicPeaceState } from '../gameplay/diplomacy/peace';
 import { isArmyMoving } from '../army/movement';
@@ -32,11 +33,12 @@ export function playerFacingTroopCount(army: Pick<Army, 'soldiers' | 'knights' |
   return Math.max(0, army.soldiers) + Math.max(0, army.knights) + Math.max(0, army.siegeEngines);
 }
 
-function serializeActiveWorkout(session: WorkoutSession | null): Record<string, unknown> | null {
+function serializeActiveWorkout(session: WorkoutSession | null, state: GameState): Record<string, unknown> | null {
   if (!session) return null;
   const current = getCurrentExercise(session);
   return {
     sessionId: session.sessionId,
+    workoutReward: workoutRewardView(state, session, true),
     workoutId: session.workoutId,
     purpose: session.purpose,
     state: session.state,
@@ -238,7 +240,7 @@ function serializePlayerGameplayView(state: GameState): Record<string, unknown> 
       })),
     activeInvasionsAgainstPlayer: invasions,
     empirePaused: state.playerEmpirePause.paused,
-    activeWorkout: serializeActiveWorkout(state.playerFitness.activeSession),
+    activeWorkout: serializeActiveWorkout(state.playerFitness.activeSession, state),
     pendingWorkoutReward: state.playerFitness.pendingReward
       ? {
         sessionId: state.playerFitness.pendingReward.sessionId,

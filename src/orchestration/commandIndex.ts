@@ -70,6 +70,16 @@ export const COMMAND_INDEX: CommandDefinition[] = [
     status: 'implemented',
   }),
   cmd({
+    commandId: 'GET_WORKOUT_REWARD',
+    category: 'READ',
+    description: 'Read the resolved player\'s active or historical workout reward. Derived from persisted terms and the applied-reward ledger; never settles or renews a lease.',
+    required: [p('sessionId', 'string', 'Authoritative workout session identity')],
+    routesTo: ['state', 'fitness'],
+    changesState: false,
+    possibleErrors: [ErrorCode.WORKOUT_SESSION_INVALID, ErrorCode.MISSING_PARAMETER, ErrorCode.INVALID_PARAMETER],
+    status: 'implemented',
+  }),
+  cmd({
     commandId: 'GET_VISIBLE_WORLD',
     category: 'READ',
     description: 'Current-world view for a faction. The entire current world is visible; there is no territory fog. Polygons are not included — use GET_WORLD_DEFINITION.',
@@ -370,7 +380,7 @@ export const COMMAND_INDEX: CommandDefinition[] = [
     routesTo: ['state'],
     changesState: true,
     requiresPhysicalEffort: true,
-    possibleErrors: [ErrorCode.INVALID_PARAMETER, ErrorCode.INVALID_TARGET, ErrorCode.ACTION_NOT_ALLOWED, ErrorCode.WORKOUT_SESSION_INVALID],
+    possibleErrors: [ErrorCode.INVALID_PARAMETER, ErrorCode.INVALID_TARGET, ErrorCode.ACTION_NOT_ALLOWED, ErrorCode.WORKOUT_SESSION_INVALID, ErrorCode.WORKOUT_CONFIGURATION_UNAVAILABLE],
     status: 'implemented',
   }),
   cmd({

@@ -94,6 +94,7 @@ import { registerBattleSeedAuthorityTests } from './battleSeedAuthority';
 import { registerWorkoutRewardContractTests } from './workoutRewardContracts';
 import { runWorkoutStartRewardTests } from './workoutStartRewards';
 import { runWorkoutSettlementRewardTests } from './workoutSettlementRewards';
+import { runWorkoutRewardApiTests } from './workoutRewardApi';
 import { registerAiEconomyTests } from './aiEconomy';
 import { registerInvasionLifecycleTests } from './invasionLifecycle';
 import { registerPersistenceTests } from './persistence';
@@ -3231,6 +3232,10 @@ registerOrchestratorIntegrationTests({ test });
 registerLevelAnchorTests({ test });
 
 void (async () => {
+  await runWorkoutRewardApiTests(async (name, fn) => {
+    try { await fn(); passed++; console.log(`  ✓ ${name}`); }
+    catch (err) { failed++; console.error(`  ✗ ${name}`); console.error(err instanceof Error ? err.message : String(err)); }
+  });
   await runWorkoutSettlementRewardTests(async (name, fn) => {
     try { await fn(); passed++; console.log(`  ✓ ${name}`); }
     catch (err) { failed++; console.error(`  ✗ ${name}`); console.error(err instanceof Error ? err.message : String(err)); }

@@ -66,6 +66,7 @@ export type {
 } from './application';
 
 export { retryPendingWorkoutReward, runWorkoutRewardPipeline } from './pipeline/runWorkoutRewardPipeline';
+export type { WorkoutRewardView } from './workoutRewardView';
 export type { WorkoutPipelineResult, WorkoutPipelineOptions } from './pipeline/runWorkoutRewardPipeline';
 export {
   COMPLETION_REWARD_UNITS, SOLDIER_RATIO_SCALE, WORKOUT_REWARD_POLICY_VERSION,
