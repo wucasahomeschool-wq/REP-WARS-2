@@ -1,6 +1,8 @@
 import { isWorkoutDifficulty } from '../fitness/difficulty';
 import { assertWorkoutSessionIdAvailable, availableDefaultWorkoutSessionId, lockWorkoutStartReward, rewardWorkoutSessionId, workoutStartBlockReason } from '../gameplay/workoutStart';
 import { cloneCompletionRewardEntitlement } from '../rewards/completionEntitlement';
+import { cloneWorkoutSession } from '../fitness/session/clone';
+import { evaluateLockedWorkoutFitness } from '../rewards/pipeline/settleLockedWorkout';
 import { isWorkoutPurpose } from '../fitness/purpose';
 import {
   beginWorkoutSession,
@@ -426,8 +428,19 @@ export function handleResumeWorkout(state: GameState, ctx: GameplayHandlerContex
   };
 }
 
+/** Explicit sessionId addresses a paid historical lock without replacing another active workout. */
+function workoutForSettlement(state: GameState, ctx: GameplayHandlerContext) {
+  const requested = paramString(ctx.req, 'sessionId');
+  const active = state.playerFitness.activeSession;
+  if (!requested || active?.sessionId === requested) return active?.playerId === ctx.req.playerId ? active : null;
+  const stored = ctx.registry.workoutHistory?.get(ctx.req.playerId, requested)?.sessionSnapshot;
+  if (!stored?.completionRewardEntitlement || !state.playerRewards.appliedRewards.some(row =>
+    row.sessionId === requested && row.applicationId === stored.completionRewardEntitlement!.entitlementId)) return null;
+  return cloneWorkoutSession(stored);
+}
+
 export function handleSubmitWorkoutFeedback(state: GameState, ctx: GameplayHandlerContext): HandlerResult {
-  const session = state.playerFitness.activeSession;
+  const session = workoutForSettlement(state, ctx);
   if (!session) {
     throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, 'No active workout session');
   }
@@ -435,11 +448,19 @@ export function handleSubmitWorkoutFeedback(state: GameState, ctx: GameplayHandl
   if (!isWorkoutFeedbackValue(value)) {
     throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'Feedback value is invalid');
   }
-  const next = submitWorkoutFeedback(session, value, sessionNow(state, ctx));
+  const next = session.completionRewardEntitlement && session.feedback?.value === value
+    ? { ok: true as const, value: session } // Same logical feedback retry, not a correction.
+    : submitWorkoutFeedback(session, value, sessionNow(state, ctx));
   if (!next.ok) {
     throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, next.error.message);
   }
-  state.playerFitness.activeSession = next.value;
+  if (state.playerFitness.activeSession?.sessionId === session.sessionId) state.playerFitness.activeSession = next.value;
+  if (session.completionRewardEntitlement) {
+    const history = ctx.registry.workoutHistory;
+    if (!history) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Workout history is required for locked feedback');
+    persistTerminalSessionHistory(history, next.value);
+    evaluateLockedWorkoutFitness(state, next.value, history);
+  }
   return {
     ...emptyResult(),
     payload: { sessionId: next.value.sessionId, feedbackState: next.value.feedbackState },
@@ -447,16 +468,11 @@ export function handleSubmitWorkoutFeedback(state: GameState, ctx: GameplayHandl
 }
 
 export function handleFinalizeWorkout(state: GameState, ctx: GameplayHandlerContext): HandlerResult {
-  const session = state.playerFitness.activeSession;
+  const session = workoutForSettlement(state, ctx);
   if (!session) {
     throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, 'No active workout session');
   }
-  // R1-D enables start locks only. Do not route a locked session through the
-  // legacy PhysicalResult payout while R1-E settlement is not implemented.
-  if (session.completionRewardEntitlement !== undefined) {
-    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Locked workout completion settlement is not enabled yet');
-  }
-  if (!isEligibleForFitnessEvaluation(session)) {
+  if (!session.completionRewardEntitlement && !isEligibleForFitnessEvaluation(session)) {
     throw new OrchestrationError(ErrorCode.WORKOUT_SESSION_INVALID, 'Session is not eligible for completion');
   }
   if (session.purpose === 'DEFENSE') {
@@ -490,7 +506,8 @@ export function handleFinalizeWorkout(state: GameState, ctx: GameplayHandlerCont
     battle: ctx.registry.requireBattle(),
     history: ctx.registry.workoutHistory,
   });
-  const progression = applyAuthoredProgression(state, session, sessionNow(state, ctx));
+  const progression = session.completionRewardEntitlement
+    ? { applied: false, evaluation: null } : applyAuthoredProgression(state, session, sessionNow(state, ctx));
   if (!result.ok) {
     return {
       ...fail(ErrorCode.ACTION_NOT_ALLOWED, result.error?.message ?? 'Workout reward pipeline failed'),

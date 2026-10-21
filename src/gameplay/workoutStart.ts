@@ -16,8 +16,9 @@ export function workoutStartBlockReason(state: GameState): string | null {
   if (!active) return null;
   if (active.state !== 'COMPLETED' && active.state !== 'ABANDONED') return 'An active workout session is already in progress';
   if (active.state === 'COMPLETED'
-    && !state.playerRewards.appliedRewards.some(row => row.sessionId === active.sessionId)) {
-    return 'The completed workout must be settled before starting another workout';
+    && !state.playerRewards.appliedRewards.some(row => row.sessionId === active.sessionId
+      && (!active.completionRewardEntitlement || row.applicationId === active.completionRewardEntitlement.entitlementId))) {
+    return 'The completed workout must be settled before starting another workout or changing worlds';
   }
   return null;
 }

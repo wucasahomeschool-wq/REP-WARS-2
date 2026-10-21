@@ -29,7 +29,7 @@ const PLAYER = 'r1-d-player';
 const WORLD = 'w_r1_d_contract_fixture';
 const policy = (ratio = 1_250_000) => ({ version: 'workout-soldiers.v1' as const, revision: 'test-only-revision', soldiersPerRewardUnitMicros: ratio });
 
-function scenario() {
+export function scenario() {
   const loaded = loadProductionLevel2Definition();
   if (!loaded.ok) throw new Error('fixture world unavailable');
   const world = structuredClone(loaded.definition);
@@ -69,12 +69,12 @@ function entitlement(response: CommandResponse): CompletionRewardEntitlement {
   assert.ok(value);
   return value;
 }
-async function open(s: Scenario) {
+export async function open(s: Scenario) {
   const opened = await s.host.openGameplaySession(PLAYER, 'open');
   return { commandId: 'START_WORKOUT', playerId: PLAYER, requestId: 'start', gameplaySessionId: opened.sessionId,
     commandSequence: 1, renewalSequence: 1, parameters: { purpose: 'NORMAL_TROOPS', size: 'STANDARD', now: 1000 } } as CommandRequest;
 }
-async function finish(host: ReturnType<typeof createSessionHost>, s: Scenario): Promise<WorkoutSession> {
+export async function finish(host: ReturnType<typeof createSessionHost>, s: Scenario): Promise<WorkoutSession> {
   let now = 2000;
   while (s.load().state.playerFitness.activeSession?.state === 'ACTIVE') {
     const session = s.load().state.playerFitness.activeSession!, step = getCurrentExercise(session)!;
@@ -336,7 +336,7 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
     assert.strictEqual(orch.execute(req).success, false);
     assert.deepStrictEqual(snapshotGameState(orch.getState()), before);
   });
-  test('unpaid completed lock cannot be replaced or enter legacy finalization', async s => {
+  test('unpaid completed lock cannot be replaced and settles only its locked amount', async s => {
     const req = await open(s), locked = entitlement(await s.host.execute(req));
     await finish(s.host, s);
     for (const parameters of [{ purpose: 'NORMAL_TROOPS', size: 'LONG' }, { purpose: 'GOLDEN_YIELD' }, { purpose: 'EXTRA_CONSTRUCTION_WORKERS' }]) {
@@ -344,9 +344,9 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
       assert.strictEqual(result.success, false); assert.match(result.errors[0]!.message, /settled/);
     }
     const result = await s.host.execute({ commandId: 'FINALIZE_WORKOUT', playerId: PLAYER });
-    assert.strictEqual(result.success, false); assert.match(result.errors[0]!.message, /not enabled/);
+    assert.strictEqual(result.success, true);
     const state = s.load().state;
-    assert.strictEqual(state.playerRewards.bankedTroops, 0); assert.strictEqual(state.playerRewards.appliedRewards.length, 0);
+    assert.strictEqual(state.playerRewards.bankedTroops, locked.soldiers); assert.strictEqual(state.playerRewards.appliedRewards.length, 1);
     assert.strictEqual(state.playerFitness.pendingReward, null);
     assert.deepStrictEqual(state.playerFitness.activeSession!.completionRewardEntitlement, locked);
   });

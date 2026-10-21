@@ -14,6 +14,8 @@ import {
 import { createGameStateFromWorld } from '../worldDefinition/instantiate';
 import { WorldFileRegistration } from '../worldDefinition/worldConfig';
 import { evaluateWorldCompletion } from './completion';
+import { workoutStartBlockReason } from './workoutStart';
+import { validateGameplaySessionLease } from '../world/presenceLeases';
 
 export interface WorldTransitionView {
   eligible: boolean;
@@ -38,7 +40,8 @@ export type WorldTransitionApplyResult =
 
 /**
  * Player-scoped fitness that survives a world change.
- * In-progress sessions, pending rewards, and world-tick stamps do not.
+ * Callers must first reject unresolved obligations. Terminal sessions and
+ * world-tick stamps do not transfer; durable history retains optional feedback.
  */
 export function carryPlayerScopedFitness(from: PlayerFitnessState, onto: PlayerFitnessState): void {
   onto.estimate = from.estimate ? cloneFitnessEstimate(from.estimate) : null;
@@ -87,7 +90,7 @@ export function evaluateWorldTransition(
   }
   const complete = evaluateWorldCompletion(state)?.complete === true;
   return {
-    eligible: complete,
+    eligible: complete && workoutStartBlockReason(state) === null,
     nextWorldId: nextReg.worldId,
     nextWorldLevel: nextReg.level,
     alreadyOnLatestRegistered: false,
@@ -103,6 +106,8 @@ export function buildNextWorldState(
   catalog: WorldCatalog = getDefaultWorldCatalog(),
   registrations?: readonly WorldFileRegistration[],
 ): WorldTransitionApplyResult & { next?: GameState } {
+  const workoutBlock = workoutStartBlockReason(state);
+  if (workoutBlock) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, workoutBlock);
   const currentId = state.definitionWorldId;
   if (!currentId || isLegacyDefinitionWorldId(currentId)) {
     throw new OrchestrationError(
@@ -148,7 +153,15 @@ export function buildNextWorldState(
 
   const next = createGameStateFromWorld(loaded.definition, { seed: state.worldSeed });
   next.nextArmySequence = state.nextArmySequence;
+  // The transition command must retain its durable session/receipt authority.
+  // World ticks and accrual initialization still come from the new definition.
+  next.gameplaySessionLeases = state.gameplaySessionLeases.map(validateGameplaySessionLease);
   carryPlayerScopedFitness(state.playerFitness, next.playerFitness);
+  // Paid identities are player-scoped. A world change must not permit replay
+  // of a historical physical workout through a fresh world's empty ledger.
+  next.playerRewards.appliedRewards = state.playerRewards.appliedRewards.map(record => ({
+    ...record, result: JSON.parse(JSON.stringify(record.result)) as Record<string, unknown>,
+  }));
   next.level1Tutorial = null;
   return {
     status: 'transitioned',

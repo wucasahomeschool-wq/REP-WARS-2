@@ -23,12 +23,18 @@ import {
   WorkoutSessionSummary,
 } from '../session/types';
 import { WorkoutDifficulty, WorkoutId, WorkoutPurpose } from '../types';
+import type { WorkoutSession } from '../session/types';
+import type { RewardApplicationSuccess } from '../../rewards/application/types';
 
 export const WORKOUT_HISTORY_FORMAT = 'workout-history.v1' as const;
 
 export type WorkoutHistoryCompletionState = 'COMPLETED' | 'ABANDONED';
 
 export interface WorkoutHistoryEntry {
+  /** Terminal facts for optional late feedback. Never an alternative payment authority. */
+  sessionSnapshot?: WorkoutSession;
+  /** Audit copy of the existing applied-ledger result. */
+  rewardSettlement?: RewardApplicationSuccess;
   /** Audit copy of the session's lock; applied-reward ledger remains settlement authority. */
   readonly completionRewardEntitlement?: CompletionRewardEntitlement;
   formatVersion: typeof WORKOUT_HISTORY_FORMAT;

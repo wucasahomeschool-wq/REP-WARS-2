@@ -28,6 +28,7 @@ import { resolveRewardApplicationId } from '../application/identity';
 import { ApplyGameRewardOutcome, RewardApplicationContext } from '../application/types';
 import { convertGameReward } from '../converter';
 import { cloneGameRewardResult } from '../validation';
+import { settleLockedWorkout } from './settleLockedWorkout';
 
 export interface WorkoutPipelineResult {
   ok: boolean;
@@ -109,6 +110,8 @@ export function runWorkoutRewardPipeline(
       error: { code: 'pipeline.unauthorized', message: 'Session playerId does not match caller' },
     };
   }
+
+  if (session.completionRewardEntitlement !== undefined) return settleLockedWorkout(state, session, options.history);
 
   const alreadyApplied = state.playerRewards.appliedRewards.some((record) => record.sessionId === session.sessionId);
   const alreadyEstimated = state.playerFitness.compactHistory.some((entry) => entry.sessionId === session.sessionId);

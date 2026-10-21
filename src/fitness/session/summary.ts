@@ -7,6 +7,27 @@ import {
   WorkoutSessionSummaryExercise,
 } from './types';
 
+/** Payment requires actual prescribed work, independently of optional feedback. */
+export function hasCompletedPrescribedWorkout(session: WorkoutSession): boolean {
+  if (session.state !== 'COMPLETED' || session.completedAt === null || session.currentExerciseIndex !== null) return false;
+  const steps = session.prescribedWorkout.exercises;
+  if (steps.length === 0 || session.performances.length !== steps.length) return false;
+  return steps.every((step, index) => {
+    const performance = session.performances[index];
+    if (!performance || performance.order !== index || step.order !== index
+      || performance.exerciseId !== step.exerciseId || performance.completedAt === null) return false;
+    if (step.isRest && step.skippable && performance.status === 'SKIPPED_REST') return true;
+    if (performance.status !== 'COMPLETED') return false;
+    const actual = performance.actual;
+    if (step.isRest) return actual.kind === 'duration' && actual.completedDurationSeconds > 0;
+    return step.prescription.kind === 'repetitions'
+      ? actual.kind === 'repetitions' && Number.isSafeInteger(actual.completedRepetitions)
+        && actual.completedRepetitions >= step.prescription.repetitions
+      : actual.kind === 'duration' && Number.isFinite(actual.completedDurationSeconds)
+        && actual.completedDurationSeconds >= step.prescription.durationSeconds;
+  });
+}
+
 export function isEligibleForFitnessEvaluation(session: WorkoutSession): boolean {
   if (session.state !== 'COMPLETED') return false;
   return session.feedbackState === 'FEEDBACK_SUBMITTED' || session.feedbackState === 'NOT_APPLICABLE';

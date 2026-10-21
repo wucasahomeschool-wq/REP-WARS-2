@@ -419,9 +419,9 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   cmd({
     commandId: 'SUBMIT_WORKOUT_FEEDBACK',
     category: 'FITNESS',
-    description: 'Submit required post-workout feedback.',
+    description: 'Submit fitness feedback. Locked completion soldiers do not require feedback.',
     required: [p('value', 'string', 'WorkoutFeedbackValue')],
-    optional: [p('now', 'number', 'Session clock')],
+    optional: [p('now', 'number', 'Session clock'), p('sessionId', 'string', 'Explicit active or paid historical locked workout')],
     routesTo: ['state'],
     changesState: true,
     possibleErrors: [ErrorCode.WORKOUT_SESSION_INVALID, ErrorCode.INVALID_PARAMETER],
@@ -430,8 +430,8 @@ export const COMMAND_INDEX: CommandDefinition[] = [
   cmd({
     commandId: 'FINALIZE_WORKOUT',
     category: 'FITNESS',
-    description: 'Run the internal fitness → PhysicalResult → GameRewardResult → applyGameReward pipeline. Not a client-fabricated reward grant.',
-    optional: [p('now', 'number', 'Session clock')],
+    description: 'Settle a fully completed locked workout or run the legacy reward pipeline. Not a client-fabricated reward grant.',
+    optional: [p('now', 'number', 'Session clock'), p('sessionId', 'string', 'Explicit active or paid historical locked workout')],
     routesTo: ['state', 'battle'],
     changesState: true,
     possibleErrors: [ErrorCode.WORKOUT_SESSION_INVALID, ErrorCode.ACTION_NOT_ALLOWED],

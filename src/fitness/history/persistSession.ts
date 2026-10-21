@@ -8,6 +8,7 @@ export function persistTerminalSessionHistory(
   history: WorkoutHistoryStore | null | undefined,
   session: WorkoutSession | null | undefined,
   extras: {
+    rewardSettlement?: import('./types').WorkoutHistoryEntry['rewardSettlement'];
     completedAtWorldTick?: number | null;
     evidence?: FitnessEvidence | null;
     physicalResult?: PhysicalResult | null;
@@ -17,5 +18,12 @@ export function persistTerminalSessionHistory(
 ): void {
   if (!history || !session) return;
   if (session.state !== 'COMPLETED' && session.state !== 'ABANDONED') return;
-  history.upsert(toWorkoutHistoryEntry(session, extras));
+  const previous = history.get(session.playerId, session.sessionId);
+  history.upsert(toWorkoutHistoryEntry(session, {
+    completedAtWorldTick: previous?.completedAtWorldTick,
+    evidence: previous?.evidence, physicalResult: previous?.physicalResult,
+    rewardKind: previous?.rewardKind, rewardApplicationId: previous?.rewardApplicationId,
+    rewardSettlement: previous?.rewardSettlement,
+    ...extras,
+  }));
 }

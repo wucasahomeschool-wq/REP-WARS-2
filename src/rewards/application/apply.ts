@@ -29,6 +29,10 @@ import {
   RewardApplicationSuccess,
 } from './types';
 import { validateApplicationContext, validateGameRewardForApplication } from './validation';
+import { WorkoutSession } from '../../fitness/session/types';
+import { hasCompletedPrescribedWorkout } from '../../fitness/session/summary';
+import { validateCompletionRewardEntitlement } from '../completionEntitlement';
+import { GAME_REWARD_CONFIG_VERSION, GAME_REWARD_MODEL_VERSION } from '../types';
 
 function jsonClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -223,10 +227,48 @@ export function applyGameReward(
   const contextFailure = validateApplicationContext(reward, context);
   if (contextFailure) return fail(gameState, contextFailure);
 
+  return applyValidatedReward(gameState, reward, context);
+}
+
+/** Internal server path only: the persisted lock replaces legacy conversion, not the ledger. */
+export function applyLockedCompletionReward(gameState: GameState, session: WorkoutSession): ApplyGameRewardOutcome {
+  const lock = session.completionRewardEntitlement;
+  try { validateCompletionRewardEntitlement(lock, session); }
+  catch { return fail(gameState, applicationFailure('reward_application.invalid_reward', 'Invalid completion entitlement')); }
+  if (!hasCompletedPrescribedWorkout(session)) {
+    return fail(gameState, applicationFailure('reward_application.invalid_reward', 'Required workout work is incomplete'));
+  }
+  const existing = findAppliedRecord(gameState, lock.entitlementId);
+  if (existing && (existing.sessionId !== session.sessionId || existing.result.playerId !== session.playerId
+    || existing.kind !== 'TROOPS'
+    || (existing.result.amountOrEffect as { amount?: number } | undefined)?.amount !== lock.soldiers)) {
+    return fail(gameState, applicationFailure('reward_application.invalid_reward', 'Entitlement conflicts with its applied result'));
+  }
+  const reward: TroopReward = {
+    modelVersion: GAME_REWARD_MODEL_VERSION, configVersion: GAME_REWARD_CONFIG_VERSION,
+    playerId: session.playerId, sessionId: session.sessionId, workoutId: session.workoutId,
+    kind: 'TROOPS', purpose: 'NORMAL_TROOPS', amount: lock.soldiers,
+    // No PhysicalResult is fabricated or used to price this entitlement.
+    sourcePhysicalOutput: 0, physicalResultModelVersion: lock.version, physicalOutputVersion: 'reward-units.v1',
+    intendedDifficulty: session.intendedDifficulty, completedAt: session.completedAt!,
+    conversionNotes: ['Persisted start-time completion entitlement'],
+  };
+  return applyValidatedReward(gameState, reward, {
+    playerId: session.playerId, mode: 'banked', rewardApplicationId: lock.entitlementId,
+  });
+}
+
+/** Shared authorization, transaction, safe-integer credit and applied-result replay. */
+function applyValidatedReward(gameState: GameState, reward: GameRewardResult, context: RewardApplicationContext): ApplyGameRewardOutcome {
+
   const auth = authorizeRewardApplication(gameState, reward, context);
   if (!auth.ok) return fail(gameState, auth.failure);
 
   const applicationId = resolveRewardApplicationId(reward, context);
+  const sessionRecord = gameState.playerRewards.appliedRewards.find(row => row.sessionId === reward.sessionId);
+  if (sessionRecord && sessionRecord.applicationId !== applicationId) {
+    return fail(gameState, applicationFailure('reward_application.invalid_reward', 'Session already has a different reward application'));
+  }
   const existing = findAppliedRecord(gameState, applicationId);
   if (existing) {
     return { ok: true, state: gameState, result: restoreAlreadyApplied(existing) };

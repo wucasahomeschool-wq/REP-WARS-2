@@ -1,7 +1,8 @@
 import { cloneFitnessEvidence } from '../evaluation/clone';
-import { cloneCompletionRewardEntitlement } from '../../rewards/completionEntitlement';
+import { cloneCompletionRewardEntitlement, validateCompletionRewardEntitlement } from '../../rewards/completionEntitlement';
+import { isDeepStrictEqual } from 'node:util';
 import { clonePhysicalResult } from '../physicalResult/clone';
-import { cloneExercisePerformance, cloneSessionPrescribedWorkout, cloneFeedbackRecord, cloneIntegrityFlag } from '../session/clone';
+import { cloneWorkoutSession, cloneExercisePerformance, cloneSessionPrescribedWorkout, cloneFeedbackRecord, cloneIntegrityFlag } from '../session/clone';
 import { WorkoutSession } from '../session/types';
 import { isEligibleForFitnessEvaluation, buildWorkoutSessionSummary } from '../session/summary';
 import { WorkoutHistoryEntry, WORKOUT_HISTORY_FORMAT } from './types';
@@ -9,7 +10,20 @@ import { FitnessEvidence } from '../evaluation/types';
 import { PhysicalResult } from '../physicalResult/types';
 
 export function cloneWorkoutHistoryEntry(entry: WorkoutHistoryEntry): WorkoutHistoryEntry {
+  if (entry.sessionSnapshot) {
+    const session = entry.sessionSnapshot;
+    validateCompletionRewardEntitlement(session.completionRewardEntitlement, entry);
+    if (!isDeepStrictEqual(session.completionRewardEntitlement, entry.completionRewardEntitlement)
+      || session.playerId !== entry.playerId || session.sessionId !== entry.sessionId
+      || session.workoutId !== entry.workoutId || session.purpose !== entry.purpose
+      || session.state !== entry.completionState) throw new Error('History session snapshot binding mismatch');
+  }
+  if (entry.rewardSettlement && (entry.rewardSettlement.applicationId !== entry.rewardApplicationId
+    || entry.rewardSettlement.playerId !== entry.playerId || entry.rewardSettlement.sourceSessionId !== entry.sessionId
+    || entry.rewardSettlement.sourceWorkoutId !== entry.workoutId)) throw new Error('History settlement binding mismatch');
   return {
+    ...(entry.sessionSnapshot ? { sessionSnapshot: cloneWorkoutSession(entry.sessionSnapshot) } : {}),
+    ...(entry.rewardSettlement ? { rewardSettlement: JSON.parse(JSON.stringify(entry.rewardSettlement)) } : {}),
     formatVersion: WORKOUT_HISTORY_FORMAT,
     playerId: entry.playerId,
     sessionId: entry.sessionId,
@@ -46,6 +60,7 @@ export function cloneWorkoutHistoryEntry(entry: WorkoutHistoryEntry): WorkoutHis
 export function toWorkoutHistoryEntry(
   session: WorkoutSession,
   extras: {
+    rewardSettlement?: WorkoutHistoryEntry['rewardSettlement'];
     completedAtWorldTick?: number | null;
     evidence?: FitnessEvidence | null;
     physicalResult?: PhysicalResult | null;
@@ -58,6 +73,8 @@ export function toWorkoutHistoryEntry(
   const eligible = isEligibleForFitnessEvaluation(session);
   const exerciseIds = [...new Set(session.prescribedWorkout.exercises.map((step) => step.exerciseId))];
   return {
+    ...(session.completionRewardEntitlement ? { sessionSnapshot: cloneWorkoutSession(session) } : {}),
+    ...(extras.rewardSettlement ? { rewardSettlement: JSON.parse(JSON.stringify(extras.rewardSettlement)) } : {}),
     formatVersion: WORKOUT_HISTORY_FORMAT,
     playerId: session.playerId,
     sessionId: session.sessionId,
