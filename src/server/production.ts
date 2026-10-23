@@ -14,6 +14,8 @@ export function createProductionHttpServer(options: {
   readiness: () => boolean | Promise<boolean>;
   onInternalError?: InternalErrorReporter;
   maxCachedPlayers?: number;
+  maxPendingRequests?: number;
+  maxPendingRequestsPerPlayer?: number;
 }): Server {
   if (typeof options.authenticate !== 'function' || typeof options.readiness !== 'function') {
     throw new Error('Production requires trusted identity and dependency-readiness adapters');
@@ -23,7 +25,11 @@ export function createProductionHttpServer(options: {
   // configuration before returning a server that could claim readiness.
   readSupabaseServerConfig();
   const persistence = createSupabasePersistence();
-  return createCommandHttpServer(createSessionHost(persistence, { maxCachedPlayers: options.maxCachedPlayers }), {
+  return createCommandHttpServer(createSessionHost(persistence, {
+    maxCachedPlayers: options.maxCachedPlayers,
+    maxPendingRequests: options.maxPendingRequests,
+    maxPendingRequestsPerPlayer: options.maxPendingRequestsPerPlayer,
+  }), {
     identity: { mode: 'authenticated', authenticate: options.authenticate },
     readiness: options.readiness, onInternalError: options.onInternalError,
   });

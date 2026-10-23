@@ -46,6 +46,14 @@ export class PersistenceFailedError extends Error {
   }
 }
 
+/** Transient process capacity, with no player data or gameplay mutation. */
+export class RequestCapacityError extends Error {
+  constructor() {
+    super('Server is busy. Please retry this request.');
+    this.name = 'RequestCapacityError';
+  }
+}
+
 interface PlayerSession {
   orchestrator: Orchestrator;
   expectedVersion: number;
@@ -56,6 +64,8 @@ interface PlayerSession {
 
 /** Process-memory policy only; never a gameplay time or player capacity limit. */
 export const DEFAULT_MAX_CACHED_PLAYERS = 128;
+export const DEFAULT_MAX_PENDING_REQUESTS = 256;
+export const DEFAULT_MAX_PENDING_REQUESTS_PER_PLAYER = 16;
 
 export interface SessionHostOptions {
   /** Captured once per accepted request. Defaults to the server UTC clock. */
@@ -63,6 +73,10 @@ export interface SessionHostOptions {
   /** Maximum retained worlds after requests settle. Pending work is pinned and
    * can temporarily exceed this bound. Zero disables idle retention. */
   maxCachedPlayers?: number;
+  /** Running plus queued requests per host. Positive safe integer. */
+  maxPendingRequests?: number;
+  /** Running plus queued requests for one player. Positive safe integer. */
+  maxPendingRequestsPerPlayer?: number;
 }
 
 export interface CommandSessionHost {
@@ -102,11 +116,18 @@ export function createSessionHost(
   if (!Number.isSafeInteger(maxCachedPlayers) || maxCachedPlayers < 0) {
     throw new Error('maxCachedPlayers must be a non-negative safe integer');
   }
+  const maxPendingRequests = options.maxPendingRequests === undefined ? DEFAULT_MAX_PENDING_REQUESTS : options.maxPendingRequests;
+  const maxPendingRequestsPerPlayer = options.maxPendingRequestsPerPlayer === undefined
+    ? DEFAULT_MAX_PENDING_REQUESTS_PER_PLAYER : options.maxPendingRequestsPerPlayer;
+  for (const [name, value] of Object.entries({ maxPendingRequests, maxPendingRequestsPerPlayer })) {
+    if (!Number.isSafeInteger(value) || value < 1) throw new Error(`${name} must be a positive safe integer`);
+  }
   const nowMs = options.nowMs ?? currentUtcNowMs;
   const registry = createDefaultRegistry();
   registry.workoutHistory = persistence.history;
   registry.timeAuthority = new FixedWorldTimeAuthority(0);
   const sessions = new Map<string, PlayerSession>();
+  let pendingRequests = 0;
 
   function boot(playerId: string): PlayerSession {
     const ensured = persistence.ensure(playerId);
@@ -148,8 +169,17 @@ export function createSessionHost(
 
   function withPlayer<T>(playerId: string, work: (session: PlayerSession) => T): Promise<T> {
     let session = sessions.get(playerId);
-    if (!session) {
-      session = boot(playerId);
+    // Reject before loading a world, joining a chain or touching persistence.
+    // Receipts remain unconsumed: the same logical request can be retried.
+    if (pendingRequests >= maxPendingRequests || (session?.pending ?? 0) >= maxPendingRequestsPerPlayer) {
+      return Promise.reject(new RequestCapacityError());
+    }
+    pendingRequests++;
+    try {
+      if (!session) session = boot(playerId);
+    } catch (error) {
+      pendingRequests--;
+      return Promise.reject(error);
     }
     // Map order is LRU request order. A queued player must keep one chain even
     // when requests for other players put the cache over its retention limit.
@@ -171,6 +201,7 @@ export function createSessionHost(
       throw error;
     }).finally(() => {
       current.pending--;
+      pendingRequests--;
       if (current.pending === 0 && current.needsReload) sessions.delete(playerId);
       trimCache();
     });

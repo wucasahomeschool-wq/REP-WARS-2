@@ -18,15 +18,25 @@ An omitted provider rejects all protected routes. Invalid credentials return 401
 
 `/health` is process liveness. `/ready` returns 200 only with a configured trusted identity adapter **and a successful explicitly supplied dependency probe**. No probe, a false result or an exception returns 503. The deployment probe must perform bounded, read-only dependency checks (including the actual database/RPC availability), enforce an I/O deadline, and return a boolean. Merely setting credentials does not prove database readiness. No dependency exception is returned to clients.
 
-TLS termination, CORS/CSRF treatment appropriate to the selected authentication transport, request rate limits, provider timeouts, host scaling, alerts and log retention are deployment gates. They are not implemented by this runbook. Configure and load-test the cache limit described below as part of those gates. The existing bounded non-executing HTTP diagnostic snapshot is retained; do not replace it with raw arbitrary-object inspection or log tokens/service keys.
+TLS termination, CORS/CSRF treatment appropriate to the selected authentication transport, request rate limits, provider timeouts, host scaling, alerts and log retention are deployment gates. They are not implemented by this runbook. Configure and load-test the cache and host-admission limits described below as part of those gates. The existing bounded non-executing HTTP diagnostic snapshot is retained; do not replace it with raw arbitrary-object inspection or log tokens/service keys.
 
 ### Player-world cache retention
 
 `createSessionHost` and `createProductionHttpServer` accept the trusted deployment option `maxCachedPlayers`: a non-negative safe integer, default 128. Zero disables idle retention. This is a process-memory policy, not a gameplay capacity, lease duration or time limit. Requests cannot choose it.
 
-The host evicts the least recently requested idle worlds until the retained count is within the limit. Queued/running work pins its player entry so there is always one local command chain for that player. Pending players may temporarily exceed the retention limit; admission control and request limits remain deployment work. The limit counts worlds, not bytes, and does not bound an in-memory development persistence store or the size of one world.
+The host evicts the least recently requested idle worlds until the retained count is within the limit. Queued/running work pins its player entry so there is always one local command chain for that player. Pending players may temporarily exceed the retention limit, subject to host admission below. The limit counts worlds, not bytes, and does not bound an in-memory development persistence store or the size of one world.
 
 Eviction performs no save, gameplay advancement or lease end. The next request loads persisted canonical state and its receipts/version. The existing commit path must persist successful changes before a request settles; Supabase CAS/world-history RPC remains the final authority. Any thrown request invalidates its cached state. Already queued work reloads before execution; once idle, an invalid entry is discarded. A failed reload returns an error rather than publishing an old draft. An ambiguous commit response is resolved by persisted state/receipts, without automatic re-execution of the failed command. Cache retention does not replace database transaction guarantees.
+
+### Pending host requests
+
+`createSessionHost` and `createProductionHttpServer` also accept positive-safe-integer `maxPendingRequests` (default 256) and `maxPendingRequestsPerPlayer` (default 16). These count queued plus running requests within one host, across commands and all three session-lifecycle methods. They are deployment parameters, not gameplay quotas, time windows, cooldowns or account entitlements. HTTP request fields cannot override them.
+
+Capacity is checked before loading another world or entering its command chain. Rejection produces `RequestCapacityError`; all four protected HTTP routes return **503** with `{ "error": "SERVER_BUSY", "message": "Server is busy. Please retry this request.", "retryable": true }`. No world save, lease renewal, receipt consumption or history update is performed for that rejected attempt. Expected capacity errors are not logged as internal failures. Capacity is released on success, validation failure, persistence conflict, exception and initial load failure.
+
+Clients may retry using the same logical command/session identities and request ID. Preserve the existing sequence and lost-response rules; do not create another reward or command identity to bypass pressure. Use client/deployment retry backoff without making it a gameplay cooldown. There is no server-mandated retry time in this response.
+
+These limits protect the host's accepted queues and pinned worlds. They do not limit connections, request bodies being read, authentication-provider calls, requests per second or the duration of one accepted command. The current simulation/persistence path is synchronous: a long catch-up can still occupy the Node event loop before another HTTP callback runs. Configure upstream request/connection limits and provider deadlines separately. Whole-request catch-up budgeting remains unfinished, and no accrued simulation time is discarded by admission control.
 
 ## Commands, time and retries
 

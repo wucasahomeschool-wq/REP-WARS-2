@@ -3,7 +3,7 @@ import { types } from 'node:util';
 import { CommandRequest } from '../orchestration/protocol';
 import { BadRequestError, resolvePlayerId, validateIdentityBoundary, IdentityBoundary } from './identity';
 import { GameplaySessionReceiptError } from './gameplaySessionLifecycle';
-import { CommandNotExposedError, CommandSessionHost, PersistenceFailedError } from './session';
+import { CommandNotExposedError, CommandSessionHost, PersistenceFailedError, RequestCapacityError } from './session';
 import { ErrorCode, publicOrchestrationError } from '../orchestration/errors';
 import { isCommandExposed } from './allowlist';
 import { COMMAND_INDEX } from '../orchestration/commandIndex';
@@ -20,7 +20,7 @@ function ownDataValue(value: unknown, key: string): unknown {
   return descriptor && 'value' in descriptor ? descriptor.value : undefined;
 }
 
-type HttpErrorKind = 'bad_request' | 'receipt' | 'command' | 'persistence' | 'internal';
+type HttpErrorKind = 'bad_request' | 'receipt' | 'command' | 'persistence' | 'capacity' | 'internal';
 function httpErrorKind(value: unknown): HttpErrorKind {
   if (!value || typeof value !== 'object' || types.isProxy(value)) return 'internal';
   // Node's util.types.isProxy is a native, non-trapping detector (also for revoked
@@ -33,6 +33,7 @@ function httpErrorKind(value: unknown): HttpErrorKind {
       if (object === GameplaySessionReceiptError.prototype) return 'receipt';
       if (object === CommandNotExposedError.prototype) return 'command';
       if (object === PersistenceFailedError.prototype) return 'persistence';
+      if (object === RequestCapacityError.prototype) return 'capacity';
     }
     object = Object.getPrototypeOf(object);
   }
@@ -93,6 +94,11 @@ function sendPersistenceError(res: ServerResponse, report: InternalErrorReporter
   const code = typeof candidate === 'string' && PERSISTENCE_ERROR_CODES.some(c => c === candidate)
     ? candidate : 'persistence.save_failed';
   sendPublicJson(res, 500, { error: 'PERSISTENCE_FAILED', message: 'Unable to save game state. Please retry.', code }, report);
+}
+function sendCapacityError(res: ServerResponse, report: InternalErrorReporter): void {
+  // Expected backpressure. Serialize only constants, never exception properties
+  // or queue/player details; do not turn overload into a diagnostic log flood.
+  sendPublicJson(res, 503, { error: 'SERVER_BUSY', message: 'Server is busy. Please retry this request.', retryable: true }, report);
 }
 function sendBadRequest(res: ServerResponse, report: InternalErrorReporter, err: unknown): void {
   const message = ownDataValue(err, 'message');
@@ -362,6 +368,10 @@ async function handleSession(
     sendPublicJson(res, 200, view, report);
   } catch (err) {
     const kind = httpErrorKind(err);
+    if (kind === 'capacity') {
+      sendCapacityError(res, report);
+      return;
+    }
     if (kind === 'bad_request') {
       sendBadRequest(res, report, err);
       return;
@@ -404,6 +414,10 @@ async function handleCommand(req: IncomingMessage, res: ServerResponse, host: Co
     sendPublicJson(res, 200, response, report, { commandId: request.commandId, requestId: request.requestId });
   } catch (err) {
     const kind = httpErrorKind(err);
+    if (kind === 'capacity') {
+      sendCapacityError(res, report);
+      return;
+    }
     if (kind === 'command') {
       sendPublicJson(res, 403, { error: 'COMMAND_NOT_EXPOSED', message: `Command is not exposed over HTTP: ${request.commandId}` }, report);
       return;

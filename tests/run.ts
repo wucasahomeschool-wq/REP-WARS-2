@@ -1,5 +1,6 @@
 import {registerLocalFormationTests} from './localFormation';
 import { runSessionCacheTests } from './sessionCache';
+import { runRequestAdmissionTests } from './requestAdmission';
 import {registerBackendLongHorizonTests} from './backendLongHorizon';
 import { registerWorldContentTests } from './worldContentIdentity';
 import { runBackendBoundaryTests } from './backendBoundary';
@@ -3251,6 +3252,7 @@ void (async () => {
   for (const { name, fn } of registeredTests) await executeTest(name, fn);
   await runBackendBoundaryTests(executeTest);
   await runSessionCacheTests(executeTest);
+  await runRequestAdmissionTests(executeTest);
   await runWorkoutRewardApiTests(executeTest);
   await runWorkoutSettlementRewardTests(executeTest);
   await runWorkoutStartRewardTests(executeTest);
