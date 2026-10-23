@@ -50,11 +50,19 @@ interface PlayerSession {
   orchestrator: Orchestrator;
   expectedVersion: number;
   chain: Promise<void>;
+  pending: number;
+  needsReload: boolean;
 }
+
+/** Process-memory policy only; never a gameplay time or player capacity limit. */
+export const DEFAULT_MAX_CACHED_PLAYERS = 128;
 
 export interface SessionHostOptions {
   /** Captured once per accepted request. Defaults to the server UTC clock. */
   nowMs?: () => number;
+  /** Maximum retained worlds after requests settle. Pending work is pinned and
+   * can temporarily exceed this bound. Zero disables idle retention. */
+  maxCachedPlayers?: number;
 }
 
 export interface CommandSessionHost {
@@ -90,6 +98,10 @@ export function createSessionHost(
   options: SessionHostOptions = {},
 ): CommandSessionHost {
   if (process.env.NODE_ENV === 'production' && aiInvasionFixtureMode()) throw new Error('AI invasion fixtures are forbidden in production');
+  const maxCachedPlayers = options.maxCachedPlayers === undefined ? DEFAULT_MAX_CACHED_PLAYERS : options.maxCachedPlayers;
+  if (!Number.isSafeInteger(maxCachedPlayers) || maxCachedPlayers < 0) {
+    throw new Error('maxCachedPlayers must be a non-negative safe integer');
+  }
   const nowMs = options.nowMs ?? currentUtcNowMs;
   const registry = createDefaultRegistry();
   registry.workoutHistory = persistence.history;
@@ -118,6 +130,8 @@ export function createSessionHost(
       orchestrator,
       expectedVersion,
       chain: Promise.resolve(),
+      pending: 0,
+      needsReload: false,
     };
   }
 
@@ -136,12 +150,39 @@ export function createSessionHost(
     let session = sessions.get(playerId);
     if (!session) {
       session = boot(playerId);
-      sessions.set(playerId, session);
     }
+    // Map order is LRU request order. A queued player must keep one chain even
+    // when requests for other players put the cache over its retention limit.
+    sessions.delete(playerId);
+    sessions.set(playerId, session);
     const current = session;
-    const run = current.chain.then(() => work(current));
+    current.pending++;
+    trimCache();
+    const run = current.chain.then(() => {
+      if (current.needsReload) {
+        reload(playerId, current);
+        current.needsReload = false;
+      }
+      return work(current);
+    }).catch((error: unknown) => {
+      // A transport exception may mean an aborted write OR a lost committed
+      // response. Persistence/receipts decide; the cached draft cannot decide.
+      current.needsReload = true;
+      throw error;
+    }).finally(() => {
+      current.pending--;
+      if (current.pending === 0 && current.needsReload) sessions.delete(playerId);
+      trimCache();
+    });
     current.chain = run.then(() => undefined, () => undefined);
     return run;
+  }
+
+  function trimCache(): void {
+    for (const [id, session] of sessions) {
+      if (sessions.size <= maxCachedPlayers) break;
+      if (session.pending === 0) sessions.delete(id);
+    }
   }
 
   function commitSession(
