@@ -55,3 +55,15 @@ At the implementation preservation checkpoint:
 - The full backend suite is still running; no final full-suite pass is claimed at this checkpoint. Its completion result will be recorded in a follow-up documentation commit.
 
 The isolated remote destination was absent before publishing. The recovery branch remained at `51de61e0f9d01146a6e5d2179ddc86f0e33c987b` and cache branch at this phase's parent. Publishing a preservation checkpoint does not approve a production merge or deployment.
+
+### Final validation
+
+Implementation commit: `c60751701a6210645be216b85f3118ccf4158ae7`, pushed and verified on the isolated branch while the longer suite finished.
+
+- Full `npm test`: **2,203 passed, zero failed, three skipped**, exit 0. The count is exactly the preceding 2,187 passes plus the 16 new tests. C1–C3, workout contracts/locking/settlement/API, AI, cache, privacy, persistence, accrued-time and session-lifecycle regressions all ran through the existing runner.
+- The three skips are live Supabase save/reload, atomic two-table commit and server restart. They require explicit approved non-production credentials/opt-in; no live database validation is claimed.
+- Source and test-inclusive typechecks and production build passed with zero diagnostics. The final documentation-only update requires no gameplay test rerun; its whitespace check passes.
+- The original completion worktree's exact 78-file recovered candidate still matches the recovery commit, with its original HEAD and empty index. The original shared checkout, C1–C3, R1-C–F and preceding cache worktree retained their expected HEADs and clean status.
+- Full output is retained at `/tmp/repwars-admission/full.log` in this execution environment; the portable results and test definitions are committed here. No raw player data, credentials or generated build output is added to Git.
+
+This phase is locally validated and shared for review. Broader backend completion, production deployment and the outstanding engineering/product gates above remain incomplete.
