@@ -34,7 +34,7 @@ export async function runLeaseWorldAccrualTests(
     assert.strictEqual(state.accrualDivisionRemainder, 0);
     assert.strictEqual(state.lastAccrualAtMs, 30 * MINUTE);
     assert.strictEqual(state.lastProcessedAtMs, 1);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 29);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 30);
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
   });
 
@@ -560,7 +560,6 @@ function temporal(state: GameState) {
 function load(store: GameStateStore, playerId: string): GameState {
   const loaded = store.load(playerId);
   assert.strictEqual(loaded.ok, true, loaded.ok ? '' : loaded.message);
-  if (!loaded.ok) throw new Error(loaded.message);
   return loaded.state;
 }
 

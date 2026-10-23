@@ -104,8 +104,9 @@ import { GameRewardResult } from '../rewards/types';
  * 27 = Canonical non-proactive response contexts and primary response scheduler (Phase L).
  * 28 = Durable runtime army identity high-water mark (C2).
  * 29 = Optional immutable workout completion entitlement (R1-C). Legacy sessions remain unlocked.
+ * 30 = Authored world content fingerprint; legacy provenance remains explicitly unknown.
  */
-export const GAME_STATE_SCHEMA_VERSION = 29;
+export const GAME_STATE_SCHEMA_VERSION = 30;
 
 export type InvasionId = string;
 
@@ -481,6 +482,8 @@ export interface GameState {
    * Legacy SAMPLE_MAP fixtures use `legacy:sample-map`.
    */
   definitionWorldId: string | null;
+  /** Immutable authored content pin. Null means legacy provenance is unknown. */
+  definitionContentFingerprint: string | null;
   definitionFormatVersion: string | null;
   worldLevel: number | null;
   worldName: string | null;

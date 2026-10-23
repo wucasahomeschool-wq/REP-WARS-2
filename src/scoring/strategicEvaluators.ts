@@ -1,4 +1,5 @@
 import type { Army, ResourceType } from '../types';
+import { soldierForce } from '../army/soldierForce';
 import {CONFLICT_TUNING as C} from '../constants/conflict';
 import {conflictResources} from '../conflict/ledger';
 import type { BuildPlan, ReinforcePlan } from '../types/AIConcretePlan';
@@ -124,6 +125,7 @@ export class StrategicEvaluators {
       const pool=this.support.localPools.get(t.id)!;
       const danger=this.localDanger(plan.factionId,t.id).facts;
       const destination=plan.destination.kind==='army'?this.support.armies.get(plan.destination.armyId):undefined;
+      const formed=plan.destination.kind==='new_army'?soldierForce(`proposed:${plan.id}`,plan.factionId,t.id,plan.quantity):undefined;
       const virtual=this.support.virtualDefenses.get(t.id)??[];
       const defenders=danger.friendlySupportIds.map(id=>{
         const a=this.support.armies.get(id)??virtual.find(v=>v.id===id);
@@ -131,6 +133,7 @@ export class StrategicEvaluators {
         return destination?.id===id?{...a,soldiers:a.soldiers+plan.quantity}:a;
       });
       const garrison=t.garrison+(plan.destination.kind==='garrison'?plan.quantity:0);
+      if(formed)defenders.push(formed);
       const afterDefense=computeDefenderPower(defenders,garrison,t).effectivePower;
       const defenseGain=Math.min(Math.max(0,afterDefense-danger.defensePower),danger.shortfall);
       let attackGap=0;
@@ -142,6 +145,17 @@ export class StrategicEvaluators {
         attackGap=Math.max(0,outlook.defenderEffectiveStrength-outlook.attackerEffectiveStrength);
         const afterAttack=computeAttackerPower([{...destination,soldiers:destination.soldiers+plan.quantity}]).effectivePower;
         offensiveGain=Math.min(Math.max(0,afterAttack-outlook.attackerEffectiveStrength),attackGap);
+      }
+      if(formed && targetTerritoryId && t.neighboring.includes(targetTerritoryId)
+        && this.support.hostile(plan.factionId,this.support.territories.get(targetTerritoryId)?.owner??null)) {
+        const target=this.support.territories.get(targetTerritoryId)!;
+        const defenders=[...this.support.armies.values()].filter(a=>a.owner===target.owner&&a.location===target.id);
+        defenders.push(...this.support.virtualDefenses.get(target.id)??[]);
+        // Minimum legal field force is a domain prerequisite, not a new score.
+        // Empty territories still require > MIN_ATTACKING_TROOPS to attack.
+        const minimum=computeAttackerPower([soldierForce('minimum',plan.factionId,t.id,MIN_ATTACKING_TROOPS+1)]).effectivePower;
+        attackGap=Math.max(minimum,computeDefenderPower(defenders,target.garrison,target).effectivePower);
+        offensiveGain=Math.min(computeAttackerPower([formed]).effectivePower,attackGap);
       }
       return assessment('FORCE_POSITION_VALUE',{territoryId:t.id,quantity:plan.quantity,availablePool:pool.available,
         additionalUtility:Math.max(defenseGain,offensiveGain),defenseGain,offensiveGain,

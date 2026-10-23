@@ -93,7 +93,7 @@ export function registerEconomyDevelopmentsTests({ test }: EconomyDevelopmentsTe
     const tile = state.territories.get(REACH)!;
     const baseFood = tile.resourceOutput.food;
     const baseGold = tile.resourceOutput.gold;
-    assert.ok(baseFood >= 2);
+    assert.ok(baseFood !== undefined && baseFood >= 2);
     const before = effectiveResourceOutput(state, tile);
     assert.strictEqual(before.food, baseFood);
     assert.strictEqual(before.gold, baseGold);
@@ -135,6 +135,7 @@ export function registerEconomyDevelopmentsTests({ test }: EconomyDevelopmentsTe
     rec.lastAccrualTick = state.worldTick;
     state.worldTick += ECONOMY_CONFIG.ticksPerProductionCycle;
     const expected = productionAccrued(effectiveResourceOutput(state, tile), ECONOMY_CONFIG.ticksPerProductionCycle);
+    assert.ok(base.food !== undefined);
     assert.strictEqual(expected.food, Math.floor(base.food * 1.5));
     assert.deepStrictEqual(peekCollectibleResources(state, REACH), expected);
     const beforeFood = state.factions.get(MERCHANT)!.resources.food;
@@ -187,6 +188,7 @@ export function registerEconomyDevelopmentsTests({ test }: EconomyDevelopmentsTe
     const tile = state.territories.get(REACH)!;
     completeFarm(state);
     const after = state.factions.get(MERCHANT)!.resourceIncome.food ?? 0;
+    assert.ok(tile.resourceOutput.food !== undefined);
     const expectedBump = Math.floor(tile.resourceOutput.food * 1.5) - tile.resourceOutput.food;
     assert.strictEqual(after - before, expectedBump);
     assert.strictEqual(

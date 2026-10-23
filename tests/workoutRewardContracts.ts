@@ -189,7 +189,7 @@ export function registerWorkoutRewardContractTests({ test }: { test: (name: stri
   test('R1-C session entitlement survives full snapshot JSON hydration and repeated reload', () => {
     const value = state(locked()), original = snapshotGameState(value);
     const loaded = hydratePersistedPayload(JSON.stringify(original));
-    assert.strictEqual(loaded.schemaVersion, 29);
+    assert.strictEqual(loaded.schemaVersion, GAME_STATE_SCHEMA_VERSION);
     assert.deepStrictEqual(snapshotGameState(loaded), original);
     assert.deepStrictEqual(snapshotGameState(hydratePersistedPayload(snapshotGameState(loaded))), original);
     assert.deepStrictEqual(cloneGameState(value).playerFitness.activeSession, value.playerFitness.activeSession);
@@ -253,7 +253,7 @@ export function registerWorkoutRewardContractTests({ test }: { test: (name: stri
     const loaded = hydratePersistedPayload(baseline);
     assert.strictEqual(loaded.schemaVersion, GAME_STATE_SCHEMA_VERSION);
     assert.strictEqual(workoutCompletionRewardMode(loaded.playerFitness.activeSession!), 'LEGACY');
-    assert.deepStrictEqual(encodePersistable(loaded), { ...baseline, schemaVersion: 29 });
+    assert.deepStrictEqual(encodePersistable(loaded), { ...baseline, schemaVersion: GAME_STATE_SCHEMA_VERSION, definitionContentFingerprint: null });
   });
   test('R1-C schema 28 pending reward migration retains identity amount and exactly-once retry', () => {
     const value = state(null), done = completed('legacy-pending');
@@ -267,7 +267,7 @@ export function registerWorkoutRewardContractTests({ test }: { test: (name: stri
     baseline.schemaVersion = 28;
     const loaded = hydratePersistedPayload(baseline);
     assert.deepStrictEqual(encodePersistable(loaded.playerFitness.pendingReward), encodePersistable(oldReward));
-    assert.deepStrictEqual(encodePersistable(loaded), { ...baseline, schemaVersion: 29 });
+    assert.deepStrictEqual(encodePersistable(loaded), { ...baseline, schemaVersion: GAME_STATE_SCHEMA_VERSION, definitionContentFingerprint: null });
     const paid = retryPendingWorkoutReward(loaded, done.playerId);
     assert.ok(paid?.ok);
     const after = snapshotGameState(loaded);

@@ -245,7 +245,8 @@ export function registerGameRewardTests(api: GameRewardTestApi): void {
   test('invalid configuration is rejected', () => {
     assert.strictEqual(errCode(convertGameReward({
       physicalResult: physical(),
-      configuration: { ...GAME_REWARD_CONFIG, troopsPerPhysicalUnit: -1 },
+      // Deliberately invalid external data, not an alternate balance configuration.
+      configuration: { ...GAME_REWARD_CONFIG, troopsPerPhysicalUnit: -1 } as unknown as typeof GAME_REWARD_CONFIG,
     })), 'reward.invalid_configuration');
   });
 

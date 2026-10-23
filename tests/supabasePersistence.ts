@@ -1,3 +1,4 @@
+import { requireLiveSupabase } from './skip';
 import assert from 'assert';
 import { GAME_STATE_SCHEMA_VERSION } from '../src/types/GameState';
 import { commitAuthoritativePlayerWorld, createGameState, PersistenceError, WORKOUT_HISTORY_FORMAT } from '../src';
@@ -225,10 +226,7 @@ export function registerSupabasePersistenceTests(api: SupabasePersistenceTestApi
 }
 
 export function exerciseLiveSupabaseRoundTrip(): void {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.log('  · live Supabase round trip skipped; credentials are not set');
-    return;
-  }
+  requireLiveSupabase();
   const playerId = `repwars_adapter_live_${Date.now()}`;
   const worlds = new SupabasePlayerWorldTable();
   const historyTable = new SupabaseWorkoutHistoryTable();

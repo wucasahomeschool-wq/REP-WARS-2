@@ -1,3 +1,4 @@
+import type { WorkoutSelectionView } from '../src/gameplay/workoutSelection';
 import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 import assert from 'assert';
 import {
@@ -276,7 +277,7 @@ export function registerWorkoutSelectionTests(api: WorkoutSelectionTestApi): voi
 
     const selection = orch.execute(cmd('GET_WORKOUT_SELECTION', { purpose: 'NORMAL_TROOPS' }, 'sel_pers'));
     assert.strictEqual(selection.success, true, selection.errors[0]?.message);
-    assert.strictEqual(selection.payload.prescribedWorkout.personalized, true);
+    assert.strictEqual((selection.payload.prescribedWorkout as WorkoutSelectionView['prescribedWorkout']).personalized, true);
     const selectedPush = (selection.payload.prescribedWorkout as {
       exercises: { exerciseId: string; prescription: unknown }[];
     }).exercises.find((step) => step.exerciseId === 'ex_push_ups');
@@ -300,7 +301,7 @@ export function registerWorkoutSelectionTests(api: WorkoutSelectionTestApi): voi
     assert.strictEqual(selection.success, true, selection.errors[0]?.message);
     assert.strictEqual(selection.payload.selectedWorkoutId, WORKOUT_ID);
     assert.strictEqual(selection.payload.source, 'purpose');
-    assert.strictEqual(selection.payload.constraints.workoutIdMustMatchSelection, false);
+    assert.strictEqual((selection.payload.constraints as WorkoutSelectionView['constraints']).workoutIdMustMatchSelection, false);
     const easy = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       workoutId: 'wk_very_easy_mobility',

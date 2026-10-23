@@ -369,8 +369,8 @@ export function registerFitnessEvidenceTests(api: FitnessEvidenceTestApi): void 
     assert.strictEqual(errCode(evaluateSessionFitnessEvidence(active)), 'evaluation.not_eligible');
     assert.strictEqual(errCode(evaluateSessionFitnessEvidence(paused)), 'evaluation.not_eligible');
     assert.strictEqual(errCode(evaluateSessionFitnessEvidence(abandoned)), 'evaluation.not_eligible');
-    assert.ok(evaluateSessionFitnessEvidence(abandoned).ok === false
-      && evaluateSessionFitnessEvidence(abandoned).error.message.includes('Abandoned'));
+    const abandonedResult = evaluateSessionFitnessEvidence(abandoned);
+    assert.ok(!abandonedResult.ok && abandonedResult.error.message.includes('Abandoned'));
   });
 
   test('malformed records and impossible values are rejected', () => {

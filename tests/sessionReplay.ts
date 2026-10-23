@@ -146,7 +146,7 @@ export async function runSessionReplayTests(
     const replay = await restarted.heartbeatGameplaySession('restart_replay', 'heartbeat-A', opened.sessionId, 1);
     assert.strictEqual(replay.outcome, 'idempotent_replay');
     assert.strictEqual(load(store, 'restart_replay').gameplaySessionLeases[0]!.expiresAtMs, 10_000 + LEASE_MS);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 29);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 30);
   });
 
   await report('replaying an open request recovers the same session', async () => {
@@ -348,6 +348,5 @@ function commitSequence(
 function load(store: GameStateStore, playerId: string): GameState {
   const loaded = store.load(playerId);
   assert.strictEqual(loaded.ok, true, loaded.ok ? '' : loaded.message);
-  if (!loaded.ok) throw new Error(loaded.message);
   return loaded.state;
 }

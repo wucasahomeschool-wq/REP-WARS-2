@@ -1,0 +1,29 @@
+import { Server } from 'node:http';
+import { AuthenticatePlayer } from './identity';
+import { createCommandHttpServer, InternalErrorReporter } from './http';
+import { createSupabasePersistence } from './persistencePort';
+import { createSessionHost } from './session';
+import { aiInvasionFixtureMode } from './aiInvasionFixture';
+import { readSupabaseServerConfig } from '../persistence/supabase/config';
+
+/** Deployment composition point. The approved identity provider must verify its
+ * own credentials; this module never selects one or falls back to body identity
+ * or memory persistence. Construction does not listen or deploy anything. */
+export function createProductionHttpServer(options: {
+  authenticate: AuthenticatePlayer;
+  readiness: () => boolean | Promise<boolean>;
+  onInternalError?: InternalErrorReporter;
+}): Server {
+  if (typeof options.authenticate !== 'function' || typeof options.readiness !== 'function') {
+    throw new Error('Production requires trusted identity and dependency-readiness adapters');
+  }
+  if (aiInvasionFixtureMode()) throw new Error('AI invasion fixtures are forbidden in production');
+  // The adapters defer configuration until I/O; production must reject a broken
+  // configuration before returning a server that could claim readiness.
+  readSupabaseServerConfig();
+  const persistence = createSupabasePersistence();
+  return createCommandHttpServer(createSessionHost(persistence), {
+    identity: { mode: 'authenticated', authenticate: options.authenticate },
+    readiness: options.readiness, onInternalError: options.onInternalError,
+  });
+}

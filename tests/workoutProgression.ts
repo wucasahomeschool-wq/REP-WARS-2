@@ -1,3 +1,4 @@
+import type { WorkoutSelectionView } from '../src/gameplay/workoutSelection';
 import { seedLegacyWorkoutSession } from './legacyWorkoutFixture';
 import assert from 'assert';
 import {
@@ -192,7 +193,7 @@ export function registerWorkoutProgressionTests(api: WorkoutProgressionTestApi):
         assert.strictEqual(selection.success, true, selection.errors[0]?.message);
         assert.strictEqual(selection.payload.source, 'authored');
         assert.strictEqual(selection.payload.selectedWorkoutId, 'aw_foundations_short');
-        assert.strictEqual(selection.payload.prescribedWorkout.personalized, false);
+        assert.strictEqual((selection.payload.prescribedWorkout as WorkoutSelectionView['prescribedWorkout']).personalized, false);
         const started = orch.execute(cmd('START_WORKOUT', {
           purpose: 'GOLDEN_YIELD',
           size: 'SHORT',

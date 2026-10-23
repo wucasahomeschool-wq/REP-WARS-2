@@ -32,6 +32,14 @@ export function authorizeCommand(
   if (playerFaction === null) {
     return;
   }
+  const plan = req.parameters?.plan;
+  if (plan && typeof plan === 'object' && 'factionId' in plan && plan.factionId !== playerFaction) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, UNAUTHORIZED_MESSAGE);
+  }
+  // These links are supplied by trusted nested operation execution, never by a player.
+  if (req.parameters?.commitmentId !== undefined || req.parameters?.operationId !== undefined) {
+    throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, UNAUTHORIZED_MESSAGE);
+  }
   const requested = paramString(req, 'factionId');
   if (requested && requested !== playerFaction) {
     throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, UNAUTHORIZED_MESSAGE);

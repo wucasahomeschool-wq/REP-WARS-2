@@ -464,7 +464,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     const loaded = store.load(PLAYER_ID);
     assert.ok(loaded.ok, loaded.ok ? '' : loaded.message);
     assert.strictEqual(loaded.state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 29);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 30);
     assert.strictEqual(loaded.state.lastFoodConsumptionTick, 40);
     assert.ok(loaded.state.territoryInfrastructure instanceof Map);
     assert.strictEqual(loaded.state.territoryInfrastructure.size, 0);
@@ -852,6 +852,7 @@ export function registerPersistenceTests(api: PersistenceTestApi): void {
     });
     const { result } = syncTo(loaded, 50 + failedDefenseContinuationTicks() + 1);
     const until = result.state.attackerCooldowns.get(OTHER_FACTION)?.continuationUntilTick;
+    assert.ok(until !== undefined);
     assert.ok(until === null || result.state.worldTick >= until);
   });
 

@@ -437,7 +437,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
       attackerFactionName: 'A',
       defenderFactionId: 'b',
       defenderFactionName: 'B',
-      attackerArmies: [{ id: 'x', owner: 'a', location: 'h', soldiers: 10, knights: 0, siegeEngines: 0, morale: 40, supply: 40 }],
+      attackerArmies: [{ soldiers: 10, knights: 0, siegeEngines: 0, morale: 40, supply: 40 }],
       defenderArmies: [],
       defenderGarrison: 5000,
       territory: makeTerritory({ id: 'front', owner: 'b', fortification: 5, garrison: 5000, terrain: 'fortress' }),

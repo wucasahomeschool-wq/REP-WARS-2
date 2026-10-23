@@ -4,7 +4,7 @@
   "description": "REP WARS AI Warlord Decision Engine",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "node node_modules/typescript/bin/tsc",
     "start": "node dist/simulation/cli.js",
     "simulate": "npm run build && node dist/simulation/cli.js",
     "battles": "npm run build && node dist/simulation/cli.js --battles",
@@ -14,8 +14,10 @@
     "dev-battles": "ts-node src/simulation/cli.ts --battles",
     "dev-map": "ts-node src/simulation/cli.ts --map",
     "dev-events": "ts-node src/simulation/eventSimulation.ts",
-    "server": "ts-node src/server/main.ts",
-    "test": "ts-node --project tsconfig.tests.json --transpile-only tests/run.ts"
+    "server": "node node_modules/ts-node/dist/bin.js src/server/main.ts",
+    "test": "node node_modules/ts-node/dist/bin.js --project tsconfig.tests.json tests/run.ts",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit -p tsconfig.json",
+    "typecheck:tests": "node node_modules/typescript/bin/tsc --noEmit -p tsconfig.tests.json"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

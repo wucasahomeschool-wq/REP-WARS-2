@@ -5,6 +5,7 @@ import {
   allVerticesInside,
   polygonExterior,
   ringArea,
+  ringIsSimple,
   sharedEdgeLength,
   uniqueRingVertices,
   WORLD_GEOM_EPS,
@@ -57,6 +58,9 @@ function checkPolygon(poly: WorldPolygon, label: string): WorldValidationIssue[]
   if (verts.length >= 3 && area <= WORLD_GEOM_EPS) {
     out.push(issue('geometry.zero_area', `${label} has zero area`));
   }
+  if (verts.length >= 3 && !out.some(i => i.code === 'geometry.non_finite') && !ringIsSimple(ring)) {
+    out.push(issue('geometry.self_intersection', `${label} must be a simple ring without repeated edges or self intersections`));
+  }
   return out;
 }
 
@@ -95,6 +99,16 @@ function graphConnected(ids: string[], neighborsOf: (id: string) => string[]): b
  * Does not invent missing data.
  */
 export function validateWorldDefinition(def: WorldDefinition): WorldValidationIssue[] {
+  const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+  const polygon = (v: unknown): boolean => record(v) && Array.isArray(v.rings) && v.rings.every(r => Array.isArray(r) && r.every(p => record(p) && typeof p.x === 'number' && typeof p.y === 'number'));
+  if (!record(def) || !polygon(def.island) || !Array.isArray(def.territories) || !Array.isArray(def.regions) || !Array.isArray(def.factions)
+    || !Array.isArray(def.startingDiplomacy) || !Array.isArray(def.containedWorlds)
+    || def.territories.some(t => !record(t) || !polygon(t.polygon) || !Array.isArray(t.neighborIds) || t.neighborIds.some(id => typeof id !== 'string' || !id.trim()) || typeof t.id !== 'string' || !record(t.resourceOutput))
+    || def.regions.some(r => !record(r) || !Array.isArray(r.territoryIds) || r.territoryIds.some(id => typeof id !== 'string') || typeof r.id !== 'string')
+    || def.factions.some(f => !record(f) || !record(f.startingArmy) || !record(f.startingResources) || f.personality != null && !record(f.personality))
+    || def.startingDiplomacy.some(d => !record(d)) || def.containedWorlds.some(w => !record(w))) {
+    return [issue('world.invalid_structure', 'World definition contains malformed containers')];
+  }
   const issues: WorldValidationIssue[] = [];
   const push = (code: string, message: string) => issues.push(issue(code, message));
 
@@ -135,6 +149,9 @@ export function validateWorldDefinition(def: WorldDefinition): WorldValidationIs
 
   const territoryIds = new Set<string>();
   for (const t of def.territories) {
+    for (const [key, value] of Object.entries(t.resourceOutput)) {
+      if (!['gold','food','wood','iron','stone'].includes(key) || !Number.isFinite(value) || value < 0) push('territory.invalid_output', `territory ${t.id} has invalid resource output`);
+    }
     if (!t.id) push('territory.missing_id', 'territory is missing id');
     else if (territoryIds.has(t.id)) push('territory.duplicate_id', `duplicate territory id ${t.id}`);
     else territoryIds.add(t.id);
@@ -193,6 +210,12 @@ export function validateWorldDefinition(def: WorldDefinition): WorldValidationIs
   const players: WorldFactionDefinition[] = [];
   const ais: WorldFactionDefinition[] = [];
   for (const f of def.factions ?? []) {
+    for (const key of ['soldiers', 'knights', 'siegeEngines'] as const) {
+      if (!Number.isSafeInteger(f.startingArmy[key]) || f.startingArmy[key] < 0) push('faction.invalid_troops', `faction ${f.id} has invalid ${key}`);
+    }
+    for (const key of ['gold','food','wood','iron','stone'] as const) {
+      if (!Number.isFinite(f.startingResources[key]) || f.startingResources[key] < 0) push('faction.invalid_resources', `faction ${f.id} has invalid ${key}`);
+    }
     if (!f.id) push('faction.missing_id', 'faction is missing id');
     else if (factionIds.has(f.id)) push('faction.duplicate_id', `duplicate faction id ${f.id}`);
     else factionIds.add(f.id);

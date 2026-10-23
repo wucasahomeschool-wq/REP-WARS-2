@@ -42,7 +42,6 @@ function saveAndLoad(store: GameStateStore, playerId: string, state: GameState):
   assert.strictEqual(saved.ok, true, saved.ok ? '' : saved.message);
   const loaded = store.load(playerId);
   assert.strictEqual(loaded.ok, true, loaded.ok ? '' : loaded.message);
-  if (!loaded.ok) throw new Error(loaded.message);
   return loaded.state;
 }
 
@@ -74,7 +73,7 @@ export function registerGameplaySessionLeasePersistenceTests(api: GameplaySessio
 
   test('a new world starts with no gameplay-session leases', () => {
     const state = createGameState();
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 29);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 30);
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
     assert.deepStrictEqual(state.gameplaySessionLeases, []);
     assert.deepStrictEqual(checkGameStateInvariants(state), []);

@@ -1,3 +1,4 @@
+import { isContentFingerprint } from '../worldDefinition/contentIdentity';
 import { RESPONSE_POLICY } from '../constants/aiResponse';
 import { validateCompletionRewardEntitlement } from '../rewards/completionEntitlement';
 import { armySequenceFloor } from '../army/identity';
@@ -90,6 +91,9 @@ function checkGameplaySessionLeases(
 
 export function checkGameStateInvariants(state: GameState): GameStateInvariantViolation[] {
   const violations: GameStateInvariantViolation[] = [];
+  if (state.definitionContentFingerprint !== null && !isContentFingerprint(state.definitionContentFingerprint)) {
+    violations.push({ code: 'world.invalid_content_fingerprint', message: 'World content fingerprint must be null or a versioned SHA-256 digest' });
+  }
   const push = (code: string, message: string) => violations.push({ code, message });
   for(const message of responseStateProblems(state))push('response.invalid_state',message);
   for(const message of cognitionStateProblems(state))push('cognition.invalid_state',message);

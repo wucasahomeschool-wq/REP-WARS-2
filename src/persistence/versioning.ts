@@ -1,4 +1,5 @@
 import { registerRequiredResponse } from '../engine/nonProactiveCognition';
+import { isContentFingerprint } from '../worldDefinition/contentIdentity';
 import { armySequenceFloor } from '../army/identity';
 import {initializeCognition} from '../cognition/migration';
 import { initializeRecruitment, simulationWork } from '../gameplay/recruitment/recruitment';
@@ -387,6 +388,11 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   if(schema<27){
     for(const p of (state.peaceProposals as GameState['peaceProposals']).values())if(p.status==='pending')registerRequiredResponse(state as unknown as GameState,'peace',p.id);
     for(const p of (state.tradeProposals as GameState['tradeProposals']).values())if(p.status==='pending')registerRequiredResponse(state as unknown as GameState,'trade',p.id);
+  }
+  // Never guess the historical map hash for schema 29 and earlier saves.
+  if (schema < 30) state.definitionContentFingerprint = null;
+  else if (state.definitionContentFingerprint !== null && !isContentFingerprint(state.definitionContentFingerprint)) {
+    throw new PersistenceError('persistence.corrupt', 'Invalid world content fingerprint');
   }
   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
   return state;

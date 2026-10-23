@@ -11,9 +11,15 @@ function resolvePort(): number {
   return port;
 }
 
+if (process.env.NODE_ENV === 'production') {
+  throw new Error('Production requires a configured trusted identity adapter; the development entry point cannot serve it');
+}
+if (process.env.REP_WARS_ALLOW_DEVELOPMENT_IDENTITY !== 'true') {
+  throw new Error('Local development requires explicit REP_WARS_ALLOW_DEVELOPMENT_IDENTITY=true');
+}
 const persistence = createDevelopmentPersistence();
 const host = createSessionHost(persistence);
-const server = createCommandHttpServer(host);
+const server = createCommandHttpServer(host, { identity: { mode: 'development' } });
 const port = resolvePort();
 
 server.listen(port, '127.0.0.1', () => {

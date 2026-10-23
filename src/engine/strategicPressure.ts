@@ -1,6 +1,6 @@
 import {goalMatchesSource} from '../cognition/goals';
 import {tradeCandidates,observableTradeCounterparties} from '../gameplay/trade/candidates';
-import { reinforcementQuantities } from '../gameplay/recruitment/reinforcement';
+import { reinforcementQuantities, availableLocalTroops } from '../gameplay/recruitment/reinforcement';
 import { factionsAreHostile } from '../gameplay/diplomacy/relationships';
 import { recruitmentPoolId } from '../gameplay/recruitment/recruitment';
 import type { GameState, ConstructionProjectType } from '../types/GameState';
@@ -62,6 +62,17 @@ export function sourcePlanPredicates(state: GameState, source: AISourceContext):
     add({action:'BUILD',factionId:fid,territoryId:subject.id,projectType:source.projectType,
       ...(source.projectType==='FORTIFICATION'?{targetFortificationLevel:subject.fortification+1}:{}),
       resourceSource:{kind:'faction_stock',factionId:fid,resources}});
+  }
+  // Last-field-force recovery uses existing hostile objectives and local pools.
+  // No new pressure, action or weight; retain finite, target-bound scope.
+  if(source.kind==='HOSTILE_OPPORTUNITY'&&subject&&subject.owner===source.counterpartyId
+    && ![...state.armies.values()].some(a=>a.owner===fid)) {
+    const need=Math.max(MIN_ATTACKING_TROOPS+1,subject.garrison+militaryAt(state,subject.id,subject.owner!));
+    for(const id of [...subject.neighboring].sort(comparePlanIds))if(state.territories.get(id)?.owner===fid) {
+      for(const quantity of reinforcementQuantities(need).filter(n=>n>MIN_ATTACKING_TROOPS)) {
+        if(state.territoryRecruitment.has(id))add({action:'REINFORCE',factionId:fid,territoryId:id,sourcePoolId:recruitmentPoolId(id),quantity,destination:{kind:'new_army',territoryId:id}});
+      }
+    }
   }
   for (const army of state.armies.values()) {
     if (army.owner!==fid) continue;
@@ -161,6 +172,7 @@ function usefulBuild(state:GameState,fid:string,tid:string,type:ConstructionProj
  * scoring, selection RNG, Memory, future battle draws, or a retained wrapper. */
 export function deriveSources(state:GameState,fid:string,atMs:number):AISourceContext[] {
   if(!factionCanObserve(state,fid)) return [];
+  const noFieldForce=![...state.armies.values()].some(a=>a.owner===fid);
   const out:AISourceContext[]=[];
   const add=(spec:Pick<AISourceContext,'domain'|'kind'|'subjectId'> & Partial<Pick<AISourceContext,'counterpartyId'|'projectType'>>) => {
     const s={...spec,factionId:fid};out.push({...s,id:sourceContextId(s),pressure:0,pressureRemainder:0,observedAtMs:atMs,
@@ -174,7 +186,10 @@ export function deriveSources(state:GameState,fid:string,atMs:number):AISourceCo
         && [a.location,...(state.territories.get(a.location)?.neighboring??[])].some(st=>{
           const staging=state.territories.get(st);return staging?.owner===fid&&staging.neighboring.includes(t.id);
         }));
-      if(plausible) add({domain:'MILITARY_INITIATIVE',kind:'HOSTILE_OPPORTUNITY',subjectId:t.id,counterpartyId:t.owner!});
+      const recovery=noFieldForce&&t.neighboring.some(id=>state.territories.get(id)?.owner===fid
+        && availableLocalTroops(state,id)>MIN_ATTACKING_TROOPS
+        && availableLocalTroops(state,id)*T.credibleForceRatioDenominator>=defense*T.credibleForceRatioNumerator);
+      if(plausible||recovery) add({domain:'MILITARY_INITIATIVE',kind:'HOSTILE_OPPORTUNITY',subjectId:t.id,counterpartyId:t.owner!});
     }
     if(t.owner!==fid) continue;
     for(const type of listConstructionProjectTypes()) if(usefulBuild(state,fid,t.id,type)) {

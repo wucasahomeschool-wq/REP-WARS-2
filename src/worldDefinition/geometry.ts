@@ -46,6 +46,7 @@ export function ringCentroid(points: WorldVec2[]): WorldVec2 {
 }
 
 export function pointOnSegment(p: WorldVec2, a: WorldVec2, b: WorldVec2, eps = WORLD_GEOM_EPS): boolean {
+  if (Math.hypot(b.x - a.x, b.y - a.y) <= eps) return Math.hypot(p.x - a.x, p.y - a.y) <= eps;
   const cross = (p.y - a.y) * (b.x - a.x) - (p.x - a.x) * (b.y - a.y);
   if (Math.abs(cross) > eps * Math.max(1, Math.abs(b.x - a.x) + Math.abs(b.y - a.y))) return false;
   const dot = (p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y);
@@ -129,4 +130,21 @@ export function sharedEdgeLength(a: WorldPolygon, b: WorldPolygon): number {
     if (other !== undefined) shared += Math.min(len, other);
   }
   return shared;
+}
+
+/** Non-adjacent boundary contacts (including overlap) invalidate a simple ring. */
+export function ringIsSimple(points: WorldVec2[]): boolean {
+  const edges = ringEdges(points);
+  const side = (a: WorldVec2, b: WorldVec2, c: WorldVec2) => (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+  for (let i=0; i<edges.length; i++) {
+    const [a,b]=edges[i]!;
+    if (edgeLength(a,b) <= WORLD_GEOM_EPS) return false;
+    for (let j=i+1; j<edges.length; j++) {
+      if (j===i+1 || i===0 && j===edges.length-1) continue;
+      const [c,d]=edges[j]!;
+      if (pointOnSegment(a,c,d) || pointOnSegment(b,c,d) || pointOnSegment(c,a,b) || pointOnSegment(d,a,b)) return false;
+      if ((side(a,b,c)>0)!==(side(a,b,d)>0) && (side(c,d,a)>0)!==(side(c,d,b)>0)) return false;
+    }
+  }
+  return true;
 }

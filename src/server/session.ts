@@ -89,6 +89,7 @@ export function createSessionHost(
   persistence: PlayerWorldPersistence,
   options: SessionHostOptions = {},
 ): CommandSessionHost {
+  if (process.env.NODE_ENV === 'production' && aiInvasionFixtureMode()) throw new Error('AI invasion fixtures are forbidden in production');
   const nowMs = options.nowMs ?? currentUtcNowMs;
   const registry = createDefaultRegistry();
   registry.workoutHistory = persistence.history;
