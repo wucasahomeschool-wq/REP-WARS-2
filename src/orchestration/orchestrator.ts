@@ -93,12 +93,15 @@ export class Orchestrator {
 
   /** Trusted server receipt only; HTTP request fields never supply this clock.
    * Process existing temporal boundaries before observing a newly applied command. */
-  executeAtAuthoritativeReceipt(req: CommandRequest, receiptMs: number): CommandResponse {
+  executeAtAuthoritativeReceipt(req: CommandRequest, receiptMs: number, maxCatchUpChunks?: number): CommandResponse {
     if (!Number.isSafeInteger(receiptMs) || receiptMs < 0) throw new Error('Invalid server receipt time');
-    return this.executeCommand({ ...req, parameters: { ...req.parameters, now: receiptMs } }, receiptMs);
+    if (maxCatchUpChunks !== undefined && (!Number.isSafeInteger(maxCatchUpChunks) || maxCatchUpChunks < 1)) {
+      throw new Error('maxCatchUpChunks must be a positive safe integer');
+    }
+    return this.executeCommand({ ...req, parameters: { ...req.parameters, now: receiptMs } }, receiptMs, maxCatchUpChunks);
   }
 
-  private executeCommand(req: CommandRequest, receiptMs?: number): CommandResponse {
+  private executeCommand(req: CommandRequest, receiptMs?: number, maxCatchUpChunks?: number): CommandResponse {
     const requestId = makeRequestId(req);
     const respond = (response: CommandResponse): CommandResponse => {
       safeObserveCommand(this.telemetry, {
@@ -120,7 +123,7 @@ export class Orchestrator {
         def,
         registry: this.registry,
         // Per-command working data only. AI handlers derive it from their current draft.
-        runtime: { aiWarlordStates: new Map() },
+        runtime: { aiWarlordStates: new Map(), maxCatchUpChunks },
       };
 
       if (!def.changesState) {
@@ -147,7 +150,23 @@ export class Orchestrator {
           // a client-provided target as authoritative receipt time.
           ctx.registry=Object.assign(Object.create(this.registry) as EngineRegistry,
             {timeAuthority:new FixedWorldTimeAuthority(draft.accruedTargetWorldTick)});
-          if(req.commandId!=='SYNC_PLAYER_WORLD')catchUpWorld(draft,ctx,draft.accruedTargetWorldTick);
+          if(req.commandId!=='SYNC_PLAYER_WORLD') {
+            const catchUp = catchUpWorld(draft,ctx,draft.accruedTargetWorldTick,maxCatchUpChunks);
+            if (!catchUp.complete) {
+              // Commit only completed historical work. This is not execution
+              // of the requested command, and must not consume its receipt.
+              return {
+                commandSuccess: false,
+                errors: [{ code: ErrorCode.WORLD_CATCHUP_PENDING, message: 'World catch-up is still processing. Retry the same command.' }],
+                stateChanges: [], events: [], notifications: [], presentation: null,
+                resourcesChanged: [], territoriesChanged: [], armiesChanged: [], newlyAvailableActions: [],
+                payload: { retryable: true, commandExecuted: false, catchUp: {
+                  worldTick: catchUp.worldTick, targetWorldTick: catchUp.targetWorldTick,
+                  remainingTicks: catchUp.remainingTicks, chunks: catchUp.chunks, complete: false,
+                } },
+              } satisfies HandlerResult;
+            }
+          }
         }
         const inner = mutHandler(draft, ctx);
         return applyLevel1TutorialToHandlerResult(draft, inner);

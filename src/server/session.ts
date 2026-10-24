@@ -66,6 +66,8 @@ interface PlayerSession {
 export const DEFAULT_MAX_CACHED_PLAYERS = 128;
 export const DEFAULT_MAX_PENDING_REQUESTS = 256;
 export const DEFAULT_MAX_PENDING_REQUESTS_PER_PLAYER = 16;
+/** Work bound, not an earned-time cap; each existing chunk is at most 64 ticks. */
+export const DEFAULT_MAX_CATCH_UP_CHUNKS = 4;
 
 export interface SessionHostOptions {
   /** Captured once per accepted request. Defaults to the server UTC clock. */
@@ -77,6 +79,8 @@ export interface SessionHostOptions {
   maxPendingRequests?: number;
   /** Running plus queued requests for one player. Positive safe integer. */
   maxPendingRequestsPerPlayer?: number;
+  /** Maximum historical simulation chunks per mutating request. */
+  maxCatchUpChunks?: number;
 }
 
 export interface CommandSessionHost {
@@ -119,7 +123,8 @@ export function createSessionHost(
   const maxPendingRequests = options.maxPendingRequests === undefined ? DEFAULT_MAX_PENDING_REQUESTS : options.maxPendingRequests;
   const maxPendingRequestsPerPlayer = options.maxPendingRequestsPerPlayer === undefined
     ? DEFAULT_MAX_PENDING_REQUESTS_PER_PLAYER : options.maxPendingRequestsPerPlayer;
-  for (const [name, value] of Object.entries({ maxPendingRequests, maxPendingRequestsPerPlayer })) {
+  const maxCatchUpChunks = options.maxCatchUpChunks === undefined ? DEFAULT_MAX_CATCH_UP_CHUNKS : options.maxCatchUpChunks;
+  for (const [name, value] of Object.entries({ maxPendingRequests, maxPendingRequestsPerPlayer, maxCatchUpChunks })) {
     if (!Number.isSafeInteger(value) || value < 1) throw new Error(`${name} must be a positive safe integer`);
   }
   const nowMs = options.nowMs ?? currentUtcNowMs;
@@ -318,7 +323,7 @@ export function createSessionHost(
         const history = persistence.history;
         history.begin(request.playerId);
         try {
-          response = current.orchestrator.executeAtAuthoritativeReceipt(request,receiptMs);
+          response = current.orchestrator.executeAtAuthoritativeReceipt(request,receiptMs,maxCatchUpChunks);
           finishCommandCommit(current, request, before, response, renewal);
           const saved = persistence.commitWorld(
             request.playerId,
@@ -340,7 +345,7 @@ export function createSessionHost(
         ? persistence.history.clonePlayer(request.playerId)
         : null;
       try {
-        response = current.orchestrator.executeAtAuthoritativeReceipt(request,receiptMs);
+        response = current.orchestrator.executeAtAuthoritativeReceipt(request,receiptMs,maxCatchUpChunks);
       } catch (err) {
         if (historyBackup) persistence.history.replacePlayer(request.playerId, historyBackup);
         throw err;
@@ -417,6 +422,9 @@ function finishCommandCommit(
   response: CommandResponse,
   renewal: { lease: GameplaySessionLease } | { unchanged: true } | null,
 ): void {
+  // A slice may have committed historical world/history progress, but the
+  // requested gameplay handler has not run. Preserve its sequence for retry.
+  if (response.errors.some(error => error.code === ErrorCode.WORLD_CATCHUP_PENDING)) return;
   const mutated = current.orchestrator.getState() !== before;
   if (response.success && renewal && 'lease' in renewal) {
     current.orchestrator.replaceState(replaceGameplaySessionLease(current.orchestrator.getState(), renewal.lease));

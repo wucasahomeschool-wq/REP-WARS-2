@@ -120,6 +120,8 @@ import {
 
 export interface OrchestratorRuntime {
   aiWarlordStates: Map<string, WarlordState>;
+  /** Trusted server work budget. Never populated from request parameters. */
+  maxCatchUpChunks?: number;
 }
 
 export interface HandlerContext {

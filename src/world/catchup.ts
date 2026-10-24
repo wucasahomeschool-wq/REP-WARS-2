@@ -20,6 +20,8 @@ export interface CatchUpWorldResult {
   ticksAdvanced: number;
   chunks: number;
   targetWorldTick: number;
+  remainingTicks: number;
+  complete: boolean;
   events: GameEvent[];
   stateChanges: StateChange[];
   notifications: Notification[];
@@ -241,7 +243,10 @@ function flushAbandonedHistory(state: GameState, ctx: HandlerContext): void {
  * Advance `state` to `targetWorldTick` by repeating the existing
  * ADVANCE_WORLD simulation in deterministic chunks. Does not persist.
  */
-export function catchUpWorld(state: GameState, ctx: HandlerContext, targetWorldTick: number): CatchUpWorldResult {
+export function catchUpWorld(state: GameState, ctx: HandlerContext, targetWorldTick: number, maxChunks?: number): CatchUpWorldResult {
+  if (maxChunks !== undefined && (!Number.isSafeInteger(maxChunks) || maxChunks < 1)) {
+    throw new Error('maxCatchUpChunks must be a positive safe integer');
+  }
   if (!Number.isInteger(targetWorldTick) || targetWorldTick < 0) {
     throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'targetWorldTick must be a non-negative integer', {
       targetWorldTick,
@@ -276,7 +281,9 @@ export function catchUpWorld(state: GameState, ctx: HandlerContext, targetWorldT
   mergeFoodConsumption(foodConsumption, progressWorldEconomy(state));
   flushAbandonedHistory(state, ctx);
 
-  while (state.worldTick < targetWorldTick) {
+  // Stop only between the existing chunks. Do not shorten a chunk or move the
+  // earned target: scheduling must not change the simulation's event ordering.
+  while (state.worldTick < targetWorldTick && (maxChunks === undefined || result.chunks < maxChunks)) {
     const step = nextCatchUpElapsedTicks(state, targetWorldTick);
     const inner = withRequestParameters(ctx.req, { elapsedTicks: step, catchUpCompact: true }, () => handleAdvanceWorld(state, ctx));
     mergeAdvance(result, inner);
@@ -313,6 +320,8 @@ export function catchUpWorld(state: GameState, ctx: HandlerContext, targetWorldT
     ticksAdvanced: result.ticksAdvanced,
     chunks: result.chunks,
     targetWorldTick: result.targetWorldTick,
+    remainingTicks: targetWorldTick - state.worldTick,
+    complete: state.worldTick === targetWorldTick,
     events: result.handler.events,
     stateChanges: result.handler.stateChanges,
     notifications: result.handler.notifications,
@@ -357,7 +366,7 @@ export function handleSyncPlayerWorld(state: GameState, ctx: HandlerContext): Ha
     throw err;
   }
 
-  const catchUp = catchUpWorld(state, ctx, target);
+  const catchUp = catchUpWorld(state, ctx, target, ctx.runtime.maxCatchUpChunks);
   return {
     ...emptyHandlerResult(),
     stateChanges: catchUp.stateChanges,
@@ -370,6 +379,10 @@ export function handleSyncPlayerWorld(state: GameState, ctx: HandlerContext): Ha
       ticksAdvanced: catchUp.ticksAdvanced,
       chunks: catchUp.chunks,
       targetWorldTick: catchUp.targetWorldTick,
+      remainingTicks: catchUp.remainingTicks,
+      complete: catchUp.complete,
+      accruedTargetWorldTick: state.accruedTargetWorldTick,
+      backlogTicks: state.accruedTargetWorldTick - state.worldTick,
       worldAdvance: catchUp.worldAdvance,
       foodConsumption: catchUp.foodConsumption,
     },

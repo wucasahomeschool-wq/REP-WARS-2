@@ -24,6 +24,7 @@ export const ErrorCode = {
   COMMAND_STALE: 'COMMAND_STALE',
   COMMAND_SEQUENCE_CONFLICT: 'COMMAND_SEQUENCE_CONFLICT',
   TIME_UNAUTHORIZED: 'TIME_UNAUTHORIZED',
+  WORLD_CATCHUP_PENDING: 'WORLD_CATCHUP_PENDING',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -82,4 +83,5 @@ export const ERROR_CATALOG: Record<ErrorCode, { meaning: string; httpHint?: numb
   COMMAND_STALE: { meaning: 'This gameplay command sequence is older than the committed command on that session' },
   COMMAND_SEQUENCE_CONFLICT: { meaning: 'This gameplay command sequence was already committed for a different request' },
   TIME_UNAUTHORIZED: { meaning: 'Requested world time is beyond the authoritative clock or would rewind state' },
+  WORLD_CATCHUP_PENDING: { meaning: 'Earned world time is still processing; the requested gameplay command has not run and may be retried' },
 };

@@ -36,9 +36,17 @@ Capacity is checked before loading another world or entering its command chain. 
 
 Clients may retry using the same logical command/session identities and request ID. Preserve the existing sequence and lost-response rules; do not create another reward or command identity to bypass pressure. Use client/deployment retry backoff without making it a gameplay cooldown. There is no server-mandated retry time in this response.
 
-These limits protect the host's accepted queues and pinned worlds. They do not limit connections, request bodies being read, authentication-provider calls, requests per second or the duration of one accepted command. The current simulation/persistence path is synchronous: a long catch-up can still occupy the Node event loop before another HTTP callback runs. Configure upstream request/connection limits and provider deadlines separately. Whole-request catch-up budgeting remains unfinished, and no accrued simulation time is discarded by admission control.
+These limits protect the host's accepted queues and pinned worlds. They do not limit connections, request bodies being read, authentication-provider calls, requests per second or the duration of one accepted command. The simulation/persistence path is synchronous: one expensive chunk can still occupy the Node event loop before another HTTP callback runs. Configure upstream request/connection limits and provider deadlines separately. Historical work is now bounded as described below; no accrued simulation time is discarded.
 
 ## Commands, time and retries
+
+### Bounded historical processing
+
+`createSessionHost` and production composition accept trusted `maxCatchUpChunks` (positive safe integer, default 4). Each chunk retains the existing maximum 64 ticks and invasion-boundary ordering. All earned target/fraction metadata is preserved while `worldTick` advances only through completed work.
+
+Sync responses expose `remainingTicks`, `complete`, `accruedTargetWorldTick` and `backlogTicks`. A partial successful sync is a normal receipted command; use a new sequence to continue, and the same sequence only to recover its lost response. If another gameplay command exhausts its catch-up budget first, `WORLD_CATCHUP_PENDING` means its handler has not executed and its sequence remains reusable. Retry that same logical command; do not display it as successful. Historical work may already have committed, so use the returned progress or reload state. No mandatory delay or new gameplay timer is introduced.
+
+This bounds historical chunks per server request, not CPU milliseconds or all work within one chunk. Direct trusted engine/test calls can still drain an explicit target. See `BACKEND_BOUNDED_CATCHUP.md` for compatibility, receipt and validation details.
 
 The trusted session host captures one receipt. `executeAtAuthoritativeReceipt` overrides request `now` before workout/handler execution. Reported exercise measurements remain client-reported evidence under the existing integrity policy; server time is not proof of physical exercise.
 
