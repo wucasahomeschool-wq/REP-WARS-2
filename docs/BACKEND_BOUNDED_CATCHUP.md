@@ -43,3 +43,15 @@ Focused tests: **17 passed / 0 failed**. Source and test-inclusive typechecks an
 An independent mixed-presence probe also ran both seeds with budgets 100, 1 and 2, earning 163 ticks from the same trusted receipt and two recorded online spans. All three budgets produced identical full-state SHA-256 values per seed: seed 11 `cc4ae990f519de46c546de5dc5d519162ecce1af14dfbb11e6a840e71ce1ed9a`, seed 29 `9ebc7a2910009889b0f143e6b835de6733d7a199da3991c62836b23f9c3ba78c`. Mixed-presence coverage was then added inside the existing seeded regressions and all 17 focused tests reran successfully. The temporary probe and logs reside under `/tmp/repwars-catchup`; permanent regressions preserve the scenario class.
 
 Remaining independently assessable work includes world geometry validation and operational/load verification. Full island coverage needs a clear distinction between playable territory and decorative/unplayable land; this phase does not invent that content rule. Located Food banks/transport, production workout content/ratios, visibility/scouting and production identity remain their previously documented product/infrastructure gates.
+
+### Completed validation
+
+Implementation checkpoint: `efee7a3c94445b678dff717bee257d7e7fe582c2` (pushed on the isolated branch).
+
+- Full backend suite: **2,220 passed, 0 failed, 3 skipped**, exit 0. This is the prior 2,203 plus 17 new regressions. The final mixed-presence extension inside the same two seeded tests was also rerun in the focused suite after the full runner had loaded its test modules: **17/0**.
+- Production and test-inclusive TypeScript checks and production build: **PASS**, zero diagnostics.
+- Whitespace check: **PASS**. Raw run evidence is outside the repository at `/tmp/repwars-catchup/`.
+- The three skips remain live Supabase save/reload, atomic world/history commit and restart; external credentials and approved non-production execution are still required.
+- Schema remains 30. Existing world/workout content, source branches and earlier worktrees are preserved. No merge, deployment or live database change occurred.
+
+The next phase assesses stronger polygon overlap/containment checks against existing authored files before enabling them; content is never silently repaired.
