@@ -18,7 +18,7 @@ An omitted provider rejects all protected routes. Invalid credentials return 401
 
 `/health` is process liveness. `/ready` returns 200 only with a configured trusted identity adapter **and a successful explicitly supplied dependency probe**. No probe, a false result or an exception returns 503. The deployment probe must perform bounded, read-only dependency checks (including the actual database/RPC availability), enforce an I/O deadline, and return a boolean. Merely setting credentials does not prove database readiness. No dependency exception is returned to clients.
 
-TLS termination, CORS/CSRF treatment appropriate to the selected authentication transport, request rate limits, provider timeouts, host scaling, alerts and log retention are deployment gates. They are not implemented by this runbook. Configure and load-test the cache and host-admission limits described below as part of those gates. The existing bounded non-executing HTTP diagnostic snapshot is retained; do not replace it with raw arbitrary-object inspection or log tokens/service keys.
+TLS termination, CORS/CSRF treatment appropriate to the selected authentication transport, request rate limits, adapter I/O cancellation, host scaling, alerts and log retention are deployment gates. They are not implemented by this runbook. Configure and load-test the cache and host-admission limits described below as part of those gates. The existing bounded non-executing HTTP diagnostic snapshot is retained; do not replace it with raw arbitrary-object inspection or log tokens/service keys.
 
 ### Player-world cache retention
 
@@ -36,7 +36,15 @@ Capacity is checked before loading another world or entering its command chain. 
 
 Clients may retry using the same logical command/session identities and request ID. Preserve the existing sequence and lost-response rules; do not create another reward or command identity to bypass pressure. Use client/deployment retry backoff without making it a gameplay cooldown. There is no server-mandated retry time in this response.
 
-These limits protect the host's accepted queues and pinned worlds. They do not limit connections, request bodies being read, authentication-provider calls, requests per second or the duration of one accepted command. The simulation/persistence path is synchronous: one expensive chunk can still occupy the Node event loop before another HTTP callback runs. Configure upstream request/connection limits and provider deadlines separately. Historical work is now bounded as described below; no accrued simulation time is discarded.
+These limits protect the host's accepted queues and pinned worlds. They do not limit connections, request bodies being read, authentication-provider calls, requests per second or the duration of one accepted command. The simulation/persistence path is synchronous: one expensive chunk can still occupy the Node event loop before another HTTP callback runs. Configure upstream request/connection limits separately. Authentication and readiness response budgets are described below; adapters must still enforce I/O cancellation. Historical work is now bounded as described below; no accrued simulation time is discarded.
+
+### External verification budgets
+
+`createCommandHttpServer` and production composition accept trusted `authenticationLimits` and `readinessLimits`, each with optional `maxPending` and `timeoutMs`. Authentication defaults to 64 outstanding callbacks and a 5,000 ms deadline; readiness defaults to one and 2,000 ms. These settings are never read from request JSON. Invalid counts/timer ranges fail at construction.
+
+Authentication saturation, exceptions and elapsed deadlines use the existing 503 `AUTHENTICATION_UNAVAILABLE` response before world access. Readiness returns 503 unless the bounded probe returns exactly true. All four player routes share the authentication budget. A timed-out callback remains counted until it actually settles, and late results cannot authorize a request. `/health` remains independent.
+
+Adapters receive an optional `AbortSignal` and must enforce bounded, nonblocking I/O. Old callback signatures remain compatible. Deadline timers cannot preempt a blocked JavaScript event loop, and cancellation cannot forcibly terminate a promise that ignores it. The monotonic result check still rejects an elapsed identity. Completely stuck adapters fail closed until they recover or the operator replaces the process. See `BACKEND_DEPENDENCY_BOUNDS.md` for tests and limitations.
 
 ## Commands, time and retries
 

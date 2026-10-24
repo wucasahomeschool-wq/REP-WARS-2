@@ -1,3 +1,5 @@
+import { runDependencyBudgetTests } from './dependencyBudget';
+import { runDependencyHttpTests } from './dependencyHttp';
 import {registerLocalFormationTests} from './localFormation';
 import { runSessionCacheTests } from './sessionCache';
 import { runRequestAdmissionTests } from './requestAdmission';
@@ -3254,6 +3256,8 @@ void (async () => {
   registerBackendLongHorizonTests({test});
   for (const { name, fn } of registeredTests) await executeTest(name, fn);
   await runBackendBoundaryTests(executeTest);
+  await runDependencyBudgetTests(executeTest);
+  await runDependencyHttpTests(executeTest);
   await runSessionCacheTests(executeTest);
   await runRequestAdmissionTests(executeTest);
   await runBoundedCatchupTests(executeTest);

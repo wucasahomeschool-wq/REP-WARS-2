@@ -1,4 +1,5 @@
 import { Server } from 'node:http';
+import { DependencyLimits } from './dependencyBudget';
 import { AuthenticatePlayer } from './identity';
 import { createCommandHttpServer, InternalErrorReporter } from './http';
 import { createSupabasePersistence } from './persistencePort';
@@ -11,7 +12,9 @@ import { readSupabaseServerConfig } from '../persistence/supabase/config';
  * or memory persistence. Construction does not listen or deploy anything. */
 export function createProductionHttpServer(options: {
   authenticate: AuthenticatePlayer;
-  readiness: () => boolean | Promise<boolean>;
+  readiness: (signal?: AbortSignal) => boolean | Promise<boolean>;
+  authenticationLimits?: DependencyLimits;
+  readinessLimits?: DependencyLimits;
   onInternalError?: InternalErrorReporter;
   maxCachedPlayers?: number;
   maxPendingRequests?: number;
@@ -34,5 +37,6 @@ export function createProductionHttpServer(options: {
   }), {
     identity: { mode: 'authenticated', authenticate: options.authenticate },
     readiness: options.readiness, onInternalError: options.onInternalError,
+    authenticationLimits: options.authenticationLimits, readinessLimits: options.readinessLimits,
   });
 }

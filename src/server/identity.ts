@@ -5,8 +5,9 @@ export class BadRequestError extends Error {
 }
 
 /** The trusted adapter validates credentials and maps them to a durable game player.
- * It must not resolve identity from request JSON. No provider is selected here. */
-export type AuthenticatePlayer = (request: IncomingMessage) => Promise<string | null> | string | null;
+ * It must not resolve identity from request JSON. Honor the optional cancellation
+ * signal and enforce bounded I/O; synchronous blocking cannot be preempted. No provider is selected here. */
+export type AuthenticatePlayer = (request: IncomingMessage, signal?: AbortSignal) => Promise<string | null> | string | null;
 export type IdentityBoundary =
   | { mode: 'authenticated'; authenticate?: AuthenticatePlayer }
   | { mode: 'development' };

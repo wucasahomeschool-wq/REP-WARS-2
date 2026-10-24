@@ -7,6 +7,7 @@ import { CommandNotExposedError, CommandSessionHost, PersistenceFailedError, Req
 import { ErrorCode, publicOrchestrationError } from '../orchestration/errors';
 import { isCommandExposed } from './allowlist';
 import { COMMAND_INDEX } from '../orchestration/commandIndex';
+import { createDependencyBudget, DependencyLimits } from './dependencyBudget';
 import { PERSISTENCE_ERROR_CODES } from '../persistence/errors';
 
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -441,13 +442,26 @@ export interface CommandHttpOptions {
   onInternalError?: InternalErrorReporter;
   /** Omission is authenticated mode without a provider: every player request fails closed. */
   identity?: IdentityBoundary;
-  /** Trusted, read-only deployment probe for persistence and other dependencies.
-   * Must enforce its own I/O deadline. No probe means not production-ready. */
-  readiness?: () => boolean | Promise<boolean>;
+  /** Trusted deployment bounds; never taken from HTTP input. */
+  authenticationLimits?: DependencyLimits;
+  readinessLimits?: DependencyLimits;
+  /** Trusted, read-only deployment probe. Honor cancellation and enforce bounded
+   * I/O; the response deadline cannot stop synchronous or non-cooperative code. */
+  readiness?: (signal?: AbortSignal) => boolean | Promise<boolean>;
 }
 export function createCommandHttpServer(host: CommandSessionHost, options: CommandHttpOptions = {}): Server {
   const identity: IdentityBoundary = { ...(options.identity ?? { mode: 'authenticated' }) };
   validateIdentityBoundary(identity);
+  const authenticateWithinBudget = createDependencyBudget(options.authenticationLimits ?? {}, { maxPending: 64, timeoutMs: 5000 });
+  const readinessWithinBudget = createDependencyBudget(options.readinessLimits ?? {}, { maxPending: 1, timeoutMs: 2000 });
+  if (identity.mode === 'authenticated' && typeof identity.authenticate === 'function') {
+    const provider = identity.authenticate;
+    identity.authenticate = async request => {
+      const result = await authenticateWithinBudget(signal => provider(request, signal));
+      if (!result.ok) throw new Error('Authentication unavailable');
+      return result.value;
+    };
+  }
   if (process.env.NODE_ENV === 'production' && host.persistenceName !== 'supabase') {
     throw new Error('Production cannot use ephemeral in-memory persistence');
   }
@@ -459,7 +473,10 @@ export function createCommandHttpServer(host: CommandSessionHost, options: Comma
       const authenticationConfigured = identity.mode === 'authenticated' && typeof identity.authenticate === 'function';
       void (async () => {
         let ready = false;
-        try { ready = authenticationConfigured && !!readiness && await readiness() === true; } catch { /* No dependency exception enters the response. */ }
+        if (authenticationConfigured && readiness) {
+          const result = await readinessWithinBudget(signal => readiness(signal));
+          ready = result.ok && result.value === true;
+        }
         sendPublicJson(res, ready ? 200 : 503, { ready, authenticationConfigured }, report);
       })().catch((err: unknown) => { if (!res.headersSent) sendInternalError(res, report, err); });
       return;
