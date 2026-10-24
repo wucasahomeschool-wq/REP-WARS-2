@@ -4,6 +4,7 @@ import { runRequestAdmissionTests } from './requestAdmission';
 import { runBoundedCatchupTests } from './boundedCatchup';
 import {registerBackendLongHorizonTests} from './backendLongHorizon';
 import { registerWorldContentTests } from './worldContentIdentity';
+import { registerWorldGeometryBoundaryTests } from './worldGeometryBoundaries';
 import { runBackendBoundaryTests } from './backendBoundary';
 import { TestSkipped } from './skip';
 import {registerAiResponseTests} from './aiResponses';
@@ -3226,6 +3227,7 @@ registerGate1VerticalSliceAttackTests({ test });
 registerGate1VerticalSlicePersistenceTests({ test });
 
 registerWorldContentTests({ test });
+registerWorldGeometryBoundaryTests({ test });
 
 registerWorldDefinitionTests({ test });
 

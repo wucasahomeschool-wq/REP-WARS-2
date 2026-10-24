@@ -90,13 +90,6 @@ export function allVerticesInside(inner: WorldVec2[], outer: WorldVec2[]): boole
   return true;
 }
 
-function undirectedEdgeKey(a: WorldVec2, b: WorldVec2): string {
-  const aFirst = a.x < b.x - WORLD_GEOM_EPS || (almostEqual(a.x, b.x) && a.y <= b.y);
-  const p = aFirst ? a : b;
-  const q = aFirst ? b : a;
-  return `${p.x.toFixed(6)},${p.y.toFixed(6)}|${q.x.toFixed(6)},${q.y.toFixed(6)}`;
-}
-
 export function ringEdges(points: WorldVec2[]): Array<[WorldVec2, WorldVec2]> {
   const verts = uniqueRingVertices(points);
   const edges: Array<[WorldVec2, WorldVec2]> = [];
@@ -110,26 +103,102 @@ export function edgeLength(a: WorldVec2, b: WorldVec2): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
 }
 
-/** Sum of lengths of edges that appear (within epsilon) in both exteriors. */
+type Edge = [WorldVec2, WorldVec2];
+const cross = (x: number, y: number, u: number, v: number) => x * v - y * u;
+
+/** Length shared by collinear segments, independent of winding/subdivision. */
+function sharedSegmentLength([a, b]: Edge, [c, d]: Edge): number {
+  const x = b.x - a.x, y = b.y - a.y, length = Math.hypot(x, y);
+  if (length <= WORLD_GEOM_EPS || edgeLength(c, d) <= WORLD_GEOM_EPS) return 0;
+  if (Math.abs(cross(x, y, c.x - a.x, c.y - a.y)) > WORLD_GEOM_EPS * length
+    || Math.abs(cross(x, y, d.x - a.x, d.y - a.y)) > WORLD_GEOM_EPS * length) return 0;
+  const first = ((c.x - a.x) * x + (c.y - a.y) * y) / (length * length);
+  const last = ((d.x - a.x) * x + (d.y - a.y) * y) / (length * length);
+  return Math.max(0, Math.min(1, Math.max(first, last)) - Math.max(0, Math.min(first, last))) * length;
+}
+
+/** Sum of shared boundary lengths for valid simple exteriors. */
 export function sharedEdgeLength(a: WorldPolygon, b: WorldPolygon): number {
   const ra = polygonExterior(a);
   const rb = polygonExterior(b);
   if (!ra || !rb) return 0;
-  const map = new Map<string, number>();
-  for (const [p, q] of ringEdges(ra)) {
-    const len = edgeLength(p, q);
-    if (len <= WORLD_GEOM_EPS) continue;
-    map.set(undirectedEdgeKey(p, q), len);
-  }
   let shared = 0;
-  for (const [p, q] of ringEdges(rb)) {
-    const len = edgeLength(p, q);
-    if (len <= WORLD_GEOM_EPS) continue;
-    const key = undirectedEdgeKey(p, q);
-    const other = map.get(key);
-    if (other !== undefined) shared += Math.min(len, other);
-  }
+  const second = ringEdges(rb);
+  for (const edge of ringEdges(ra)) for (const other of second) shared += sharedSegmentLength(edge, other);
   return shared;
+}
+
+/** -1 outside, 0 boundary, 1 interior. Inputs are finite simple rings. */
+function location(point: WorldVec2, edges: Edge[]): number {
+  let inside = false;
+  for (const [a, b] of edges) {
+    if (pointOnSegment(point, a, b)) return 0;
+    if ((a.y > point.y) !== (b.y > point.y)
+      && point.x < a.x + (point.y - a.y) * (b.x - a.x) / (b.y - a.y)) inside = !inside;
+  }
+  return inside ? 1 : -1;
+}
+
+/** Split an edge at every boundary crossing/contact, including collinear
+ * endpoints. Interior/boundary classification is constant between these cuts;
+ * sampling only the original midpoint would miss narrow concave excursions. */
+function intervalMidpoints([a, b]: Edge, boundary: Edge[]): WorldVec2[] {
+  const x = b.x - a.x, y = b.y - a.y, length = Math.hypot(x, y), cuts = [0, 1];
+  if (length <= WORLD_GEOM_EPS) return [];
+  for (const [c, d] of boundary) {
+    for (const p of [c, d]) if (pointOnSegment(p, a, b)) {
+      cuts.push(Math.max(0, Math.min(1, ((p.x - a.x) * x + (p.y - a.y) * y) / (length * length))));
+    }
+    const u = d.x - c.x, v = d.y - c.y, denominator = cross(x, y, u, v);
+    if (denominator === 0) continue;
+    const t = cross(c.x - a.x, c.y - a.y, u, v) / denominator;
+    const s = cross(c.x - a.x, c.y - a.y, x, y) / denominator;
+    if (t > 0 && t < 1 && s >= 0 && s <= 1) cuts.push(t);
+  }
+  cuts.sort((a, b) => a - b);
+  const points: WorldVec2[] = [];
+  for (let i = 1; i < cuts.length; i++) {
+    if ((cuts[i] - cuts[i - 1]) * length <= WORLD_GEOM_EPS) continue;
+    const t = (cuts[i] + cuts[i - 1]) / 2;
+    points.push({ x: a.x + x * t, y: a.y + y * t });
+  }
+  return points;
+}
+
+/** Inclusive containment of an entire simple ring, not just its vertices. */
+export function ringContainedBy(inner: WorldVec2[], outer: WorldVec2[]): boolean {
+  const boundary = ringEdges(outer);
+  if (boundary.length < 3) return false;
+  return ringEdges(inner).every(edge => location(edge[0], boundary) >= 0
+    && intervalMidpoints(edge, boundary).every(point => location(point, boundary) >= 0));
+}
+
+/** Positive interior intersection, excluding mere shared edges/points. No
+ * polygon repair, clipping, coverage inference or geometry mutation occurs. */
+export function ringsOverlap(a: WorldVec2[], b: WorldVec2[]): boolean {
+  const bounds = (ring: WorldVec2[]) => {
+    const result = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+    for (const point of ring) {
+      result.minX = Math.min(result.minX, point.x); result.maxX = Math.max(result.maxX, point.x);
+      result.minY = Math.min(result.minY, point.y); result.maxY = Math.max(result.maxY, point.y);
+    }
+    return result;
+  };
+  const first = bounds(a), second = bounds(b);
+  if (Math.min(first.maxX, second.maxX) - Math.max(first.minX, second.minX) <= WORLD_GEOM_EPS
+    || Math.min(first.maxY, second.maxY) - Math.max(first.minY, second.minY) <= WORLD_GEOM_EPS) return false;
+  const firstEdges = ringEdges(a), secondEdges = ringEdges(b), sameWinding = Math.sign(ringArea(a)) === Math.sign(ringArea(b));
+  const enters = (edges: Edge[], boundary: Edge[]) => edges.some(edge => intervalMidpoints(edge, boundary).some(point => {
+    const where = location(point, boundary);
+    if (where === 1) return true;
+    if (where !== 0) return false;
+    // Coincident boundaries overlap only when both filled interiors lie on the
+    // same side. This also handles identical rings and reversed winding.
+    const [p, q] = edge;
+    return boundary.some(other => pointOnSegment(point, ...other) && sharedSegmentLength(edge, other) > WORLD_GEOM_EPS
+      && (((q.x - p.x) * (other[1].x - other[0].x) + (q.y - p.y) * (other[1].y - other[0].y) > 0) === sameWinding));
+  }));
+  return enters(firstEdges, secondEdges) || enters(secondEdges, firstEdges);
 }
 
 /** Non-adjacent boundary contacts (including overlap) invalidate a simple ring. */

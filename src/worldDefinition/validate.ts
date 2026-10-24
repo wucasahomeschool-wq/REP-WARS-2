@@ -2,7 +2,8 @@ import { TerrainType } from '../types';
 import { validateWorldWorkoutRewardPolicy } from '../rewards/completionPolicy';
 import { collectNeighborGraphIssues } from '../map/graphInvariants';
 import {
-  allVerticesInside,
+  ringContainedBy,
+  ringsOverlap,
   polygonExterior,
   ringArea,
   ringIsSimple,
@@ -55,6 +56,7 @@ function checkPolygon(poly: WorldPolygon, label: string): WorldValidationIssue[]
     out.push(issue('geometry.too_few_vertices', `${label} needs at least 3 distinct vertices`));
   }
   const area = Math.abs(ringArea(ring));
+  if (!Number.isFinite(area)) out.push(issue('geometry.non_finite_area', `${label} area exceeds finite geometry arithmetic`));
   if (verts.length >= 3 && area <= WORLD_GEOM_EPS) {
     out.push(issue('geometry.zero_area', `${label} has zero area`));
   }
@@ -133,7 +135,8 @@ export function validateWorldDefinition(def: WorldDefinition): WorldValidationIs
     push('world.missing_name', 'world name is required');
   }
 
-  issues.push(...checkPolygon(def.island, 'island'));
+  const islandIssues = checkPolygon(def.island, 'island');
+  issues.push(...islandIssues);
   const islandRing = polygonExterior(def.island);
 
   if (!Array.isArray(def.territories) || def.territories.length === 0) {
@@ -148,6 +151,7 @@ export function validateWorldDefinition(def: WorldDefinition): WorldValidationIs
   }
 
   const territoryIds = new Set<string>();
+  const validGeometry: typeof def.territories = [];
   for (const t of def.territories) {
     for (const [key, value] of Object.entries(t.resourceOutput)) {
       if (!['gold','food','wood','iron','stone'].includes(key) || !Number.isFinite(value) || value < 0) push('territory.invalid_output', `territory ${t.id} has invalid resource output`);
@@ -161,11 +165,21 @@ export function validateWorldDefinition(def: WorldDefinition): WorldValidationIs
     if (!TERRAIN.includes(t.terrain)) {
       push('territory.terrain', `territory ${t.id} has invalid terrain ${String(t.terrain)}`);
     }
-    issues.push(...checkPolygon(t.polygon, `territory ${t.id}`));
-    if (islandRing && polygonExterior(t.polygon)) {
-      if (!allVerticesInside(polygonExterior(t.polygon)!, islandRing)) {
+    const polygonIssues = checkPolygon(t.polygon, `territory ${t.id}`);
+    issues.push(...polygonIssues);
+    if (polygonIssues.length === 0) validGeometry.push(t);
+    if (islandIssues.length === 0 && polygonIssues.length === 0 && islandRing && polygonExterior(t.polygon)) {
+      if (!ringContainedBy(polygonExterior(t.polygon)!, islandRing)) {
         push('territory.outside_island', `territory ${t.id} is not contained by the island`);
       }
+    }
+  }
+
+  for (let i = 0; i < validGeometry.length; i++) for (let j = i + 1; j < validGeometry.length; j++) {
+    const a = validGeometry[i], b = validGeometry[j];
+    if (ringsOverlap(polygonExterior(a.polygon)!, polygonExterior(b.polygon)!)) {
+      const ids = [a.id, b.id].sort();
+      push('territory.overlap', `territories ${ids[0]} and ${ids[1]} have overlapping interiors`);
     }
   }
 
