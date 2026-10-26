@@ -200,3 +200,11 @@ Bounded catch-up completed and was pushed at `e1248f3e68776d57c32460df2fd005cf17
 
 
 The next isolated phase, `feat/backend-dependency-bounds`, bounds authentication and readiness callbacks before the gameplay host. See `BACKEND_DEPENDENCY_BOUNDS.md` for the shared count/deadline contract, cancellation limits and validation status. It does not choose a provider or replace deployment ingress protection. No gameplay timing, policy, state schema or persistence semantics changed.
+
+## Scale/geometry continuation (2026-10-26)
+
+The isolated `perf/backend-world-validation` phase validates eight seeded 10/30/50-territory scenarios through real session-host persistence and improves detailed-map validation using conservative edge bounds. See `BACKEND_VALIDATION_SCALE.md` and `BACKEND_SCALE_VALIDATION.json` for complete results and limits. Interrupted earlier full runs are not passes. Food provisioning and per-chunk CPU latency remain limitations.
+
+Availability update: the historical AI-SIM checkpoint `ce63ad0bd1d74494c0a87f494d65d9efb8d88b25` has now been fetched read-only. Earlier statements that it was unavailable describe the recovery run, not current access. Its old branch is not merged, and its behavioral changes are not implicitly integrated. Construction candidate exception-allocation overhead is being assessed separately against current code.
+
+Final combined validation for that phase: **2,268 passed / 0 failed / 3 explicit live-Supabase skips**, with production/test TypeScript, build and diff check passing. This supersedes the pending/interrupted full-run status for the geometry and dependency-budget checkpoints without claiming those older runs completed.

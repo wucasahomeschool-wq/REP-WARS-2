@@ -1,3 +1,4 @@
+import { registerBackendScaleTests } from './backendScale';
 import { runDependencyBudgetTests } from './dependencyBudget';
 import { runDependencyHttpTests } from './dependencyHttp';
 import {registerLocalFormationTests} from './localFormation';
@@ -3230,6 +3231,7 @@ registerGate1VerticalSlicePersistenceTests({ test });
 
 registerWorldContentTests({ test });
 registerWorldGeometryBoundaryTests({ test });
+registerBackendScaleTests({ test });
 
 registerWorldDefinitionTests({ test });
 

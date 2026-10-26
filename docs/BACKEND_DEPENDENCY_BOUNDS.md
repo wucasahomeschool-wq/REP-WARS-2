@@ -42,7 +42,7 @@ These limits do not bound incoming sockets, request bodies before authentication
 - Actual routes cover all four protected endpoints, cross-route capacity, default 64-call saturation, cancellation, a late identity result, no world access on failure, retry/receipt exactness, provider error privacy, readiness timeout/saturation/recovery, strict boolean readiness and independent liveness.
 - A synchronous-stall regression proves that elapsed results cannot beat a delayed timer.
 - Production/test-inclusive TypeScript and production build: PASS, zero diagnostics.
-- Full backend suite: running against the final implementation. An earlier partial run was stopped after adding the elapsed-deadline check; it is not counted as a successful run.
+- Full backend attempts were interrupted without final summaries; an earlier partial run was stopped after adding the elapsed-deadline check. None is counted as a successful run. See `BACKEND_VALIDATION_SCALE.md` for the subsequent combined rerun.
 - `git diff --check`: PASS.
 
 An initial syntax error in the new HTTP test was corrected before focused validation; it was a candidate test defect, not an inherited diagnostic. No skipped test is counted as passed. Logs are outside the repository under `/tmp/repwars-dependency-bounds/`; the committed tests reproduce the checks.

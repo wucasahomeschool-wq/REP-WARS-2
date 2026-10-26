@@ -90,3 +90,7 @@ Restore into an isolated database with writes disabled; restore worlds **and his
 Do not roll a schema-29 binary over schema-30 saves: it should reject the newer schema. Rollback requires restoring the matching pre-upgrade snapshot (with an explicit decision about subsequent legitimate progress) or a separately reviewed reverse migration. Do not erase schema numbers, reward receipts or content pins. Do not restore only the world or only workout history. Do not reroll seeded battle outcomes or process backlog as a migration side effect.
 
 Corrupt or mismatched saves fail closed and require investigation. Preserve the failed payload and diagnostics in approved private storage; do not reset a player's world as an automatic repair. Hosted backups, restore drills and live recovery remain unverified infrastructure work.
+
+## Larger-world evidence
+
+See `BACKEND_VALIDATION_SCALE.md`: eight seeded engineering cases preserve exact canonical results across chunked reload and whole catch-up. A 50-territory/8-AI day case still has a one-chunk request near 4.8 seconds. Chunk bounds are not a CPU deadline; do not promise low latency from the default setting alone. World-definition validation also runs on hydration, and large payloads/history increase persistence costs. No production traffic capacity or hosted monitoring result is inferred from these local tests.

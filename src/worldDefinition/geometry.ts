@@ -106,8 +106,15 @@ export function edgeLength(a: WorldVec2, b: WorldVec2): number {
 type Edge = [WorldVec2, WorldVec2];
 const cross = (x: number, y: number, u: number, v: number) => x * v - y * u;
 
+/** Conservative edge broad phase; padding includes the existing tolerance. */
+function separated(a: WorldVec2, b: WorldVec2, c: WorldVec2, d: WorldVec2, padding: number): boolean {
+  return Math.max(a.x, b.x) + padding < Math.min(c.x, d.x) || Math.max(c.x, d.x) + padding < Math.min(a.x, b.x)
+    || Math.max(a.y, b.y) + padding < Math.min(c.y, d.y) || Math.max(c.y, d.y) + padding < Math.min(a.y, b.y);
+}
+
 /** Length shared by collinear segments, independent of winding/subdivision. */
 function sharedSegmentLength([a, b]: Edge, [c, d]: Edge): number {
+  if (separated(a, b, c, d, WORLD_GEOM_EPS)) return 0;
   const x = b.x - a.x, y = b.y - a.y, length = Math.hypot(x, y);
   if (length <= WORLD_GEOM_EPS || edgeLength(c, d) <= WORLD_GEOM_EPS) return 0;
   if (Math.abs(cross(x, y, c.x - a.x, c.y - a.y)) > WORLD_GEOM_EPS * length
@@ -129,14 +136,27 @@ export function sharedEdgeLength(a: WorldPolygon, b: WorldPolygon): number {
 }
 
 /** -1 outside, 0 boundary, 1 interior. Inputs are finite simple rings. */
-function location(point: WorldVec2, edges: Edge[]): number {
-  let inside = false;
-  for (const [a, b] of edges) {
-    if (pointOnSegment(point, a, b)) return 0;
-    if ((a.y > point.y) !== (b.y > point.y)
-      && point.x < a.x + (point.y - a.y) * (b.x - a.x) / (b.y - a.y)) inside = !inside;
-  }
-  return inside ? 1 : -1;
+function pointLocator(edges: Edge[]): (point: WorldVec2) => number {
+  const bounds = edges.map(([a, b]) => {
+    const x = b.x - a.x, y = b.y - a.y, length = Math.hypot(x, y);
+    // pointOnSegment permits perpendicular and endpoint tolerances. Their
+    // sum conservatively bounds either coordinate, including very short edges.
+    const padding = length <= WORLD_GEOM_EPS ? WORLD_GEOM_EPS
+      : WORLD_GEOM_EPS * (1 + Math.max(1, Math.abs(x) + Math.abs(y))) / length;
+    return { minX: Math.min(a.x, b.x) - padding, maxX: Math.max(a.x, b.x) + padding,
+      minY: Math.min(a.y, b.y) - padding, maxY: Math.max(a.y, b.y) + padding };
+  });
+  return point => {
+    let inside = false;
+    for (let i = 0; i < edges.length; i++) {
+      const [a, b] = edges[i], box = bounds[i];
+      if (point.x >= box.minX && point.x <= box.maxX && point.y >= box.minY && point.y <= box.maxY
+        && pointOnSegment(point, a, b)) return 0;
+      if ((a.y > point.y) !== (b.y > point.y)
+        && point.x < a.x + (point.y - a.y) * (b.x - a.x) / (b.y - a.y)) inside = !inside;
+    }
+    return inside ? 1 : -1;
+  };
 }
 
 /** Split an edge at every boundary crossing/contact, including collinear
@@ -145,7 +165,9 @@ function location(point: WorldVec2, edges: Edge[]): number {
 function intervalMidpoints([a, b]: Edge, boundary: Edge[]): WorldVec2[] {
   const x = b.x - a.x, y = b.y - a.y, length = Math.hypot(x, y), cuts = [0, 1];
   if (length <= WORLD_GEOM_EPS) return [];
+  const padding = WORLD_GEOM_EPS * (1 + Math.max(1, Math.abs(x) + Math.abs(y))) / length;
   for (const [c, d] of boundary) {
+    if (separated(a, b, c, d, padding)) continue;
     for (const p of [c, d]) if (pointOnSegment(p, a, b)) {
       cuts.push(Math.max(0, Math.min(1, ((p.x - a.x) * x + (p.y - a.y) * y) / (length * length))));
     }
@@ -169,8 +191,9 @@ function intervalMidpoints([a, b]: Edge, boundary: Edge[]): WorldVec2[] {
 export function ringContainedBy(inner: WorldVec2[], outer: WorldVec2[]): boolean {
   const boundary = ringEdges(outer);
   if (boundary.length < 3) return false;
-  return ringEdges(inner).every(edge => location(edge[0], boundary) >= 0
-    && intervalMidpoints(edge, boundary).every(point => location(point, boundary) >= 0));
+  const locate = pointLocator(boundary);
+  return ringEdges(inner).every(edge => locate(edge[0]) >= 0
+    && intervalMidpoints(edge, boundary).every(point => locate(point) >= 0));
 }
 
 /** Positive interior intersection, excluding mere shared edges/points. No
@@ -188,16 +211,19 @@ export function ringsOverlap(a: WorldVec2[], b: WorldVec2[]): boolean {
   if (Math.min(first.maxX, second.maxX) - Math.max(first.minX, second.minX) <= WORLD_GEOM_EPS
     || Math.min(first.maxY, second.maxY) - Math.max(first.minY, second.minY) <= WORLD_GEOM_EPS) return false;
   const firstEdges = ringEdges(a), secondEdges = ringEdges(b), sameWinding = Math.sign(ringArea(a)) === Math.sign(ringArea(b));
-  const enters = (edges: Edge[], boundary: Edge[]) => edges.some(edge => intervalMidpoints(edge, boundary).some(point => {
-    const where = location(point, boundary);
-    if (where === 1) return true;
-    if (where !== 0) return false;
-    // Coincident boundaries overlap only when both filled interiors lie on the
-    // same side. This also handles identical rings and reversed winding.
-    const [p, q] = edge;
-    return boundary.some(other => pointOnSegment(point, ...other) && sharedSegmentLength(edge, other) > WORLD_GEOM_EPS
-      && (((q.x - p.x) * (other[1].x - other[0].x) + (q.y - p.y) * (other[1].y - other[0].y) > 0) === sameWinding));
-  }));
+  const enters = (edges: Edge[], boundary: Edge[]) => {
+    const locate = pointLocator(boundary);
+    return edges.some(edge => intervalMidpoints(edge, boundary).some(point => {
+      const where = locate(point);
+      if (where === 1) return true;
+      if (where !== 0) return false;
+      // Coincident boundaries overlap only when both filled interiors lie on the
+      // same side. This also handles identical rings and reversed winding.
+      const [p, q] = edge;
+      return boundary.some(other => pointOnSegment(point, ...other) && sharedSegmentLength(edge, other) > WORLD_GEOM_EPS
+        && (((q.x - p.x) * (other[1].x - other[0].x) + (q.y - p.y) * (other[1].y - other[0].y) > 0) === sameWinding));
+    }));
+  };
   return enters(firstEdges, secondEdges) || enters(secondEdges, firstEdges);
 }
 
