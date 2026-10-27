@@ -1,3 +1,4 @@
+import { registerConstructionQueryTests } from './constructionQueries';
 import { registerBackendScaleTests } from './backendScale';
 import { runDependencyBudgetTests } from './dependencyBudget';
 import { runDependencyHttpTests } from './dependencyHttp';
@@ -3232,6 +3233,7 @@ registerGate1VerticalSlicePersistenceTests({ test });
 registerWorldContentTests({ test });
 registerWorldGeometryBoundaryTests({ test });
 registerBackendScaleTests({ test });
+registerConstructionQueryTests({ test });
 
 registerWorldDefinitionTests({ test });
 

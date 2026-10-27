@@ -11,7 +11,7 @@ import { assessConcretePlanFeasibility } from './concretePlans';
 import { activeOperations } from './operations';
 import { STRATEGIC_PRESSURE_TUNING as T, PROACTIVE_TEMPORAL_RULES as TIME } from '../constants/strategicPressure';
 import { MIN_ATTACKING_TROOPS, armyHasActiveStrategicOperation } from '../army/strategicAttack';
-import { constructionCostEntries, getConstructionProjectDefinition, listConstructionProjectTypes } from '../gameplay/construction/definitions';
+import { constructionCostEntries, getConstructionProjectDefinition, listConstructionProjectTypes, constructionStartProblem } from '../gameplay/construction/definitions';
 import { ECONOMY_CONFIG } from '../gameplay/economy/config';
 import type { TemporalPresence } from '../world/timeToTick';
 import { computeAttackerPower, computeDefenderPower } from '../battle/CombatPower';
@@ -166,7 +166,7 @@ function usefulBuild(state:GameState,fid:string,tid:string,type:ConstructionProj
   const frontier=t.neighboring.some(id=>{ const n=state.territories.get(id);return !!n&&hostile(state,fid,n.owner)&&militaryAt(state,id,n.owner!)>0; });
   if(!frontier) return false;
   if(type==='CITY') return ![...state.cities.values()].some(c=>c.territoryId===tid);
-  try {getConstructionProjectDefinition(type).assertCanStart({state,factionId:fid,territoryId:tid});return true;} catch{return false;}
+  return constructionStartProblem(type,{state,factionId:fid,territoryId:tid})===null;
 }
 /** Observation uses live domain facts and finite prerequisite probes, never
  * scoring, selection RNG, Memory, future battle draws, or a retained wrapper. */

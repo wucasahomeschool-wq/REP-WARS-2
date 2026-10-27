@@ -5,14 +5,14 @@ import {availableStocks,committedTradeReceipts} from './resources';
 import {tradeNode,tradeAcceptanceRoutes} from './policy';
 import {TRADE_TUNING} from '../../constants/trade';
 import {RESOURCE_KEYS,ECONOMY_CONFIG} from '../economy/config';
-import {listConstructionProjectTypes,getConstructionProjectDefinition} from '../construction/definitions';
+import {listConstructionProjectTypes,getConstructionProjectDefinition,constructionStartProblem} from '../construction/definitions';
 /** Factual present-rule demand only. Current bank storage, eligible authored
  * sites and upkeep; no inferred private Goals or future localized warehouses. */
 export function tradeDemand(state:GameState,fid:string) {
   const demand=Object.fromEntries(RESOURCE_KEYS.map(r=>[r,0])) as Record<import('../../types').ResourceType,number>;
   for(const t of state.territories.values())if(t.owner===fid&&!Array.from(state.constructions.values()).some(p=>p.territoryId===t.id&&p.status==='in_progress'))
     for(const kind of listConstructionProjectTypes()) {
-      const d=getConstructionProjectDefinition(kind);try{d.assertCanStart({state,factionId:fid,territoryId:t.id});}catch{continue;}
+      const d=getConstructionProjectDefinition(kind);if(constructionStartProblem(kind,{state,factionId:fid,territoryId:t.id}))continue;
       for(const r of RESOURCE_KEYS)demand[r]=Math.max(demand[r],d.cost[r]??0);
     }
   if((state.worldLevel??0)>=2)demand.food=Math.max(demand.food,(state.factions.get(fid)?.territories.length??0)*ECONOMY_CONFIG.foodPerTerritoryPerCycle);
