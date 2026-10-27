@@ -1,0 +1,549 @@
+{
+  "format": "rep-wars-declined-trade-validation.v1",
+  "parent": "4203a7fd709ddaba1cb000f08d54fb54469a6a3d",
+  "reference": "ce63ad0bd1d74494c0a87f494d65d9efb8d88b25",
+  "branch": "fix/backend-declined-trade-context",
+  "schema": 30,
+  "node": "v24.19.0",
+  "tests": {
+    "focusedPassed": 19,
+    "fullPassed": 2293,
+    "fullFailed": 0,
+    "fullSkipped": 3,
+    "skipReason": "Live Supabase requires explicit non-production opt-in and credentials"
+  },
+  "checks": {
+    "productionTypecheck": "PASS",
+    "testTypecheck": "PASS",
+    "build": "PASS",
+    "diffCheck": "PASS"
+  },
+  "nativeTradeProbes": [
+    {
+      "minimalSurplus": false,
+      "proposalStatus": "declined",
+      "exactCandidateRepeated": true,
+      "claims": 0,
+      "shipments": 0,
+      "publicBytes": 7489,
+      "privateOccurrences": [
+        0,
+        0,
+        0
+      ],
+      "implementation": "parent"
+    },
+    {
+      "minimalSurplus": true,
+      "proposalStatus": "declined",
+      "exactCandidateRepeated": true,
+      "claims": 0,
+      "shipments": 0,
+      "publicBytes": 7489,
+      "privateOccurrences": [
+        0,
+        0,
+        0
+      ],
+      "implementation": "parent"
+    },
+    {
+      "minimalSurplus": false,
+      "proposalStatus": "declined",
+      "exactCandidateRepeated": false,
+      "claims": 0,
+      "shipments": 0,
+      "publicBytes": 7489,
+      "privateOccurrences": [
+        0,
+        0,
+        0
+      ],
+      "implementation": "candidate"
+    },
+    {
+      "minimalSurplus": true,
+      "proposalStatus": "declined",
+      "exactCandidateRepeated": false,
+      "claims": 0,
+      "shipments": 0,
+      "publicBytes": 7489,
+      "privateOccurrences": [
+        0,
+        0,
+        0
+      ],
+      "implementation": "candidate"
+    }
+  ],
+  "worldComparisons": [
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_10_3",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 6,
+          "ATTACK": 8,
+          "MOVE": 1
+        },
+        "resolvedAttacks": 9,
+        "failedAttacks": 3,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 15,
+        "claims": 0,
+        "changedTerritories": 3,
+        "canonicalBytes": 112485,
+        "sha256": "3924296f37b8a4b4b85b97e81364d9b6fb38913e5c104bd8bc4f71e4d8f78644",
+        "elapsedMs": 675,
+        "maxRequestMs": 660,
+        "public100Ms": 3,
+        "publicBytes": 7109,
+        "rssMiB": 1832
+      },
+      "sliced": {
+        "world": "validation_grid_10_3",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 6,
+          "ATTACK": 8,
+          "MOVE": 1
+        },
+        "resolvedAttacks": 9,
+        "failedAttacks": 3,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 15,
+        "claims": 0,
+        "changedTerritories": 3,
+        "canonicalBytes": 112485,
+        "sha256": "3924296f37b8a4b4b85b97e81364d9b6fb38913e5c104bd8bc4f71e4d8f78644",
+        "elapsedMs": 656,
+        "maxRequestMs": 194,
+        "public100Ms": 2,
+        "publicBytes": 7109,
+        "rssMiB": 1833
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_10_3",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 10,
+          "ATTACK": 29,
+          "MOVE": 1
+        },
+        "resolvedAttacks": 31,
+        "failedAttacks": 6,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 40,
+        "claims": 0,
+        "changedTerritories": 7,
+        "canonicalBytes": 272824,
+        "sha256": "8333718911813fe419700dc0e8836c9a8c95a399a6acb7fa6d561f120f838517",
+        "elapsedMs": 613,
+        "maxRequestMs": 596,
+        "public100Ms": 2,
+        "publicBytes": 7016,
+        "rssMiB": 1834
+      },
+      "sliced": {
+        "world": "validation_grid_10_3",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 10,
+          "ATTACK": 29,
+          "MOVE": 1
+        },
+        "resolvedAttacks": 31,
+        "failedAttacks": 6,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 40,
+        "claims": 0,
+        "changedTerritories": 7,
+        "canonicalBytes": 272824,
+        "sha256": "8333718911813fe419700dc0e8836c9a8c95a399a6acb7fa6d561f120f838517",
+        "elapsedMs": 657,
+        "maxRequestMs": 308,
+        "public100Ms": 2,
+        "publicBytes": 7016,
+        "rssMiB": 1834
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_30_5",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 19,
+          "ATTACK": 126,
+          "MOVE": 2
+        },
+        "resolvedAttacks": 186,
+        "failedAttacks": 16,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 147,
+        "claims": 0,
+        "changedTerritories": 24,
+        "canonicalBytes": 1076565,
+        "sha256": "ddb8852879b2e9b31c296e300fc27f6a94c3fc37c58f1ffac3e525eda02b35cf",
+        "elapsedMs": 2839,
+        "maxRequestMs": 2783,
+        "public100Ms": 5,
+        "publicBytes": 15210,
+        "rssMiB": 1837
+      },
+      "sliced": {
+        "world": "validation_grid_30_5",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 19,
+          "ATTACK": 126,
+          "MOVE": 2
+        },
+        "resolvedAttacks": 186,
+        "failedAttacks": 16,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 147,
+        "claims": 0,
+        "changedTerritories": 24,
+        "canonicalBytes": 1076565,
+        "sha256": "ddb8852879b2e9b31c296e300fc27f6a94c3fc37c58f1ffac3e525eda02b35cf",
+        "elapsedMs": 2956,
+        "maxRequestMs": 1313,
+        "public100Ms": 4,
+        "publicBytes": 15210,
+        "rssMiB": 1838
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_30_5",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 18,
+          "ATTACK": 87,
+          "MOVE": 1
+        },
+        "resolvedAttacks": 132,
+        "failedAttacks": 5,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 106,
+        "claims": 0,
+        "changedTerritories": 23,
+        "canonicalBytes": 802483,
+        "sha256": "037c132732d71182ad3682c5d823e4b521af7f3a834715149fd17c9aee0d5499",
+        "elapsedMs": 2123,
+        "maxRequestMs": 2081,
+        "public100Ms": 4,
+        "publicBytes": 15208,
+        "rssMiB": 1838
+      },
+      "sliced": {
+        "world": "validation_grid_30_5",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 18,
+          "ATTACK": 87,
+          "MOVE": 1
+        },
+        "resolvedAttacks": 132,
+        "failedAttacks": 5,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 106,
+        "claims": 0,
+        "changedTerritories": 23,
+        "canonicalBytes": 802483,
+        "sha256": "037c132732d71182ad3682c5d823e4b521af7f3a834715149fd17c9aee0d5499",
+        "elapsedMs": 2275,
+        "maxRequestMs": 968,
+        "public100Ms": 5,
+        "publicBytes": 15208,
+        "rssMiB": 1883
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_50_8",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 26,
+          "ATTACK": 164,
+          "MOVE": 6
+        },
+        "resolvedAttacks": 255,
+        "failedAttacks": 17,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 196,
+        "claims": 0,
+        "changedTerritories": 40,
+        "canonicalBytes": 1486477,
+        "sha256": "a41e4cb4b089fe5e3aab35c1254fd8943277e87a9bef7389b604f2b3c7628b65",
+        "elapsedMs": 6246,
+        "maxRequestMs": 6167,
+        "public100Ms": 9,
+        "publicBytes": 23593,
+        "rssMiB": 1884
+      },
+      "sliced": {
+        "world": "validation_grid_50_8",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 26,
+          "ATTACK": 164,
+          "MOVE": 6
+        },
+        "resolvedAttacks": 255,
+        "failedAttacks": 17,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 196,
+        "claims": 0,
+        "changedTerritories": 40,
+        "canonicalBytes": 1486477,
+        "sha256": "a41e4cb4b089fe5e3aab35c1254fd8943277e87a9bef7389b604f2b3c7628b65",
+        "elapsedMs": 6642,
+        "maxRequestMs": 2354,
+        "public100Ms": 7,
+        "publicBytes": 23593,
+        "rssMiB": 1886
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_50_8",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 24,
+          "ATTACK": 132,
+          "MOVE": 3
+        },
+        "resolvedAttacks": 197,
+        "failedAttacks": 9,
+        "containedInvalidatedAttacks": 1,
+        "foodFailures": 0,
+        "operations": 159,
+        "claims": 0,
+        "changedTerritories": 44,
+        "canonicalBytes": 1235688,
+        "sha256": "2774edd1f3842fd3bea81cbf24a9777350246dfe1266e69c15e4fafca7ace615",
+        "elapsedMs": 3833,
+        "maxRequestMs": 3750,
+        "public100Ms": 6,
+        "publicBytes": 23304,
+        "rssMiB": 1886
+      },
+      "sliced": {
+        "world": "validation_grid_50_8",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 24,
+          "ATTACK": 132,
+          "MOVE": 3
+        },
+        "resolvedAttacks": 197,
+        "failedAttacks": 9,
+        "containedInvalidatedAttacks": 1,
+        "foodFailures": 0,
+        "operations": 159,
+        "claims": 0,
+        "changedTerritories": 44,
+        "canonicalBytes": 1235688,
+        "sha256": "2774edd1f3842fd3bea81cbf24a9777350246dfe1266e69c15e4fafca7ace615",
+        "elapsedMs": 4158,
+        "maxRequestMs": 2015,
+        "public100Ms": 6,
+        "publicBytes": 23304,
+        "rssMiB": 1887
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_50_8",
+        "seed": 11,
+        "ticks": 1440,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 26,
+          "ATTACK": 200,
+          "MOVE": 6,
+          "REINFORCE": 9,
+          "OFFER_PEACE": 15
+        },
+        "resolvedAttacks": 310,
+        "failedAttacks": 18,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 18,
+        "operations": 256,
+        "claims": 0,
+        "changedTerritories": 42,
+        "canonicalBytes": 1868216,
+        "sha256": "eca32d4cb09327ba4a4bcc1d31da19e708628a6a86bb49d6a6c4b8e2a3824da1",
+        "elapsedMs": 32509,
+        "maxRequestMs": 32412,
+        "public100Ms": 8,
+        "publicBytes": 26454,
+        "rssMiB": 1897
+      },
+      "sliced": {
+        "world": "validation_grid_50_8",
+        "seed": 11,
+        "ticks": 1440,
+        "maxCatchUpChunks": 1,
+        "requests": 23,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 26,
+          "ATTACK": 200,
+          "MOVE": 6,
+          "REINFORCE": 9,
+          "OFFER_PEACE": 15
+        },
+        "resolvedAttacks": 310,
+        "failedAttacks": 18,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 18,
+        "operations": 256,
+        "claims": 0,
+        "changedTerritories": 42,
+        "canonicalBytes": 1868216,
+        "sha256": "eca32d4cb09327ba4a4bcc1d31da19e708628a6a86bb49d6a6c4b8e2a3824da1",
+        "elapsedMs": 34370,
+        "maxRequestMs": 2479,
+        "public100Ms": 8,
+        "publicBytes": 26454,
+        "rssMiB": 1968
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_50_8",
+        "seed": 29,
+        "ticks": 1440,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 24,
+          "ATTACK": 132,
+          "MOVE": 3
+        },
+        "resolvedAttacks": 197,
+        "failedAttacks": 9,
+        "containedInvalidatedAttacks": 1,
+        "foodFailures": 17,
+        "operations": 159,
+        "claims": 0,
+        "changedTerritories": 44,
+        "canonicalBytes": 1305627,
+        "sha256": "b8fc5968baceacf5e13d3a40d0a775e63ede0124aa5dc64d1994e336b7e8feb2",
+        "elapsedMs": 9043,
+        "maxRequestMs": 8953,
+        "public100Ms": 6,
+        "publicBytes": 23306,
+        "rssMiB": 1970
+      },
+      "sliced": {
+        "world": "validation_grid_50_8",
+        "seed": 29,
+        "ticks": 1440,
+        "maxCatchUpChunks": 1,
+        "requests": 23,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 24,
+          "ATTACK": 132,
+          "MOVE": 3
+        },
+        "resolvedAttacks": 197,
+        "failedAttacks": 9,
+        "containedInvalidatedAttacks": 1,
+        "foodFailures": 17,
+        "operations": 159,
+        "claims": 0,
+        "changedTerritories": 44,
+        "canonicalBytes": 1305627,
+        "sha256": "b8fc5968baceacf5e13d3a40d0a775e63ede0124aa5dc64d1994e336b7e8feb2",
+        "elapsedMs": 10378,
+        "maxRequestMs": 2010,
+        "public100Ms": 6,
+        "publicBytes": 23306,
+        "rssMiB": 1976
+      }
+    }
+  ],
+  "canonicalHashesMatchingParent": 16,
+  "notes": [
+    "Earlier temporary logs were lost on environment restart. These probes, focused tests, typechecks, build and full suite were rerun.",
+    "Sandboxed full test invocation failed at loopback listen EPERM. The permitted invocation completed.",
+    "Public probe uses the actual public serializer; full HTTP privacy coverage is in the full suite.",
+    "Load fixtures have no Trade operations; exact-decline behavior is proven by native focused probes, not by unchanged load hashes.",
+    "No hosted CI, live database, Unity, deployment or balance claim."
+  ]
+}

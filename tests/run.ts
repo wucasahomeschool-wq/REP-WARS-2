@@ -1,3 +1,4 @@
+import { registerDeclinedTradeTests } from './declinedTradeContext';
 import { registerConstructionQueryTests } from './constructionQueries';
 import { registerBackendScaleTests } from './backendScale';
 import { runDependencyBudgetTests } from './dependencyBudget';
@@ -3234,6 +3235,7 @@ registerWorldContentTests({ test });
 registerWorldGeometryBoundaryTests({ test });
 registerBackendScaleTests({ test });
 registerConstructionQueryTests({ test });
+registerDeclinedTradeTests({ test });
 
 registerWorldDefinitionTests({ test });
 

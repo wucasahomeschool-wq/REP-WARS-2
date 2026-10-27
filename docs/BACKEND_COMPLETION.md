@@ -212,3 +212,9 @@ Final combined validation for that phase: **2,268 passed / 0 failed / 3 explicit
 ## Construction observation performance (2026-10-27)
 
 `perf/backend-construction-queries` reuses the archived pure construction prerequisite query after reproducing the current allocation defect and proving current-parent behavior equivalence. Three production files change; authoritative command errors, costs, slots, reservations, timing, AI eligibility/scoring and schema remain unchanged. Six new tests pass; the full suite completes with **2,274 passed / 0 failed / 3 live-Supabase skips**. All 16 larger-world canonical hashes match the prior checkpoint. See `BACKEND_CONSTRUCTION_QUERIES.md` and `BACKEND_CONSTRUCTION_QUERY_VALIDATION.json` for exact evidence and measured timings. The archived broader MOVE/Trade/military branch is not merged or implicitly adopted.
+
+## Declined Trade continuation (2026-10-27)
+
+The recovered AI-SIM evidence enabled a current-code reproduction of an unchanged exact offer becoming immediately available after a real required-response decline. `fix/backend-declined-trade-context` ports only the approved context predicate/filter, preserving explicit offers, alternative exchanges, physical cargo, native settlement and private-recipient boundaries. It adds no cooldown, acceptance change or AI weight. See `BACKEND_DECLINED_TRADE_CONTEXT.md` for validation and enum-reader compatibility. This is separate from any integration of the historical military or MOVE policy.
+
+Final Trade validation: **2,293 passed / 0 failed / 3 live-Supabase skips**, including 19 new focused regressions; both typechecks and build pass. Native parent/current probes reproduce and correct both ordinary and all-surplus declined offers. All 16 load-case canonical hashes match the parent.

@@ -1,3 +1,4 @@
+import { unchangedTradeDecline } from '../gameplay/trade/declinedContext';
 import {goalMatchesSource} from '../cognition/goals';
 import {tradeCandidates,observableTradeCounterparties} from '../gameplay/trade/candidates';
 import { reinforcementQuantities, availableLocalTroops } from '../gameplay/recruitment/reinforcement';
@@ -108,6 +109,8 @@ export function inspectSourceActionability(state: GameState, source: AISourceCon
   const blockers: AISourceContext['blockers']=[];
   const feasible: AIConcretePlan[]=[];
   for (const plan of predicates) {
+    const decline=plan.action==='TRADE'?unchangedTradeDecline(state,plan,source.blockers):null;
+    if(decline){blockers.push({plan,reasons:[decline]});continue;}
     const result=assessConcretePlanFeasibility(plan,snapshot);
     if (result.feasible) feasible.push(plan);
     else blockers.push({plan,reasons:result.rejections});
@@ -236,9 +239,12 @@ export function observeSources(state:GameState,fid:string,metrics?:AIPressureMet
   for(const spec of fresh) {
     const existing=state.aiPressure.get(spec.id);const s=existing??spec;
     const probe=inspectSourceActionability(state,s);
-    const signature=JSON.stringify([probe.predicates.map(p=>p.id),
+    const parts:unknown[]=[probe.predicates.map(p=>p.id),
       s.domain==='MILITARY_INITIATIVE'?[Math.floor(((state.territories.get(s.subjectId)?.garrison??0)
-        +militaryAt(state,s.subjectId,s.counterpartyId!))/Math.max(1,MIN_ATTACKING_TROOPS)),state.territories.get(s.subjectId)?.fortification]:null]);
+        +militaryAt(state,s.subjectId,s.counterpartyId!))/Math.max(1,MIN_ATTACKING_TROOPS)),state.territories.get(s.subjectId)?.fortification]:null];
+    const declined=probe.blockers.filter(b=>b.reasons.some(r=>r.kind==='CONTEXT')).map(b=>[b.plan.id,b.reasons]);
+    if(declined.length)parts.push(declined); // Existing signatures stay identical without a decline.
+    const signature=JSON.stringify(parts);
     if(!existing) {state.aiPressure.set(s.id,s);if(metrics)metrics.sourceCreated++;}
     else if(signature!==s.materialSignature) {s.revision++;if(metrics)metrics.materialUpdates++;}
     s.materialSignature=signature;

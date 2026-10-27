@@ -60,7 +60,7 @@ export function pressureStateProblems(state:GameState):string[] {
       ||typeof s.blocked!=='boolean'||!Array.isArray(s.blockers)) {errors.push(`Invalid source ${id}`);continue;}
     try {sourceParts(id);}catch{errors.push(`Invalid semantic source ${id}`);}
     for(const b of s.blockers) if(!b||typeof b!=='object'||concretePlanProblem(b.plan)||b.plan.factionId!==s.factionId||b.plan.action==='WAIT'
-      ||!Array.isArray(b.reasons)||!b.reasons.length||b.reasons.some(r=>!r||!['LEGALITY','CLAIM','COMPATIBILITY','ATTENTION'].includes(r.kind)))errors.push(`Invalid complete-candidate blocker ${id}`);
+      ||!Array.isArray(b.reasons)||!b.reasons.length||b.reasons.some(r=>!r||typeof r.reason!=='string'||!['LEGALITY','CLAIM','COMPATIBILITY','ATTENTION','CONTEXT'].includes(r.kind)))errors.push(`Invalid complete-candidate blocker ${id}`);
   }
   for(const op of activeOperations(state))if(op.initiationTimer)timer(op.initiationTimer);
   for(const [fid,o] of state.aiDecisionOpportunities??[]) {

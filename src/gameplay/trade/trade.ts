@@ -1,3 +1,4 @@
+import {rememberDeclinedTrade} from './declinedContext';
 import { registerRequiredResponse, settleReadyRequiredResponses } from '../../engine/nonProactiveCognition';
 import { invalidateProposalResponse, markResponseWorldChanged } from '../../engine/responseRecords';
 import {applyOpinionEvent} from '../../cognition/opinion';
@@ -80,6 +81,7 @@ export function settleTradeProposal(s:GameState,id:string,status:Exclude<TradePr
   p.status=status;p.resolvedAtMs=s.aiClock.nowMs;p.responseTimer=null;
   const released=tradeResourceClaims(p.plan,p.operationId).length;
   if(!settleOperation(s,p.operationId,status==='accepted'?'completed':'failed',`Trade proposal ${status}`))throw new Error('Trade proposal lost owning operation');
+  if(status==='declined')rememberDeclinedTrade(s,p);
   s.tradeProposals.set(id,p);if(m){m.reservationsReleased+=released;if(status==='declined')m.declines++;if(status==='counteroffered')m.counteroffers++;}
   record(s,id,status,p.proposer,p.recipient,m);return true;
 }

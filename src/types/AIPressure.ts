@@ -17,7 +17,7 @@ export interface AISourceContext {
  * The exact plan parameters are predicate references, never cached legality. */
 export interface SourceBlocker {
   plan: AIConcretePlan;
-  reasons: { kind: 'LEGALITY'|'CLAIM'|'COMPATIBILITY'|'ATTENTION'; reason: string }[];
+  reasons: { kind: 'LEGALITY'|'CLAIM'|'COMPATIBILITY'|'ATTENTION'|'CONTEXT'; reason: string }[];
 }
 export type CognitionOutcome = 'NO_ACTIONABLE_PLAN' | 'CONTEXT_INVALIDATED';
 export interface ProactiveTimer {
