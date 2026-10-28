@@ -1,3 +1,4 @@
+import {registerStrategicAccessTests} from './strategicAccess';
 import { registerDeclinedTradeTests } from './declinedTradeContext';
 import { registerConstructionQueryTests } from './constructionQueries';
 import { registerBackendScaleTests } from './backendScale';
@@ -3236,6 +3237,7 @@ registerWorldGeometryBoundaryTests({ test });
 registerBackendScaleTests({ test });
 registerConstructionQueryTests({ test });
 registerDeclinedTradeTests({ test });
+registerStrategicAccessTests({test});
 
 registerWorldDefinitionTests({ test });
 

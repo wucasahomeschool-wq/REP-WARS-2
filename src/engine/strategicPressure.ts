@@ -1,3 +1,4 @@
+import { strategicAccessOpportunity } from '../army/strategicAccess';
 import { unchangedTradeDecline } from '../gameplay/trade/declinedContext';
 import {goalMatchesSource} from '../cognition/goals';
 import {tradeCandidates,observableTradeCounterparties} from '../gameplay/trade/candidates';
@@ -27,7 +28,8 @@ export function factionCanObserve(state: GameState, id: string): boolean {
 }
 /** Exact, finite source scope. Military: every local force with immediate or one
  * owned staging hop to this target, plus MOVE only toward that staging site.
- * Positioning: only the exposed force / local forces adjacent to the coverage gap.
+ * Positioning: exposed/local coverage forces, or one adjacent owned-route step
+ * for a field force with a credible distant hostile frontier.
  * Development: exactly the indicated site/type. Unsupported domains have no plans. */
 export function sourcePlanPredicates(state: GameState, source: AISourceContext): AIConcretePlan[] {
   const plans = new Map<string,AIConcretePlan>();
@@ -46,6 +48,12 @@ export function sourcePlanPredicates(state: GameState, source: AISourceContext):
   if(source.domain==='TRADE_ECONOMIC')return source.counterpartyId?tradeCandidates(state,fid,source.counterpartyId,source.id):[];
   if(source.domain==='DIPLOMACY_PEACE') {
     if(source.counterpartyId)add({action:'OFFER_PEACE',factionId:fid,counterpartyId:source.counterpartyId});
+    return [...plans.values()];
+  }
+  if(source.kind==='STRATEGIC_ACCESS') {
+    const access=strategicAccessOpportunity(state,fid,source.subjectId),army=state.armies.get(source.subjectId);
+    if(access&&army&&access.counterpartyId===source.counterpartyId)add({action:'MOVE',factionId:fid,armyId:army.id,
+      originTerritoryId:army.location,destinationTerritoryId:access.nextTerritoryId,route:[army.location,access.nextTerritoryId]});
     return [...plans.values()];
   }
   const subject=state.territories.get(source.subjectId);
@@ -204,6 +212,10 @@ export function deriveSources(state:GameState,fid:string,atMs:number):AISourceCo
   }
   for(const a of state.armies.values()) if(a.owner===fid && hostile(state,fid,state.territories.get(a.location)?.owner??null))
     add({domain:'FORCE_POSITIONING',kind:'EXPOSED_FORCE',subjectId:a.id});
+  for(const a of state.armies.values()) if(a.owner===fid) {
+    const access=strategicAccessOpportunity(state,fid,a.id);
+    if(access)add({domain:'FORCE_POSITIONING',kind:'STRATEGIC_ACCESS',subjectId:a.id,counterpartyId:access.counterpartyId});
+  }
   const tradeCounterparties=new Set(observableTradeCounterparties(state,fid));
   const f=state.factions.get(fid)!;
   for(const other of state.factions.values()) if(other.id!==fid && f.knownFactions.includes(other.id)) {

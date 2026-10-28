@@ -218,3 +218,9 @@ Final combined validation for that phase: **2,268 passed / 0 failed / 3 explicit
 The recovered AI-SIM evidence enabled a current-code reproduction of an unchanged exact offer becoming immediately available after a real required-response decline. `fix/backend-declined-trade-context` ports only the approved context predicate/filter, preserving explicit offers, alternative exchanges, physical cargo, native settlement and private-recipient boundaries. It adds no cooldown, acceptance change or AI weight. See `BACKEND_DECLINED_TRADE_CONTEXT.md` for validation and enum-reader compatibility. This is separate from any integration of the historical military or MOVE policy.
 
 Final Trade validation: **2,293 passed / 0 failed / 3 live-Supabase skips**, including 19 new focused regressions; both typechecks and build pass. Native parent/current probes reproduce and correct both ordinary and all-surplus declined offers. All 16 load-case canonical hashes match the parent.
+
+## Distant-army access continuation
+
+The Trade checkpoint is preserved at `a033904b120a4dc9b7c4af6eebf9df170fb8c369` on GitHub. The next isolated `fix/backend-strategic-access` phase reproduces the archived rear-army gap on the current schema-30 runtime and selectively integrates reviewed owned-route discovery, one adjacent MOVE and its factual access evaluation. It preserves current formation, reservations, clocks, combat and scoring constants. See `BACKEND_STRATEGIC_ACCESS.md` for source provenance, validation and limits.
+
+Final strategic-access validation: **2,305 passed / 0 failed / 3 credential-gated skips**, production/test TypeScript and build pass, 12 focused regressions and a native arrival/terminal-retry probe pass. Eight larger-world cases preserve exact canonical equality across chunk sizes/reloads. Increased activity and runtime are reported rather than treated as automatic strategic improvement. See `BACKEND_STRATEGIC_ACCESS_VALIDATION.json`.

@@ -1,3 +1,4 @@
+import { ownedTravel } from '../army/strategicAccess';
 import type { Army, ResourceType } from '../types';
 import { soldierForce } from '../army/soldierForce';
 import {CONFLICT_TUNING as C} from '../constants/conflict';
@@ -163,8 +164,8 @@ export class StrategicEvaluators {
         ['Exact local pool availability minus canonical quantity claims','LOCAL_DANGER factual shortfall','CombatPower marginal soldiers','BATTLE_OUTLOOK target-bound preparation'],contingentFacts);
     });
   }
-  forcePositionValue(factionId:string,armyId:string,territoryId:string,baselineTerritoryId:string) {
-    return this.memo('FORCE_POSITION_VALUE',[factionId,armyId,territoryId,baselineTerritoryId],()=>{
+  forcePositionValue(factionId:string,armyId:string,territoryId:string,baselineTerritoryId:string,strategicTargetTerritoryId?:string) {
+    return this.memo('FORCE_POSITION_VALUE',[factionId,armyId,territoryId,baselineTerritoryId,strategicTargetTerritoryId??null],()=>{
       const a=this.support.armies.get(armyId)!;
       const usefulness=(id:string,arrivalTicks:number)=>{
         const t=this.support.territories.get(id)!;
@@ -177,10 +178,21 @@ export class StrategicEvaluators {
           const responseTicks=arrivalTicks+this.support.logistics([id,n]).timing.remainingTicks;
           return sum+(danger.earliestThreatTicks===null||responseTicks<=danger.earliestThreatTicks?Math.min(power,danger.shortfall)/(1+responseTicks):0);
         },0);
-        const access=t.neighboring.filter(n=>this.support.hostile(factionId,this.support.territories.get(n)?.owner??null)).reduce((sum,n)=>{
+        let access=t.neighboring.filter(n=>this.support.hostile(factionId,this.support.territories.get(n)?.owner??null)).reduce((sum,n)=>{
           const outlook=this.battleOutlook(armyId,n).facts;
           return sum+Math.max(0,outlook.relativeAdvantage)*T.powerScale/(1+this.support.logistics([id,n]).timing.remainingTicks);
         },0);
+        if(strategicTargetTerritoryId) {
+          const target=this.support.territories.get(strategicTargetTerritoryId);
+          const travel=ownedTravel(this.support.territories,factionId,id,(from,to)=>this.support.logistics([from.id,to.id]).timing.remainingTicks);
+          const frontiers=target?.neighboring.filter(n=>this.support.territories.get(n)?.owner===factionId&&travel.distance.has(n))??[];
+          const remaining=frontiers.length?Math.min(...frontiers.map(n=>travel.distance.get(n)!)):Infinity;
+          const outlook=target?this.battleOutlook(armyId,target.id).facts:null;
+          // Same units as coverage/response: usable physical force capacity,
+          // discounted by remaining authoritative travel. No Goal or flat bonus.
+          // This replaces, never adds to, the source's offensive access term.
+          access=outlook&&Number.isFinite(remaining)?Math.max(0,outlook.attackerEffectiveStrength-outlook.defenderEffectiveStrength)/(1+remaining):0;
+        }
         return {coverage,response,access,arrivalTicks,total:coverage+response+access};
       };
       const arrival=territoryId===baselineTerritoryId?0:this.support.logistics([baselineTerritoryId,territoryId]).timing.remainingTicks;

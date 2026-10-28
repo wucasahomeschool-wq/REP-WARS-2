@@ -3,7 +3,7 @@ import type { ActivityTemporalProgress } from '../world/timeToTick';
 import type { WorldAccrualState } from '../world/temporalBoundaries';
 export const PRESSURE_DOMAINS = ['MILITARY_INITIATIVE','FORCE_POSITIONING','DEVELOPMENT','DIPLOMACY_PEACE','TRADE_ECONOMIC'] as const;
 export type PressureDomain = typeof PRESSURE_DOMAINS[number];
-export type SourceKind = 'HOSTILE_OPPORTUNITY' | 'EXPOSED_FORCE' | 'COVERAGE_GAP' | 'PRODUCTIVE_DEVELOPMENT' | 'FRONTIER_DEVELOPMENT' | 'WAR_BURDEN' | 'RESOURCE_EXCHANGE';
+export type SourceKind = 'HOSTILE_OPPORTUNITY' | 'EXPOSED_FORCE' | 'COVERAGE_GAP' | 'STRATEGIC_ACCESS' | 'PRODUCTIVE_DEVELOPMENT' | 'FRONTIER_DEVELOPMENT' | 'WAR_BURDEN' | 'RESOURCE_EXCHANGE';
 /** Semantic references, not copies of world entities or a second reasoning authority. */
 export interface AISourceContext {
   id: string; factionId: string; domain: PressureDomain; kind: SourceKind;

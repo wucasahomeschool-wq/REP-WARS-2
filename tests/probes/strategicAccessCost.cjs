@@ -1,0 +1,5 @@
+const root=process.cwd(),access=require(root+'/src/army/strategicAccess');
+const stats={};for(const key of ['strategicAccessOpportunity','ownedTravel']){const original=access[key];stats[key]={calls:0,elapsedMs:0};access[key]=function(...args){const t=performance.now();stats[key].calls++;try{return original(...args);}finally{stats[key].elapsedMs+=performance.now()-t;}};}
+const {createScaleWorld,runScaleWorld}=require(root+'/tests/backendScale');
+const expected=process.argv[2],definition=createScaleWorld(50,8);require(root+'/src/worldDefinition/catalog').getDefaultWorldCatalog().register(definition);
+runScaleWorld(definition,29,100,1440).then(r=>{if(expected&&r.metrics.sha256!==expected)throw Error('instrumentation changed canonical state');console.log(JSON.stringify({metrics:r.metrics,queries:stats,note:'Function wall time includes GC and instrumentation; internal lexical ownedTravel calls are included in strategicAccessOpportunity, not separately counted. This is not an isolated production throughput measurement.'},null,2));}).catch(e=>{console.error(e);process.exitCode=1;});

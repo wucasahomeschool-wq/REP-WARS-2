@@ -1,3 +1,4 @@
+import { strategicAccessOpportunity } from '../army/strategicAccess';
 import {bundleEntries} from '../gameplay/trade/resources';
 import {TRADE_TUNING} from '../constants/trade';
 import {tradeRoute} from '../gameplay/trade/policy';
@@ -80,7 +81,8 @@ export class ContextPlanComparator {
       add('initiation:time','TIMING_SUPPORT','timeliness',-saturatingMagnitude(march,T.timingScaleTicks)*T.timingWeight,'Authored staging travel only; engagement resolution is contingent');
     } else if(plan.action==='MOVE'||plan.action==='RETREAT') {
       const dest=plan.action==='MOVE'?plan.destinationTerritoryId:plan.fallbackTerritoryId;
-      const position=evaluators.forcePositionValue(plan.factionId,plan.armyId,dest,plan.originTerritoryId);
+      const target=source.kind==='STRATEGIC_ACCESS'?strategicAccessOpportunity(state,plan.factionId,plan.armyId)?.targetTerritoryId:undefined;
+      const position=evaluators.forcePositionValue(plan.factionId,plan.armyId,dest,plan.originTerritoryId,target);
       const time=evaluators.support.logistics(plan.route).timing;
       const before=evaluators.localDanger(plan.factionId,plan.originTerritoryId),after=evaluators.localDanger(plan.factionId,dest,undefined,plan.armyId,time.remainingTicks);
       assessments.push(position,before,after);
