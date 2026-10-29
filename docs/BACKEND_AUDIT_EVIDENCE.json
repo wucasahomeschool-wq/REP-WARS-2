@@ -1,0 +1,3341 @@
+{
+  "audit": "Rep Wars comprehensive backend completion audit",
+  "auditedCommit": "e3f1781f8a53424462fabbd943cc01b0e2725154",
+  "auditedParent": "c9473107bbd5281d011480dc3fe3ff1a207c9688",
+  "schemaVersion": 31,
+  "recordedAtUtc": "2026-10-29T20:51:40.700522+00:00",
+  "userTimezone": "America/Denver",
+  "auditDate": "2026-10-29",
+  "repository": "https://github.com/wucasahomeschool-wq/REP-WARS-2.git",
+  "sourceBranch": "feat/backend-gameplay-contracts",
+  "auditBranch": "audit/backend-completion-20261029",
+  "worktree": "/workspace/REP-WARS-2-COMPLETION-AUDIT",
+  "scope": "Read-only production audit; only five audit documentation files authored. No production/test/content/Unity changes; no deployment/database writes.",
+  "environment": {
+    "node": "v24.19.0",
+    "kernel": "Linux 6.18.55 x86_64",
+    "visibleCpus": 5,
+    "database": "in-memory adapters and SQL/HTTP fakes; no external database used",
+    "unityRuntimeExecuted": false,
+    "dependencies": "Ignored symlink to existing installed node_modules in strategic-access worktree"
+  },
+  "commands": [
+    {
+      "command": "npm test",
+      "result": "COMPLETED; final summary 2347 passed, 0 failed, 3 skipped",
+      "passed": 2347,
+      "failed": 0,
+      "skipped": 3,
+      "scope": "Unmodified complete tests/run.ts on final source, localhost HTTP permitted",
+      "historicalComparison": "Prior report full2340 + seven supplemental focused tests; current run includes all42 gameplay-contract tests from start."
+    },
+    {
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "diagnostics": 0
+    },
+    {
+      "command": "npm run typecheck:tests",
+      "exitCode": 0,
+      "diagnostics": 0,
+      "note": "Earlier historical28 diagnostics are not present at this checkpoint."
+    },
+    {
+      "command": "npm run build",
+      "exitCode": 0
+    },
+    {
+      "command": "node /tmp/backend-completion-audit/probes.cjs",
+      "exitCode": 0,
+      "kind": "Independent HTTP/domain observations, not counted as authored test passes"
+    },
+    {
+      "command": "node /tmp/backend-completion-audit/cross-system-probes.cjs",
+      "exitCode": 0,
+      "kind": "Independent tutorial and event/hydration observations; final corrected fixturebank500"
+    },
+    {
+      "command": "node /tmp/backend-completion-audit/arrival-events.cjs",
+      "exitCode": 0,
+      "kind": "Independent authoritative arrival and100 event-turn probes"
+    }
+  ],
+  "skippedTests": [
+    "· SKIP live Supabase save and reload when credentials are configured: live Supabase tests require explicit non-production opt-in",
+    "· SKIP live atomic commit rolls both tables back together: live Supabase tests require explicit non-production opt-in",
+    "· SKIP live supabase server restart restores the empire: live Supabase tests require explicit non-production opt-in"
+  ],
+  "simulations": [
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_10_3",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 7,
+          "ATTACK": 8,
+          "MOVE": 1,
+          "REINFORCE": 3
+        },
+        "resolvedAttacks": 9,
+        "failedAttacks": 3,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 19,
+        "claims": 0,
+        "changedTerritories": 3,
+        "canonicalBytes": 117087,
+        "sha256": "8eafe986a2ae7cc26ff54f393737cd65a0bea47c1b8be55e18c89ae7d32726e2",
+        "elapsedMs": 2059,
+        "maxRequestMs": 2047,
+        "public100Ms": 3,
+        "publicBytes": 7271,
+        "rssMiB": 1084
+      },
+      "sliced": {
+        "world": "validation_grid_10_3",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 7,
+          "ATTACK": 8,
+          "MOVE": 1,
+          "REINFORCE": 3
+        },
+        "resolvedAttacks": 9,
+        "failedAttacks": 3,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 19,
+        "claims": 0,
+        "changedTerritories": 3,
+        "canonicalBytes": 117087,
+        "sha256": "8eafe986a2ae7cc26ff54f393737cd65a0bea47c1b8be55e18c89ae7d32726e2",
+        "elapsedMs": 2011,
+        "maxRequestMs": 397,
+        "public100Ms": 3,
+        "publicBytes": 7271,
+        "rssMiB": 1085
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_10_3",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 7,
+          "ATTACK": 8,
+          "MOVE": 1,
+          "REINFORCE": 1
+        },
+        "resolvedAttacks": 10,
+        "failedAttacks": 2,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 17,
+        "claims": 2,
+        "changedTerritories": 6,
+        "canonicalBytes": 146471,
+        "sha256": "6c462da36124a9b1b2e20eaf2870a5c75f1489769d346dcbcb1dd00dff917a70",
+        "elapsedMs": 292,
+        "maxRequestMs": 276,
+        "public100Ms": 3,
+        "publicBytes": 7107,
+        "rssMiB": 1117
+      },
+      "sliced": {
+        "world": "validation_grid_10_3",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 7,
+          "ATTACK": 8,
+          "MOVE": 1,
+          "REINFORCE": 1
+        },
+        "resolvedAttacks": 10,
+        "failedAttacks": 2,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 17,
+        "claims": 2,
+        "changedTerritories": 6,
+        "canonicalBytes": 146471,
+        "sha256": "6c462da36124a9b1b2e20eaf2870a5c75f1489769d346dcbcb1dd00dff917a70",
+        "elapsedMs": 406,
+        "maxRequestMs": 337,
+        "public100Ms": 3,
+        "publicBytes": 7107,
+        "rssMiB": 1117
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_30_5",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 19,
+          "ATTACK": 22,
+          "REINFORCE": 1
+        },
+        "resolvedAttacks": 31,
+        "failedAttacks": 4,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 42,
+        "claims": 6,
+        "changedTerritories": 16,
+        "canonicalBytes": 377734,
+        "sha256": "beaec3008701d99bebb21ccb3f30a3aa3dad2232eb1525297a633f69440f3af4",
+        "elapsedMs": 1258,
+        "maxRequestMs": 1232,
+        "public100Ms": 5,
+        "publicBytes": 15879,
+        "rssMiB": 1119
+      },
+      "sliced": {
+        "world": "validation_grid_30_5",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 19,
+          "ATTACK": 22,
+          "REINFORCE": 1
+        },
+        "resolvedAttacks": 31,
+        "failedAttacks": 4,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 42,
+        "claims": 6,
+        "changedTerritories": 16,
+        "canonicalBytes": 377734,
+        "sha256": "beaec3008701d99bebb21ccb3f30a3aa3dad2232eb1525297a633f69440f3af4",
+        "elapsedMs": 1262,
+        "maxRequestMs": 1144,
+        "public100Ms": 5,
+        "publicBytes": 15879,
+        "rssMiB": 1120
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_30_5",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 18,
+          "ATTACK": 31
+        },
+        "resolvedAttacks": 45,
+        "failedAttacks": 4,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 49,
+        "claims": 6,
+        "changedTerritories": 13,
+        "canonicalBytes": 433788,
+        "sha256": "3ec3197523fbc361813d046d6497e3befe8af3a86369b3cc599ba8b2c548f33b",
+        "elapsedMs": 896,
+        "maxRequestMs": 865,
+        "public100Ms": 5,
+        "publicBytes": 15879,
+        "rssMiB": 1120
+      },
+      "sliced": {
+        "world": "validation_grid_30_5",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 18,
+          "ATTACK": 31
+        },
+        "resolvedAttacks": 45,
+        "failedAttacks": 4,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 49,
+        "claims": 6,
+        "changedTerritories": 13,
+        "canonicalBytes": 433788,
+        "sha256": "3ec3197523fbc361813d046d6497e3befe8af3a86369b3cc599ba8b2c548f33b",
+        "elapsedMs": 1025,
+        "maxRequestMs": 850,
+        "public100Ms": 5,
+        "publicBytes": 15879,
+        "rssMiB": 1121
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_50_8",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 69,
+          "ATTACK": 100,
+          "MOVE": 5,
+          "REINFORCE": 31
+        },
+        "resolvedAttacks": 144,
+        "failedAttacks": 14,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 205,
+        "claims": 1,
+        "changedTerritories": 40,
+        "canonicalBytes": 1131812,
+        "sha256": "513ca18a3bb9e0a8d70695104881227d28dc16c3047524ef206b108a6f49dbb1",
+        "elapsedMs": 11621,
+        "maxRequestMs": 11558,
+        "public100Ms": 6,
+        "publicBytes": 24341,
+        "rssMiB": 1124
+      },
+      "sliced": {
+        "world": "validation_grid_50_8",
+        "seed": 11,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 69,
+          "ATTACK": 100,
+          "MOVE": 5,
+          "REINFORCE": 31
+        },
+        "resolvedAttacks": 144,
+        "failedAttacks": 14,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 205,
+        "claims": 1,
+        "changedTerritories": 40,
+        "canonicalBytes": 1131812,
+        "sha256": "513ca18a3bb9e0a8d70695104881227d28dc16c3047524ef206b108a6f49dbb1",
+        "elapsedMs": 12209,
+        "maxRequestMs": 4183,
+        "public100Ms": 7,
+        "publicBytes": 24341,
+        "rssMiB": 1159
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_50_8",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 31,
+          "ATTACK": 41,
+          "MOVE": 3,
+          "REINFORCE": 7
+        },
+        "resolvedAttacks": 59,
+        "failedAttacks": 7,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 82,
+        "claims": 14,
+        "changedTerritories": 24,
+        "canonicalBytes": 646355,
+        "sha256": "03764ae07386448757ef81d7382e821685f3856f9169d53636c777e6518b6272",
+        "elapsedMs": 2232,
+        "maxRequestMs": 2181,
+        "public100Ms": 7,
+        "publicBytes": 24377,
+        "rssMiB": 1159
+      },
+      "sliced": {
+        "world": "validation_grid_50_8",
+        "seed": 29,
+        "ticks": 360,
+        "maxCatchUpChunks": 1,
+        "requests": 6,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 31,
+          "ATTACK": 41,
+          "MOVE": 3,
+          "REINFORCE": 7
+        },
+        "resolvedAttacks": 59,
+        "failedAttacks": 7,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 82,
+        "claims": 14,
+        "changedTerritories": 24,
+        "canonicalBytes": 646355,
+        "sha256": "03764ae07386448757ef81d7382e821685f3856f9169d53636c777e6518b6272",
+        "elapsedMs": 2259,
+        "maxRequestMs": 2056,
+        "public100Ms": 7,
+        "publicBytes": 24377,
+        "rssMiB": 1159
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_50_8",
+        "seed": 11,
+        "ticks": 1440,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 72,
+          "ATTACK": 100,
+          "MOVE": 5,
+          "REINFORCE": 31
+        },
+        "resolvedAttacks": 144,
+        "failedAttacks": 14,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 208,
+        "claims": 0,
+        "changedTerritories": 40,
+        "canonicalBytes": 1134912,
+        "sha256": "27f4734dabebb1473248e7da3a00cfa8600525668b020052849697fdd07d864e",
+        "elapsedMs": 36383,
+        "maxRequestMs": 36322,
+        "public100Ms": 7,
+        "publicBytes": 24343,
+        "rssMiB": 1175
+      },
+      "sliced": {
+        "world": "validation_grid_50_8",
+        "seed": 11,
+        "ticks": 1440,
+        "maxCatchUpChunks": 1,
+        "requests": 23,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 72,
+          "ATTACK": 100,
+          "MOVE": 5,
+          "REINFORCE": 31
+        },
+        "resolvedAttacks": 144,
+        "failedAttacks": 14,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 208,
+        "claims": 0,
+        "changedTerritories": 40,
+        "canonicalBytes": 1134912,
+        "sha256": "27f4734dabebb1473248e7da3a00cfa8600525668b020052849697fdd07d864e",
+        "elapsedMs": 39331,
+        "maxRequestMs": 4037,
+        "public100Ms": 7,
+        "publicBytes": 24343,
+        "rssMiB": 1211
+      }
+    },
+    {
+      "scenario": "authored-grid-load",
+      "whole": {
+        "world": "validation_grid_50_8",
+        "seed": 29,
+        "ticks": 1440,
+        "maxCatchUpChunks": 100,
+        "requests": 1,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 31,
+          "ATTACK": 41,
+          "MOVE": 3,
+          "REINFORCE": 7
+        },
+        "resolvedAttacks": 59,
+        "failedAttacks": 7,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 82,
+        "claims": 14,
+        "changedTerritories": 24,
+        "canonicalBytes": 646358,
+        "sha256": "948190731c9d0fdc3e0bfa0d0c546162b148c63c8786980a5bad5ef0b9dfce4f",
+        "elapsedMs": 2014,
+        "maxRequestMs": 1971,
+        "public100Ms": 6,
+        "publicBytes": 24378,
+        "rssMiB": 1210
+      },
+      "sliced": {
+        "world": "validation_grid_50_8",
+        "seed": 29,
+        "ticks": 1440,
+        "maxCatchUpChunks": 1,
+        "requests": 23,
+        "reportedDecisions": {},
+        "operationsByAction": {
+          "BUILD": 31,
+          "ATTACK": 41,
+          "MOVE": 3,
+          "REINFORCE": 7
+        },
+        "resolvedAttacks": 59,
+        "failedAttacks": 7,
+        "containedInvalidatedAttacks": 0,
+        "foodFailures": 0,
+        "operations": 82,
+        "claims": 14,
+        "changedTerritories": 24,
+        "canonicalBytes": 646358,
+        "sha256": "948190731c9d0fdc3e0bfa0d0c546162b148c63c8786980a5bad5ef0b9dfce4f",
+        "elapsedMs": 2807,
+        "maxRequestMs": 1990,
+        "public100Ms": 10,
+        "publicBytes": 24378,
+        "rssMiB": 1228
+      }
+    },
+    {
+      "scenario": "legacy-ai-only",
+      "seed": 11,
+      "replay": 0,
+      "ticks": 1440,
+      "elapsedMs": 1945,
+      "sha256": "2bcb6eeb1c0ed94ee2b24e2fd74f4efa29197f45844b4803d476c6f6cb7400b1",
+      "bytes": 1460104,
+      "battles": 3,
+      "failedAttacks": 0,
+      "operations": 3
+    },
+    {
+      "scenario": "legacy-ai-only",
+      "seed": 11,
+      "replay": 1,
+      "ticks": 1440,
+      "elapsedMs": 1643,
+      "sha256": "2bcb6eeb1c0ed94ee2b24e2fd74f4efa29197f45844b4803d476c6f6cb7400b1",
+      "bytes": 1460104,
+      "battles": 3,
+      "failedAttacks": 0,
+      "operations": 3
+    },
+    {
+      "scenario": "legacy-ai-only",
+      "seed": 29,
+      "replay": 0,
+      "ticks": 1440,
+      "elapsedMs": 1230,
+      "sha256": "d51f10312d36d56046774e40ec05f66b8acd9071322f8c897f21e1a369c822fa",
+      "bytes": 840566,
+      "battles": 8,
+      "failedAttacks": 0,
+      "operations": 8
+    },
+    {
+      "scenario": "legacy-ai-only",
+      "seed": 29,
+      "replay": 1,
+      "ticks": 1440,
+      "elapsedMs": 1353,
+      "sha256": "d51f10312d36d56046774e40ec05f66b8acd9071322f8c897f21e1a369c822fa",
+      "bytes": 840566,
+      "battles": 8,
+      "failedAttacks": 0,
+      "operations": 8
+    }
+  ],
+  "simulationInterpretation": {
+    "currentGridCases": 8,
+    "wholeAndSlicedExecutions": 16,
+    "matchingCanonicalPairs": 8,
+    "legacySeeds": [
+      11,
+      29
+    ],
+    "legacyExecutions": 4,
+    "historical16RunAiSimCampaignRerun": false,
+    "humanConquestSimulated": false,
+    "registeredWorldCompletePlayerCampaignProven": false,
+    "importantLimits": [
+      "Grid fixtures have zero initialized population and cannot exercise natural events.",
+      "Earned targets360/1440 are explicit online simulation time, not real mixed-presence calendars.",
+      "Defeated attempts stop active economy/AI; acknowledging target ticks is not continuous campaigning.",
+      "Successful ATTACK resolutions are not measured battle victory rate.",
+      "RSS is whole-test-process memory, not isolated per-world allocation."
+    ]
+  },
+  "probes": {
+    "eventOutputReload": null,
+    "hostileMove": {
+      "success": true,
+      "from": "t_03",
+      "to": "t_07",
+      "destinationOwner": "f_ai_02",
+      "armyOwner": "f_player",
+      "arrival": [
+        {
+          "armyId": "army_0",
+          "owner": "f_player",
+          "status": "arrived",
+          "originTerritoryId": "t_03",
+          "destinationTerritoryId": "t_07",
+          "worldTick": 2,
+          "commitmentId": null
+        }
+      ],
+      "activeInvasions": 0,
+      "attackIntent": null,
+      "invariantProblems": []
+    },
+    "neutralAttack": {
+      "validBefore": [],
+      "success": false,
+      "errors": [
+        {
+          "code": "INVALID_TARGET",
+          "message": "Attack target must be a foreign-owned territory"
+        }
+      ],
+      "formerOwner": "f_ai_02"
+    },
+    "commandAvailability": {
+      "DEPLOY_TROOPS": {
+        "registered": true,
+        "exposed": true
+      },
+      "RESTART_WORLD": {
+        "registered": true,
+        "exposed": true
+      },
+      "REINFORCE": {
+        "registered": true,
+        "exposed": false
+      },
+      "RETREAT": {
+        "registered": false,
+        "exposed": false
+      },
+      "RESOLVE_EVENT_CHOICE": {
+        "registered": false,
+        "exposed": false
+      },
+      "EXPAND": {
+        "registered": false,
+        "exposed": false
+      }
+    },
+    "httpUnsequencedRetry": {
+      "first": {
+        "http": 200,
+        "success": true,
+        "payload": {
+          "armyId": "army:v1:0",
+          "territoryId": "t_02",
+          "quantity": 10,
+          "bankedTroops": 90,
+          "tutorial": {
+            "active": true,
+            "beat": "FIRST_WORKOUT_PENDING",
+            "expectedAction": "START_WORKOUT_NORMAL_TROOPS",
+            "expectedPurpose": "NORMAL_TROOPS",
+            "expectedWorkoutId": "wk_moderate_full_body",
+            "nextActionAllowed": true,
+            "scriptedInvasionOccurred": false,
+            "scriptedInvasionId": null,
+            "scriptedInvasionTargetId": null,
+            "firstAttackTerritoryIds": [],
+            "finalAttackTerritoryIds": [],
+            "defenseInvasionId": null,
+            "completed": false
+          }
+        }
+      },
+      "second": {
+        "http": 200,
+        "success": true,
+        "payload": {
+          "armyId": "army:v1:1",
+          "territoryId": "t_02",
+          "quantity": 10,
+          "bankedTroops": 80,
+          "tutorial": {
+            "active": true,
+            "beat": "FIRST_WORKOUT_PENDING",
+            "expectedAction": "START_WORKOUT_NORMAL_TROOPS",
+            "expectedPurpose": "NORMAL_TROOPS",
+            "expectedWorkoutId": "wk_moderate_full_body",
+            "nextActionAllowed": true,
+            "scriptedInvasionOccurred": false,
+            "scriptedInvasionId": null,
+            "scriptedInvasionTargetId": null,
+            "firstAttackTerritoryIds": [],
+            "finalAttackTerritoryIds": [],
+            "defenseInvasionId": null,
+            "completed": false
+          }
+        }
+      },
+      "bankAfter": 80
+    },
+    "sessionOpenShape": {
+      "status": 200,
+      "body": {
+        "sessionId": "acf342cf-17fd-4f43-bd91-36376da31024",
+        "outcome": "opened",
+        "receiptMs": 0,
+        "openedAtMs": 0,
+        "expiresAtMs": 90000,
+        "endedAtMs": null,
+        "lastRenewalSequence": null
+      }
+    },
+    "productionWorkoutSelection": {
+      "status": 200,
+      "body": {
+        "success": true,
+        "commandId": "GET_WORKOUT_SELECTION",
+        "requestId": "GET_WORKOUT_SELECTION_audit-player_0",
+        "playerId": "audit-player",
+        "stateChanges": [],
+        "events": [],
+        "notifications": [],
+        "presentation": null,
+        "resourcesChanged": [],
+        "territoriesChanged": [],
+        "armiesChanged": [],
+        "newlyAvailableActions": [],
+        "errors": [],
+        "payload": {
+          "purpose": "NORMAL_TROOPS",
+          "selectedWorkoutId": "wk_moderate_full_body",
+          "workout": {
+            "id": "wk_moderate_full_body",
+            "name": "Moderate Full Body",
+            "description": "Upper, lower, and core work with mixed rep and timed exercises.",
+            "intendedDifficulty": "MODERATE",
+            "exercises": [
+              {
+                "exerciseId": "ex_neck_rolls",
+                "order": 0,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 20
+                },
+                "role": "OPENING_STRETCH",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_arm_circles",
+                "order": 1,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 20
+                },
+                "role": "OPENING_STRETCH",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_push_ups",
+                "order": 2,
+                "prescription": {
+                  "kind": "repetitions",
+                  "repetitions": 10
+                },
+                "role": "UPPER_BODY",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_rest",
+                "order": 3,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 30
+                },
+                "role": "REST",
+                "skippable": true
+              },
+              {
+                "exerciseId": "ex_squats",
+                "order": 4,
+                "prescription": {
+                  "kind": "repetitions",
+                  "repetitions": 12
+                },
+                "role": "LOWER_BODY",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_rest",
+                "order": 5,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 30
+                },
+                "role": "REST",
+                "skippable": true
+              },
+              {
+                "exerciseId": "ex_sit_ups",
+                "order": 6,
+                "prescription": {
+                  "kind": "repetitions",
+                  "repetitions": 12
+                },
+                "role": "CORE",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_plank",
+                "order": 7,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 20
+                },
+                "role": "CORE",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_shoulder_stretch",
+                "order": 8,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 20
+                },
+                "role": "FINAL_STRETCH",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_quad_stretch",
+                "order": 9,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 20
+                },
+                "role": "FINAL_STRETCH",
+                "skippable": false
+              }
+            ],
+            "metadata": {
+              "estimatedDurationSeconds": 300,
+              "tags": [
+                "full-body"
+              ]
+            }
+          },
+          "prescribedWorkout": {
+            "workoutId": "wk_moderate_full_body",
+            "intendedDifficulty": "MODERATE",
+            "personalized": false,
+            "exercises": [
+              {
+                "exerciseId": "ex_neck_rolls",
+                "order": 0,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 20
+                },
+                "role": "OPENING_STRETCH",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_arm_circles",
+                "order": 1,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 20
+                },
+                "role": "OPENING_STRETCH",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_push_ups",
+                "order": 2,
+                "prescription": {
+                  "kind": "repetitions",
+                  "repetitions": 10
+                },
+                "role": "UPPER_BODY",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_rest",
+                "order": 3,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 30
+                },
+                "role": "REST",
+                "skippable": true
+              },
+              {
+                "exerciseId": "ex_squats",
+                "order": 4,
+                "prescription": {
+                  "kind": "repetitions",
+                  "repetitions": 12
+                },
+                "role": "LOWER_BODY",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_rest",
+                "order": 5,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 30
+                },
+                "role": "REST",
+                "skippable": true
+              },
+              {
+                "exerciseId": "ex_sit_ups",
+                "order": 6,
+                "prescription": {
+                  "kind": "repetitions",
+                  "repetitions": 12
+                },
+                "role": "CORE",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_plank",
+                "order": 7,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 20
+                },
+                "role": "CORE",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_shoulder_stretch",
+                "order": 8,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 20
+                },
+                "role": "FINAL_STRETCH",
+                "skippable": false
+              },
+              {
+                "exerciseId": "ex_quad_stretch",
+                "order": 9,
+                "prescription": {
+                  "kind": "duration",
+                  "durationSeconds": 20
+                },
+                "role": "FINAL_STRETCH",
+                "skippable": false
+              }
+            ]
+          },
+          "source": "tutorial",
+          "tutorialBeat": "FIRST_WORKOUT_PENDING",
+          "expectedAction": "START_WORKOUT_NORMAL_TROOPS",
+          "allowed": true,
+          "recommendedInvasionId": null,
+          "constraints": {
+            "requiresInvasionId": false,
+            "workoutIdMustMatchSelection": true
+          }
+        }
+      }
+    },
+    "productionWorkoutStart": {
+      "status": 200,
+      "body": {
+        "success": false,
+        "commandId": "START_WORKOUT",
+        "requestId": "normal-start",
+        "playerId": "audit-player",
+        "stateChanges": [],
+        "events": [],
+        "notifications": [],
+        "presentation": null,
+        "resourcesChanged": [],
+        "territoriesChanged": [],
+        "armiesChanged": [],
+        "newlyAvailableActions": [],
+        "errors": [
+          {
+            "code": "WORKOUT_CONFIGURATION_UNAVAILABLE",
+            "message": "Normal workouts require an authored workout size and catalog identity"
+          }
+        ],
+        "payload": {}
+      }
+    }
+  },
+  "crossSystemProbes": {
+    "tutorialDeployment": {
+      "fixture": "Registered Level1, already-settled first-workout tutorial beat and bank500; no production policy invented",
+      "before": {
+        "active": true,
+        "beat": "FIRST_ATTACK_AVAILABLE",
+        "expectedAction": "ATTACK",
+        "expectedPurpose": null,
+        "expectedWorkoutId": null,
+        "nextActionAllowed": true,
+        "scriptedInvasionOccurred": false,
+        "scriptedInvasionId": null,
+        "scriptedInvasionTargetId": null,
+        "firstAttackTerritoryIds": [
+          "t_01"
+        ],
+        "finalAttackTerritoryIds": [],
+        "defenseInvasionId": null,
+        "completed": false
+      },
+      "deploy": {
+        "success": true,
+        "payload": {
+          "armyId": "army:v1:0",
+          "territoryId": "t_02",
+          "quantity": 500,
+          "bankedTroops": 0,
+          "tutorial": {
+            "active": true,
+            "beat": "FIRST_ATTACK_AVAILABLE",
+            "expectedAction": "ATTACK",
+            "expectedPurpose": null,
+            "expectedWorkoutId": null,
+            "nextActionAllowed": false,
+            "scriptedInvasionOccurred": false,
+            "scriptedInvasionId": null,
+            "scriptedInvasionTargetId": null,
+            "firstAttackTerritoryIds": [
+              "t_01"
+            ],
+            "finalAttackTerritoryIds": [],
+            "defenseInvasionId": null,
+            "completed": false
+          }
+        }
+      },
+      "armyAttack": {
+        "success": false,
+        "errors": [
+          {
+            "code": "MISSING_PARAMETER",
+            "message": "Level 1 tutorial attacks require commitAmount",
+            "details": {
+              "tutorialBeat": "FIRST_ATTACK_AVAILABLE"
+            }
+          }
+        ]
+      },
+      "bankAttack": {
+        "success": false,
+        "errors": [
+          {
+            "code": "INSUFFICIENT_TROOPS",
+            "message": "commitAmount exceeds banked Troops"
+          }
+        ]
+      },
+      "normalWorkoutGuard": {
+        "code": "ACTION_NOT_ALLOWED",
+        "message": "Level 1 tutorial does not allow a troops workout during FIRST_ATTACK_AVAILABLE"
+      },
+      "restart": {
+        "success": false,
+        "errors": [
+          {
+            "code": "ACTION_NOT_ALLOWED",
+            "message": "Only a defeated world attempt can restart"
+          }
+        ]
+      },
+      "after": {
+        "active": true,
+        "beat": "FIRST_ATTACK_AVAILABLE",
+        "expectedAction": "ATTACK",
+        "expectedPurpose": null,
+        "expectedWorkoutId": null,
+        "nextActionAllowed": false,
+        "scriptedInvasionOccurred": false,
+        "scriptedInvasionId": null,
+        "scriptedInvasionTargetId": null,
+        "firstAttackTerritoryIds": [
+          "t_01"
+        ],
+        "finalAttackTerritoryIds": [],
+        "defenseInvasionId": null,
+        "completed": false
+      },
+      "bank": 0,
+      "invariants": []
+    },
+    "eventHydration": {
+      "fixture": "RegisteredLevel2 with runtimepopulation3000 each territory, seed11; population is an explicit non-production fixture assumption to reach event engine; authored output unchanged",
+      "result": {
+        "turn": 1,
+        "eventSummary": [
+          "[EVENT] Resource Discovery — t_07",
+          "[EVENT] Food Shortage — t_03",
+          "[EVENT] Era of Prosperity — t_04",
+          "[EVENT] Border Tension — t_01"
+        ],
+        "changes": [
+          {
+            "id": "t_07",
+            "before": {
+              "gold": 1,
+              "food": 1,
+              "iron": 0,
+              "wood": 0,
+              "stone": 0
+            },
+            "eventResult": {
+              "gold": 2,
+              "food": 1,
+              "iron": 0,
+              "wood": 0,
+              "stone": 0
+            },
+            "reloaded": {
+              "gold": 1,
+              "food": 1,
+              "iron": 0,
+              "wood": 0,
+              "stone": 0
+            }
+          }
+        ],
+        "invariants": [],
+        "reloadInvariants": []
+      }
+    }
+  },
+  "arrivalEvents": {
+    "naturalEvents": {
+      "world": "Level 2",
+      "seed": 11,
+      "turns": 100,
+      "triggered": 0,
+      "populations": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "invariants": []
+    },
+    "hostileArrival": {
+      "world": "Level 2",
+      "seed": 11,
+      "moveSuccess": true,
+      "advanceSuccess": true,
+      "ticks": 2,
+      "armyLocation": "t_07",
+      "targetOwner": "f_ai_02",
+      "player": "f_player",
+      "attackIntent": null,
+      "activeInvasions": 0,
+      "battleResults": [],
+      "errors": [],
+      "invariants": []
+    }
+  },
+  "probeReproduction": {
+    "instructions": "Build the exact source checkpoint. Extract each source string below to a temporary .cjs file; adjust the root constant if the audit worktree differs. Ensure /tmp/backend-completion-audit exists. Run probes.cjs with localhost HTTP permission; the other two need no network. Each process uses isolated in-memory state. Never insert these fixtures in production.",
+    "sources": {
+      "probes.cjs": {
+        "sha256": "034de02066adde7b51e12d76f135ede48adcf7ae0ab5ce7dfdd2480527a4e747",
+        "source": "const root='/workspace/REP-WARS-2-COMPLETION-AUDIT';const r=p=>require(root+'/dist/'+p);const fs=require('fs');\nconst {createGameState}=r('state/createGameState');const {cloneGameState}=r('state/cloneGameState');const {snapshotGameState}=r('persistence/snapshot');const {hydratePersistedPayload}=r('persistence/hydrate');const {runEventEngineTurn}=r('world/eventTick');const {WorldSimulator}=r('events/WorldSimulator');const {Orchestrator}=r('orchestration/orchestrator');const {checkGameStateInvariants}=r('state/gameStateInvariants');\nconst {loadProductionLevel2Definition}=r('worldDefinition');const {progressArmyMovements}=r('army/movement');const {isCommandExposed}=r('server/allowlist');const {getCommandDefinition}=r('orchestration/commandIndex');const {serializePublicGameState}=r('orchestration/publicView');\nconst out={};\nconst def=loadProductionLevel2Definition();if(!def.ok)throw Error('level2 load');const base=createGameState({world:def.definition,seed:11});\nlet s=cloneGameState(base),found=null;\nfor(let i=0;i<100&&!found;i++){\n const prev=Object.fromEntries([...s.territories].map(([id,t])=>[id,{...t.resourceOutput}]));const step=runEventEngineTurn(s,new WorldSimulator());\n const changed=[...s.territories].filter(([id,t])=>JSON.stringify(t.resourceOutput)!==JSON.stringify(prev[id]));\n if(changed.length){const after=hydratePersistedPayload(snapshotGameState(s));found={turn:s.turn,triggered:step.events.filter(e=>e.kind==='imperial').map(e=>e.title),changes:changed.map(([id,t])=>({id,before:prev[id],eventResult:t.resourceOutput,afterReload:after.territories.get(id).resourceOutput})),invariantProblems:checkGameStateInvariants(s).map(x=>x.code)};}\n}\nout.eventOutputReload=found;\nconst p=base.playerFactionId;const a=[...base.armies.values()].find(a=>a.owner===p);const origin=base.territories.get(a.location);const dest=origin.neighboring.find(id=>base.territories.get(id).owner!==p);\nif(dest){const o=new Orchestrator(cloneGameState(base));const moved=o.execute({commandId:'MOVE',playerId:'audit',parameters:{armyId:a.id,destinationTerritoryId:dest}});const state=o.getState();const m=state.armies.get(a.id).movement;if(m){state.worldTick=m.startedAtTick+m.durationTicks;state.accruedTargetWorldTick=state.worldTick;const arrived=progressArmyMovements(state,state.worldTick);out.hostileMove={success:moved.success,from:origin.id,to:dest,destinationOwner:state.territories.get(dest).owner,armyOwner:p,arrival:arrived,activeInvasions:state.activeInvasions.size,attackIntent:state.armies.get(a.id).attackIntent??null,invariantProblems:checkGameStateInvariants(state).map(x=>x.code)};}\n const n=cloneGameState(base);const former=n.territories.get(dest).owner;n.territories.get(dest).owner=null;for(const f of n.factions.values())f.territories=f.territories.filter(id=>id!==dest);const no=new Orchestrator(n);const res=no.execute({commandId:'ATTACK',playerId:'audit',parameters:{territoryId:dest}});out.neutralAttack={validBefore:checkGameStateInvariants(n).map(x=>x.code),success:res.success,errors:res.errors,formerOwner:former};}\nout.commandAvailability=Object.fromEntries(['DEPLOY_TROOPS','RESTART_WORLD','REINFORCE','RETREAT','RESOLVE_EVENT_CHOICE','EXPAND'].map(id=>[id,{registered:!!getCommandDefinition(id),exposed:isCommandExposed(id)}]));\n(async()=>{const {createInMemoryPersistence}=r('server/persistencePort');const {InMemoryGameStateStore}=r('persistence/inMemoryGameStateStore');const {createSessionHost}=r('server/session');const {createCommandHttpServer}=r('server/http');\n const store=new InMemoryGameStateStore(),s=createGameState();s.playerRewards.bankedTroops=100;const saved=store.save('audit-player',s,0);if(!saved.ok)throw Error(saved.message);const host=createSessionHost(createInMemoryPersistence(store),{nowMs:()=>0});const server=createCommandHttpServer(host,{identity:{mode:'authenticated',authenticate:()=> 'audit-player'}});await new Promise(ok=>server.listen(0,'127.0.0.1',ok));\n const post=async(path,body)=>{const r=await fetch(`http://127.0.0.1:${server.address().port}${path}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:r.status,body:await r.json()};};\n try{const req={commandId:'DEPLOY_TROOPS',requestId:'same-logical-request',parameters:{territoryId:s.levelAnchorTerritoryIds[0],quantity:10}};const x=await post('/commands',req),y=await post('/commands',req);const l=store.load('audit-player');out.httpUnsequencedRetry={first:{http:x.status,success:x.body.success,payload:x.body.payload},second:{http:y.status,success:y.body.success,payload:y.body.payload},bankAfter:l.state.playerRewards.bankedTroops};\n const open=await post('/session/open',{requestId:'open-audit'});out.sessionOpenShape=open;const session=open.body.session??open.body;const sel=await post('/commands',{commandId:'GET_WORKOUT_SELECTION',parameters:{purpose:'NORMAL_TROOPS',size:'STANDARD'}});out.productionWorkoutSelection=sel;\n const start=await post('/commands',{commandId:'START_WORKOUT',requestId:'normal-start',gameplaySessionId:session.sessionId,commandSequence:1,renewalSequence:1,parameters:{purpose:'NORMAL_TROOPS',size:'STANDARD'}});out.productionWorkoutStart=start;\n }finally{await new Promise(ok=>server.close(ok));}\n fs.writeFileSync('/tmp/backend-completion-audit/probes.json',JSON.stringify(out,null,2)+'\\n');console.log(JSON.stringify(out,null,2));})().catch(e=>{console.error(e);process.exitCode=1;});\n"
+      },
+      "cross-system-probes.cjs": {
+        "sha256": "b9d01bc2e5a832e82f15d3dbcada1fc2f6eac1a5e25e97e37d38d6ac8801ec9d",
+        "source": "const root='/workspace/REP-WARS-2-COMPLETION-AUDIT';const r=p=>require(root+'/dist/'+p);const fs=require('fs');\nconst {createGameState}=r('state/createGameState');const {Orchestrator}=r('orchestration/orchestrator');const {snapshotGameState}=r('persistence/snapshot');const {hydratePersistedPayload}=r('persistence/hydrate');const {checkGameStateInvariants}=r('state/gameStateInvariants');const {runEventEngineTurn}=r('world/eventTick');const {WorldSimulator}=r('events/WorldSimulator');const {loadProductionLevel2Definition,getDefaultWorldCatalog}=r('worldDefinition');const {serializeLevel1TutorialView,syncLevel1Tutorial,assertLevel1TutorialWorkoutAllowed}=r('gameplay/tutorial/level1');\nconst out={};\nconst s=createGameState();s.playerRewards.bankedTroops=500;s.level1Tutorial.firstWorkoutSessionId='audit-already-settled-session';syncLevel1Tutorial(s);const before=serializeLevel1TutorialView(s);const o=new Orchestrator(s);const dep=o.execute({commandId:'DEPLOY_TROOPS',playerId:'audit',parameters:{territoryId:s.levelAnchorTerritoryIds[0],quantity:500}});const attack=o.execute({commandId:'ATTACK',playerId:'audit',parameters:{territoryId:before.firstAttackTerritoryIds[0],armyId:dep.payload.armyId}});const bankAttack=o.execute({commandId:'ATTACK',playerId:'audit',parameters:{territoryId:before.firstAttackTerritoryIds[0],commitAmount:500}});let workout;try{assertLevel1TutorialWorkoutAllowed(o.getState(),'NORMAL_TROOPS');workout='allowed';}catch(e){workout={code:e.code,message:e.message};}\nconst restart=o.execute({commandId:'RESTART_WORLD',playerId:'audit',parameters:{}});out.tutorialDeployment={fixture:'Registered Level1, already-settled first-workout tutorial beat and bank500; no production policy invented',before,deploy:{success:dep.success,payload:dep.payload},armyAttack:{success:attack.success,errors:attack.errors},bankAttack:{success:bankAttack.success,errors:bankAttack.errors},normalWorkoutGuard:workout,restart:{success:restart.success,errors:restart.errors},after:serializeLevel1TutorialView(o.getState()),bank:o.getState().playerRewards.bankedTroops,invariants:checkGameStateInvariants(o.getState())};\nconst def=JSON.parse(JSON.stringify(loadProductionLevel2Definition().definition));const e=createGameState({world:def,seed:11});for(const t of e.territories.values())t.population=3000;let found=null;\nfor(let i=0;i<100&&!found;i++){const prev=Object.fromEntries([...e.territories].map(([id,t])=>[id,{...t.resourceOutput}]));const result=runEventEngineTurn(e,new WorldSimulator());const changed=[...e.territories].filter(([id,t])=>JSON.stringify(t.resourceOutput)!==JSON.stringify(prev[id]));if(changed.length){const reload=hydratePersistedPayload(snapshotGameState(e));found={turn:e.turn,eventSummary:result.summary,changes:changed.map(([id,t])=>({id,before:prev[id],eventResult:t.resourceOutput,reloaded:reload.territories.get(id).resourceOutput})),invariants:checkGameStateInvariants(e),reloadInvariants:checkGameStateInvariants(reload)};}}\nout.eventHydration={fixture:'RegisteredLevel2 with runtimepopulation3000 each territory, seed11; population is an explicit non-production fixture assumption to reach event engine; authored output unchanged',result:found};fs.writeFileSync('/tmp/backend-completion-audit/cross-system-probes.json',JSON.stringify(out,null,2)+'\\n');console.log(JSON.stringify(out,null,2));\n"
+      },
+      "arrival-events.cjs": {
+        "sha256": "f1fc31c36bf30f425928bdeda66ce929fc14366b26fed46fede3e563979dd5bc",
+        "source": "const root='/workspace/REP-WARS-2-COMPLETION-AUDIT',r=p=>require(root+'/dist/'+p),fs=require('fs');\nconst {createGameState}=r('state/createGameState'),{loadProductionLevel2Definition}=r('worldDefinition'),{Orchestrator}=r('orchestration/orchestrator'),{runEventEngineTurn}=r('world/eventTick'),{WorldSimulator}=r('events/WorldSimulator'),{checkGameStateInvariants}=r('state/gameStateInvariants');\nconst make=()=>createGameState({world:loadProductionLevel2Definition().definition,seed:11});const e=make();let triggered=0;for(let i=0;i<100;i++)triggered+=runEventEngineTurn(e,new WorldSimulator()).triggered;\nconst s=make(),o=new Orchestrator(s);const army=[...s.armies.values()].find(a=>a.owner===s.playerFactionId),dest=s.territories.get(army.location).neighboring.find(id=>s.territories.get(id).owner!==army.owner);const moved=o.execute({commandId:'MOVE',playerId:'audit',parameters:{armyId:army.id,destinationTerritoryId:dest}});const duration=o.getState().armies.get(army.id).movement.durationTicks;const advance=o.execute({commandId:'ADVANCE_WORLD',playerId:'system',parameters:{elapsedTicks:duration}});const after=o.getState();const out={naturalEvents:{world:'Level 2',seed:11,turns:100,triggered,populations:[...e.territories.values()].map(t=>t.population),invariants:checkGameStateInvariants(e)},hostileArrival:{world:'Level 2',seed:11,moveSuccess:moved.success,advanceSuccess:advance.success,ticks:duration,armyLocation:after.armies.get(army.id)?.location,targetOwner:after.territories.get(dest).owner,player:after.playerFactionId,attackIntent:after.armies.get(army.id)?.attackIntent,activeInvasions:after.activeInvasions.size,battleResults:advance.payload.worldAdvance?.commitmentResolutions,errors:advance.errors,invariants:checkGameStateInvariants(after)}};fs.writeFileSync('/tmp/backend-completion-audit/arrival-events.json',JSON.stringify(out,null,2)+'\\n');console.log(JSON.stringify(out,null,2));\n"
+      }
+    },
+    "discardedSetupAttempt": "The first cross-system setup used a renamed synthetic world without updating region.worldId and correctly failed world validation. Final evidence uses unmodified registeredLevel2 definition plus explicit population3000 runtime fixture; no production validator was bypassed."
+  },
+  "featureStatuses": [
+    {
+      "group": "A",
+      "feature": "Canonical state/schema",
+      "intended": "One authoritative world, schema31",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/types/GameState.ts; src/state/gameStateInvariants.ts",
+      "test_coverage": "tests/persistence.ts; tests/orchestratorIntegration.ts",
+      "remaining": "No replacement authority needed",
+      "blocker": "NONE"
+    },
+    {
+      "group": "A",
+      "feature": "Transactional orchestration",
+      "intended": "Clone, execute, invariants, adopt",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/orchestration/transaction.ts; src/orchestration/orchestrator.ts",
+      "test_coverage": "tests/orchestratorIntegration.ts; tests/atomicCommit.ts",
+      "remaining": "Keep current architecture",
+      "blocker": "NONE"
+    },
+    {
+      "group": "A",
+      "feature": "Public logical retries",
+      "intended": "Every public mutation at most once",
+      "status": "PARTIALLY IMPLEMENTED",
+      "source": "src/server/session.ts; src/server/http.ts",
+      "test_coverage": "tests/sessionReplay.ts; independent HTTP duplicate-deploy probe",
+      "remaining": "AUD-001: require durable identity for unsequenced mutations",
+      "blocker": "CORRECTNESS"
+    },
+    {
+      "group": "B",
+      "feature": "Player world ownership",
+      "intended": "Separate authorized player worlds",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/persistence/initializePlayerWorld.ts; src/orchestration/authorization.ts",
+      "test_coverage": "tests/backendBoundary.ts; tests/gameplaySessionLifecycle.ts",
+      "remaining": "Verified with injected identity; real provider separate",
+      "blocker": "NONE"
+    },
+    {
+      "group": "B",
+      "feature": "Production authentication",
+      "intended": "Real credentials→stable player identity",
+      "status": "SCAFFOLDED / PROTOTYPE ONLY",
+      "source": "src/server/identity.ts; src/server/production.ts",
+      "test_coverage": "tests/backendBoundary.ts",
+      "remaining": "AUD-013: select and integrate actual provider",
+      "blocker": "EXTERNAL/ENGINEERING"
+    },
+    {
+      "group": "B",
+      "feature": "Permanent player records",
+      "intended": "Fitness/history/trophies survive attempt loss",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/worldRestart.ts; src/gameplay/worldTransition.ts; src/fitness/history/",
+      "test_coverage": "tests/gameplayContracts.ts; tests/worldTransition.ts",
+      "remaining": "Real account lifecycle remains AUD-013",
+      "blocker": "NONE"
+    },
+    {
+      "group": "C",
+      "feature": "Authored geometry/catalog",
+      "intended": "Validate and load one authoritative world",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/worldDefinition/{types,parse,validate,geometry,catalog}.ts",
+      "test_coverage": "tests/worldDefinition.ts; tests/worldGeometryBoundaries.ts; tests/worldContentIdentity.ts",
+      "remaining": "Production content choice is separate",
+      "blocker": "NONE"
+    },
+    {
+      "group": "C",
+      "feature": "Content fingerprint",
+      "intended": "Detect incompatible same-ID authored changes",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/worldDefinition/identity.ts; src/persistence/hydrate.ts",
+      "test_coverage": "tests/worldContentIdentity.ts",
+      "remaining": "AUD-015/018: review old unpinned saves and content rollout",
+      "blocker": "NONE"
+    },
+    {
+      "group": "C",
+      "feature": "Current-world visibility",
+      "intended": "Entire current map visible",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/worldDefinition/instantiate.ts; src/orchestration/publicView.ts; src/persistence/empireBankMigration.ts",
+      "test_coverage": "tests/gameplayContracts.ts",
+      "remaining": "No scouting work required",
+      "blocker": "NONE"
+    },
+    {
+      "group": "C",
+      "feature": "Fog/scouting/PvP",
+      "intended": "Excluded by locked design",
+      "status": "NOT REQUIRED",
+      "source": "src/server/allowlist.ts; approved contract",
+      "test_coverage": "Not required",
+      "remaining": "Do not add gameplay fog or PvP",
+      "blocker": "NONE"
+    },
+    {
+      "group": "C",
+      "feature": "Victory/next world",
+      "intended": "100% registered-world control, guarded transition",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/completion.ts; src/gameplay/worldTransition.ts",
+      "test_coverage": "tests/worldTransition.ts; tests/gameplayContracts.ts",
+      "remaining": "Registered Level2 is final content; AUD-018",
+      "blocker": "NONE"
+    },
+    {
+      "group": "C",
+      "feature": "Defeat/restart",
+      "intended": "Last territory ends attempt, restart same world",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/anchors.ts; src/gameplay/worldRestart.ts",
+      "test_coverage": "tests/gameplayContracts.ts",
+      "remaining": "No rewind into prior world; preserve obligations",
+      "blocker": "NONE"
+    },
+    {
+      "group": "C",
+      "feature": "Final playable content",
+      "intended": "Approved maps/values/visual pairs",
+      "status": "BLOCKED BY CONTENT OR BALANCE",
+      "source": "worlds/level-1.json; worlds/level-2.json; worlds/level-1.authored.json",
+      "test_coverage": "Schema/geometry tests, not content approval",
+      "remaining": "AUD-018",
+      "blocker": "CONTENT"
+    },
+    {
+      "group": "D",
+      "feature": "Troop banking/deployment",
+      "intended": "Atomic available bank→any owned land",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/military/troopBank.ts",
+      "test_coverage": "tests/gameplayContracts.ts",
+      "remaining": "Cross-system tutorial failure AUD-002",
+      "blocker": "NONE"
+    },
+    {
+      "group": "D",
+      "feature": "Army identity",
+      "intended": "Durable deterministic IDs across deletion/reload",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/army/identity.ts",
+      "test_coverage": "tests/armyIdentity.ts",
+      "remaining": "Retain C2 allocator; no second counter",
+      "blocker": "NONE"
+    },
+    {
+      "group": "D",
+      "feature": "Physical movement",
+      "intended": "Already-deployed forces travel with timers",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/army/movement.ts; src/world/ContinuousWorldEngine.ts",
+      "test_coverage": "tests/strategicAttack.ts; tests/strategicAccess.ts",
+      "remaining": "Foreign-entry policy is separate AUD-008",
+      "blocker": "NONE"
+    },
+    {
+      "group": "D",
+      "feature": "Tutorial deployment→attack",
+      "intended": "Legal deployment must not block first conquest",
+      "status": "PARTIALLY IMPLEMENTED",
+      "source": "src/gameplay/tutorial/level1.ts",
+      "test_coverage": "Existing tutorial tests; independent bank500 softlock probe",
+      "remaining": "AUD-002",
+      "blocker": "CORRECTNESS"
+    },
+    {
+      "group": "D",
+      "feature": "Foreign MOVE semantics",
+      "intended": "Consistent transit/hostile-entry rule",
+      "status": "BLOCKED BY DESIGN DECISION",
+      "source": "src/army/movement.ts; src/world/ContinuousWorldEngine.ts",
+      "test_coverage": "Independent MOVE+ADVANCE_WORLD probe",
+      "remaining": "AUD-008",
+      "blocker": "DESIGN/INTEGRATION"
+    },
+    {
+      "group": "D",
+      "feature": "Neutral occupation",
+      "intended": "Capture valid neutral territory",
+      "status": "MISSING",
+      "source": "src/army/strategicAttack.ts; src/server/allowlist.ts",
+      "test_coverage": "Independent neutral-target rejection probe",
+      "remaining": "AUD-007; do not restore proactive EXPAND",
+      "blocker": "DESIGN/FEATURE"
+    },
+    {
+      "group": "D",
+      "feature": "Reinforce and strategic retreat",
+      "intended": "Legal force allocation and withdrawal path",
+      "status": "PARTIALLY IMPLEMENTED",
+      "source": "src/gameplay/recruitment/reinforcement.ts; src/orchestration/handlers.ts; src/server/allowlist.ts",
+      "test_coverage": "tests/aiRecruitment.ts; tests/aiOperations.ts",
+      "remaining": "AI paths exist; clarify/complete player surface AUD-010",
+      "blocker": "API/DESIGN"
+    },
+    {
+      "group": "E",
+      "feature": "Battle engine",
+      "intended": "Deterministic composition/terrain/casualties",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/battle/BattleEngine.ts; src/battle/CombatPower.ts; src/orchestration/applyBattle.ts",
+      "test_coverage": "tests/run.ts battle tests; tests/strategicAttack.ts",
+      "remaining": "Balance AUD-019, not formula rewrite",
+      "blocker": "NONE"
+    },
+    {
+      "group": "E",
+      "feature": "Server RNG authority",
+      "intended": "Clients cannot choose or reroll battle seeds",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/army/strategicAttack.ts; src/orchestration/handlers.ts",
+      "test_coverage": "tests/battleSeedAuthority.ts",
+      "remaining": "Keep C3 and receipt requirements",
+      "blocker": "NONE"
+    },
+    {
+      "group": "E",
+      "feature": "Defense temporary power",
+      "intended": "Workout strength never becomes persistent troops",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/invasion/; src/orchestration/applyBattle.ts",
+      "test_coverage": "tests/defenseTroopAccounting.ts",
+      "remaining": "Keep C1",
+      "blocker": "NONE"
+    },
+    {
+      "group": "E",
+      "feature": "Player invasion lifecycle",
+      "intended": "Notify/respond/defend/settle/cleanup",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/invasion/",
+      "test_coverage": "tests/invasionLifecycle.ts; tests/level1Tutorial.ts",
+      "remaining": "Clock-domain decision AUD-009 remains",
+      "blocker": "NONE"
+    },
+    {
+      "group": "E",
+      "feature": "Combat retreat/army merging",
+      "intended": "No new battlefield withdrawal or force merging rule",
+      "status": "NOT REQUIRED",
+      "source": "src/battle/BattleEngine.ts; scoped design exclusions",
+      "test_coverage": "Existing loser-elimination tests",
+      "remaining": "Do not infer these from strategic RETREAT",
+      "blocker": "NONE"
+    },
+    {
+      "group": "F",
+      "feature": "Automatic empire resource banks",
+      "intended": "Produced resources credit owner once",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/economy/{accrual,production,ownership}.ts",
+      "test_coverage": "tests/gameplayContracts.ts; tests/economyFoundation.ts",
+      "remaining": "No physical resource logistics",
+      "blocker": "NONE"
+    },
+    {
+      "group": "F",
+      "feature": "Food upkeep/Stability",
+      "intended": "Baseline+territory upkeep, available bank spending",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/economy/foodConsumption.ts",
+      "test_coverage": "tests/gameplayContracts.ts; tests/gameplayConsumption.ts",
+      "remaining": "Event chain AUD-004; final values AUD-018/019",
+      "blocker": "NONE"
+    },
+    {
+      "group": "F",
+      "feature": "Manual Golden Yield",
+      "intended": "Pay extra bonus only and consume basis once",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/economy/collect.ts",
+      "test_coverage": "tests/gameplayContracts.ts; tests/gameplayConsumption.ts",
+      "remaining": "Client text AUD-020",
+      "blocker": "NONE"
+    },
+    {
+      "group": "F",
+      "feature": "Resource reservations",
+      "intended": "Prevent double-spend across spenders",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/trade/resources.ts; src/engine/operations.ts",
+      "test_coverage": "tests/aiEconomy.ts; tests/aiTrade.ts; tests/gameplayContracts.ts",
+      "remaining": "Keep atomic CAS",
+      "blocker": "NONE"
+    },
+    {
+      "group": "F",
+      "feature": "Resource transport",
+      "intended": "Not part of empire-bank design",
+      "status": "NOT REQUIRED",
+      "source": "src/gameplay/trade/trade.ts; src/persistence/empireBankMigration.ts",
+      "test_coverage": "Legacy cargo migration tests",
+      "remaining": "Historical shipment types are compatibility, not future work",
+      "blocker": "NONE"
+    },
+    {
+      "group": "G",
+      "feature": "Five construction types",
+      "intended": "City, fortification, farm, mine, lumber",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/construction/definitions.ts",
+      "test_coverage": "tests/economyCities.ts; tests/economyDevelopments.ts; tests/constructionQueries.ts",
+      "remaining": "No new building economy needed",
+      "blocker": "NONE"
+    },
+    {
+      "group": "G",
+      "feature": "Construction lifecycle",
+      "intended": "Cost, slot, timer, acceleration, ownership loss",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/construction/{consume,progress,complete}.ts",
+      "test_coverage": "tests/economyFoundation.ts; tests/aiOperations.ts",
+      "remaining": "Preserve approved acceleration",
+      "blocker": "NONE"
+    },
+    {
+      "group": "G",
+      "feature": "Roads/markets",
+      "intended": "Only if separately approved supported design",
+      "status": "BLOCKED BY DESIGN DECISION",
+      "source": "src/gameplay/construction/definitions.ts; src/server/allowlist.ts",
+      "test_coverage": "No complete live road/market route",
+      "remaining": "AUD-022, optional future scope",
+      "blocker": "FUTURE"
+    },
+    {
+      "group": "H",
+      "feature": "Eight-action decision engine",
+      "intended": "Existing Observe→Decide→Commit→Execute→Complete",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/engine/DecisionEngine.ts; src/engine/proactiveCognition.ts",
+      "test_coverage": "AI A–L tests in full runner; tests/backendScale.ts",
+      "remaining": "No director/new action",
+      "blocker": "NONE"
+    },
+    {
+      "group": "H",
+      "feature": "Pressure/evaluators/goals",
+      "intended": "Five pressures, seven factual evaluators, private cognition",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/engine/strategicPressure.ts; src/cognition/; src/types/AIConcretePlan.ts",
+      "test_coverage": "tests/aiStrategicPressure.ts; tests/aiStrategicEvaluation.ts; tests/aiCognition.ts",
+      "remaining": "Balance/goal usefulness AUD-019",
+      "blocker": "NONE"
+    },
+    {
+      "group": "H",
+      "feature": "Attention/claims/ownership",
+      "intended": "Concurrent exact operations with exclusive claims",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/engine/{operations,strategicAttention,decisionOpportunities}.ts",
+      "test_coverage": "tests/aiStrategyConcurrency.ts; tests/aiResponseCorrections.ts",
+      "remaining": "Keep terminal cleanup and zero-cost semantics",
+      "blocker": "NONE"
+    },
+    {
+      "group": "H",
+      "feature": "Response lanes",
+      "intended": "Emergency, required response, operation recovery",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/engine/nonProactiveCognition.ts; src/engine/responseRecords.ts",
+      "test_coverage": "tests/aiResponses.ts; tests/aiResponseCorrections.ts",
+      "remaining": "No new automatic recovery policy assumed",
+      "blocker": "NONE"
+    },
+    {
+      "group": "H",
+      "feature": "NPC recruitment/deployment",
+      "intended": "Time accrual→bank→planned REINFORCE",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/recruitment/recruitment.ts; src/gameplay/military/troopBank.ts",
+      "test_coverage": "tests/gameplayContracts.ts; tests/aiRecruitment.ts",
+      "remaining": "Provisional rates; no player passive recruitment",
+      "blocker": "NONE"
+    },
+    {
+      "group": "H",
+      "feature": "Military strategic effectiveness",
+      "intended": "Useful sustainable decisions over campaigns",
+      "status": "IMPLEMENTED BUT NOT FULLY VERIFIED",
+      "source": "src/engine/strategicPressure.ts; src/gameplay/trade/declinedContext.ts",
+      "test_coverage": "tests/strategicAccess.ts; tests/backendScale.ts",
+      "remaining": "AUD-019; historical AI-SIM evidence not current balance proof",
+      "blocker": "BALANCE/VERIFICATION"
+    },
+    {
+      "group": "I",
+      "feature": "Peace lifecycle",
+      "intended": "Default WAR, mutual acceptance, hostility clearance",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/diplomacy/",
+      "test_coverage": "tests/aiPeace.ts; tests/aiResponses.ts",
+      "remaining": "No proactive DECLARE_WAR/NEGOTIATE",
+      "blocker": "NONE"
+    },
+    {
+      "group": "I",
+      "feature": "Trade lifecycle",
+      "intended": "Exact terms/reservations; atomic bank exchange on ACCEPT",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/trade/trade.ts",
+      "test_coverage": "tests/aiTrade.ts; tests/gameplayContracts.ts",
+      "remaining": "No physical delivery to reimplement",
+      "blocker": "NONE"
+    },
+    {
+      "group": "I",
+      "feature": "Declined-offer memory",
+      "intended": "Suppress exact stale offers; context can restore",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/gameplay/trade/declinedContext.ts",
+      "test_coverage": "tests/strategicAccess.ts; tests/aiTrade.ts",
+      "remaining": "Do not force acceptance to reduce WAIT",
+      "blocker": "NONE"
+    },
+    {
+      "group": "J",
+      "feature": "Seeded event engine",
+      "intended": "Natural events, chains, cooldowns, consequences",
+      "status": "PARTIALLY IMPLEMENTED",
+      "source": "src/events/{WorldSimulator,EventDefinitions,EventTriggers}.ts",
+      "test_coverage": "Existing event-engine tests; independent authored-world probe",
+      "remaining": "AUD-004/005/006",
+      "blocker": "INTEGRATION"
+    },
+    {
+      "group": "J",
+      "feature": "Natural event eligibility",
+      "intended": "Events reachable in actual initialized world",
+      "status": "PARTIALLY IMPLEMENTED",
+      "source": "src/worldDefinition/instantiate.ts; src/events/EventTriggers.ts",
+      "test_coverage": "0 events/100 turns in registered Level2",
+      "remaining": "AUD-004",
+      "blocker": "DESIGN/INTEGRATION"
+    },
+    {
+      "group": "J",
+      "feature": "Event persistence",
+      "intended": "Event effects survive reload without reroll",
+      "status": "PARTIALLY IMPLEMENTED",
+      "source": "src/events/WorldSimulator.ts; src/persistence/hydrate.ts",
+      "test_coverage": "Independent Resource Discovery output reset",
+      "remaining": "AUD-005",
+      "blocker": "CORRECTNESS"
+    },
+    {
+      "group": "J",
+      "feature": "Player event choices",
+      "intended": "Owned choice inbox and receipted resolution",
+      "status": "MISSING",
+      "source": "src/events/WorldSimulator.ts::resolveChoice; src/server/allowlist.ts",
+      "test_coverage": "Reducer tests only, no public command",
+      "remaining": "AUD-006",
+      "blocker": "FEATURE"
+    },
+    {
+      "group": "J",
+      "feature": "All advertised consequences",
+      "intended": "Every choice accurately describes applied effect",
+      "status": "PARTIALLY IMPLEMENTED",
+      "source": "src/events/EventModel.ts",
+      "test_coverage": "Explicit unapplied morale/infrastructure fields",
+      "remaining": "AUD-006",
+      "blocker": "DESIGN/FEATURE"
+    },
+    {
+      "group": "K",
+      "feature": "Workout authoring compiler",
+      "intended": "Validate versioned catalog and readiness data",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/fitness/authoring/",
+      "test_coverage": "tests/workoutAuthoring.ts; tests/workoutProgression.ts",
+      "remaining": "Production loader AUD-003; content AUD-017",
+      "blocker": "NONE"
+    },
+    {
+      "group": "K",
+      "feature": "Movement readiness/progression",
+      "intended": "Earn legitimate movement-specific progression",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/fitness/progression/",
+      "test_coverage": "tests/workoutProgression.ts; tests/workoutStartRewards.ts",
+      "remaining": "New three-area content mapping still requires acceptance",
+      "blocker": "NONE"
+    },
+    {
+      "group": "K",
+      "feature": "Fitness personalization",
+      "intended": "Adapt prescriptions without multiplying soldier payout",
+      "status": "IMPLEMENTED BUT NOT FULLY VERIFIED",
+      "source": "src/fitness/personalization/; src/fitness/estimate/",
+      "test_coverage": "tests/fitnessPersonalization.ts; tests/fitnessLevel.ts",
+      "remaining": "Legacy estimate mode and new catalog compatibility AUD-017",
+      "blocker": "CONTENT/VERIFICATION"
+    },
+    {
+      "group": "K",
+      "feature": "Production catalog activation",
+      "intended": "Start valid workouts selected from approved content",
+      "status": "PARTIALLY IMPLEMENTED",
+      "source": "src/fitness/authoring/registry.ts; src/gameplay/workoutSelection.ts; src/server/production.ts",
+      "test_coverage": "Independent selection/start mismatch",
+      "remaining": "AUD-003/017",
+      "blocker": "ENGINEERING/CONTENT"
+    },
+    {
+      "group": "L",
+      "feature": "Reward policy and start lock",
+      "intended": "60/100/145; authored ratio; durable immutable terms",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/rewards/completionPolicy.ts; src/gameplay/workoutStart.ts",
+      "test_coverage": "tests/workoutRewardContracts.ts; tests/workoutStartRewards.ts",
+      "remaining": "Production ratios not invented; AUD-018",
+      "blocker": "NONE"
+    },
+    {
+      "group": "L",
+      "feature": "Exactly-once soldier payout",
+      "intended": "Full completion→existing applied ledger→bank",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/rewards/application/apply.ts; src/rewards/pipeline/settleLockedWorkout.ts",
+      "test_coverage": "tests/workoutSettlementRewards.ts; tests/workoutRewardApi.ts",
+      "remaining": "General request identity gap AUD-001 distinct from ledger protection",
+      "blocker": "NONE"
+    },
+    {
+      "group": "L",
+      "feature": "Optional feedback",
+      "intended": "Pay without feedback; later fitness evidence no repayment",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/rewards/pipeline/settleLockedWorkout.ts; src/fitness/history/",
+      "test_coverage": "tests/workoutSettlementRewards.ts; tests/workoutRewardApi.ts",
+      "remaining": "Unity behavior AUD-020",
+      "blocker": "NONE"
+    },
+    {
+      "group": "L",
+      "feature": "Legacy/specialized effects",
+      "intended": "Retain identities and temporary/contextual effects",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/rewards/pipeline/; src/gameplay/invasion/; src/gameplay/economy/collect.ts",
+      "test_coverage": "tests/workoutSettlementRewards.ts; tests/defenseTroopAccounting.ts; tests/gameplayContracts.ts",
+      "remaining": "No ordinary soldiers for specialized workouts",
+      "blocker": "NONE"
+    },
+    {
+      "group": "L",
+      "feature": "History/world atomicity",
+      "intended": "No paid world with missing authoritative workout history",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/persistence/supabase/atomicCommit.ts; src/fitness/history/",
+      "test_coverage": "tests/atomicCommit.ts; reward tests; live tests skipped",
+      "remaining": "Live proof AUD-014",
+      "blocker": "EXTERNAL verification remains"
+    },
+    {
+      "group": "M",
+      "feature": "Rest/pause/recovery",
+      "intended": "Legitimate rest without permanent progression penalty",
+      "status": "IMPLEMENTED BUT NOT FULLY VERIFIED",
+      "source": "src/fitness/session/; src/gameplay/invasion/pause.ts; src/gameplay/config.ts",
+      "test_coverage": "tests/workoutPauseResume.ts; tests/invasionLifecycle.ts",
+      "remaining": "AUD-009 time-domain/pause contract",
+      "blocker": "DESIGN"
+    },
+    {
+      "group": "N",
+      "feature": "Earned world time",
+      "intended": "1min ticks, exact1.0/.1 presence accrual",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/world/{realtimeClock,worldAccrual,presenceLeases,timeToTick}.ts",
+      "test_coverage": "tests/worldAccrual.ts; tests/gameplaySessionLeases.ts",
+      "remaining": "No client presence authority",
+      "blocker": "NONE"
+    },
+    {
+      "group": "N",
+      "feature": "Durable bounded catch-up",
+      "intended": "Preserve backlog and deterministic next boundary",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/server/session.ts; src/world/ContinuousWorldEngine.ts",
+      "test_coverage": "Bounded catch-up tests; tests/backendScale.ts",
+      "remaining": "Event reload exception AUD-005; capacity AUD-016",
+      "blocker": "NONE"
+    },
+    {
+      "group": "N",
+      "feature": "Real-world gate separation",
+      "intended": "Real deadlines ignore simulation multiplier",
+      "status": "PARTIALLY IMPLEMENTED",
+      "source": "src/gameplay/config.ts; src/gameplay/invasion/",
+      "test_coverage": "Existing tick-based tests, code trace",
+      "remaining": "AUD-009",
+      "blocker": "DESIGN/FEATURE"
+    },
+    {
+      "group": "O",
+      "feature": "Serialization/CAS/migrations",
+      "intended": "Canonical maps, stable identities, no hidden stale merge",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/persistence/{serialization,versioning,snapshot}.ts; src/persistence/supabase/adapter.ts",
+      "test_coverage": "tests/persistence.ts; tests/supabasePersistence.ts; tests/gameplayContracts.ts",
+      "remaining": "Hydration event defect and live deployment separate",
+      "blocker": "NONE"
+    },
+    {
+      "group": "O",
+      "feature": "Schema31 economic migration",
+      "intended": "Cargo/yield/local reserves convert once",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/persistence/empireBankMigration.ts",
+      "test_coverage": "tests/gameplayContracts.ts including five cargo phases",
+      "remaining": "Real-corpus rollout AUD-015",
+      "blocker": "NONE"
+    },
+    {
+      "group": "O",
+      "feature": "Live DB and disaster recovery",
+      "intended": "Actual permissions, RPC atomicity, restore",
+      "status": "IMPLEMENTED BUT NOT FULLY VERIFIED",
+      "source": "src/persistence/supabase/; SQL migrations",
+      "test_coverage": "3 credential-gated tests skipped",
+      "remaining": "AUD-014/015",
+      "blocker": "EXTERNAL"
+    },
+    {
+      "group": "P",
+      "feature": "HTTP privacy",
+      "intended": "Safe projection and non-executing diagnostics",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/server/http.ts",
+      "test_coverage": "tests/aiResponseCorrections.ts; tests/backendBoundary.ts",
+      "remaining": "No leak found in executed suite; not an external penetration test",
+      "blocker": "NONE"
+    },
+    {
+      "group": "P",
+      "feature": "Reward/reconnect DTO",
+      "intended": "Display persisted promised/paid amounts",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/orchestration/publicView.ts; src/orchestration/gameplayCommands.ts",
+      "test_coverage": "tests/workoutRewardApi.ts",
+      "remaining": "Unity integration AUD-020",
+      "blocker": "NONE"
+    },
+    {
+      "group": "P",
+      "feature": "Current Unity end-to-end client",
+      "intended": "Actual input/feedback/receipts/backlog handling",
+      "status": "PARTIALLY IMPLEMENTED",
+      "source": "Unity/Assets/RepWars/RepWarsPlayLoop.cs; Unity/Assets/RepWars/RepWarsApiClient.cs",
+      "test_coverage": "No Unity tests executed; Windows worktree unavailable",
+      "remaining": "AUD-020",
+      "blocker": "CLIENT INTEGRATION"
+    },
+    {
+      "group": "P",
+      "feature": "Public command discovery",
+      "intended": "Advertise supported external capabilities",
+      "status": "PARTIALLY IMPLEMENTED",
+      "source": "src/orchestration/commandIndex.ts; src/server/allowlist.ts",
+      "test_coverage": "Allowlist tests; catalog unfiltered",
+      "remaining": "AUD-023",
+      "blocker": "OPTIONAL CLARITY"
+    },
+    {
+      "group": "Q",
+      "feature": "Admission/cache/dependency limits",
+      "intended": "Bound in-flight work and fail closed",
+      "status": "IMPLEMENTED AND VERIFIED",
+      "source": "src/server/session.ts; src/server/dependencyBudget.ts",
+      "test_coverage": "tests/backendBoundary.ts; tests/sessionCache.ts",
+      "remaining": "Synchronous CPU/I/O capacity AUD-016",
+      "blocker": "NONE"
+    },
+    {
+      "group": "Q",
+      "feature": "Deployable authenticated service",
+      "intended": "Identity, DB, readiness and executable host",
+      "status": "SCAFFOLDED / PROTOTYPE ONLY",
+      "source": "src/server/production.ts; src/server/main.ts",
+      "test_coverage": "Factory tests, no deployment",
+      "remaining": "AUD-013/021",
+      "blocker": "EXTERNAL/ENGINEERING"
+    },
+    {
+      "group": "Q",
+      "feature": "CI/monitoring/restore evidence",
+      "intended": "Operationally verifiable release",
+      "status": "IMPLEMENTED BUT NOT FULLY VERIFIED",
+      "source": ".github/workflows/backend.yml; docs/BACKEND_OPERATIONS.md",
+      "test_coverage": "Local full suite/build only",
+      "remaining": "AUD-014–016/021",
+      "blocker": "OPERATIONS"
+    },
+    {
+      "group": "Q",
+      "feature": "Future self-learning/optimization",
+      "intended": "Separate approved future direction, not current scope",
+      "status": "NOT REQUIRED",
+      "source": "src/engine/DecisionEngine.ts; audit scope",
+      "test_coverage": "No implementation required by current audit",
+      "remaining": "AUD-022/024; no open-ended engine rewrite",
+      "blocker": "NONE"
+    }
+  ],
+  "issues": [
+    {
+      "id": "AUD-001",
+      "priority": "P0",
+      "system": "Public command idempotency",
+      "problem": "Mutating HTTP requests without gameplay-session sequencing bypass receipt replay.",
+      "evidence": [
+        "src/server/http.ts::commandFromBody",
+        "src/server/session.ts::execute / committedCommandReplay",
+        "probes.httpUnsequencedRetry"
+      ],
+      "impact": "Two identical requestIds deployed 10 troops twice, bank100→80 and two army identities. It spends twice; no free troops demonstrated.",
+      "minimum_fix": "Require supported durable logical identity for every public mutation, or reject incomplete identity before execution. Reuse current lease/sequence receipt authority. Keep read-only compatibility. Test every exposed mutation, lost response, restart and stale writer.",
+      "dependencies": [],
+      "product_decision": "NO",
+      "blocks_unity": "Reliable mutation integration",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-002",
+      "priority": "P0",
+      "system": "Tutorial and military deployment",
+      "problem": "Legal deployment can make the required tutorial attack impossible.",
+      "evidence": [
+        "src/gameplay/tutorial/level1.ts::assertLevel1TutorialPlayerAttackAllowed / assertLevel1TutorialWorkoutAllowed",
+        "src/gameplay/military/troopBank.ts::deployBankedTroops",
+        "crossSystemProbes.tutorialDeployment"
+      ],
+      "impact": "Bank500 at FIRST_ATTACK_AVAILABLE can all be deployed; tutorial then requires a bank commit, rejects deployed-army attack and another normal workout, and cannot restart a nondefeated world.",
+      "minimum_fix": "Allow the existing authoritative deployed-army attack path to satisfy tutorial progression and preserve scripted ordering. Do not forbid approved deployment, grant troops, erase the tutorial or add balance changes. Add HTTP journey for partial/all deployment and reload.",
+      "dependencies": [],
+      "product_decision": "NO for correcting the contradiction",
+      "blocks_unity": "Onboarding military flow",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-003",
+      "priority": "P1",
+      "system": "Workout content activation",
+      "problem": "No production catalog bootstrap; tutorial is bound to legacy selected workout; selection can advertise a workout that normal start rejects.",
+      "evidence": [
+        "src/fitness/authoring/registry.ts::installAuthoredWorkoutCatalog",
+        "src/gameplay/workoutSelection.ts::resolveStartWorkout",
+        "src/gameplay/workoutStart.ts::lockWorkoutStartReward",
+        "src/server/production.ts::createProductionHttpServer",
+        "probes.productionWorkoutStart"
+      ],
+      "impact": "Fresh players cannot start the promised normal-workout loop. Supplying ratio data alone does not remove the tutorial binding.",
+      "minimum_fix": "Load and validate an explicit approved catalog in production composition; bind tutorial to authoritative authored workout selection; return truthful availability/configuration errors. Test with clearly labeled fixtures until approved content arrives. Preserve lock/settlement mechanics.",
+      "dependencies": [
+        "AUD-017",
+        "AUD-018 for production acceptance"
+      ],
+      "product_decision": "NO new economics; approved content IDs are authoring inputs",
+      "blocks_unity": "Workout integration",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-004",
+      "priority": "P1",
+      "system": "Event eligibility",
+      "problem": "Fresh authored worlds have population0 but all natural territory event candidates require population≥2000.",
+      "evidence": [
+        "src/worldDefinition/instantiate.ts::createGameStateFromWorld",
+        "src/events/EventTriggers.ts::candidateTerritoriesForEvents",
+        "src/constants/balance.ts::BALANCE.events.world.territoryChoiceMinPopulation",
+        "arrivalEvents.naturalEvents"
+      ],
+      "impact": "Food/Stability cannot drive normal world events;100 registered-Level2 event turns triggered0. This is a deterministic eligibility mismatch, not evidence for changing random probabilities.",
+      "minimum_fix": "Resolve whether population is authored/initialized for events or the eligibility contract must use existing non-population facts. Then integrate/test natural eligible events without inventing a population economy or silent balance values.",
+      "dependencies": [],
+      "product_decision": "YES: event eligibility/population role",
+      "blocks_unity": "Event integration",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-005",
+      "priority": "P0",
+      "system": "Event persistence",
+      "problem": "Hydration overwrites event-mutated territory resourceOutput with immutable authored output.",
+      "evidence": [
+        "src/events/WorldSimulator.ts::ConsequenceApplier.applyDelta",
+        "src/worldDefinition/instantiate.ts::applyImmutableWorldDefinition",
+        "src/persistence/hydrate.ts::hydratePersistedPayload",
+        "crossSystemProbes.eventHydration"
+      ],
+      "impact": "Seed11 event-eligible Level2 fixture: t_07 Gold output1→2 via Resource Discovery→1 after reload; all invariants pass. Persistent outcomes depend on reload.",
+      "minimum_fix": "Separate immutable base from canonical runtime consequence or preserve its effective value under an explicit compatibility migration. Add actual event→production→save/reload→continued-production equivalence tests. Preserve authored fingerprint/geography checks.",
+      "dependencies": [],
+      "product_decision": "NO for loss prevention; migration/representation needs engineering review",
+      "blocks_unity": "Durable event/economy integration",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-006",
+      "priority": "P1",
+      "system": "Event choices and consequences",
+      "problem": "Choice reducer has no public command/inbox; some advertised consequence fields are explicitly not applied.",
+      "evidence": [
+        "src/events/WorldSimulator.ts::resolveChoice",
+        "src/events/EventModel.ts::ConsequenceDelta",
+        "src/orchestration/publicView.ts::serializePublicGameState",
+        "src/server/allowlist.ts"
+      ],
+      "impact": "Player cannot durably inspect and answer an available choice through the production API; some choice narratives promise unsupported effects.",
+      "minimum_fix": "Expose owned active-event choices and one receipted choice handler using existing reducer; preserve expiry/reload and private data boundary. Map only approved implemented effects or remove unsupported promises. Do not add garrison morale/infrastructure meters.",
+      "dependencies": [
+        "AUD-001",
+        "AUD-004",
+        "AUD-005"
+      ],
+      "product_decision": "YES only for unsupported consequence replacements/default policy not already defined",
+      "blocks_unity": "Event UI",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-007",
+      "priority": "P1",
+      "system": "Neutral expansion",
+      "problem": "Valid unowned territories cannot be captured through exposed ATTACK/MOVE.",
+      "evidence": [
+        "src/army/strategicAttack.ts::startStrategicAttack",
+        "src/army/movement.ts::progressArmyMovements",
+        "src/server/allowlist.ts",
+        "probes.neutralAttack"
+      ],
+      "impact": "Full occupation of worlds containing neutral land cannot be completed; existing registered worlds are all faction-owned, so this is not their immediate blocker.",
+      "minimum_fix": "Define minimal neutral occupation/resistance rule, then implement via existing command/physical arrival/ownership transaction. Retain eight proactive actions; no legacy EXPAND resurrection.",
+      "dependencies": [],
+      "product_decision": "YES: neutral occupation/resistance/cost, if any",
+      "blocks_unity": "Neutral-world military integration",
+      "blocks_launch": "YES for contracted feature set",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-008",
+      "priority": "P1",
+      "system": "Foreign territory movement",
+      "problem": "Ordinary MOVE allows entry into foreign-owned territory without attack intent or encounter.",
+      "evidence": [
+        "src/army/movement.ts::beginArmyMovement",
+        "src/world/ContinuousWorldEngine.ts::advanceArmyMovements",
+        "arrivalEvents.hostileArrival"
+      ],
+      "impact": "Actual Level2 MOVE+ADVANCE_WORLD reaches t_07 after2ticks; owner unchanged, no invasion. Hostile transit and attacks are inconsistent unless this passage is intentionally legal.",
+      "minimum_fix": "Document permitted WAR/PEACE/neutral passage and enforce the approved rule at start and arrival, reusing attack/invasion and movement authority. Do not automatically declare war or invent border tolls.",
+      "dependencies": [],
+      "product_decision": "YES: foreign passage versus hostile entry semantics",
+      "blocks_unity": "Military route expectations",
+      "blocks_launch": "YES until policy is consistent",
+      "effort": "MEDIUM",
+      "confidence": "HIGH behavior; policy unresolved"
+    },
+    {
+      "id": "AUD-009",
+      "priority": "P1",
+      "system": "Time domains and rest/protection",
+      "problem": "Invasion response, protection and recovery use player-facing simulation ticks, not independently stored real-world deadlines.",
+      "evidence": [
+        "src/gameplay/config.ts::GAMEPLAY_CONFIG",
+        "src/gameplay/invasion/eligibility.ts::playerFacingTick",
+        "src/gameplay/invasion/pause.ts",
+        "src/gameplay/invasion/progress.ts",
+        "src/world/timeToTick.ts"
+      ],
+      "impact": "30 world minutes become≈300 real minutes wholly offline; pause can freeze/extend gates. Cannot claim all real-world timing doctrine is implemented.",
+      "minimum_fix": "Approve an explicit gate-by-gate clock-domain/pause table, implement only real-world gates with trusted receipt/deadline identity, migrate active obligations conservatively, test live/offline/catch-up equivalence. Do not globally speed world ticks.",
+      "dependencies": [],
+      "product_decision": "YES: classify response/protection/recovery/max workout gates and empire-pause behavior",
+      "blocks_unity": "Accurate deadline/protection UI",
+      "blocks_launch": "YES",
+      "effort": "LARGE",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-010",
+      "priority": "P1",
+      "system": "Player reinforcement/retreat contract",
+      "problem": "AI REINFORCE/RETREAT exist; public DEPLOY creates another force and MOVE is transit. No public existing-army reinforcement route is exposed.",
+      "evidence": [
+        "src/gameplay/recruitment/reinforcement.ts",
+        "src/gameplay/military/troopBank.ts::deployBankedTroops",
+        "src/server/allowlist.ts",
+        "src/orchestration/handlers.ts"
+      ],
+      "impact": "Clients cannot assume new deployment means reinforcement of an identified army. Strategic retreat must not be presented as withdrawing from an already resolved battle.",
+      "minimum_fix": "Publish supported player equivalents. If reinforcement into an existing force is required, expose the existing exact bank-allocation semantics with ownership/claim checks. Do not invent army merging or combat retreat.",
+      "dependencies": [
+        "AUD-001"
+      ],
+      "product_decision": "YES only on intended player force-targeting surface; no new troop source",
+      "blocks_unity": "Reinforcement/retreat controls",
+      "blocks_launch": "YES for unresolved required interface",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-011",
+      "priority": "P1",
+      "system": "Production journey acceptance",
+      "problem": "Existing tests pass without proving all ten required journeys through authentic production composition/content.",
+      "evidence": [
+        "tests/level1Production.ts",
+        "tests/level1Tutorial.ts",
+        "tests/backendScale.ts",
+        "tests/gameplayContracts.ts",
+        "tests/workoutRewardApi.ts"
+      ],
+      "impact": "Fixture assumptions mask tutorial, event and content activation failures.",
+      "minimum_fix": "Add deterministic authenticated HTTP journey suite with restarts, actual catalog-loader path and content manifests. Cover no-feedback payout, deployment-before-attack, event choice+reload, neutral occupation, defeat/restart, transition and migration. Keep fixtures labeled.",
+      "dependencies": [
+        "AUD-001–010",
+        "AUD-017/018 for production content cohort"
+      ],
+      "product_decision": "NO",
+      "blocks_unity": "Final integrated acceptance",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-013",
+      "priority": "P2",
+      "system": "Production identity and host",
+      "problem": "Trusted-auth server factory exists; real identity provider/account mapping and deployable composition are absent/unverified.",
+      "evidence": [
+        "src/server/identity.ts",
+        "src/server/production.ts::createProductionHttpServer",
+        "src/server/main.ts"
+      ],
+      "impact": "Injected test identity does not authenticate real users; development body identity cannot be shipped.",
+      "minimum_fix": "Select provider/account identity contract; implement verified credential adapter and explicit production host/readiness composition. Reject fallback identity, test token expiry/revocation and cross-account access.",
+      "dependencies": [],
+      "product_decision": "Product/service selection required",
+      "blocks_unity": "NO for local integration; YES for real login",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-014",
+      "priority": "P2",
+      "system": "Live Supabase verification",
+      "problem": "Three opt-in live tests were skipped; deployed RPC/RLS/schema/permissions are unverified.",
+      "evidence": [
+        "src/persistence/supabase/atomicCommit.ts",
+        "src/persistence/supabase/adapter.ts",
+        "tests/supabasePersistence.ts",
+        "tests/atomicCommit.ts"
+      ],
+      "impact": "Local mocks cannot establish real atomic rollback, stale writer isolation or data-access policy.",
+      "minimum_fix": "Supply approved disposable non-production database and credentials; apply/review migrations, execute live atomic world/history, CAS, restart and RLS isolation tests. Never use production data for destructive tests.",
+      "dependencies": [
+        "Approved external environment"
+      ],
+      "product_decision": "NO gameplay decision; credentials/access required",
+      "blocks_unity": "NO for mock/local integration",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-015",
+      "priority": "P2",
+      "system": "Save rollout and recovery",
+      "problem": "Transform fixtures exist, but actual save corpus, deployed compatibility and restore/rollback procedure have not been verified.",
+      "evidence": [
+        "src/persistence/versioning.ts",
+        "src/persistence/empireBankMigration.ts::migrateEmpireBanks",
+        "src/worldDefinition/identity.ts",
+        "tests/gameplayContracts.ts"
+      ],
+      "impact": "Schema31 turns historical cargo into recipient bank credit and local pools into banks; old executables cannot safely read new authority.",
+      "minimum_fix": "Run anonymized approved real-shape corpus through migrate→save→reload; prove no second payouts, review unpinned world content, rehearse backup/restore and version-compatible rollback.",
+      "dependencies": [
+        "AUD-005",
+        "AUD-014",
+        "AUD-018"
+      ],
+      "product_decision": "Content migration approval where definitions differ",
+      "blocks_unity": "NO",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-016",
+      "priority": "P2",
+      "system": "Database and simulation responsiveness",
+      "problem": "Synchronous REST child process and synchronous simulation chunks can block the server despite admission limits.",
+      "evidence": [
+        "src/persistence/supabase/blockingRest.ts",
+        "src/server/session.ts",
+        "src/world/ContinuousWorldEngine.ts",
+        "tests/backendScale.ts"
+      ],
+      "impact": "spawnSync timeout30s blocks Node; measured one-chunk scale requests reach4.183s. Queue limits alone do not establish health responsiveness or user capacity.",
+      "minimum_fix": "Measure multi-player latency/fairness on intended host; remove synchronous I/O or isolate workers while preserving per-player transaction/CAS semantics. Set evidence-based capacity/timeout budgets; do not cap earned gameplay time.",
+      "dependencies": [
+        "AUD-014 for real DB measurements"
+      ],
+      "product_decision": "NO gameplay decision; operational SLO/capacity target required",
+      "blocks_unity": "NO",
+      "blocks_launch": "YES",
+      "effort": "LARGE",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-017",
+      "priority": "P3",
+      "system": "Exercise/workout content",
+      "problem": "Rebuilt production catalog, readiness/prescriptions and three-area mapping are not installed/approved.",
+      "evidence": [
+        "src/fitness/authoring/",
+        "src/fitness/progression/",
+        "src/fitness/personalization/config.ts",
+        "src/fitness/authoring/registry.ts"
+      ],
+      "impact": "Old fixture/prototype exercise batches cannot be represented as approved player content or medical safety validation.",
+      "minimum_fix": "Provide validated authored exercises/workouts with stable versions, explicit SHORT/STANDARD/LONG and movement readiness. Validate compatibility; no universal fitness score, invented catalog or reward overrides.",
+      "dependencies": [
+        "Content authoring"
+      ],
+      "product_decision": "YES: approve content, not a new reward equation",
+      "blocks_unity": "Production workout UI/content",
+      "blocks_launch": "YES",
+      "effort": "LARGE",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-018",
+      "priority": "P3",
+      "system": "World content and rewards",
+      "problem": "Registered worlds lack approved reward ratios and authored Food values; richer Unity Level1 disagrees with backend Level1.",
+      "evidence": [
+        "worlds/level-1.json",
+        "worlds/level-2.json",
+        "worlds/level-1.authored.json",
+        "src/worldDefinition/worldConfig.ts",
+        "src/rewards/completionPolicy.ts"
+      ],
+      "impact": "Cannot launch new-policy workout rewards with fixture ratios or silently replace a shared world identity; test worlds are not a finished campaign.",
+      "minimum_fix": "Approve canonical gameplay/visual content revisions, world ratios, Food baseline/upkeep/production and tutorial content. Pin matched exports and a reviewed save transition; preserve100% conquest.",
+      "dependencies": [
+        "AUD-003",
+        "Map/content authoring"
+      ],
+      "product_decision": "YES: approved values/content and migration",
+      "blocks_unity": "Full production world visual/workout acceptance",
+      "blocks_launch": "YES",
+      "effort": "LARGE",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-019",
+      "priority": "P3",
+      "system": "AI/military/economy balance",
+      "problem": "Current bank economy and recruitment have no verified production balance/campaign-completion target.",
+      "evidence": [
+        "src/constants/recruitment.ts",
+        "src/gameplay/economy/config.ts",
+        "src/gameplay/config.ts",
+        "tests/backendScale.ts"
+      ],
+      "impact": "Deterministic convergence does not prove sustainable attacks, fair defense, useful recruitment or reasonable workout soldier demand.",
+      "minimum_fix": "Run approved-content seeded campaign cohorts and repeatable player strategies; report actual battle victories/casualties and attrition, economy, recovery, decision variety. Keep rates provisional until approved, no silent weight tuning.",
+      "dependencies": [
+        "AUD-017",
+        "AUD-018",
+        "Correctness phases"
+      ],
+      "product_decision": "YES: final balancing values after evidence",
+      "blocks_unity": "NO for engineering integration",
+      "blocks_launch": "YES for balanced launch",
+      "effort": "LARGE",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-020",
+      "priority": "P1",
+      "system": "Unity-facing integration contract",
+      "problem": "Backend reward/session/backlog contracts have advanced beyond the in-tree demonstration play loop.",
+      "evidence": [
+        "Unity/Assets/RepWars/RepWarsPlayLoop.cs::FinishWorkout",
+        "Unity/Assets/RepWars/RepWarsApiClient.cs",
+        "src/orchestration/publicView.ts",
+        "tests/workoutRewardApi.ts"
+      ],
+      "impact": "Auto ABOUT_RIGHT feedback, duplicate animations, stale content and invented client reward expectations must not ship. Latest Windows code was not accessible.",
+      "minimum_fix": "Audit current Windows code separately, integrate existing backend DTOs/auth/receipts/backlog/reward status and truthful optional feedback without replacing HUD/maps. Publish backend capability/error examples first, run Unity/device acceptance later.",
+      "dependencies": [
+        "AUD-001",
+        "AUD-003",
+        "AUD-013 for real auth",
+        "AUD-018"
+      ],
+      "product_decision": "NO new gameplay rules",
+      "blocks_unity": "Complete end-to-end client acceptance",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-021",
+      "priority": "P2",
+      "system": "Production operations/security",
+      "problem": "CI definition and readiness hooks exist, but hosted CI, ingress/TLS, monitoring, dependency outages and recovery are not certified.",
+      "evidence": [
+        ".github/workflows/backend.yml",
+        "src/server/dependencyBudget.ts",
+        "src/server/production.ts",
+        "docs/BACKEND_OPERATIONS.md"
+      ],
+      "impact": "Passing local tests does not prove an operable release or healthy service under attack/outage.",
+      "minimum_fix": "Prove hosted CI, secret handling, network exposure, observability/alerts, dependency failure behavior, rate/admission policy and deployment rollback. Record evidence on the actual hosting configuration.",
+      "dependencies": [
+        "AUD-013–016"
+      ],
+      "product_decision": "Hosting/access approvals; no gameplay decision",
+      "blocks_unity": "NO",
+      "blocks_launch": "YES",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-022",
+      "priority": "P4",
+      "system": "Optional future gameplay",
+      "problem": "Road/market expansion and Self-Learning AI are not completed active mechanics in this checkpoint.",
+      "evidence": [
+        "src/gameplay/construction/definitions.ts",
+        "src/server/allowlist.ts",
+        "src/engine/DecisionEngine.ts"
+      ],
+      "impact": "Do not call these missing required engines or add them to the current finish line without separate approval.",
+      "minimum_fix": "Keep as separately scoped future/design work; do not implement during completion fixes.",
+      "dependencies": [],
+      "product_decision": "YES before future implementation",
+      "blocks_unity": "NO",
+      "blocks_launch": "NO",
+      "effort": "LARGE",
+      "confidence": "HIGH scope distinction"
+    },
+    {
+      "id": "AUD-023",
+      "priority": "P4",
+      "system": "Command metadata clarity",
+      "problem": "GET_COMMAND_INDEX includes internal command metadata while HTTP uses an explicit allowlist.",
+      "evidence": [
+        "src/orchestration/commandIndex.ts",
+        "src/server/allowlist.ts"
+      ],
+      "impact": "Client discovery can advertise calls that will always be rejected; the allowlist still protects execution.",
+      "minimum_fix": "Label public capability explicitly or project a filtered public index without changing internal registration.",
+      "dependencies": [],
+      "product_decision": "NO",
+      "blocks_unity": "NO",
+      "blocks_launch": "NO",
+      "effort": "SMALL",
+      "confidence": "HIGH"
+    },
+    {
+      "id": "AUD-024",
+      "priority": "P4",
+      "system": "History compaction",
+      "problem": "Long-lived operations, receipts and audit history need a measured retention strategy if capacity requires it.",
+      "evidence": [
+        "src/engine/operations.ts",
+        "src/types/GameState.ts",
+        "tests/backendScale.ts"
+      ],
+      "impact": "Larger snapshots make cloning/hydration costly; arbitrary pruning could lose idempotency or reward authority.",
+      "minimum_fix": "Profile first under AUD-016. Design lossless/safe retention only when justified, retaining stable identities and durable settlement facts. Do not treat compaction as permission to discard history.",
+      "dependencies": [
+        "AUD-016"
+      ],
+      "product_decision": "NO gameplay decision; retention policy may need approval",
+      "blocks_unity": "NO",
+      "blocks_launch": "CONDITIONAL on capacity evidence",
+      "effort": "MEDIUM",
+      "confidence": "HIGH"
+    }
+  ],
+  "sourceAnchors": [
+    {
+      "file": "src/server/http.ts",
+      "line": 268,
+      "text": "function commandFromBody(playerId: string, parsed: unknown): CommandRequest {"
+    },
+    {
+      "file": "src/server/session.ts",
+      "line": 307,
+      "text": "const sessionCommand = definition?.changesState === true && hasGameplaySession(request);"
+    },
+    {
+      "file": "src/gameplay/tutorial/level1.ts",
+      "line": 527,
+      "text": "export function assertLevel1TutorialPlayerAttackAllowed("
+    },
+    {
+      "file": "src/gameplay/tutorial/level1.ts",
+      "line": 563,
+      "text": "export function assertLevel1TutorialWorkoutAllowed(state: GameState, purpose: string): void {"
+    },
+    {
+      "file": "src/worldDefinition/instantiate.ts",
+      "line": 75,
+      "text": "population: 0,"
+    },
+    {
+      "file": "src/events/EventTriggers.ts",
+      "line": 240,
+      "text": "export function candidateTerritoriesForEvents("
+    },
+    {
+      "file": "src/constants/balance.ts",
+      "line": 437,
+      "text": "territoryChoiceMinPopulation: 2000,"
+    },
+    {
+      "file": "src/worldDefinition/instantiate.ts",
+      "line": 278,
+      "text": "tile.resourceOutput = { ...tDef.resourceOutput };"
+    },
+    {
+      "file": "src/events/WorldSimulator.ts",
+      "line": 150,
+      "text": "applyDelta(c: ConsequenceDelta, opinionEventId?: string): string | null {"
+    },
+    {
+      "file": "src/events/WorldSimulator.ts",
+      "line": 572,
+      "text": "resolveChoice("
+    },
+    {
+      "file": "src/gameplay/workoutSelection.ts",
+      "line": 180,
+      "text": "export function resolveStartWorkout("
+    },
+    {
+      "file": "src/gameplay/workoutStart.ts",
+      "line": 68,
+      "text": "export function lockWorkoutStartReward(state: GameState, session: WorkoutSession): CompletionRewardEntitlement {"
+    },
+    {
+      "file": "src/world/ContinuousWorldEngine.ts",
+      "line": 384,
+      "text": "private advanceArmyMovements("
+    },
+    {
+      "file": "src/persistence/supabase/blockingRest.ts",
+      "line": 48,
+      "text": "const child = spawnSync(process.execPath, ['-e', CHILD], {"
+    }
+  ],
+  "referencedSourceFiles": [
+    {
+      "path": ".github/workflows/backend.yml",
+      "sha256": "90b2099cac92f1cb3a34f6791aec6e719b9e0c690065ecb13f364df93e965c6a"
+    },
+    {
+      "path": "Unity/Assets/RepWars/RepWarsApiClient.cs",
+      "sha256": "0143e131b3443187a431c580aa1f96058e8cdebd366e118e49aef3cac7a47401"
+    },
+    {
+      "path": "Unity/Assets/RepWars/RepWarsPlayLoop.cs",
+      "sha256": "d58924119164ca49e13aef1e3758364a457e6f195bc9b5eee076271c180aa889"
+    },
+    {
+      "path": "src/army/identity.ts",
+      "sha256": "51c12bf0364fbe13e7d8651365ccfb049b39d0e6f99229ca2236709b67576b76"
+    },
+    {
+      "path": "src/army/movement.ts",
+      "sha256": "2e4f2993f1d5395690b1711cb2ec6aaccd7646dc7c6d7cfbd4788bfc63c4a06c"
+    },
+    {
+      "path": "src/army/strategicAttack.ts",
+      "sha256": "94f7bc5fe829ddc1b3a666081a7bf1b3ca74bdaf80751f395065e55e18ab5f3a"
+    },
+    {
+      "path": "src/battle/BattleEngine.ts",
+      "sha256": "43b5f70b391e81015574926fa555f27ef6246ffdca7ab071346fe9e75bf2f744"
+    },
+    {
+      "path": "src/battle/CombatPower.ts",
+      "sha256": "c97af377e738e7de77ad831c566053f7503511003f75bd03225b2933e267b37e"
+    },
+    {
+      "path": "src/constants/balance.ts",
+      "sha256": "51beee062953491bfb21a2c101595d7a064ee19078c5f41058edbb57ba872064"
+    },
+    {
+      "path": "src/constants/recruitment.ts",
+      "sha256": "33a48dda202ed1ad77bde7da4bc3c2db1f80bfe07c7c305d05be54b2cb4ec191"
+    },
+    {
+      "path": "src/engine/DecisionEngine.ts",
+      "sha256": "83848edfdb7e64957c328e83723681e9ee129a3fc00c0b539de3d11015fc6030"
+    },
+    {
+      "path": "src/engine/nonProactiveCognition.ts",
+      "sha256": "3e57e6473ccbb98780b17d35fcbdfdb41c0506a3876d79ca2bfc8d63e9a4565f"
+    },
+    {
+      "path": "src/engine/operations.ts",
+      "sha256": "a37e88fe32bf765b86d2760cc8285dc1c029d1712be12ea87a3925d71bce3a1b"
+    },
+    {
+      "path": "src/engine/proactiveCognition.ts",
+      "sha256": "33447df39ed8adb2c2335619f354c93b10d2a1c60eda6f44dbcf770dc14bfacc"
+    },
+    {
+      "path": "src/engine/responseRecords.ts",
+      "sha256": "bb13dd3f38b8c1088136877345944f0b17f9a501cbb17927b0b7354e38ba755c"
+    },
+    {
+      "path": "src/engine/strategicPressure.ts",
+      "sha256": "0c16c2b8161a186754ef07277720c2a6301e466072ed128c26397aab792e5eb2"
+    },
+    {
+      "path": "src/events/EventModel.ts",
+      "sha256": "ccb86a703004a5ade0b85889f549341cfa9456755d38d25b139fe805f0555574"
+    },
+    {
+      "path": "src/events/EventTriggers.ts",
+      "sha256": "c79d4c28404d7c4785a367216dc6418fdcd9d4470f9db2fff7c3d10e0d726e07"
+    },
+    {
+      "path": "src/events/WorldSimulator.ts",
+      "sha256": "20b1ade3db6d966537adc6e6024ef28797ee8b22a07f1dfc44f47890c09abb07"
+    },
+    {
+      "path": "src/fitness/authoring/registry.ts",
+      "sha256": "87e69822298417616d7f75011c17ad88c86b8b03c60acc55185c0f610b9b5f36"
+    },
+    {
+      "path": "src/fitness/personalization/config.ts",
+      "sha256": "04d3d6fc09f38139f38e2686d76b672ab0de33e1672d8817e852e225fa932f67"
+    },
+    {
+      "path": "src/gameplay/anchors.ts",
+      "sha256": "faab73cd87061dc7f773472e28470116380dbbb8c361dfccc38eb3d3bef3f3de"
+    },
+    {
+      "path": "src/gameplay/completion.ts",
+      "sha256": "122aa03d04f3ed911856e82ad5104d71b0d9ae716e00e0e987eaeb17dcc698a5"
+    },
+    {
+      "path": "src/gameplay/config.ts",
+      "sha256": "e05e93a491455f50db3611a288eda18d80e4fd3d68b9b06fa5310b1f857fb413"
+    },
+    {
+      "path": "src/gameplay/construction/definitions.ts",
+      "sha256": "6736a48cdc34b33b6f0154d3990311dfc9e3c8e457b027f5e42ad2ef703fc488"
+    },
+    {
+      "path": "src/gameplay/economy/collect.ts",
+      "sha256": "527c9927db4cb0204a41a0c18cf9b1208749ed24442d4e5a3eb7489df91fcbb7"
+    },
+    {
+      "path": "src/gameplay/economy/config.ts",
+      "sha256": "6e4e350c596409d0c5c1f57fb0a6edf8c50d4128294f935370165e624b36447d"
+    },
+    {
+      "path": "src/gameplay/economy/foodConsumption.ts",
+      "sha256": "01e1cfefc94b983ea19f2697a44557daf4193b571e870b8568a646b30ecca400"
+    },
+    {
+      "path": "src/gameplay/invasion/eligibility.ts",
+      "sha256": "92c4b37865de86196104ceb66659dbd9967c8810ea5ae4b82d0340159cb1c4ba"
+    },
+    {
+      "path": "src/gameplay/invasion/pause.ts",
+      "sha256": "88c317a3e9c1e8aced7ab2366aeb1752b8af59e8948ff28914cd7367ed20eee1"
+    },
+    {
+      "path": "src/gameplay/invasion/progress.ts",
+      "sha256": "51802d489f737f811a5f121476716bb4e24fe0c03a1e640167dd2e04613e1b07"
+    },
+    {
+      "path": "src/gameplay/military/troopBank.ts",
+      "sha256": "9b7bf93b050b68e0eebae4de182247be5bdd74b6dfea5676b0cd787223b42958"
+    },
+    {
+      "path": "src/gameplay/recruitment/recruitment.ts",
+      "sha256": "6fb85507ba8613f82552ae790c3da91b3f1d5a97e51ac116075b4954dea9774b"
+    },
+    {
+      "path": "src/gameplay/recruitment/reinforcement.ts",
+      "sha256": "c97c4d6f05da36d333632193f0e15f047f042727b507da027ca8534f24de1c89"
+    },
+    {
+      "path": "src/gameplay/trade/declinedContext.ts",
+      "sha256": "d0e44e0eac14d6a174b7d2cce87a931bbcf46414f6cd543af64ccd52276b1a1a"
+    },
+    {
+      "path": "src/gameplay/trade/resources.ts",
+      "sha256": "e1123762f770299fe74d8bac2bcdfad7670f147a51c26c5c940784d2a1e8718b"
+    },
+    {
+      "path": "src/gameplay/trade/trade.ts",
+      "sha256": "6f9925189235b8972d28ebc15c7268af7bcf751367edd6079eaff4dc3c1995a0"
+    },
+    {
+      "path": "src/gameplay/tutorial/level1.ts",
+      "sha256": "409915cc4a33d97333238f973c5088ab898090201d2f728bd932a608a08deabf"
+    },
+    {
+      "path": "src/gameplay/workoutSelection.ts",
+      "sha256": "b0778dce0158cf5c458e27a33a6c2225ed3dbd074cc6fb50d8d389e2681f67df"
+    },
+    {
+      "path": "src/gameplay/workoutStart.ts",
+      "sha256": "8c184ff41ab4e2d0a598d80c4c1ef69a3e1b9869e5b5b06f88381d88e1920c44"
+    },
+    {
+      "path": "src/gameplay/worldRestart.ts",
+      "sha256": "f28469cef28fd269e9f9273fc3dea5fcc95939df214c1ad3e1ddce7f9ae88b27"
+    },
+    {
+      "path": "src/gameplay/worldTransition.ts",
+      "sha256": "41c0a1176136ede97dab9543a028ac0beb06fdfe8f88aeaf9e962ca9c0313dfa"
+    },
+    {
+      "path": "src/orchestration/applyBattle.ts",
+      "sha256": "366b0b1c64a9201b860a150f87cfb65a1e472d4ed4e4c41f19867ad8396a79c7"
+    },
+    {
+      "path": "src/orchestration/authorization.ts",
+      "sha256": "559993ea208aaba0baef94039f7115f01c4ffbc9c9d51869fffeebd8762a9d58"
+    },
+    {
+      "path": "src/orchestration/commandIndex.ts",
+      "sha256": "7b36ec372f8d1e9732467dab7e5b57317e50b1e0e5f096e06aacee173799f20b"
+    },
+    {
+      "path": "src/orchestration/gameplayCommands.ts",
+      "sha256": "2cc71ab60d4fec432f27d7fa63fcb6621c68b0a8d0d065f75b676cb8ac606ca5"
+    },
+    {
+      "path": "src/orchestration/handlers.ts",
+      "sha256": "ad0d82baabf1241019cd4ef520d56f51767e81068e28903325cf58777024c31c"
+    },
+    {
+      "path": "src/orchestration/orchestrator.ts",
+      "sha256": "cc2723e1fa44e5ae59344a2a029125c20762bdbd68a5d56772fe7dd3dbd07d24"
+    },
+    {
+      "path": "src/orchestration/publicView.ts",
+      "sha256": "4fb792be8393b6bdd5c373d919d29957386a02e25b47322d8328339bb504a844"
+    },
+    {
+      "path": "src/orchestration/transaction.ts",
+      "sha256": "c0261d01511996dce9f4e643ca46ad9a62138bbabf50ed75cffb8603fdeb40d6"
+    },
+    {
+      "path": "src/persistence/empireBankMigration.ts",
+      "sha256": "15b27da8a9a10e251a2441e7391d00150d73e07e4dda079f70c1316e0ee6399a"
+    },
+    {
+      "path": "src/persistence/hydrate.ts",
+      "sha256": "7f3be95adf7a8c38ed53d9041503ae3e71da2558da5238f2c68d767aa33b629a"
+    },
+    {
+      "path": "src/persistence/initializePlayerWorld.ts",
+      "sha256": "fc0985d980455a55253da2a01874026d9502ab4f367c292f44068327daeb4374"
+    },
+    {
+      "path": "src/persistence/supabase/adapter.ts",
+      "sha256": "059cfa5e37e74df7d4cf61aa9cb248609f1df28db73aeba757d0d31a4e1834ab"
+    },
+    {
+      "path": "src/persistence/supabase/atomicCommit.ts",
+      "sha256": "0019951d46c4a934d809d798f3fa9fc5dc4f4fcbd703aab35c4d4075fced6077"
+    },
+    {
+      "path": "src/persistence/supabase/blockingRest.ts",
+      "sha256": "1e6cd0674e371484d7d576c9ec5a76321f3f0ecc4055722c2ae15387fd22b3b0"
+    },
+    {
+      "path": "src/persistence/versioning.ts",
+      "sha256": "936c0a6f29af80ce5211031257b8a4e43774c63c532ba9b27257f9fc05df457e"
+    },
+    {
+      "path": "src/rewards/application/apply.ts",
+      "sha256": "70673e3a2436d1567415415e3b0fe7e43bd1edf7c6c1cbed53035369c682f704"
+    },
+    {
+      "path": "src/rewards/completionPolicy.ts",
+      "sha256": "99f1bec429be6e7923f2df347688227472f2d635e0167fe0b11f0fc171c0a890"
+    },
+    {
+      "path": "src/rewards/pipeline/settleLockedWorkout.ts",
+      "sha256": "a3dc99550493163bb6f5b9005768cc29a2e1b6a6a60a7f1cb3398650ad46021f"
+    },
+    {
+      "path": "src/server/allowlist.ts",
+      "sha256": "1ce118263fff2f0e5e16c9117a6021ae9e76795a228128dc61c5f3ecc7dafd4f"
+    },
+    {
+      "path": "src/server/dependencyBudget.ts",
+      "sha256": "93f0d79523fe218f60d6d1c8aba8df61b0ac9689d38e03a934d66bb3a14c4700"
+    },
+    {
+      "path": "src/server/http.ts",
+      "sha256": "39b7cd8b9ef0d0f5d753337230548aaf703abce217d7250c1d5b0e82fd6ebedc"
+    },
+    {
+      "path": "src/server/identity.ts",
+      "sha256": "57b253b201493da26bbfb759418517eb130d7f62eee937d000601e38af7a4346"
+    },
+    {
+      "path": "src/server/main.ts",
+      "sha256": "c1aef82763aeb5daa4a83776faa414e15627a3431c56d088a9e7e33c3d6d6cc3"
+    },
+    {
+      "path": "src/server/production.ts",
+      "sha256": "e963e16356784236f38523924403e84e58ae5c1ec75cd60028a0655601f39cfa"
+    },
+    {
+      "path": "src/server/session.ts",
+      "sha256": "5bcb398eec677e8b27e7e3923580f066be46a18e2113f017dbaea4c9f05f2da0"
+    },
+    {
+      "path": "src/state/gameStateInvariants.ts",
+      "sha256": "e90ac973f0b46b05072b2a33b68484a0ca15cacd46cf25fa93a77c4d0386ff8f"
+    },
+    {
+      "path": "src/types/AIConcretePlan.ts",
+      "sha256": "3436a3b9a6a0f2b69834f5ca70f3c30b44de2f8d3b472ba82009d0531aee9197"
+    },
+    {
+      "path": "src/types/GameState.ts",
+      "sha256": "1df00b61571003c6ccf40f357c93f257d843ddea13b326d413d7414cc1be051c"
+    },
+    {
+      "path": "src/world/ContinuousWorldEngine.ts",
+      "sha256": "a772ceb58370d57c8a72b7605adc767731693c1a8a9408e478af30f1736d5e2a"
+    },
+    {
+      "path": "src/world/timeToTick.ts",
+      "sha256": "4cedd6f44e4d6388785d6a0ee8d26077b4258e5ed039fd752ce12e03214e65ff"
+    },
+    {
+      "path": "src/worldDefinition/identity.ts",
+      "sha256": "2d226b10d2996b61c58b8899c80877564ab67fc713f5ab5fb60bd2d774265c0c"
+    },
+    {
+      "path": "src/worldDefinition/instantiate.ts",
+      "sha256": "7c1415c6944e9e3bcab1671eed60562b77afb74966e2971292847ead11762fa5"
+    },
+    {
+      "path": "src/worldDefinition/worldConfig.ts",
+      "sha256": "5adc77722322af34112dedb6ad0c2f1132c657f27161fafe30c0f5b7636f6c98"
+    },
+    {
+      "path": "tests/aiCognition.ts",
+      "sha256": "80cdda199f95c62be7d11b27d6ec5556b26ca15de6960c17a68e847456c5a199"
+    },
+    {
+      "path": "tests/aiEconomy.ts",
+      "sha256": "875197ddd9195db9ca0ad7e8a1b1899e7bd0990ce1c9a28cecf0f305743dbcfe"
+    },
+    {
+      "path": "tests/aiOperations.ts",
+      "sha256": "94e960757f1ef8b0fad8383b11ecdc88b8abcc8ba79596dad0f99d80abd2c5a5"
+    },
+    {
+      "path": "tests/aiPeace.ts",
+      "sha256": "a4dba74a6ba87da0587e5d27527866826623179a3ff2b853cacde4dd4501e94b"
+    },
+    {
+      "path": "tests/aiRecruitment.ts",
+      "sha256": "e2418f5fec82a8c2f7a2a2deb28b7370653fd6f0409071c84a9ac308bdc52f2b"
+    },
+    {
+      "path": "tests/aiResponseCorrections.ts",
+      "sha256": "7c3c9c920a6299a6bbde7a69e9f04b05b8b5359a2738352d634d0740663b0f6a"
+    },
+    {
+      "path": "tests/aiResponses.ts",
+      "sha256": "c737d7af3407a1141dc1e40491d3cee21ca8835cbff3fd0e5dd12f1dc0bdf820"
+    },
+    {
+      "path": "tests/aiStrategicEvaluation.ts",
+      "sha256": "4239d92c482b69aa76cea84d40d746b3e07776dc67ebe3ba5bcff705694ca2d5"
+    },
+    {
+      "path": "tests/aiStrategicPressure.ts",
+      "sha256": "94c14e5b9e430b0f79a03ad95677a445e248fa2f06fcd4c8bcdda608f0c54178"
+    },
+    {
+      "path": "tests/aiStrategyConcurrency.ts",
+      "sha256": "3c10af65c522ab37edbf37377888876da4de2c284b27608c386535dda57c8f4f"
+    },
+    {
+      "path": "tests/aiTrade.ts",
+      "sha256": "50d63af33627d99c3f1432afb9b1486d429ba640006b0d8965daae31bb5516bc"
+    },
+    {
+      "path": "tests/armyIdentity.ts",
+      "sha256": "1e2bbe6e7600f0ae4393e0c8bca5402cf97117d16077467751381e2b2fb33c7f"
+    },
+    {
+      "path": "tests/atomicCommit.ts",
+      "sha256": "4a8eee9b09960669bc89bd51a073e1861abc43d194f25023dbaa05503d31aec6"
+    },
+    {
+      "path": "tests/backendBoundary.ts",
+      "sha256": "d75d9e8c10871094707495f37b1ed5b924c75e3b9449801f80ca2c8b903b5505"
+    },
+    {
+      "path": "tests/backendScale.ts",
+      "sha256": "2e936373da2ab950bf1922493d89e600b4fa39d627b3cdcd2a3d0223f149e3e1"
+    },
+    {
+      "path": "tests/battleSeedAuthority.ts",
+      "sha256": "e85b435611d3634592ef79fc0535536bfc08978d8ed7cc30b2df7e1cf08a582c"
+    },
+    {
+      "path": "tests/constructionQueries.ts",
+      "sha256": "793a57483619d95e5bde7a844b08f45de5f84ae24d72bd314de3c1dc753f78b4"
+    },
+    {
+      "path": "tests/defenseTroopAccounting.ts",
+      "sha256": "4265197cf09c5d759b04dbb4a0db942a70d29107c52ec675399c53f155b6c3a1"
+    },
+    {
+      "path": "tests/economyCities.ts",
+      "sha256": "0e1afb6bb67a2d49f6c26b8c293537e029551b1766d6814689d2470919a079bb"
+    },
+    {
+      "path": "tests/economyDevelopments.ts",
+      "sha256": "6a3bf0fdeb6934dece8650d35ec6efc73d41b4825a89381ec895d5439df4593d"
+    },
+    {
+      "path": "tests/economyFoundation.ts",
+      "sha256": "4d5e72bad62a4ea910e692f07a0bc9a49ad05ddd1ff72e3b245a715d11f306db"
+    },
+    {
+      "path": "tests/fitnessLevel.ts",
+      "sha256": "6e73eba229dec7be6f8227f0f3815262d739a4041d5aea1e9d302cf02c053046"
+    },
+    {
+      "path": "tests/fitnessPersonalization.ts",
+      "sha256": "4b6c519831255a011768c64fac869a4d6d74d7be474877f537e2e3105427a4aa"
+    },
+    {
+      "path": "tests/gameplayConsumption.ts",
+      "sha256": "92a1299508464ddcbe9da1d494c22d7657cc891a1d0c3224092fb6d2d93e5e4a"
+    },
+    {
+      "path": "tests/gameplayContracts.ts",
+      "sha256": "6d26aba2b6948cef31850fc2ab9bde1decc0eb7bc6a505323a2b95db3023400b"
+    },
+    {
+      "path": "tests/gameplaySessionLeases.ts",
+      "sha256": "47daa080e1cdaeb6f51466fd880a578842b28ae013c22abd1d9a2e170632c08f"
+    },
+    {
+      "path": "tests/gameplaySessionLifecycle.ts",
+      "sha256": "32d415a32b857e1775092691429bbba2808506c7d88bc6ba0dc29a2a422dc2a0"
+    },
+    {
+      "path": "tests/invasionLifecycle.ts",
+      "sha256": "26b107e20536cf8d6c86ecfd07dc2a05ed2321cb79d7ed4df657ebbe80962ccb"
+    },
+    {
+      "path": "tests/level1Production.ts",
+      "sha256": "3e6a13bebc46a3c2d0fbecb2ed02bdaf68c892b0c1e90dabb04cc828801b2da3"
+    },
+    {
+      "path": "tests/level1Tutorial.ts",
+      "sha256": "5bfd4b0462856d210e0d7c400f86631769fbf686ad4470bc2a629d27ed4fd529"
+    },
+    {
+      "path": "tests/orchestratorIntegration.ts",
+      "sha256": "ede4f1dcfdce5fd77b3239a83ed90442d397678fff38c771053d3be86d59ee9f"
+    },
+    {
+      "path": "tests/persistence.ts",
+      "sha256": "473913a9998b57b551d525c0b3cee2c1a3957b6185276262c859db4596b6efe3"
+    },
+    {
+      "path": "tests/run.ts",
+      "sha256": "a8f6413fef45bfc04b5dfebee704e8a62c7d4961a07c19113589b7f9ac5fbd33"
+    },
+    {
+      "path": "tests/sessionCache.ts",
+      "sha256": "f78f16bef69c2e2ac1e29652e1177657037d0a6e83acba29d37a6d34376b287f"
+    },
+    {
+      "path": "tests/sessionReplay.ts",
+      "sha256": "157635d29a0000a56da1105201aa4fef3606b250e1e9e6eca1309099b4ab20be"
+    },
+    {
+      "path": "tests/strategicAccess.ts",
+      "sha256": "df1ef3f5e8eb3b685aa5cdd04d9c9780fae34158165b0671b1b7b05add7f003d"
+    },
+    {
+      "path": "tests/strategicAttack.ts",
+      "sha256": "41f8388a9c6d5c259c30c73c2237d699e593782502c84b594b6e384bc2aed1b7"
+    },
+    {
+      "path": "tests/supabasePersistence.ts",
+      "sha256": "a891a3cf14ebf6c395b751e8a456a8e54c1f310e555489675093040c2b624f09"
+    },
+    {
+      "path": "tests/workoutAuthoring.ts",
+      "sha256": "6236dcae718472122ac3a1b15d8170814527b6d083377d75d235d094d463db73"
+    },
+    {
+      "path": "tests/workoutPauseResume.ts",
+      "sha256": "f37604635e3e6253797f54aca537a333d0bfe7fd98cc76d1340832a7d9f9eca4"
+    },
+    {
+      "path": "tests/workoutProgression.ts",
+      "sha256": "4c45af598d963aa33e7b69de9605cb3d7a3018166e6e45e7e03fd7a0f1fd160c"
+    },
+    {
+      "path": "tests/workoutRewardApi.ts",
+      "sha256": "3c26b9653680955d5e1b6f3c3ce0a4dd83a3f5947cd530e3d83b92d776506065"
+    },
+    {
+      "path": "tests/workoutRewardContracts.ts",
+      "sha256": "809cd3e710c5233929b5ef1a4dfaf87a00dc94bdcc4b8b66f37c020730f81795"
+    },
+    {
+      "path": "tests/workoutSettlementRewards.ts",
+      "sha256": "6b979430699e2b09a651cbe97d69e24a0707d015bf9215856078c535bf5c22cd"
+    },
+    {
+      "path": "tests/workoutStartRewards.ts",
+      "sha256": "66da3fff04d9b2ba1ba66f49c727bc5c2e438b2b58b62b1247f28c52204e0c8b"
+    },
+    {
+      "path": "tests/worldAccrual.ts",
+      "sha256": "12317f942d47ab8e13cdd7da361bb2f32dd8fecc8c34877b4a6caf78f6b024a5"
+    },
+    {
+      "path": "tests/worldContentIdentity.ts",
+      "sha256": "d388caf7aa62c768f7b8de285c57eb305398ab5aca8cc90ebee9a626a791313a"
+    },
+    {
+      "path": "tests/worldDefinition.ts",
+      "sha256": "d015a4bfc8e20ab2aa772c818dc12cdcf0bc5e3daa6fa2546a52bc68b7d1c5c0"
+    },
+    {
+      "path": "tests/worldGeometryBoundaries.ts",
+      "sha256": "968c7ee69ae3dbb428bbf59c279eaa05768280b006b901c8e29019ae1894ae78"
+    },
+    {
+      "path": "tests/worldTransition.ts",
+      "sha256": "322b90fca045cbe4f03c3d9468847d0143d652d777bb7d20cdaa952274e24cd6"
+    },
+    {
+      "path": "worlds/level-1.authored.json",
+      "sha256": "a21aa4d9877ff901b454922ecec6ea88c2dde6e04bba8f6ba0eae291da1103fd"
+    },
+    {
+      "path": "worlds/level-1.json",
+      "sha256": "5126811cd0895b7bccdc1fa4979644184e7d60307a008855bd9b913b299051fa"
+    },
+    {
+      "path": "worlds/level-2.json",
+      "sha256": "b4aba958de396053cf9ff08b859bd162fcc4735044d0bd5f9130e6426bd2351f"
+    }
+  ],
+  "worldInventory": [
+    {
+      "file": "worlds/level-1.json",
+      "sha256": "5126811cd0895b7bccdc1fa4979644184e7d60307a008855bd9b913b299051fa",
+      "worldId": "Level 1",
+      "territories": 3,
+      "factions": 2,
+      "startingArmies": [
+        {
+          "faction": "f_player",
+          "army": {
+            "soldiers": 400,
+            "knights": 40,
+            "siegeEngines": 0,
+            "locationTerritoryId": "t_02"
+          }
+        },
+        {
+          "faction": "f_ai_01",
+          "army": {
+            "soldiers": 150,
+            "knights": 20,
+            "siegeEngines": 0,
+            "locationTerritoryId": "t_03"
+          }
+        }
+      ],
+      "completion": {
+        "type": "control_fraction",
+        "fraction": 1
+      },
+      "workoutRewards": null,
+      "registeredProduction": true
+    },
+    {
+      "file": "worlds/level-2.json",
+      "sha256": "b4aba958de396053cf9ff08b859bd162fcc4735044d0bd5f9130e6426bd2351f",
+      "worldId": "Level 2",
+      "territories": 8,
+      "factions": 3,
+      "startingArmies": [
+        {
+          "faction": "f_player",
+          "army": {
+            "soldiers": 400,
+            "knights": 40,
+            "siegeEngines": 0,
+            "locationTerritoryId": "t_03"
+          }
+        },
+        {
+          "faction": "f_ai_01",
+          "army": {
+            "soldiers": 500,
+            "knights": 20,
+            "siegeEngines": 0,
+            "locationTerritoryId": "t_01"
+          }
+        },
+        {
+          "faction": "f_ai_02",
+          "army": {
+            "soldiers": 500,
+            "knights": 20,
+            "siegeEngines": 0,
+            "locationTerritoryId": "t_06"
+          }
+        }
+      ],
+      "completion": {
+        "type": "control_fraction",
+        "fraction": 1.0
+      },
+      "workoutRewards": null,
+      "registeredProduction": true
+    },
+    {
+      "file": "worlds/level-1.authored.json",
+      "sha256": "a21aa4d9877ff901b454922ecec6ea88c2dde6e04bba8f6ba0eae291da1103fd",
+      "worldId": "Level 1",
+      "territories": 3,
+      "factions": 2,
+      "startingArmies": [
+        {
+          "faction": "f_player",
+          "army": {
+            "soldiers": 0,
+            "knights": 0,
+            "siegeEngines": 0,
+            "locationTerritoryId": "t_02"
+          }
+        },
+        {
+          "faction": "f_ai_01",
+          "army": {
+            "soldiers": 130,
+            "knights": 20,
+            "siegeEngines": 0,
+            "locationTerritoryId": "t_03"
+          }
+        }
+      ],
+      "completion": {
+        "type": "control_fraction",
+        "fraction": 1
+      },
+      "workoutRewards": null,
+      "registeredProduction": false
+    }
+  ],
+  "logs": {
+    "full-suite.log": {
+      "temporaryPath": "/tmp/backend-completion-audit/full-suite.log",
+      "bytes": 200322,
+      "sha256": "0c21870b181eb5d165e78c69f195f488bd909f016086c3cd5e28a11053fb1cd6",
+      "terminalLines": [
+        "  ✓ a workout session id is not gameplay-session authority",
+        "  ✓ a legacy lease without an open request id remains valid authority",
+        "  ✓ supabase payload and http routes keep one player session and ignore client clocks",
+        "Results: 2347 passed, 0 failed, 3 skipped"
+      ]
+    },
+    "typecheck.log": {
+      "temporaryPath": "/tmp/backend-completion-audit/typecheck.log",
+      "bytes": 104,
+      "sha256": "e536aa9116479b723260e15f9a9ac00ab07ccaf186b504e663ce7d9c283da4ae",
+      "terminalLines": [
+        "",
+        "> rep-wars-ai-engine@0.1.0 typecheck",
+        "> node node_modules/typescript/bin/tsc --noEmit -p tsconfig.json",
+        ""
+      ]
+    },
+    "typecheck-tests.log": {
+      "temporaryPath": "/tmp/backend-completion-audit/typecheck-tests.log",
+      "bytes": 116,
+      "sha256": "7946057d21fd7493a80730a6e439ee3e9e22749e0be1644def86d8ec040608c5",
+      "terminalLines": [
+        "",
+        "> rep-wars-ai-engine@0.1.0 typecheck:tests",
+        "> node node_modules/typescript/bin/tsc --noEmit -p tsconfig.tests.json",
+        ""
+      ]
+    },
+    "build.log": {
+      "temporaryPath": "/tmp/backend-completion-audit/build.log",
+      "bytes": 74,
+      "sha256": "82fd44a41fe4fb9890199e683c0d7fdf42be16ff2bd1ee6970d0db1828f1b630",
+      "terminalLines": [
+        "",
+        "> rep-wars-ai-engine@0.1.0 build",
+        "> node node_modules/typescript/bin/tsc",
+        ""
+      ]
+    },
+    "probes.log": {
+      "temporaryPath": "/tmp/backend-completion-audit/probes.log",
+      "bytes": 11128,
+      "sha256": "62a0c2bbbcd6f20bf5605fc5c4e96fe3af76e98f5ccfdb70cd866e93af258b21",
+      "terminalLines": [
+        "      \"payload\": {}",
+        "    }",
+        "  }",
+        "}"
+      ]
+    },
+    "cross-system-probes.log": {
+      "temporaryPath": "/tmp/backend-completion-audit/cross-system-probes.log",
+      "bytes": 3816,
+      "sha256": "1b0e11102057b9cbf9233831096c32f8b0659c934eae8182b764626f2ca63111",
+      "terminalLines": [
+        "      \"reloadInvariants\": []",
+        "    }",
+        "  }",
+        "}"
+      ]
+    }
+  },
+  "preCheckpointPreservation": [
+    {
+      "path": "/workspace/REP-WARS-2",
+      "head": "6f38eec6516682e64937b08744a5607f54bbba91",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-ADMISSION",
+      "head": "9a9c84685029c0b518678cfb9bd751c6d6c911cf",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-C1",
+      "head": "67d3bfb490327d8875859f9a67610c99cbd5bf91",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-C2",
+      "head": "5f510813ace5571967706ed8697c22d8f3d3c355",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-C3",
+      "head": "68d566063cffc237281acfd2bbc4a69ef207b21d",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-CATCHUP",
+      "head": "e1248f3e68776d57c32460df2fd005cf178de3ca",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-COMPLETION",
+      "head": "c5a3af52ef83ea3aaac18f132e27868ab3cb7ae0",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 78
+    },
+    {
+      "path": "/workspace/REP-WARS-2-COMPLETION-NEXT",
+      "head": "b6e6b22455c31a919604b5cde2510e63c45c5070",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-CONSTRUCTION-QUERIES",
+      "head": "4203a7fd709ddaba1cb000f08d54fb54469a6a3d",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-DEPENDENCIES",
+      "head": "fcbbb046abbb6ae964d0c309b772d37e1af948a7",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-GAMEPLAY-CONTRACTS",
+      "head": "e3f1781f8a53424462fabbd943cc01b0e2725154",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-GEOMETRY",
+      "head": "c1063043fae039c333c8676ab5e0fcc0b47e733b",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-R1-C",
+      "head": "942cec126859628108f4f42305f546694f61a1ed",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-R1-D",
+      "head": "09677c38a54c4d438639f82ec7422eb988b54490",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-R1-E",
+      "head": "26aea031e401a35eb8c185a6cd8613449374be48",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-R1-F",
+      "head": "c5a3af52ef83ea3aaac18f132e27868ab3cb7ae0",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-STRATEGIC-ACCESS",
+      "head": "c9473107bbd5281d011480dc3fe3ff1a207c9688",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-TRADE-CONTEXT",
+      "head": "a033904b120a4dc9b7c4af6eebf9df170fb8c369",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    },
+    {
+      "path": "/workspace/REP-WARS-2-VALIDATION",
+      "head": "e7f557fa903316ef1ab15770d42350bd0995fbbf",
+      "preserved": true,
+      "errors": [],
+      "existing_dirty_file_hashes_checked": 0
+    }
+  ],
+  "verifiedRemoteBeforeCheckpoint": {
+    "REP-WARS-3": "6f38eec6516682e64937b08744a5607f54bbba91",
+    "feat/backend-gameplay-contracts": "e3f1781f8a53424462fabbd943cc01b0e2725154",
+    "fix/backend-strategic-access": "c9473107bbd5281d011480dc3fe3ff1a207c9688",
+    "dev/ai-longrun-simulation": "ce63ad0bd1d74494c0a87f494d65d9efb8d88b25",
+    "codex/ai-phase-l-r2-correction": "70b7529e07954069e77eddee9e4cbf3ec5018e29",
+    "codex/ai-phase-l-frozen-review": "8375022d43482658227415f078a40ac13356c9cb"
+  },
+  "publication": "Documentation-only commit is to be pushed to audit/backend-completion-20261029. The containing commit cannot embed its own hash; actual push/hash verification is reported after commit in the final response.",
+  "verificationLimitations": [
+    "No production credentials or live database used.",
+    "Three live tests skipped by explicit opt-in guard.",
+    "No Unity editor/device execution and no access to latest Windows worktree.",
+    "No production catalog/reward ratios invented or activated.",
+    "No production-scale multi-user capacity or hosted CI proof.",
+    "No full production player conquest/fitness safety/balance certification.",
+    "No speculative gameplay corrections implemented."
+  ],
+  "verdict": {
+    "backendFeatureComplete": false,
+    "allEnginesFullyIntegrated": false,
+    "productionReady": false,
+    "meaningfulLocalUnityIntegrationPossible": true,
+    "nextRecommendedPhase": "AUD-001 universal public mutation identity using existing receipt authority"
+  },
+  "documentationValidation": {
+    "jsonParse": "PASS",
+    "featureRows": 71,
+    "uniqueIssueIds": 23,
+    "referencedSourceFileDigestsVerified": 128,
+    "referencedConcretePaths": "PASS",
+    "stagedScope": "Exactly five requested documentation files; no production/test/content/Unity delta",
+    "gitDiffCachedCheck": "PASS after removing a new trailing blank line in the matrix",
+    "existingWorktreesUnchanged": 19
+  }
+}
