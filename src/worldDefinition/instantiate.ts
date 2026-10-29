@@ -75,6 +75,7 @@ export function createGameStateFromWorld(
       population: 0,
       baseValue: 0,
       resourceOutput: { ...t.resourceOutput },
+      ...(t.foodUpkeep !== undefined ? {foodUpkeep:t.foodUpkeep} : {}),
       fortification: 0,
       garrison: 0,
     });
@@ -227,6 +228,7 @@ export function createGameStateFromWorld(
   syncAllFactionResourceIncome(state);
   bindLevelAnchors(state, definition);
   bindLevel1Tutorial(state);
+  state.empireFoodBaselinePerCycle = definition.empireFoodBaselinePerCycle ?? 0;
   assertWorldIdentity(state, definition);
   initializeCognition(state);
   return state;
@@ -274,6 +276,7 @@ export function applyImmutableWorldDefinition(state: GameState, definition: Worl
     tile.terrain = tDef.terrain;
     tile.neighboring = [...tDef.neighborIds];
     tile.resourceOutput = { ...tDef.resourceOutput };
+    if(tDef.foodUpkeep !== undefined)tile.foodUpkeep=tDef.foodUpkeep;else delete tile.foodUpkeep;
   }
 
   const allTerritoryIds = definition.territories.map((t) => t.id);
@@ -288,5 +291,6 @@ export function applyImmutableWorldDefinition(state: GameState, definition: Worl
   }
   bindLevelAnchors(state, definition);
   bindLevel1Tutorial(state);
+  state.empireFoodBaselinePerCycle = definition.empireFoodBaselinePerCycle ?? 0;
   assertWorldIdentity(state, definition);
 }

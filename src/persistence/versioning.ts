@@ -1,3 +1,4 @@
+import {migrateEmpireBanks} from './empireBankMigration';
 import { registerRequiredResponse } from '../engine/nonProactiveCognition';
 import { isContentFingerprint } from '../worldDefinition/contentIdentity';
 import { armySequenceFloor } from '../army/identity';
@@ -394,6 +395,7 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   else if (state.definitionContentFingerprint !== null && !isContentFingerprint(state.definitionContentFingerprint)) {
     throw new PersistenceError('persistence.corrupt', 'Invalid world content fingerprint');
   }
+  if(schema<31)migrateEmpireBanks(state as unknown as GameState);
   state.schemaVersion = CURRENT_GAME_STATE_SCHEMA;
   return state;
 }

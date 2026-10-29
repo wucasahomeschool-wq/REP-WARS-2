@@ -363,7 +363,7 @@ export function registerArmyMovementTests(api: ArmyMovementTestApi): void {
     const orch = new Orchestrator(state);
     orch.execute(cmdReq('RESOLVE_COMMITMENT', 'ai', { factionId: fid }));
     assert.strictEqual(orch.getState().operations.get(operationId)!.status, 'executing');
-    orch.getState().factions.get(fid)!.resources.food=0;primeSourceDecision(orch.getState(),fid);
+    orch.getState().factions.get(fid)!.resources.food=0;orch.getState().worldLevel=2;primeSourceDecision(orch.getState(),fid);
     const duration = orch.getState().armies.get(armyId)!.movement!.durationTicks;
     const mid = orch.execute(cmdReq('ADVANCE_WORLD', 'p', { elapsedTicks: duration - 1 }));
     assert.strictEqual(mid.success, true, mid.errors[0]?.message);

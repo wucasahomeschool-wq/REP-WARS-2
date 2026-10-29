@@ -105,8 +105,9 @@ import { GameRewardResult } from '../rewards/types';
  * 28 = Durable runtime army identity high-water mark (C2).
  * 29 = Optional immutable workout completion entitlement (R1-C). Legacy sessions remain unlocked.
  * 30 = Authored world content fingerprint; legacy provenance remains explicitly unknown.
+ * 31 = Empire banks, authored Food upkeep, bonus-only collection and world trophies.
  */
-export const GAME_STATE_SCHEMA_VERSION = 30;
+export const GAME_STATE_SCHEMA_VERSION = 31;
 
 export type InvasionId = string;
 
@@ -233,13 +234,13 @@ export interface City {
 }
 
 /**
- * Lazy territory production ledger. Uncollected yield is not the faction
- * reserve (`WarlordSnapshot.resources`). Missing records do not backfill
- * from world start.
+ * Production watermark and manual Golden Yield eligibility. Since schema 31,
+ * `uncollected` means production already banked but not yet acknowledged by a
+ * manual collection. It is not spendable storage. Missing records never backfill.
  */
 export interface TerritoryEconomy {
   territoryId: TerritoryId;
-  /** Phase G materializes only local Food between legacy whole-ledger accruals. */
+  /** Legacy Food-only watermark retained for migration compatibility. */
   foodAccrualTick?: number;
   lastAccrualTick: number;
   uncollected: Resources;
@@ -438,6 +439,10 @@ export interface GameState {
    * does not back-charge missed cycles.
    */
   lastFoodConsumptionTick: number;
+  /** Authored empire baseline Food per 60-tick cycle; legacy compatibility is zero. */
+  empireFoodBaselinePerCycle: number;
+  /** Permanent trophy identities, not independently simulated empires. */
+  completedWorldIds: string[];
   /**
    * Last successful primary proactive initiation boundary. Physical operation
    * completion does not restart this transitional cadence. Missing key = never.
@@ -572,8 +577,8 @@ export interface GameState {
   conflictLedger: Map<string, import('./ConflictLedger').ConflictPairLedger>;
   conflictEventReceipts: Map<string, import('./ConflictLedger').ConflictReceipt>;
   /**
-   * Per-territory uncollected yield and last accrual tick. Faction
-   * `resources` remain the banked reserve; recruitment uses only local Food yield.
+   * Per-territory Golden Yield eligibility and last accrual tick. Faction
+   * `resources` remain the only spendable resource reserve; no local Food stockpile.
    */
   territoryEconomy: Map<TerritoryId, TerritoryEconomy>;
   /**
@@ -611,6 +616,10 @@ export function emptyWorldClock(): {
   accrualDivisionRemainder: number;
   lastAccrualAtMs: number | null;
   gameplaySessionLeases: GameplaySessionLease[];
+  /** Authored empire baseline Food per 60-tick cycle; legacy compatibility is zero. */
+  empireFoodBaselinePerCycle: number;
+  /** Permanent trophy identities, not independently simulated empires. */
+  completedWorldIds: string[];
   lastFoodConsumptionTick: number;
   lastAiDecisionTick: Map<FactionId, number>;
   strategicAttention: StrategicAttentionState;
@@ -628,6 +637,8 @@ export function emptyWorldClock(): {
     accrualDivisionRemainder: 0,
     lastAccrualAtMs: null,
     gameplaySessionLeases: [],
+    empireFoodBaselinePerCycle: 0,
+    completedWorldIds: [],
     lastFoodConsumptionTick: 0,
     lastAiDecisionTick: new Map(),
     strategicAttention: { capacity: STRATEGIC_ATTENTION_TUNING.capacity },

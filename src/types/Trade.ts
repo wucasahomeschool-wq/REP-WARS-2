@@ -2,6 +2,8 @@ import type { TradePlan, ResourceBundle } from './AIConcretePlan';
 import type { ProactiveTimer } from './AIPressure';
 export type TradeProposalStatus='initiating'|'pending'|'accepted'|'declined'|'expired'|'withdrawn'|'counteroffered'|'invalidated';
 export interface TradeProposal {
+  /** Schema 31 bank exchange receipt; absent on historical physical trades. */
+  bankSettledAtMs?:number;
   id:string; operationId:string; proposer:string; recipient:string; plan:TradePlan;
   status:TradeProposalStatus; createdAtMs:number; pendingAtMs:number|null; resolvedAtMs:number|null;
   responseTimer:ProactiveTimer|null; shipmentIds:string[]; replacesProposalId?:string;

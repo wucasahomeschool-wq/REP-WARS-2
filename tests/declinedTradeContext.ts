@@ -115,8 +115,8 @@ export function registerDeclinedTradeTests({ test }: { test: (name: string, fn: 
     const f = fixture(); f.state.aiPressure.get(f.sourceId)!.blockers = [];
     const state = hydratePersistedPayload(snapshotGameState(f.state)); assert.equal(available({ ...f, state }), true);
   });
-  test('declined Trade: accepted offers retain bilateral physical cargo', () => {
-    const f = fixture(false); assert.equal(f.state.tradeShipments.size, 2);
+  test('declined Trade: accepted offers retain exact settled bank receipt', () => {
+    const f = fixture(false); assert.equal(f.state.tradeShipments.size, 0);assert.equal(f.state.tradeProposals.get(f.proposalId)!.status,'accepted');assert.equal(typeof f.state.tradeProposals.get(f.proposalId)!.bankSettledAtMs,'number');
     assert.ok([...f.state.tradeShipments.values()].every(s => s.phase !== 'delivered'));
     assert.ok(!f.state.aiPressure.get(f.sourceId)?.blockers.some(b => b.reasons.some(r => r.kind === 'CONTEXT')));
   });

@@ -65,7 +65,9 @@ export function registerWorldContentTests({ test }: { test: (name: string, fn: (
     const old:Record<string,unknown>={...original,schemaVersion:29};delete old.definitionContentFingerprint;
     const migrated=hydratePersistedPayload(old);
     assert.equal(migrated.schemaVersion,GAME_STATE_SCHEMA_VERSION);assert.equal(migrated.definitionContentFingerprint,null);
-    assert.deepEqual(snapshotGameState(migrated),{...original,definitionContentFingerprint:null});
+    const expected=structuredClone(original) as any;
+    for(const [,f] of expected.factions.$map){f.bankedTroops=0;f.knownTerritories=expected.territories.$map.map(([id]:[string,unknown])=>id);f.knownFactions=[...expected.allFactionIds];}
+    assert.deepEqual(snapshotGameState(migrated),{...expected,definitionContentFingerprint:null});
     assert.deepEqual(snapshotGameState(hydratePersistedPayload(snapshotGameState(migrated))),snapshotGameState(migrated));
   });
   for (const pin of [undefined,'bad','sha256:123',42]) test(`content: current schema rejects malformed fingerprint ${String(pin)}`,()=>{

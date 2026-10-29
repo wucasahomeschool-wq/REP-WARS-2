@@ -32,9 +32,10 @@ function geometry(def: WorldDefinition) {
  * start-locked; cosmetic props/camera metadata are not simulation save authority. */
 export function worldContentFingerprint(def: WorldDefinition): string {
   return digest({ algorithm: WORLD_CONTENT_ALGORITHM, geometry: geometry(def), name:def.name, playerFactionId:def.playerFactionId,
+    ...(def.empireFoodBaselinePerCycle!==undefined?{empireFoodBaselinePerCycle:def.empireFoodBaselinePerCycle}:{}),
     completion:def.completion, factions:byId(def.factions),
     regions:byId(def.regions).map(r => ({...r,territoryIds:[...r.territoryIds].sort(compare)})),
-    territories:byId(def.territories).map(t => ({id:t.id, terrain:t.terrain, startingOwnerFactionId:t.startingOwnerFactionId, resourceOutput:t.resourceOutput})),
+    territories:byId(def.territories).map(t => ({id:t.id, terrain:t.terrain, startingOwnerFactionId:t.startingOwnerFactionId, resourceOutput:t.resourceOutput,...(t.foodUpkeep!==undefined?{foodUpkeep:t.foodUpkeep}:{})})),
     startingDiplomacy:[...def.startingDiplomacy].sort((a,b)=>compare(JSON.stringify([a.a,a.b]),JSON.stringify([b.a,b.b]))),
     containedWorlds:[...def.containedWorlds].sort((a,b)=>compare(a.worldId,b.worldId)),
   });

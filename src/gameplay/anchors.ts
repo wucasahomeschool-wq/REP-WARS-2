@@ -152,7 +152,7 @@ export function applyPlayerTerritoryLoss(state: GameState, lostTerritoryId: Terr
     });
   }
 
-  if (remainingAnchors.length === 0 && state.levelDefeat.status !== 'defeated') {
+  if (currentPlayerOwnedTerritoryIds(state).length === 0 && state.levelDefeat.status !== 'defeated') {
     const next = cloneDefeat(state.levelDefeat);
     next.status = 'defeated';
     next.defeatedAtTick = state.worldTick;

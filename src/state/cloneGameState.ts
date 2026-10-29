@@ -246,6 +246,8 @@ export function adoptOwnedTransactionState(target: GameState, next: GameState): 
   target.accrualDivisionRemainder = next.accrualDivisionRemainder;
   target.lastAccrualAtMs = next.lastAccrualAtMs;
   target.gameplaySessionLeases = next.gameplaySessionLeases;
+  target.empireFoodBaselinePerCycle = next.empireFoodBaselinePerCycle;
+  target.completedWorldIds = next.completedWorldIds;
   target.lastFoodConsumptionTick = next.lastFoodConsumptionTick;
   target.lastAiDecisionTick = next.lastAiDecisionTick;
   target.strategicAttention = next.strategicAttention;
@@ -338,6 +340,8 @@ export function cloneGameState(state: GameState): GameState {
     accrualDivisionRemainder: state.accrualDivisionRemainder,
     lastAccrualAtMs: state.lastAccrualAtMs,
     gameplaySessionLeases: state.gameplaySessionLeases.map(cloneGameplaySessionLease),
+    empireFoodBaselinePerCycle: state.empireFoodBaselinePerCycle,
+    completedWorldIds: [...state.completedWorldIds],
     lastFoodConsumptionTick: state.lastFoodConsumptionTick,
     lastAiDecisionTick: new Map(state.lastAiDecisionTick),
     strategicAttention: { ...state.strategicAttention },

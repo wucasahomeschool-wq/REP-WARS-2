@@ -3,7 +3,7 @@ import { Resources, ResourceType } from '../../types';
 /**
  * Prototype economy balance (economy-config.v1).
  *
- * Production is lazy and tick-based. `Territory.resourceOutput[r]` is the
+ * Production is automatically banked and tick-based. `Territory.resourceOutput[r]` is the
  * integer yield of resource `r` produced every `ticksPerProductionCycle`
  * world ticks while the territory is owned. Prototype clock: 1 tick = 1
  * minute, so the default cycle of 60 ticks is one scheduled hour.
@@ -14,11 +14,11 @@ import { Resources, ResourceType } from '../../types';
 
  *
  * Canonical stored reserves live on `WarlordSnapshot.resources`. There is
- * no parallel EconomyState. Uncollected yield lives on
- * `GameState.territoryEconomy` until COLLECT_RESOURCES.
+ * no parallel EconomyState. `GameState.territoryEconomy` retains production
+ * watermarks and nonspendable eligibility for a manual Golden Yield bonus.
  *
- * Ownership transfer (simple Prototype 1 rule): uncollected yield is
- * forfeited; the new owner's production clock starts at the transfer tick;
+ * Ownership transfer: banked resources are retained; unused bonus eligibility
+ * is cleared; the new owner's production clock starts at the transfer tick;
  * in-progress construction on that territory is cancelled without refund.
  *
  * Prototype 1 allows one in-progress construction per territory/city.
@@ -27,7 +27,7 @@ import { Resources, ResourceType } from '../../types';
 export const ECONOMY_CONFIG = Object.freeze({
   configVersion: 'economy-config.v1' as const,
   ticksPerProductionCycle: 60,
-  /** Food demand per owned territory each production cycle. LOCKED rule; the 1 is tunable. */
+  /** Legacy fallback per territory/cycle; explicit authored Food upkeep overrides it. */
   foodPerTerritoryPerCycle: 1,
   /** Stability lost per failed Food cycle. Clamp is 0–100. */
   failedFoodCycleStabilityPenalty: 2,

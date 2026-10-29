@@ -1,3 +1,4 @@
+import {creditTroopBank,bankedTroops} from '../military/troopBank';
 import { notifyResponsePoolAvailability } from '../../engine/responseRecords';
 import type { GameState } from '../../types/GameState';
 import { BALANCE } from '../../constants/balance';
@@ -7,7 +8,7 @@ import type { FixedPointAccrual } from '../../world/timeToTick';
 import { projectWorldAccrual } from '../../world/temporalBoundaries';
 import { derivePresenceSegments } from '../../world/presenceLeases';
 import { cityIdFor } from '../cities/city';
-import { persistTerritoryFoodAccrual } from '../economy/accrual';
+import { persistAllTerritoryAccrual } from '../economy/accrual';
 export const RECRUITMENT_WORK_PER_TICK = BigInt(BALANCE.temporal.microticksPerSimulationTick)*BigInt(WORLD_TICK_DURATION_MS);
 export function simulationWork(clock:FixedPointAccrual):bigint {
   return BigInt(clock.wholeTicks)*RECRUITMENT_WORK_PER_TICK+BigInt(clock.subTickMicroticks)*BigInt(WORLD_TICK_DURATION_MS)+BigInt(clock.accrualDivisionRemainder);
@@ -17,11 +18,12 @@ export function eligibleRecruitmentOwner(state:GameState,owner:string|null):owne
   return owner!==null && owner!==state.playerFactionId && state.factions.has(owner);
 }
 export interface RecruitmentMetrics {territoriesProcessed:number;troopsGenerated:number;foodConsumed:number}
-/** Local Food contract: existing physically local uncollected yield. No bank
- * access/auto-collect/logistics. Production must be settled at its own boundary
- * before subsequent work; newly produced Food never funds earlier starved work. */
+/** Each owned territory contributes exact simulation work to its faction bank.
+ * Existing base/City rates remain provisional tuning. No Food recruitment charge
+ * or new Food modifier; empire Food upkeep is a separate authoritative system. */
 export function progressRecruitment(state:GameState,throughWork=BigInt(state.worldTick)*RECRUITMENT_WORK_PER_TICK):RecruitmentMetrics {
   const metrics:RecruitmentMetrics={territoriesProcessed:0,troopsGenerated:0,foodConsumed:0};
+  if(state.levelDefeat.status==='defeated')return metrics;
   for(const t of [...state.territories.values()].sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0)) {
     if(!eligibleRecruitmentOwner(state,t.owner))continue;
     let pool=state.territoryRecruitment.get(t.id);
@@ -34,22 +36,18 @@ export function progressRecruitment(state:GameState,throughWork=BigInt(state.wor
     if(throughWork<=before)continue;
     metrics.territoriesProcessed++;
     const elapsed=throughWork-before;pool.accruedThroughWork=throughWork.toString();
-    const food=state.territoryEconomy.get(t.id)?.uncollected.food??0;
-    const affordable=Math.floor(food/T.foodPerTroop);
-    if(affordable===0)continue; // Preserve earned fraction, never accrue starving backlog.
     // City records are authored by CITY onComplete; buildings[] contains
     // fortification metadata and is not the completion authority for the city.
     const city=state.cities.get(cityIdFor(t.id));
     const multiplier=city?.factionId===t.owner?T.completedCityRateMultiplier:1;
     const work=BigInt(pool.fractionalWork)+elapsed*BigInt(T.troopsPerSimulationTick*multiplier);
-    const generated=Math.min(affordable,Number(work/RECRUITMENT_WORK_PER_TICK));
-    if(!Number.isSafeInteger(generated)||!Number.isSafeInteger(pool.troops+generated))throw new Error('Local recruitment exceeds safe troop storage');
-    const troopsBefore=pool.troops;pool.troops+=generated;
-    notifyResponsePoolAvailability(state,t.id,troopsBefore,pool.troops);
-    pool.fractionalWork=generated===affordable?'0':(work%RECRUITMENT_WORK_PER_TICK).toString();
-    const consumed=generated*T.foodPerTroop;
-    state.territoryEconomy.get(t.id)!.uncollected.food-=consumed;
-    metrics.troopsGenerated+=generated;metrics.foodConsumed+=consumed;
+    const generated=Number(work/RECRUITMENT_WORK_PER_TICK);
+    const troopsBefore=bankedTroops(state,t.owner);
+    if(generated>0)creditTroopBank(state,t.owner,generated);
+    notifyResponsePoolAvailability(state,t.id,troopsBefore,bankedTroops(state,t.owner));
+    pool.fractionalWork=(work%RECRUITMENT_WORK_PER_TICK).toString();
+    metrics.troopsGenerated+=generated;
+
   }
   return metrics;
 }
@@ -69,9 +67,9 @@ export function progressRecruitmentThroughReceipt(state:GameState,atMs:number):R
   const projected=projectWorldAccrual(anchor,derivePresenceSegments(state.gameplaySessionLeases,anchor.lastAccrualAtMs,atMs));
   return progressRecruitment(state,simulationWork({wholeTicks:projected.accruedTargetWorldTick,subTickMicroticks:projected.subTickMicroticks,accrualDivisionRemainder:projected.accrualDivisionRemainder}));
 }
-/** At the production boundary, old local Food pays old interval first. */
+/** Settle earned troop work, then bank all resources at the world boundary. */
 export function settleRecruitmentWorldBoundary(state:GameState):RecruitmentMetrics {
   const metrics=progressRecruitment(state);
-  for(const t of state.territories.values())if(eligibleRecruitmentOwner(state,t.owner))persistTerritoryFoodAccrual(state,t.id);
+  persistAllTerritoryAccrual(state);
   return metrics;
 }

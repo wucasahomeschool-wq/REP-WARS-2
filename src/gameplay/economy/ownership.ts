@@ -77,7 +77,7 @@ export function applyLocalPoolConquestPolicy(state: GameState, territoryId: Terr
 /**
  * Ownership-transfer settlement:
  * 1. Stop the previous owner's production clock.
- * 2. Forfeit uncollected yield.
+ * 2. Clear the previous owner's unused Golden Yield eligibility; banked resources remain.
  * 3. Cancel in-progress construction without refund.
  * 4. Destroy city, fortification, and resource developments. Authored resourceOutput stays.
  */
@@ -92,10 +92,13 @@ export function settleTerritoryOwnershipChange(
   for(const op of activeOperations(state).filter(op=>op.plan?.action==='REINFORCE'&&op.plan.territoryId===territoryId))
     settleOperation(state,op.id,'failed','Local reinforcement source ownership changed');
   applyLocalPoolConquestPolicy(state, territoryId);
-  persistTerritoryAccrual(state, territoryId);
+  // Callers have already changed owner. Settle earned production to the prior
+  // owner without altering ownership or routing it into the conquering bank.
+  const tile=state.territories.get(territoryId);
+  if(tile){const owner=tile.owner;try{tile.owner=previousOwner;persistTerritoryAccrual(state,territoryId);}finally{tile.owner=owner;}}
   const rec = state.territoryEconomy.get(territoryId);
   if (rec) {
-    report.resourcesLost={...rec.uncollected};
+    // Eligibility is not a resource stock: conquest does not destroy banked output.
     rec.uncollected = emptyResources();
     rec.lastAccrualTick = state.worldTick;
     if(rec.foodAccrualTick!==undefined)rec.foodAccrualTick=state.worldTick;

@@ -2,6 +2,10 @@
 
 This supplements the historical phase reports; it does not declare the game feature-complete or production-ready.
 
+## Latest approved gameplay contract checkpoint
+
+Branch `feat/backend-gameplay-contracts`, parent `c9473107bbd5281d011480dc3fe3ff1a207c9688`, GameState schema **31**. See `BACKEND_GAMEPLAY_CONTRACTS.md` and `BACKEND_GAMEPLAY_CONTRACTS_VALIDATION.json` for the implementation, migration and executed validation. This contract supersedes the historical located-bank/physical-resource-transport proposal: normal production banks automatically; manual Golden Yield credits only its additional bonus once; resource Trade is an atomic bank exchange. Bank deployment, NPC bank recruitment, authored Food upkeep, full current-world visibility and same-world defeat/restart are implemented. No default branch merge or deployment is implied.
+
 ## Verified engineering line
 
 The Git history preserves C1–C3, R1-C–F and recovered backend completion. Subsequent isolated checkpoints add bounded host-cache retention, request admission, durable catch-up budgets, geometry correctness, authentication/readiness dependency budgets, conservative geometry-query acceleration, construction-query acceleration, exact declined-Trade context and distant-army access. Each phase has its own report and validation artifact. The latest movement phase is documented in `BACKEND_STRATEGIC_ACCESS.md`; its validation JSON records the final run.
@@ -10,9 +14,9 @@ All commands still operate on canonical GameState, transactional drafts and the 
 
 ## What is not decided by these tests
 
-- **Food:** the user explicitly chose a separately reviewed located-bank/physical-transport contract. Author bank location, stockpile/upkeep eligibility and permitted transport before automatic provisioning. Do not treat local yield as teleportable bank stock.
+- **Food balance/content:** the later approved empire-wide nonphysical bank contract replaces the old logistics proposal. Author final baseline/upkeep/production values; legacy-compatible defaults and existing Stability/event coefficients remain provisional. Automatic production and bonus-only manual Golden Yield are implemented.
 - **Production content:** provide approved per-world soldier ratios, authoritative workout sizes/prescriptions/readiness and the chosen Level 1 gameplay/visual definition. Fixture rewards and synthetic maps are not production approval. Existing saves need an explicit content migration review if their definition changes.
-- **Other gameplay:** general banked-troop deployment/garrison rules, roads/markets, fog/scouting and stranded cargo/spatial recovery still require their concrete contracts. No speculative commands or payouts were introduced.
+- **Other gameplay:** roads/markets and broader military recovery policy remain separate work. General bank deployment is implemented; current-world visibility is complete with no scouting; legacy resource cargo migrates to agreed recipient banks once. Deployed troop movement still obeys physical rules.
 - **Military policy:** current recovered last-army formation is legal, reserved and deterministic, but its proactive opportunity scope remains target-bound. The archived alternative FIELD_FORCE_GAP policy is not combined with it. Decide in a focused policy review whether to replace that selection policy; do not add competing formation authorities or silently substitute the old army allocator. Strategic attrition and sustainable-force preference remain open balance/review questions, not corrected by extra MOVE candidates.
 - **Identity/infrastructure:** choose the production login provider and durable account mapping, supply an approved non-production Supabase environment for the three gated tests, and verify RPC/RLS, backup/restore, ingress/TLS, monitoring and hosted CI. Local fakes and HTTP tests cannot certify those services.
 - **Unity:** perform controlled integration of authentication, receipt/lease sequencing, locked reward presentation, backlog responses and content identity in the existing Unity project. No Unity execution has occurred here.
@@ -25,4 +29,4 @@ The eight larger-world cases are backend engineering fixtures, not the complete 
 
 ## Next controlled action
 
-Review the isolated checkpoints, then provide the content/identity/database decisions and the separate logistics contract needed for the next functional integration. No merge, deployment, new reward coefficient or military balance change is authorized by this handoff itself.
+Review the isolated checkpoints and schema-31 migration, then provide the production content, balance and identity/database inputs needed for controlled functional integration. No resource-logistics contract is required by the new empire-bank rules. No merge, deployment, new reward coefficient or military balance change is authorized by this handoff itself.

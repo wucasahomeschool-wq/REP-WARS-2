@@ -35,7 +35,7 @@ export const DEFAULT_WORLD_ID = 'local';
  *
  * Derived / reconstructed, not independently stored:
  *   remaining construction display time (from lastProgressTick + worldTick),
- *   currently collectible resources (uncollected + production since lastAccrual),
+ *   Golden Yield eligibility (legacy uncollected + production since lastAccrual),
  *   remaining invasion/protection ticks (deadlines vs playerFacingTick),
  *   public views of the current world. BattleEngine/Fitness calculations.
  *

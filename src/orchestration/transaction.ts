@@ -17,17 +17,17 @@ export function runStateTransaction<T>(
   apply: (draft: GameState) => T,
 ): { state: GameState; result: T } {
   const draft = cloneGameState(state);
-  processTradeBoundary(draft,undefined,true);
-  processPeaceBoundary(draft,undefined,true); // Earned diplomacy gates precede newly issued commands.
-  settleReadyRequiredResponses(draft);
+  if(draft.levelDefeat.status!=='defeated')processTradeBoundary(draft,undefined,true);
+  if(draft.levelDefeat.status!=='defeated')processPeaceBoundary(draft,undefined,true); // Earned diplomacy gates precede newly issued commands.
+  if(draft.levelDefeat.status!=='defeated')settleReadyRequiredResponses(draft);
   refreshGoals(draft);
   const result = apply(draft);
   cancelInvalidReinforcements(draft);
-  processTradeBoundary(draft,undefined,true);
-  processPeaceBoundary(draft,undefined,true);
-  settleReadyRequiredResponses(draft);
+  if(draft.levelDefeat.status!=='defeated')processTradeBoundary(draft,undefined,true);
+  if(draft.levelDefeat.status!=='defeated')processPeaceBoundary(draft,undefined,true);
+  if(draft.levelDefeat.status!=='defeated')settleReadyRequiredResponses(draft);
   refreshGoals(draft);
-  observeNonProactiveWork(draft);
+  if(draft.levelDefeat.status!=='defeated')observeNonProactiveWork(draft);
   const violations = checkGameStateInvariants(draft);
   if (violations.length > 0) {
     throw new OrchestrationError(

@@ -66,7 +66,10 @@ export function evaluateWorldCompletion(
  */
 export function applyWorldCompletionCheck(state: GameState): GameEvent[] {
   const evaluation = evaluateWorldCompletion(state);
-  if (!evaluation?.complete || !state.playerFactionId) return [];
+  if (!evaluation?.complete || !state.playerFactionId || !state.definitionWorldId) return [];
+  if(state.completedWorldIds.includes(state.definitionWorldId))return [];
+  state.completedWorldIds.push(state.definitionWorldId);
+  state.completedWorldIds.sort();
   return [{
     kind: 'world',
     id: `level_completed_${state.worldTick}_${state.playerFactionId}`,

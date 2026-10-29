@@ -210,7 +210,9 @@ function serializePlayerGameplayView(state: GameState): Record<string, unknown> 
   return {
     resources: faction ? { ...faction.resources } : null,
     cities,
-    uncollected,
+    uncollected, // Legacy alias: nonspendable Golden Yield eligibility since schema 31.
+    goldenYieldEligibleProduction: uncollected,
+    productionBanking: 'AUTOMATIC',
     infrastructure: Object.fromEntries(ownedTerritoryIds.map((territoryId) => {
       const infra = state.territoryInfrastructure.get(territoryId);
       return [territoryId, {
@@ -220,6 +222,7 @@ function serializePlayerGameplayView(state: GameState): Record<string, unknown> 
       }];
     })),
     bankedTroops: state.playerRewards.bankedTroops,
+    completedWorldIds: [...state.completedWorldIds],
     pendingConstructionEffects: state.playerRewards.pendingConstructionEffects.map((effect) => ({
       workerPower: effect.workerPower,
       appliedAtTick: effect.appliedAtTick,
@@ -287,7 +290,7 @@ export function serializeVisibleWorld(state: GameState, viewerFactionId: Faction
     definitionContentFingerprint: state.definitionContentFingerprint,
     worldLevel: state.worldLevel,
     worldName: state.worldName,
-    knownFactions: viewer?.knownFactions ?? [...state.allFactionIds],
+    knownFactions: [...state.allFactionIds],
     territories,
     armies: visibleArmiesFor(state, viewerFactionId),
     currentWorldFullyVisible: true,

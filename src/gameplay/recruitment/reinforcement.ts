@@ -1,3 +1,4 @@
+import {troopBankId,bankedTroops,availableBankedTroops,debitTroopBank,deployBankedTroops} from '../military/troopBank';
 import { RECRUITMENT_TUNING } from '../../constants/recruitment';
 import type { GameState } from '../../types/GameState';
 import type { ReinforcePlan } from '../../types/AIConcretePlan';
@@ -5,6 +6,10 @@ import { armyHasActiveStrategicOperation } from '../../army/strategicAttack';
 import { recruitmentPoolId } from './recruitment';
 import { allocateArmyId } from '../../army/identity';
 import { soldierForce } from '../../army/soldierForce';
+export const usesTroopBank=(plan:ReinforcePlan):boolean=>plan.sourcePoolId===troopBankId(plan.factionId);
+export function availableReinforcementTroops(s:GameState,p:ReinforcePlan,operationId?:string):number {
+  return usesTroopBank(p)?availableBankedTroops(s,p.factionId,operationId):availableLocalTroops(s,p.territoryId,operationId);
+}
 /** Only live quantity claims; historical operations are never scanned. */
 export function availableLocalTroops(state:GameState,territoryId:string,operationId?:string):number {
   let reserved=0;
@@ -14,11 +19,12 @@ export function availableLocalTroops(state:GameState,territoryId:string,operatio
 export function reinforcementProblem(state:GameState,plan:ReinforcePlan,operationId?:string,ignoreClaims=false):string|null {
   if(!Number.isSafeInteger(plan.quantity)||plan.quantity<=0)return 'Invalid local quantity';
   const t=state.territories.get(plan.territoryId),pool=state.territoryRecruitment.get(plan.territoryId);
-  if(!t||t.owner!==plan.factionId||!pool||pool.factionId!==plan.factionId||plan.sourcePoolId!==recruitmentPoolId(t.id))return 'Local source pool missing or wrong ownership';
+  const bank=usesTroopBank(plan);
+  if(!t||t.owner!==plan.factionId||(!bank&&(!pool||pool.factionId!==plan.factionId||plan.sourcePoolId!==recruitmentPoolId(t.id))))return 'Source missing or wrong ownership';
   if(plan.destination.territoryId!==t.id)return 'Reinforcement destination must be co-located';
-  if(pool.troops<plan.quantity)return 'Local pool quantity insufficient';
-  if(!ignoreClaims&&availableLocalTroops(state,t.id,operationId)<plan.quantity)return 'Local pool quantity already reserved';
-  if([...state.activeInvasions.values()].some(i=>i.territoryId===t.id))return 'Local destination engaged in invasion';
+  if((bank?bankedTroops(state,plan.factionId):pool!.troops)<plan.quantity)return 'Local pool quantity insufficient';
+  if(!ignoreClaims&&availableReinforcementTroops(state,plan,operationId)<plan.quantity)return 'Local pool quantity already reserved';
+  if(!bank&&[...state.activeInvasions.values()].some(i=>i.territoryId===t.id))return 'Local destination engaged in invasion';
   if(plan.destination.kind==='new_army') {
     const sequence=state.nextArmySequence;
     if(!Number.isSafeInteger(sequence)||sequence<0||sequence>=Number.MAX_SAFE_INTEGER||state.armies.has(`army:v1:${sequence}`))return 'Army identity sequence invalid or exhausted';
@@ -39,9 +45,14 @@ export function reinforcementProblem(state:GameState,plan:ReinforcePlan,operatio
 export function allocateReinforcement(state:GameState,plan:ReinforcePlan,operationId:string):void {
   const problem=reinforcementProblem(state,plan,operationId);
   if(problem)throw new Error(problem);
-  const c=[...state.operationClaims.values()].find(c=>c.operationId===operationId&&c.kind==='local_troops');
+  const c=[...state.operationClaims.values()].find(c=>c.operationId===operationId&&c.kind===(usesTroopBank(plan)?'banked_troops':'local_troops'));
   if(c?.quantity!==plan.quantity)throw new Error('Exact local quantity reservation missing');
-  state.territoryRecruitment.get(plan.territoryId)!.troops-=plan.quantity;
+  if(usesTroopBank(plan)&&plan.destination.kind==='new_army'){
+    const id=deployBankedTroops(state,plan.factionId,plan.territoryId,plan.quantity,operationId);
+    state.operations.get(operationId)!.links.armyId=id;return;
+  }
+  if(usesTroopBank(plan))debitTroopBank(state,plan.factionId,plan.quantity,operationId);
+  else state.territoryRecruitment.get(plan.territoryId)!.troops-=plan.quantity;
   if(plan.destination.kind==='garrison')state.territories.get(plan.territoryId)!.garrison+=plan.quantity;
   else if(plan.destination.kind==='army')state.armies.get(plan.destination.armyId)!.soldiers+=plan.quantity;
   else {

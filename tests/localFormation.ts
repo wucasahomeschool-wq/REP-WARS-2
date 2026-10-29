@@ -38,7 +38,7 @@ function advance(state:GameState,atMs:number) {
 }
 export function registerLocalFormationTests({test}:{test:(name:string,fn:()=>void)=>void}) {
   test('formation: actual AI chooses recovery through unchanged comparator and executes its exact plan',()=>{
-    const s=fixture();observeSources(s.state,s.fid);
+    const s=fixture();s.state.factions.get(s.fid)!.bankedTroops=s.state.territoryRecruitment.get(s.site)!.troops;s.state.territoryRecruitment.get(s.site)!.troops=0;observeSources(s.state,s.fid);
     const source=[...s.state.aiPressure.values()].find(p=>p.factionId===s.fid&&p.kind==='HOSTILE_OPPORTUNITY'&&sourceConcretePlans(s.state,p).some(q=>q.action==='REINFORCE'&&q.destination.kind==='new_army'))!;
     assert.ok(source);source.pressure=STRATEGIC_PRESSURE_TUNING.ready;prepareProactiveDecision(s.state,s.fid);
     const timer=s.state.aiDecisionOpportunities.get(s.fid)!.primary!.timer!;accrueProactiveClocks(s.state,s.state.aiClock.nowMs+timer.offlineDurationMs,'OFFLINE');
@@ -103,7 +103,7 @@ export function registerLocalFormationTests({test}:{test:(name:string,fn:()=>voi
     const moving=o.getState().armies.get(id)!;assert.equal(moving.location,s.site);assert.equal(moving.movement?.status,'moving');assert.equal(moving.soldiers,150);assert.deepEqual(checkGameStateInvariants(o.getState()),[]);
   });
   test('formation: source discovers recovery after last-army loss with positive factual utility',()=>{
-    const s=fixture();observeSources(s.state,s.fid);
+    const s=fixture();s.state.factions.get(s.fid)!.bankedTroops=s.state.territoryRecruitment.get(s.site)!.troops;s.state.territoryRecruitment.get(s.site)!.troops=0;observeSources(s.state,s.fid);
     const plans=[...s.state.aiPressure.values()].filter(source=>source.factionId===s.fid).flatMap(source=>sourceConcretePlans(s.state,source));
     const plan=plans.find((p):p is ReinforcePlan=>p.action==='REINFORCE'&&p.destination.kind==='new_army');assert.ok(plan);
     const source=[...s.state.aiPressure.values()].find(source=>source.factionId===s.fid&&sourceConcretePlans(s.state,source).some(p=>p.id===plan.id))!;

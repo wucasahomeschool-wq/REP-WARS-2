@@ -66,7 +66,7 @@ export function registerAiEconomyTests({ test }: AiEconomyTestApi): void {
     assert.strictEqual(orch.getState().territoryInfrastructure.get(owned)!.farmCompletedAtTick, null);
   });
 
-  test('world progress does not auto-collect AI uncollected yield', () => {
+  test('world progress automatically banks AI production and retains bonus eligibility', () => {
     const state: GameState = createLegacySampleMapGameState({ seed: 8, playerFactionId: 'iron_kingdom' });
     state.worldLevel = 2;
     const fid = 'ashen_horde';
@@ -76,6 +76,6 @@ export function registerAiEconomyTests({ test }: AiEconomyTestApi): void {
     progressWorldEconomy(state);
     const uncollected = peekCollectibleResources(state, owned);
     assert.ok(uncollected.gold > 0 || uncollected.food > 0 || uncollected.wood > 0 || uncollected.iron > 0 || uncollected.stone > 0);
-    assert.strictEqual(state.factions.get(fid)!.resources.gold, goldBefore);
+    assert.strictEqual(state.factions.get(fid)!.resources.gold, goldBefore + state.factions.get(fid)!.territories.reduce((n,id)=>n+(state.territories.get(id)!.resourceOutput.gold??0),0));
   });
 }

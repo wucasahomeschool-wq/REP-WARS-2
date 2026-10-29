@@ -76,7 +76,7 @@ test('weighted owned route search respects terrain timing and stable insertion-o
 });
 test('new access source and sampled cognition survive schema-30 persistence unchanged',()=>{
   const state=archivedSmall();access(state);const payload=snapshotGameState(state),loaded=hydratePersistedPayload(payload);
-  assert.equal(loaded.schemaVersion,30);assert.equal(digest(state),digest(loaded));assert.equal(checkGameStateInvariants(loaded).length,0);
+  assert.equal(loaded.schemaVersion,31);assert.equal(digest(state),digest(loaded));assert.equal(checkGameStateInvariants(loaded).length,0);
 });
 test('strategic access search is read-only and consumes no canonical RNG state',()=>{
   const state=archivedSmall(),before=digest(state);assert(strategicAccessOpportunity(state,'f_ai_1','army_1'));assert.equal(digest(state),before);

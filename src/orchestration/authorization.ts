@@ -25,6 +25,7 @@ export function authorizeCommand(
   req: CommandRequest,
   def: CommandDefinition,
 ): void {
+  if(state.levelDefeat.status==='defeated'&&['ARMY','COMBAT','TERRITORY','ECONOMY','DIPLOMACY','AI'].includes(def.category))throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'This world attempt has ended; restart the world to continue');
   if (def.category === 'SYSTEM' || def.category === 'WORLD' || def.category === 'AI') {
     return;
   }

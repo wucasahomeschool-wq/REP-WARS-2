@@ -269,6 +269,17 @@ export const COMMAND_INDEX: CommandDefinition[] = [
     status: 'implemented',
   }),
   cmd({
+    commandId:'RESTART_WORLD', category:'WORLD', description:'Restart the defeated current world, retaining permanent fitness and paid reward identities.',
+    routesTo:['state'],changesState:true,status:'implemented',possibleErrors:[ErrorCode.ACTION_NOT_ALLOWED,ErrorCode.INVALID_GAME_STATE],
+  }),
+  cmd({
+    commandId: 'DEPLOY_TROOPS', category:'ARMY',
+    description:'Atomically deploy available banked soldiers at any currently owned territory; no travel timer.',
+    required:[p('territoryId','string','Owned destination'),p('quantity','number','Positive integer soldiers')],
+    routesTo:['state'],changesState:true,status:'implemented',
+    possibleErrors:[ErrorCode.ACTION_NOT_ALLOWED,ErrorCode.INSUFFICIENT_TROOPS,ErrorCode.INVALID_PARAMETER],
+  }),
+  cmd({
     commandId: 'TRANSITION_TO_NEXT_WORLD',
     category: 'WORLD',
     description:

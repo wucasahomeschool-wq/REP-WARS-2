@@ -114,6 +114,8 @@ export function validateWorldDefinition(def: WorldDefinition): WorldValidationIs
   const issues: WorldValidationIssue[] = [];
   const push = (code: string, message: string) => issues.push(issue(code, message));
 
+  if (def.empireFoodBaselinePerCycle !== undefined && (!Number.isSafeInteger(def.empireFoodBaselinePerCycle) || def.empireFoodBaselinePerCycle < 0)) push('world.invalid_food_baseline','Food baseline must be a nonnegative safe integer');
+  for(const t of def.territories) if(t.foodUpkeep !== undefined && (!Number.isSafeInteger(t.foodUpkeep)||t.foodUpkeep<0)) push('territory.invalid_food_upkeep','Food upkeep must be a nonnegative safe integer');
   if (def.workoutRewards !== undefined) {
     try {
       validateWorldWorkoutRewardPolicy(def.workoutRewards);

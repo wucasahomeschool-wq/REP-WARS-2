@@ -1,3 +1,4 @@
+import {usesTroopBank} from '../gameplay/recruitment/reinforcement';
 import { ownedTravel } from '../army/strategicAccess';
 import type { Army, ResourceType } from '../types';
 import { soldierForce } from '../army/soldierForce';
@@ -123,7 +124,7 @@ export class StrategicEvaluators {
   localAllocationValue(plan:ReinforcePlan,targetTerritoryId?:string) {
     return this.memo('FORCE_POSITION_VALUE',[plan.id,targetTerritoryId??null],()=>{
       const t=this.support.territories.get(plan.territoryId)!;
-      const pool=this.support.localPools.get(t.id)!;
+      const pool=(usesTroopBank(plan)?this.support.troopBanks.get(plan.factionId):this.support.localPools.get(t.id))!;
       const danger=this.localDanger(plan.factionId,t.id).facts;
       const destination=plan.destination.kind==='army'?this.support.armies.get(plan.destination.armyId):undefined;
       const formed=plan.destination.kind==='new_army'?soldierForce(`proposed:${plan.id}`,plan.factionId,t.id,plan.quantity):undefined;

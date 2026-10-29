@@ -5,12 +5,14 @@ import { GameState } from '../../types/GameState';
 import type { FoodConsumptionResult } from './foodConsumption';
 
 /**
- * One catch-up pass after world time jumps. Not an inner per-tick loop.
- * Accrual, Food consume, and construction remaining time use last-progress
- * stamps, so offline hours/days collapse into a single update.
+ * Settle economy at the current authoritative boundary. Durable progress stamps
+ * prevent duplicate effects. The world runner supplies intermediate production,
+ * upkeep and construction boundaries during catch-up; this reducer does not
+ * replace that ordering with one aggregate offline update.
  * Order: persist accrual → Food consume → constructions.
  */
 export function progressWorldEconomy(state: GameState): FoodConsumptionResult {
+  if(state.levelDefeat.status==='defeated'){const fromTick=state.lastFoodConsumptionTick;state.lastFoodConsumptionTick=state.worldTick;return {cycles:0,gated:true,fromTick,toTick:state.worldTick,factions:[]};}
   persistAllTerritoryAccrual(state);
   const food = consumeEmpireFood(state);
   progressAllConstructions(state);

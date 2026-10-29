@@ -4,7 +4,7 @@ import {recordConflictFact} from '../conflict/ledger';
 import {tradeResourceClaims,availableResource} from '../gameplay/trade/resources';
 import { timerRemaining } from './proactiveCognition';
 import { settlePeaceProposal } from '../gameplay/diplomacy/peace';
-import { availableLocalTroops, reinforcementProblem, allocateReinforcement } from '../gameplay/recruitment/reinforcement';
+import { usesTroopBank, availableReinforcementTroops, reinforcementProblem, allocateReinforcement } from '../gameplay/recruitment/reinforcement';
 import { AICommitment } from '../types';
 import { AIOperation, AIOperationClaim } from '../types/AIOperation';
 import { GameState } from '../types/GameState';
@@ -100,7 +100,7 @@ export function activeOperations(state: GameState, factionId?: string): AIOperat
     .sort((a, b) => comparePlanIds(a.id, b.id));
 }
 export function claimIdentity(kind: AIOperationClaim['kind'], subjectId: string, scopeFactionId?: string, operationId?: string): string {
-  if(kind === 'local_troops') return `local_troops:${JSON.stringify([subjectId, operationId])}`;
+  if(kind === 'local_troops'||kind==='banked_troops') return `${kind}:${JSON.stringify([subjectId, operationId])}`;
   return kind === 'engagement_target' ? `${kind}:${JSON.stringify([scopeFactionId, subjectId])}` : `${kind}:${subjectId}`;
 }
 export function requiredClaims(plan: AIConcretePlan, operationId: string, state?: GameState, linkedInvasion = false): AIOperationClaim[] {
@@ -114,7 +114,7 @@ export function requiredClaims(plan: AIConcretePlan, operationId: string, state?
     case 'MOVE': case 'RETREAT': return [claim('force', plan.armyId)];
     case 'TRADE': return tradeResourceClaims(plan,operationId);
     case 'BUILD': return [claim('construction_site', plan.territoryId)];
-    case 'REINFORCE': return [{...claim('local_troops', plan.territoryId),quantity:plan.quantity},
+    case 'REINFORCE': return [{...claim(usesTroopBank(plan)?'banked_troops':'local_troops', usesTroopBank(plan)?plan.factionId:plan.territoryId),quantity:plan.quantity},
       plan.destination.kind==='army'?claim('force',plan.destination.armyId):claim('garrison',plan.territoryId)];
     default: return [];
   }
@@ -126,10 +126,10 @@ export function assertClaimAvailable(state: GameState, kind: AIOperationClaim['k
 export function acquireOperationClaims(state: GameState, op: AIOperation): void {
   if (!op.plan) throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED, 'Incomplete legacy reasoning cannot start an operation');
   const claims = requiredClaims(op.plan, op.id, state);
-  if(op.plan.action==='REINFORCE' && availableLocalTroops(state,op.plan.territoryId,op.id)<op.plan.quantity)
+  if(op.plan.action==='REINFORCE' && availableReinforcementTroops(state,op.plan,op.id)<op.plan.quantity)
     throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Local troop quantity already claimed');
   if(op.plan.action==='TRADE' && claims.some(c=>availableResource(state,op.plan!.factionId,c.resourceType!,op.id)<c.quantity!))throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'Offered resource quantity already claimed');
-  for (const c of claims.filter(c=>c.kind!=='local_troops'&&c.kind!=='resource')) assertClaimAvailable(state, c.kind, c.subjectId, op.id, c.scopeFactionId);
+  for (const c of claims.filter(c=>c.kind!=='local_troops'&&c.kind!=='banked_troops'&&c.kind!=='resource')) assertClaimAvailable(state, c.kind, c.subjectId, op.id, c.scopeFactionId);
   // All conflicts checked before any writes. Domain start itself runs on an isolated draft.
   for (const c of claims) state.operationClaims.set(c.id, c);
   op.claimIds = claims.map(c => c.id).sort(comparePlanIds);
@@ -185,7 +185,7 @@ export function settleOperation(state: GameState, id: string, outcome: 'complete
   if(op.plan?.action==='REINFORCE' && outcome==='completed') {
     // Exact allocation and terminal accounting are one canonical transition.
     // An early/duplicate terminal call can neither allocate nor fake success.
-    if(!op.initiationTimer || timerRemaining(state,op.initiationTimer)>0 || reinforcementProblem(state,op.plan,id))return false;
+    if((!usesTroopBank(op.plan)&&(!op.initiationTimer || timerRemaining(state,op.initiationTimer)>0)) || reinforcementProblem(state,op.plan,id))return false;
     if(requiredClaims(op.plan,id,state).some(c=>state.operationClaims.get(c.id)?.operationId!==id))return false;
     allocateReinforcement(state,op.plan,id);
     finishDecisionInitiation(state,id,true);

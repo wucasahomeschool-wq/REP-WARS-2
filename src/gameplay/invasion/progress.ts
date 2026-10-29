@@ -13,6 +13,7 @@ export function processInvasionTimeouts(
   state: GameState,
   battle: BattleEngine,
 ): HandlerResult[] {
+  if(state.levelDefeat.status==='defeated')return [];
   const now = playerFacingTick(state);
   const due = [...state.activeInvasions.values()]
     .filter(isOpenInvasion)
@@ -51,6 +52,7 @@ export function progressExpiredInvasions(
  * before new operation starts validate the next authoritative transaction.
  */
 export function processInvalidatedInvasions(state: GameState, battle: BattleEngine): HandlerResult[] {
+  if(state.levelDefeat.status==='defeated')return [];
   return [...state.activeInvasions.values()].filter(isOpenInvasion)
     .filter(i => state.territories.has(i.territoryId) && state.territories.get(i.territoryId)!.owner !== i.defenderFactionId)
     .sort(compareOpenInvasions).map(i => resolveInvasionBattle(state, battle, i.id, 'undefended'));

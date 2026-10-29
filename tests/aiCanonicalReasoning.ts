@@ -91,7 +91,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
   });
 
   test('Phase A: AI_DECIDE observes earlier mutations in the same transaction and records history only on its draft', () => {
-    const state = world();state.factions.get(FACTION)!.resources.food=0;primeSourceDecision(state,FACTION);
+    const state = world();state.factions.get(FACTION)!.resources.food=0;state.worldLevel=2;primeSourceDecision(state,FACTION);
     const before = cloneGameState(state);
     const runtime = { aiWarlordStates: buildWarlordStates(state) };
     const registry = createDefaultRegistry();
@@ -120,7 +120,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
   });
 
   test('Phase A: Orchestrator decision preserves the preceding state and persists decision history', () => {
-    const state = world();state.factions.get(FACTION)!.resources.food=0;primeSourceDecision(state,FACTION);
+    const state = world();state.factions.get(FACTION)!.resources.food=0;state.worldLevel=2;primeSourceDecision(state,FACTION);
     const before = cloneGameState(state);
     const orch = new Orchestrator(state);
     assert.ok(orch.execute(request()).success);
@@ -149,7 +149,7 @@ export function registerAiCanonicalReasoningTests(api: { test: (name: string, ru
   });
 
   test('Phase A: a failed transaction rolls back cognition history and sequence for deterministic retry', () => {
-    const state = world();state.factions.get(FACTION)!.resources.food=0;primeSourceDecision(state,FACTION);
+    const state = world();state.factions.get(FACTION)!.resources.food=0;state.worldLevel=2;primeSourceDecision(state,FACTION);
     const before = cloneGameState(state);
     const runtime = { aiWarlordStates: buildWarlordStates(state) };
     const registry = createDefaultRegistry();

@@ -70,7 +70,7 @@ export function registerEconomyFoundationTests({ test }: EconomyFoundationTestAp
     assert.strictEqual(orch.getState().territories.get(owned)!.fortification, fortBefore + 1);
   });
 
-  test('COLLECT_RESOURCES reports all resource keys in resourcesChanged', () => {
+  test('COLLECT_RESOURCES reports no second credit for automatically banked production', () => {
     const state = createLegacySampleMapGameState({ seed: 7, playerFactionId: 'iron_kingdom' });
     const fid = 'iron_kingdom';
     const owned = state.factions.get(fid)!.territories[0]!;
@@ -84,8 +84,7 @@ export function registerEconomyFoundationTests({ test }: EconomyFoundationTestAp
     for (const key of ['gold', 'food', 'iron', 'wood', 'stone'] as const) {
       if (before[key] <= 0) continue;
       const change = res.resourcesChanged.find((c) => c.resource === key);
-      assert.ok(change, `missing resourcesChanged for ${key}`);
-      assert.strictEqual(change!.to - change!.from, before[key]);
+      assert.ok(!change || change.to === change.from, `manual collection duplicated ${key}`);
     }
     assert.ok(res.payload.transferredResources);
     assert.ok(res.payload.baseResources);
@@ -207,7 +206,7 @@ export function registerEconomyFoundationTests({ test }: EconomyFoundationTestAp
   test('schema 15 seeds food clock at worldTick and empty infrastructure occupancy', () => {
     const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'iron_kingdom' });
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 30);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 31);
     assert.strictEqual(state.lastFoodConsumptionTick, state.worldTick);
     assert.strictEqual(state.territoryInfrastructure.size, state.territories.size);
     for (const territory of state.territories.values()) {

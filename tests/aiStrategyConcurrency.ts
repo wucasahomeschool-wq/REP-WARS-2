@@ -36,7 +36,7 @@ interface Api {
 }
 export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,makeCmt,cmdReq}:Api):void {
   const world=(ids=['a','b'])=>{
-    const s=makeOperationTestWorld(makeSelf,makeTerritory,ids);
+    const s=makeOperationTestWorld(makeSelf,makeTerritory,ids);s.worldLevel=2;
     s.territories.get('home')!.resourceOutput={food:5};s.factions.get('me')!.resources.food=0;
     return s;
   };

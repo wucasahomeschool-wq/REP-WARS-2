@@ -28,7 +28,7 @@ import { AICommitment, WarlordSnapshot, Territory } from '../src/types';
 import { CommandRequest } from '../src/orchestration/protocol';
 interface Api {test(name:string,fn:()=>void):void;makeSelf(id:string,x?:Partial<WarlordSnapshot>):WarlordSnapshot;makeTerritory(x:Partial<Territory>&{id:string}):Territory;cmdReq(id:string,p:string,params?:Record<string,unknown>):CommandRequest;}
 export function registerAiStrategicPressureTests({test,makeSelf,makeTerritory,cmdReq}:Api):void {
-  const world=()=>{const s=makeOperationTestWorld(makeSelf,makeTerritory);s.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'at_war',opinion:0,treaties:[],yearsAtPeace:0,yearsAtWar:1});return s;};
+  const world=()=>{const s=makeOperationTestWorld(makeSelf,makeTerritory);s.worldLevel=2;s.factions.get('me')!.diplomacy.set('enemy',{target:'enemy',state:'at_war',opinion:0,treaties:[],yearsAtPeace:0,yearsAtWar:1});return s;};
   const military=(s:GameState)=>{observeSources(s,'me');return [...s.aiPressure.values()].find(c=>c.kind==='HOSTILE_OPPORTUNITY')!;};
   const waitState=()=>{const s=world();const c=military(s);c.pressure=T.ready;prepareProactiveDecision(s,'me');const o=opportunity(s,'me');o.primary!.phase='selected';o.primary!.timer=null;selectWaitInitiation(s,'me');return s;};
   const finishWait=(s:GameState)=>{const t=opportunity(s,'me').primary!.timer!;accrueProactiveClocks(s,s.aiClock.nowMs+timerRemaining(s,t),'OFFLINE');prepareProactiveDecision(s,'me');};
@@ -61,7 +61,7 @@ export function registerAiStrategicPressureTests({test,makeSelf,makeTerritory,cm
   test('Phase E: direct WAIT operation is rejected and cannot bypass source/timer contract',()=>{const s=world();const c=military(s);const w=sourceConcretePlans(s,c).find(p=>p.action==='WAIT')!;const o=new Orchestrator(s);assert.strictEqual(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:w})).success,false);assert.deepStrictEqual(o.getState(),s);});
   test('Phase E: same-boundary retries cannot create a second primary thought',()=>{const s=world(),c=military(s);c.pressure=T.ready;const o=new Orchestrator(s);for(let i=0;i<10;i++)assert.ok(o.execute(cmdReq('AI_DECIDE','ai',{warlordId:'me'})).success);assert.strictEqual(opportunity(o.getState(),'me').nextTimerSequence,1);assert.strictEqual(o.getState().operations.size,0);});
   test('Phase E: reversed Map order gives identical sources, candidates and chosen context',()=>{const a=world(),b=cloneGameState(a);b.armies=new Map([...b.armies].reverse());b.territories=new Map([...b.territories].reverse());b.factions=new Map([...b.factions].reverse());observeSources(a,'me');observeSources(b,'me');assert.deepStrictEqual([...a.aiPressure.keys()],[...b.aiPressure.keys()]);assert.deepStrictEqual(sourceConcretePlans(a,military(a)),sourceConcretePlans(b,military(b)));});
-  test('Phase E: schema-20 migration preserves physical claims but archives contextless selections',()=>{const s=world();const plans=sourceConcretePlans(s,military(s));const o=new Orchestrator(s);const p=plans.find(p=>p.action==='MOVE')!;assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:p})).success);const old=cloneGameState(o.getState());old.schemaVersion=20;const before=encodePersistable(old.armies),claims=encodePersistable(old.operationClaims);const loaded=hydratePersistedPayload(encodePersistable(old));assert.strictEqual(loaded.schemaVersion,30);assert.deepStrictEqual(encodePersistable(loaded.armies),before);assert.deepStrictEqual(encodePersistable(loaded.operationClaims),claims);assert.strictEqual(loaded.aiPressure.size,0);});
+  test('Phase E: schema-20 migration preserves physical claims but archives contextless selections',()=>{const s=world();const plans=sourceConcretePlans(s,military(s));const o=new Orchestrator(s);const p=plans.find(p=>p.action==='MOVE')!;assert.ok(o.execute(cmdReq('START_AI_OPERATION','ai',{plan:p})).success);const old=cloneGameState(o.getState());old.schemaVersion=20;const before=encodePersistable(old.armies),claims=encodePersistable(old.operationClaims);const loaded=hydratePersistedPayload(encodePersistable(old));assert.strictEqual(loaded.schemaVersion,31);assert.deepStrictEqual(encodePersistable(loaded.armies),before);assert.deepStrictEqual(encodePersistable(loaded.operationClaims),claims);assert.strictEqual(loaded.aiPressure.size,0);});
   test('Phase E: canonical pressure and primary clocks clone without aliasing',()=>{const s=waitState(),c=cloneGameState(s);c.aiPressure.values().next().value!.pressure++;opportunity(c,'me').primary!.timer!.progress.rationalRemainder=2;assert.notDeepStrictEqual(c.aiPressure,s.aiPressure);assert.strictEqual(opportunity(s,'me').primary!.timer!.progress.rationalRemainder,0);});
   test('Phase E: corruption in source identity or duration clock is rejected',()=>{const s=waitState();[...s.aiPressure.values()][0]!.id='bad';assert.ok(checkGameStateInvariants(s).some(v=>v.code==='pressure.invalid_state'));});
   test('Phase E: eliminated factions do not observe, deliberate or wait',()=>{const s=world();s.factions.get('me')!.territories=[];s.factions.get('me')!.armies=[];assert.strictEqual(prepareProactiveDecision(s,'me'),null);assert.strictEqual(s.aiPressure.size,0);assert.strictEqual(s.operations.size,0);});
@@ -179,7 +179,7 @@ export function registerAiStrategicPressureTests({test,makeSelf,makeTerritory,cm
   });
   test('Phase E review: food-cycle source creation is independent of catch-up chunk size',()=>{
     const initial=world();initial.worldLevel=2;initial.territories.get('target')!.baseValue=0;
-    initial.territories.get('home')!.resourceOutput={food:5};initial.factions.get('me')!.resources.food=4;
+    initial.empireFoodBaselinePerCycle=10;initial.territories.get('home')!.resourceOutput={food:5};initial.factions.get('me')!.resources.food=4;
     accrueWorldThroughReceipt(initial,0);const coarse=cloneGameState(initial);
     accrueWorldThroughReceipt(coarse,70*600000);catchUpWorld(coarse,context(coarse),70);
     let fine=cloneGameState(initial);for(let t=1;t<=70;t++){accrueWorldThroughReceipt(fine,t*600000);catchUpWorld(fine,context(fine),t);}
@@ -189,7 +189,7 @@ export function registerAiStrategicPressureTests({test,makeSelf,makeTerritory,cm
     assert.deepStrictEqual(encodePersistable(coarse.aiDecisionOpportunities),encodePersistable(fine.aiDecisionOpportunities));
   });
   test('Phase E review: a real military source acts while saturated blocked development stays dormant',()=>{
-    const s=world();s.worldLevel=2;s.territories.get('home')!.resourceOutput={food:5};
+    const s=world();s.worldLevel=2;s.empireFoodBaselinePerCycle=10;s.territories.get('home')!.resourceOutput={food:5};
     s.factions.get('me')!.resources.food=0;s.factions.get('me')!.resources.wood=0;
     accrueWorldThroughReceipt(s,0);observeSources(s,'me');
     const build=[...s.aiPressure.values()].find(c=>c.domain==='DEVELOPMENT')!;assert.ok(build.blocked);

@@ -153,6 +153,7 @@ export function buildNextWorldState(
 
   const next = createGameStateFromWorld(loaded.definition, { seed: state.worldSeed });
   next.nextArmySequence = state.nextArmySequence;
+  next.completedWorldIds = [...new Set([...state.completedWorldIds,currentId])].sort();
   // The transition command must retain its durable session/receipt authority.
   // World ticks and accrual initialization still come from the new definition.
   next.gameplaySessionLeases = state.gameplaySessionLeases.map(validateGameplaySessionLease);

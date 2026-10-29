@@ -5,27 +5,23 @@ import { cloneConcretePlan, comparePlanIds } from '../../types/AIConcretePlan';
 import type { TradeProposal } from '../../types/Trade';
 import { availableStocks, committedTradeReceipts, bundleEntries } from './resources';
 import { tradeDemand } from './candidates';
-import { tradeAcceptanceRoutes } from './policy';
 import { relationshipBetween } from '../diplomacy/relationships';
 import { activeGoals } from '../../cognition/goals';
-import { calculateMovementDuration } from '../../army/movement';
 
 const DECLINED_CONTEXT = 'Exact Trade declined in observed context:';
 /** A current proposer-owned relevance predicate, not a score/history cache or
  * a forecast of recipient-private cognition. Only resources in these terms,
- * their current custody/demand, exact route, public relationship and own
+ * their current banks/demand, public relationship and own
  * modifiers matter. Unrelated +1 pool troops/clock/Pressure do not rearm it. */
 export function declinedTradeContext(state:GameState,plan:TradePlan):string {
   const resources=[...new Set([...bundleEntries(plan.offered),...bundleEntries(plan.requested)].map(([r])=>r))].sort(comparePlanIds);
   const stock=availableStocks(state,plan.factionId),otherStock=availableStocks(state,plan.counterpartyId);
   const incoming=committedTradeReceipts(state,plan.factionId),otherIncoming=committedTradeReceipts(state,plan.counterpartyId);
   const demand=tradeDemand(state,plan.factionId),otherDemand=tradeDemand(state,plan.counterpartyId);
-  const routes=tradeAcceptanceRoutes(state,plan);
-  const route=(ids:string[])=>ids.map((id,i)=>[id,i?calculateMovementDuration({origin:state.territories.get(ids[i-1])!,destination:state.territories.get(id)!}):0]);
   const own=state.factions.get(plan.factionId);
   return DECLINED_CONTEXT+JSON.stringify([
     plan.id,resources.map(r=>[r,stock[r],otherStock[r],incoming[r],otherIncoming[r],demand[r],otherDemand[r]]),
-    routes?[route(routes.offered),route(routes.requested)]:null,relationshipBetween(state,plan.factionId,plan.counterpartyId),
+    relationshipBetween(state,plan.factionId,plan.counterpartyId),
     own?.diplomacy.get(plan.counterpartyId)?.opinion??0,own?.personality.riskTolerance,
     activeGoals(state,plan.factionId).filter(g=>g.lifecycle?.objective?.kind==='RESOURCE_HOLDING'&&resources.includes(g.lifecycle.objective.resource))
       .map(g=>[g.id,g.priority,g.progress,g.lifecycle?.objective]),

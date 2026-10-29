@@ -1,3 +1,4 @@
+import {troopBankId} from '../gameplay/military/troopBank';
 import { isLevel1TutorialAiSuppressed } from '../gameplay/tutorial/level1';
 import type { GameState } from '../types/GameState';
 import type { AIResponseContext, ResponseMetrics, ResponseSubject } from '../types/AIResponse';
@@ -100,7 +101,7 @@ export function reactivePlans(s:GameState,c:AIResponseContext,feasibleOnly=true)
   const need=Math.max(0,incoming-t.garrison-local);
   for(const quantity of reinforcementQuantities(need)) {
     const destinations:import('../types/AIConcretePlan').ReinforcePlan['destination'][]=[{kind:'garrison',territoryId:t.id},...forces.filter(a=>a.location===t.id).map(a=>({kind:'army' as const,armyId:a.id,territoryId:t.id}))];
-    for(const destination of destinations)plans.push(makeConcretePlan({action:'REINFORCE',factionId:c.factionId,territoryId:t.id,sourcePoolId:recruitmentPoolId(t.id),quantity,destination}));
+    for(const destination of destinations)plans.push(makeConcretePlan({action:'REINFORCE',factionId:c.factionId,territoryId:t.id,sourcePoolId:troopBankId(c.factionId),quantity,destination}));
   }
   const snapshot=toDecisionEngineSnapshot(s);
   return [...new Map(plans.map(p=>[p.id,p])).values()].filter(p=>!feasibleOnly||assessConcretePlanFeasibility(p,snapshot,undefined,undefined,c.id).feasible).sort((a,b)=>comparePlanIds(a.id,b.id));

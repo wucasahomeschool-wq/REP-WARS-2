@@ -1,3 +1,4 @@
+import {registerGameplayContractTests} from './gameplayContracts';
 import {registerStrategicAccessTests} from './strategicAccess';
 import { registerDeclinedTradeTests } from './declinedTradeContext';
 import { registerConstructionQueryTests } from './constructionQueries';
@@ -153,6 +154,7 @@ import { getConstructionProjectDefinition, GAMEPLAY_CONFIG } from '../src/gamepl
 let failed = 0;
 let passed = 0;
 let skipped = 0;
+let filtered = 0;
 
 const registeredTests: { name: string; fn: () => void | Promise<void> }[] = [];
 function test(name: string, fn: () => void | Promise<void>): void {
@@ -160,6 +162,7 @@ function test(name: string, fn: () => void | Promise<void>): void {
 }
 
 async function executeTest(name: string, fn: () => void | Promise<void>): Promise<void> {
+  if(process.env.REP_WARS_TEST_PATTERN && !new RegExp(process.env.REP_WARS_TEST_PATTERN).test(name)){filtered++;return;}
   try {
     await fn();
     passed++;
@@ -1692,7 +1695,7 @@ test('createGameState() contains the expected major state domains', () => {
     'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiResponses', 'aiResponseScheduler', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'conflictLedger', 'conflictEventReceipts', 'opinionEvents', 'operationClaims', 'operations', 'constructions',
     'definitionContentFingerprint', 'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
     'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'tradeProposals', 'tradeShipments', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
-    'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick', 'nextArmySequence',
+    'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick', 'nextArmySequence', 'completedWorldIds', 'empireFoodBaselinePerCycle',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
   assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
@@ -2304,7 +2307,7 @@ test('ADVANCE_WORLD applies WorldSimulator result without a second authoritative
 
 test('AI_DECIDE updates commitments without mutating territories/armies maps', () => {
   const orch = new Orchestrator(createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' }));
-  orch.getState().factions.get('ashen_horde')!.resources.food=0;primeSourceDecision(orch.getState(),'ashen_horde');
+  orch.getState().factions.get('ashen_horde')!.resources.food=0;orch.getState().worldLevel=2;primeSourceDecision(orch.getState(),'ashen_horde');
   const terrBefore = cloneGameState(orch.getState()).territories;
   const armiesBefore = cloneGameState(orch.getState()).armies;
   const res = orch.execute(cmdReq('AI_DECIDE', 'player_1', { warlordId: 'ashen_horde' }));
@@ -2764,7 +2767,7 @@ test('failed commitment permits reassessment', () => {
   fixtureCommitments(state).set(fid, makeCmt({
     warlordId: fid, action: 'ATTACK', targetId: state.factions.get(fid)!.territories[0]!, status: 'failed',
   }));
-  state.factions.get(fid)!.resources.food=0;state.factions.get(fid)!.resources.iron=0;primeSourceDecision(state,fid);
+  state.factions.get(fid)!.resources.food=0;state.factions.get(fid)!.resources.iron=0;state.worldLevel=2;primeSourceDecision(state,fid);
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('AI_DECIDE', 'ai', { warlordId: fid }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
@@ -2777,7 +2780,7 @@ test('interrupted commitment permits reassessment', () => {
   const state = createLegacySampleMapGameState({ seed: 42, playerFactionId: 'merchant_republic' });
   const fid = 'iron_kingdom';
   fixtureCommitments(state).set(fid, makeCmt({ warlordId: fid, action: 'WAIT', status: 'interrupted' }));
-  state.factions.get(fid)!.resources.food=0;state.factions.get(fid)!.resources.iron=0;primeSourceDecision(state,fid);
+  state.factions.get(fid)!.resources.food=0;state.factions.get(fid)!.resources.iron=0;state.worldLevel=2;primeSourceDecision(state,fid);
   const orch = new Orchestrator(state);
   const res = orch.execute(cmdReq('AI_DECIDE', 'ai', { warlordId: fid }));
   assert.strictEqual(res.success, true, res.errors[0]?.message);
@@ -2806,7 +2809,7 @@ function worldAdvance(res: { payload: Record<string, unknown> }): WorldAdvanceRe
 
 function sampleWorldOrch(seed = 42): Orchestrator {
   const orch=new Orchestrator(createLegacySampleMapGameState({ seed, playerFactionId: 'merchant_republic' }));
-  for(const id of orch.getState().allFactionIds.filter(id=>id!==orch.getState().playerFactionId)){orch.getState().factions.get(id)!.resources.food=0;orch.getState().factions.get(id)!.resources.iron=0;primeSourceDecision(orch.getState(),id);}
+  for(const id of orch.getState().allFactionIds.filter(id=>id!==orch.getState().playerFactionId)){orch.getState().factions.get(id)!.resources.food=0;orch.getState().factions.get(id)!.resources.iron=0;orch.getState().worldLevel=2;primeSourceDecision(orch.getState(),id);}
   return orch;
 }
 
@@ -2902,7 +2905,7 @@ test('AI with an active commitment does not repeatedly decide', () => {
 
 function sourceWaitFixture(seed:number):GameState {
   const state=createLegacySampleMapGameState({seed,playerFactionId:'merchant_republic'});
-  state.factions.get('ashen_horde')!.resources.food=0;primeSourceDecision(state,'ashen_horde');
+  state.factions.get('ashen_horde')!.resources.food=0;state.worldLevel=2;primeSourceDecision(state,'ashen_horde');
   const o=opportunity(state,'ashen_horde');o.primary!.phase='selected';o.primary!.timer=null;
   selectWaitInitiation(state,'ashen_horde');return state;
 }
@@ -3239,6 +3242,7 @@ registerConstructionQueryTests({ test });
 registerDeclinedTradeTests({ test });
 registerStrategicAccessTests({test});
 
+registerGameplayContractTests({test});
 registerWorldDefinitionTests({ test });
 
 registerLevel1ProductionTests({ test });
@@ -3280,6 +3284,7 @@ void (async () => {
   await runSessionReplayTests(executeTest);
   await runLeaseWorldAccrualTests(executeTest);
   await runGameplaySessionLifecycleTests(executeTest);
+  if(filtered)console.log(`Focused selection: ${filtered} tests excluded by REP_WARS_TEST_PATTERN (not executed)`);
   console.log(`Results: ${passed} passed, ${failed} failed, ${skipped} skipped`);
   if (failed > 0) process.exitCode = 1;
 })().catch(error => { console.error(error); process.exitCode = 1; });

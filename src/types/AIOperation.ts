@@ -26,7 +26,7 @@ export interface AIOperation extends AICommitment {
 export interface AIOperationClaim {
   id: string;
   operationId: string;
-  kind: 'force' | 'construction_site' | 'engagement_target' | 'invasion_target' | 'local_troops' | 'garrison' | 'resource';
+  kind: 'force' | 'construction_site' | 'engagement_target' | 'invasion_target' | 'banked_troops' | 'local_troops' | 'garrison' | 'resource';
   quantity?: number;
   resourceType?: import('./index').ResourceType;
   subjectId: string;

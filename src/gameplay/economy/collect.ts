@@ -1,8 +1,8 @@
 import { GameState, PendingGoldenYieldEffect } from '../../types/GameState';
 import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
 import { requireFactionSnapshot, requireTerritory } from '../../orchestration/helpers';
-import { emptyResources } from './config';
-import { peekCollectibleResources } from './accrual';
+import { RESOURCE_KEYS, emptyResources } from './config';
+import { pendingProduction, persistTerritoryAccrual, peekCollectibleResources } from './accrual';
 import { addResourcesChecked, resourcesTotal, scaleResources } from './production';
 
 export interface CollectTerritoryYieldResult {
@@ -12,7 +12,7 @@ export interface CollectTerritoryYieldResult {
   base: number;
   baseResources: ReturnType<typeof emptyResources>;
   multiplier: number;
-  /** Total transferred (all resources) after multiplier. */
+  /** Additional bonus credited by this collection; base production is already banked. */
   collectedTotal: number;
   /** @deprecated Prefer transferredResources; kept for telemetry compatibility. */
   collected: number;
@@ -23,10 +23,10 @@ export interface CollectTerritoryYieldResult {
 }
 
 /**
- * Collects currently collectible yield from an owned territory into the
- * faction resource reserve. Golden Yield, if requested, multiplies that
- * one collection using the stored pending multiplier and is consumed only
- * on success.
+ * Acknowledges eligible production from an owned territory. Ordinary production
+ * banks automatically; manual Golden Yield credits only floor(base * multiplier)
+ * minus base, using the existing stored multiplier. Successful collection clears
+ * the eligibility basis even without a Golden Yield effect.
  */
 export function collectTerritoryYield(
   state: GameState,
@@ -54,24 +54,17 @@ export function collectTerritoryYield(
   }
 
   const multiplier = pending ? pending.multiplier : 1;
-  const transferred = pending ? scaleResources(baseYield, multiplier) : { ...baseYield };
+  const multiplied = pending ? scaleResources(baseYield, multiplier) : baseYield;
+  const transferred = emptyResources();
+  for (const key of RESOURCE_KEYS) transferred[key] = multiplied[key] - baseYield[key];
 
-  const previous = { ...faction.resources };
-  try {
-    const next = addResourcesChecked(faction.resources, transferred);
-    faction.resources.gold = next.gold;
-    faction.resources.food = next.food;
-    faction.resources.iron = next.iron;
-    faction.resources.wood = next.wood;
-    faction.resources.stone = next.stone;
-  } catch (err) {
-    faction.resources.gold = previous.gold;
-    faction.resources.food = previous.food;
-    faction.resources.iron = previous.iron;
-    faction.resources.wood = previous.wood;
-    faction.resources.stone = previous.stone;
-    throw err;
-  }
+  // Validate the complete result before changing bank, accrual watermark or effect.
+  // Transaction/CAS remains the commit authority; this preflight also makes the
+  // domain reducer safe on overflow without consuming an effect or eligibility.
+  const next = addResourcesChecked(addResourcesChecked(faction.resources,
+    pendingProduction(state, params.territoryId)), transferred);
+  persistTerritoryAccrual(state, params.territoryId);
+  faction.resources = next;
 
   if (pending && pendingIndex >= 0) {
     state.playerRewards.pendingGoldenYieldEffects.splice(pendingIndex, 1);

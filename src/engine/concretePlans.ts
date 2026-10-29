@@ -1,6 +1,6 @@
 import {tradePlanProblem} from '../gameplay/trade/trade';
 import {availableResource} from '../gameplay/trade/resources';
-import { availableLocalTroops, reinforcementProblem } from '../gameplay/recruitment/reinforcement';
+import { availableReinforcementTroops, usesTroopBank, availableLocalTroops, reinforcementProblem } from '../gameplay/recruitment/reinforcement';
 import { offerPeaceProblem } from '../gameplay/diplomacy/peace';
 import { requiredClaims } from './operations';
 import { assessAttention } from './strategicAttention';
@@ -99,7 +99,8 @@ export function assessConcretePlanFeasibility(plan: AIConcretePlan, snapshot: Ga
   if (state) {
     if(plan.action==='TRADE'&&Object.entries(plan.offered).some(([r,n])=>availableResource(state,plan.factionId,r as import('../types').ResourceType,operationId)<n!))rejections.push({kind:'CLAIM',reason:'Offered resource quantity reserved'});
     if(plan.action==='REINFORCE' && (state.territoryRecruitment.get(plan.territoryId)?.troops??0)>=plan.quantity && availableLocalTroops(state,plan.territoryId,operationId)<plan.quantity)rejections.push({kind:'CLAIM',reason:'Local troop quantity already reserved'});
-    for (const claim of requiredClaims(plan, operationId ?? '', state).filter(c=>c.kind!=='local_troops'&&c.kind!=='resource')) {
+    if(plan.action==='REINFORCE'&&usesTroopBank(plan)&&availableReinforcementTroops(state,plan,operationId)<plan.quantity)rejections.push({kind:'CLAIM',reason:'Banked troops already reserved or unavailable'});
+    for (const claim of requiredClaims(plan, operationId ?? '', state).filter(c=>c.kind!=='local_troops'&&c.kind!=='banked_troops'&&c.kind!=='resource')) {
       const held = state.operationClaims.get(claim.id);
       if (held && held.operationId !== operationId) rejections.push({ kind: 'CLAIM', reason: `Required claim ${claim.id} belongs to ${held.operationId}` });
     }

@@ -1,3 +1,4 @@
+import {bankedTroops} from '../gameplay/military/troopBank';
 import { isContentFingerprint } from '../worldDefinition/contentIdentity';
 import { RESPONSE_POLICY } from '../constants/aiResponse';
 import { validateCompletionRewardEntitlement } from '../rewards/completionEntitlement';
@@ -510,15 +511,26 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
   for (const [id, claim] of state.operationClaims) {
     if (!claim || typeof claim !== 'object') { push('claim.invalid_shape', `claim ${id} is malformed`); continue; }
     const op = state.operations.get(claim.operationId);
-    if (!['force','construction_site','engagement_target','invasion_target','local_troops','garrison','resource'].includes(claim.kind)) push('claim.invalid_kind', `claim ${id} has unknown kind`);
+    if (!['force','construction_site','engagement_target','invasion_target','banked_troops','local_troops','garrison','resource'].includes(claim.kind)) push('claim.invalid_kind', `claim ${id} has unknown kind`);
     if (id !== claim.id || claim.kind!=='resource'&&id !== claimIdentity(claim.kind, claim.subjectId, claim.scopeFactionId, claim.operationId)) push('claim.invalid_identity', `claim ${id} has inconsistent subject identity`);
     if (!op || op.phase === 'terminal' || !op.claimIds?.includes(id)) push('claim.orphan', `claim ${id} has no active owning operation`);
     if (op?.plan && !concretePlanProblem(op.plan) && !requiredClaims(op.plan, op.id, state, !!op.links.invasionId).some(c => c.id === id))
       push('claim.plan_mismatch', `claim ${id} is not required by its owner's exact plan`);
     if (claim.kind === 'engagement_target' && claim.scopeFactionId !== op?.warlordId) push('claim.invalid_scope', `claim ${id} faction scope disagrees`);
-    if (claim.kind==='resource'?!state.factions.has(claim.scopeFactionId!):claim.kind === 'force' ? !state.armies.has(claim.subjectId) : !state.territories.has(claim.subjectId))
+    if (claim.kind==='banked_troops'?!state.factions.has(claim.subjectId):claim.kind==='resource'?!state.factions.has(claim.scopeFactionId!):claim.kind === 'force' ? !state.armies.has(claim.subjectId) : !state.territories.has(claim.subjectId))
       push('claim.missing_subject', `claim ${id} subject no longer exists`);
   }
+  if(!Number.isSafeInteger(state.empireFoodBaselinePerCycle)||state.empireFoodBaselinePerCycle<0)push('economy.invalid_baseline','Invalid empire Food baseline');
+  if(!Array.isArray(state.completedWorldIds)||state.completedWorldIds.some(id=>typeof id!=='string'||!id)||new Set(state.completedWorldIds).size!==state.completedWorldIds.length)push('campaign.invalid_trophies','Invalid completed worlds');
+  for(const t of state.territories.values())if(t.foodUpkeep!==undefined&&(!Number.isSafeInteger(t.foodUpkeep)||t.foodUpkeep<0))push('economy.invalid_upkeep','Invalid territory Food upkeep');
+  const banks=new Map<string,number>();
+  for(const c of state.operationClaims.values())if(c.kind==='banked_troops'){
+    if(!Number.isSafeInteger(c.quantity)||c.quantity!<=0)push('claim.invalid_bank_quantity','Invalid bank reservation');
+    banks.set(c.subjectId,(banks.get(c.subjectId)??0)+(c.quantity??0));
+    const op=state.operations.get(c.operationId);
+    if(op?.plan?.action!=='REINFORCE'||op.plan.quantity!==c.quantity||op.warlordId!==c.subjectId)push('claim.bank_mismatch','Invalid bank claim owner');
+  }
+  for(const f of state.factions.values())if(!Number.isSafeInteger(bankedTroops(state,f.id))||bankedTroops(state,f.id)<(banks.get(f.id)??0)||bankedTroops(state,f.id)<0)push('recruitment.invalid_bank','Invalid or over-reserved faction troop bank');
   const quantities = new Map<string,number>();
   for(const claim of state.operationClaims.values())if(claim.kind==='local_troops') {
     if(!Number.isSafeInteger(claim.quantity)||claim.quantity!<=0)push('claim.invalid_quantity',`Invalid local quantity ${claim.id}`);

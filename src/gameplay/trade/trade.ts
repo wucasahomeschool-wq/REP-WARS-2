@@ -11,13 +11,11 @@ import type {TradeMetrics,TradeProposal,TradeProposalStatus,TradeShipment} from 
 import {TRADE_TIMING as TIME,TRADE_RESPONSE_POLICY as RESPONSE} from '../../constants/trade';
 import {activeDiplomacyFaction} from '../diplomacy/relationships';
 import {bundleEntries,availableResource,validBundle,tradeResourceClaims} from './resources';
-import {tradeEndpointProblem,tradeAcceptanceRoutes,tradeShipmentNodeProblem} from './policy';
 import {liveTradeRecords} from './records';
 import {settleOperation} from '../../engine/operations';
 import {startProactiveTimer,timerRemaining} from '../../engine/proactiveCognition';
 import {finishDecisionInitiation} from '../../engine/decisionOpportunities';
 import {accrueDurationProgress,durationRemainingMs,TemporalPresence} from '../../world/timeToTick';
-import {calculateMovementDuration} from '../../army/movement';
 export const proposalLive=(p:TradeProposal)=>p.status==='initiating'||p.status==='pending';
 export const shipmentLive=(s:TradeShipment)=>s.phase!=='delivered';
 export const liveTradeProposals=(s:GameState)=>liveTradeRecords(s.tradeProposals,proposalLive);
@@ -32,9 +30,9 @@ export function tradePlanProblem(s:GameState,p:TradePlan,operationId?:string,ign
   if(!validBundle(p.offered)||!validBundle(p.requested))return 'Trade requires exact positive integer resource quantities';
   if(!p.proposerSource||p.proposerSource.kind!=='faction_stock'||p.proposerSource.factionId!==p.factionId
     ||JSON.stringify(bundleEntries(p.proposerSource.resources))!==JSON.stringify(bundleEntries(p.offered)))return 'Exact supported proposer bank source must match offered manifest';
-  const endpointProblem=tradeEndpointProblem(s,p);if(endpointProblem)return endpointProblem;
+
   for(const [r,n]of bundleEntries(p.offered))if(!Number.isSafeInteger(s.factions.get(p.factionId)!.resources[r])||(ignoreClaims?s.factions.get(p.factionId)!.resources[r]:availableResource(s,p.factionId,r,operationId))<n)return 'Exact offered resources unavailable';
-  return null; // Recipient sufficiency and route are deliberately ACCEPT prerequisites.
+  return null; // Recipient sufficiency is an ACCEPT prerequisite; bank resources have no route.
 }
 export function beginTradeProposal(s:GameState,plan:TradePlan,operationId:string):TradeProposal {
   const problem=tradePlanProblem(s,plan,operationId);if(problem)throw new Error(problem);
@@ -53,29 +51,31 @@ export function acceptanceProblem(s:GameState,p:TradeProposal):string|null {
   const problem=tradePlanProblem(s,p.plan,p.operationId);if(problem)return problem;
   if(tradeResourceClaims(p.plan,p.operationId).some(c=>{const held=s.operationClaims.get(c.id);return !held||held.id!==c.id||held.operationId!==c.operationId||held.kind!==c.kind||held.subjectId!==c.subjectId||held.scopeFactionId!==c.scopeFactionId||held.quantity!==c.quantity||held.resourceType!==c.resourceType;}))return 'Exact proposer resource reservation lost';
   if(!recipientManifest(s,p))return 'Recipient cannot fulfill exact requested terms';
-  if(!tradeAcceptanceRoutes(s,p.plan))return 'No bilateral delivery route at ACCEPT (provisional policy)';
+  for(const fid of [p.proposer,p.recipient])for(const r of ['gold','food','wood','iron','stone'] as const){
+    const delta=fid===p.proposer?(p.plan.requested[r]??0)-(p.plan.offered[r]??0):(p.plan.offered[r]??0)-(p.plan.requested[r]??0);
+    if(!Number.isSafeInteger(s.factions.get(fid)!.resources[r]+delta))return 'Trade would overflow bank';
+  }
   return null;
 }
-function shipment(s:GameState,p:TradeProposal,reverse:boolean,route:string[]):TradeShipment {
-  const d=p.plan.delivery!,sender=reverse?p.recipient:p.proposer,recipient=reverse?p.proposer:p.recipient;
-  const origin=reverse?d.recipientTerritoryId:d.proposerTerritoryId,destination=reverse?d.proposerTerritoryId:d.recipientTerritoryId;
-  return {id:`shipment:v1:${JSON.stringify([p.id,reverse?'requested':'offered'])}`,proposalId:p.id,sender,recipient,cargo:{...(reverse?p.plan.requested:p.plan.offered)},source:{kind:'faction_stock',factionId:sender},originTerritoryId:origin,destinationTerritoryId:destination,
-    route:[...route],legIndex:0,phase:'loading',timer:startProactiveTimer(s,sender,`trade-load:${p.id}:${reverse}`,TIME.loadOnlineMs,TIME.loadOnlineMs,TIME.loadOfflineMs/TIME.loadOnlineMs),legStartedAtTick:null,legDurationTicks:null,blockedReason:null,blockedAtTick:null,createdAtMs:s.aiClock.nowMs,deliveredAtMs:null};
-}
 /** All ACCEPT prerequisites checked before any mutation. Called only on the
- * Orchestrator draft (commands additionally use a nested transaction). Both cargo
- * manifests enter custody together; terminal operation reducer releases claims
+ * Orchestrator draft (commands additionally use a nested transaction). Both bank
+ * deltas settle together; terminal operation reducer releases claims
  * and Attention. No recipient-side reservation ever exists while pending. */
 export function settleTradeProposal(s:GameState,id:string,status:Exclude<TradeProposalStatus,'initiating'|'pending'>,m?:TradeMetrics):boolean {
   const p=s.tradeProposals.get(id);if(!p||!proposalLive(p))return false;
   if(status==='accepted') {
     const problem=acceptanceProblem(s,p);if(problem)throw new Error(problem);
-    const routes=tradeAcceptanceRoutes(s,p.plan)!;
-    const outgoing=shipment(s,p,false,routes.offered),incoming=shipment(s,p,true,routes.requested);
-    for(const sh of [outgoing,incoming])for(const [r,n]of bundleEntries(sh.cargo))s.factions.get(sh.sender)!.resources[r]-=n;
-    s.tradeShipments.set(outgoing.id,outgoing);s.tradeShipments.set(incoming.id,incoming);p.shipmentIds=[outgoing.id,incoming.id];
-    if(m){m.shipments+=2;m.accepts++;}
-    record(s,outgoing.id,'shipment_created',p.proposer,p.recipient,m);record(s,incoming.id,'shipment_created',p.proposer,p.recipient,m);
+    const proposer=s.factions.get(p.proposer)!,recipient=s.factions.get(p.recipient)!;
+    for(const r of ['gold','food','wood','iron','stone'] as const){
+      const delta=(p.plan.requested[r]??0)-(p.plan.offered[r]??0);
+      proposer.resources[r]+=delta;recipient.resources[r]-=delta;
+    }
+    p.bankSettledAtMs=s.aiClock.nowMs;
+    if(m)m.accepts++;
+    applyOpinionEvent(s,p.id+':bank-exchange',p.recipient,p.proposer,'trade_completed',COGNITION.eventDelta.trade_completed);
+    applyOpinionEvent(s,p.id+':bank-exchange-reverse',p.proposer,p.recipient,'trade_completed',COGNITION.eventDelta.trade_completed);
+    refreshGoals(s,p.recipient);refreshGoals(s,p.proposer);
+
   }
   invalidateProposalResponse(s,'trade',id);
   p.status=status;p.resolvedAtMs=s.aiClock.nowMs;p.responseTimer=null;
@@ -97,37 +97,12 @@ export function nextTradeBoundary(s:GameState,horizon:number,presence:TemporalPr
     if(timer)next=Math.min(next,s.aiClock.nowMs+Math.max(1,durationRemainingMs(timer.progress,timer.onlineDurationMs,presence)));}
   return next;
 }
-function block(s:GameState,sh:TradeShipment,reason:string):void {markResponseWorldChanged(s);sh.phase='blocked';sh.blockedReason=reason;sh.blockedAtTick=s.worldTick;/* Retain cargo, elapsed leg and exact route. No recovery doctrine invented. */}
-function beginLeg(s:GameState,sh:TradeShipment):void {
-  const from=s.territories.get(sh.route[sh.legIndex]!),to=s.territories.get(sh.route[sh.legIndex+1]!);
-  if(!from||!to||!from.neighboring.includes(to.id)){block(s,sh,'Route unavailable; physical custody preserved');return;}
-  sh.phase='transit';sh.timer=null;sh.legStartedAtTick=s.worldTick;sh.legDurationTicks=calculateMovementDuration({origin:from,destination:to});
+/** Historical shipments must be migrated explicitly; schema-31 runtime never
+ * transports resource banks or silently guesses the owner of old cargo. */
+export function progressTradeShipments(s:GameState,_m?:TradeMetrics):void {
+  if(liveTradeShipments(s).length)throw new Error('Legacy Trade cargo requires an approved migration');
 }
-export function progressTradeShipments(s:GameState,m?:TradeMetrics):void {
-  for(const sh of liveTradeShipments(s)) {
-    if(sh.phase==='blocked')continue;
-    const nodeProblem=tradeShipmentNodeProblem(s,sh);if(nodeProblem){block(s,sh,nodeProblem);continue;}
-    if(sh.phase==='loading') {
-      if(timerRemaining(s,sh.timer!)>0)continue;beginLeg(s,sh);
-    } else if(sh.phase==='transit') {
-      const from=s.territories.get(sh.route[sh.legIndex]!),to=s.territories.get(sh.route[sh.legIndex+1]!);
-      if(!from||!to||!from.neighboring.includes(to.id)){block(s,sh,'Route interrupted; elapsed travel preserved');continue;}
-      if(s.worldTick<sh.legStartedAtTick!+sh.legDurationTicks!)continue;
-      sh.legIndex++;sh.legStartedAtTick=null;sh.legDurationTicks=null;
-      if(sh.legIndex<sh.route.length-1){beginLeg(s,sh);continue;}
-      sh.phase='unloading';sh.timer=startProactiveTimer(s,sh.recipient,`trade-unload:${sh.id}`,TIME.unloadOnlineMs,TIME.unloadOnlineMs,TIME.unloadOfflineMs/TIME.unloadOnlineMs);
-    } else if(sh.phase==='unloading') {
-      if(timerRemaining(s,sh.timer!)>0)continue;
-      if(bundleEntries(sh.cargo).some(([r,n])=>!Number.isSafeInteger(s.factions.get(sh.recipient)!.resources[r]+n))){block(s,sh,'Receiving bank cannot represent exact quantity; cargo preserved');continue;}
-      for(const [r,n]of bundleEntries(sh.cargo))s.factions.get(sh.recipient)!.resources[r]+=n;
-      markResponseWorldChanged(s);sh.phase='delivered';sh.deliveredAtMs=s.aiClock.nowMs;sh.timer=null;s.tradeShipments.set(sh.id,sh);
-      applyOpinionEvent(s,sh.id,sh.recipient,sh.sender,'trade_completed',COGNITION.eventDelta.trade_completed);
-      refreshGoals(s,sh.recipient);
-      record(s,sh.id,'delivered',sh.sender,sh.recipient,m);if(m)m.deliveries++;
-    }
-  }
-}
-/** Domain delivery occurs before required responses, which precede proactive
+/** Domain exchange occurs before required responses, which precede proactive
  * cognition. Only live indexes are examined; no full history scan/pair polling. */
 export function processTradeBoundary(s:GameState,m?:TradeMetrics,deferResponses=false):void {
   progressTradeShipments(s,m);

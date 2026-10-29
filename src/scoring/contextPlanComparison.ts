@@ -110,9 +110,8 @@ export class ContextPlanComparator {
       add('trade:offered_loss','RESOURCE_VALUE','direct_cost',-saturatingMagnitude(loss,T.resourceScale)*TRADE_TUNING.resourceWeight,'Exact offered marginal resource loss, sole owner');
       const estimate=tradeResponseEstimate({offered:plan.offered,requested:plan.requested});
       add('trade:external_choice','RESOURCE_VALUE','realization',-T.uncertaintyWeight,estimate.limitations.join(' '),'limited');
-      const d=plan.delivery!,route=tradeRoute(state,d.recipientTerritoryId,d.proposerTerritoryId);
-      add('trade:receipt_timing','TIMING_SUPPORT','timeliness',route?-saturatingMagnitude(evaluators.support.logistics(route).timing.remainingTicks,T.timingScaleTicks)*T.timingWeight:-T.timingWeight,'Exact receiving-route authoritative duration; no extra logistics bonus','bounded');
-      downside=route?0:1;
+      // Resource banks exchange atomically on acceptance; no route or transport cost.
+      downside=0;
     } else if(plan.action==='BUILD') {
       const build=evaluators.buildValue(plan);assessments.push(build);
       add('build:additional_effect','BUILD_VALUE','source_resolution',saturatingMagnitude(build.facts.additionalBenefit,1)*T.buildBenefitWeight,'Exact authored additional output/defense/capability over committed build baseline',build.uncertainty.confidence);

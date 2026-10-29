@@ -259,6 +259,9 @@ export class ContinuousWorldEngine {
     const ticksPerEventTurn = BALANCE.world.ticksPerEventTurn;
 
     for (let step = 0; step < elapsedTicks; step++) {
+      // An ended attempt has no remaining economy, AI or physical simulation.
+      // Acknowledge earned ticks without reviving it; restart creates a fresh clock.
+      if(state.levelDefeat.status==='defeated'){state.worldTick+=elapsedTicks-step;break;}
       const aiInstant=nextAiWorldBoundary(state);
       if(aiInstant!==null) appendHandler(result,host.progressProactive!(aiInstant,false),this.compactInspectable);
       state.worldTick += 1;

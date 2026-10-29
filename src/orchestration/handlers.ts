@@ -1,5 +1,7 @@
+import {restartDefeatedWorld} from '../gameplay/worldRestart';
+import {deployBankedTroops,bankedTroops} from '../gameplay/military/troopBank';
 import { assertWorldIdentity, worldContentIdentity } from '../worldDefinition';
-import { markResponseWorldChanged } from '../engine/responseRecords';
+import { closeResponseContext, markResponseWorldChanged } from '../engine/responseRecords';
 import { processNonProactiveBoundary, reactivePlans, responseContextExists } from '../engine/nonProactiveCognition';
 import type { AIResponseContext } from '../types/AIResponse';
 import {beginTradeProposal,processTradeBoundary,settleTradeProposal,acceptanceProblem} from '../gameplay/trade/trade';
@@ -7,7 +9,7 @@ import {TRADE_TIMING} from '../constants/trade';
 import { REINFORCE_INITIATION as RECRUIT } from '../constants/recruitment';
 import { PEACE_TIMING } from '../constants/peace';
 import { beginPeaceProposal, offerPeaceProblem, processPeaceBoundary, settlePeaceProposal } from '../gameplay/diplomacy/peace';
-import { reinforcementProblem } from '../gameplay/recruitment/reinforcement';
+import { usesTroopBank, reinforcementProblem } from '../gameplay/recruitment/reinforcement';
 import { startProactiveTimer, timerRemaining, opportunity, invalidateProactiveInitiation } from '../engine/proactiveCognition';
 import { derivePresenceSegments } from '../world/presenceLeases';
 import { prepareProactiveDecision, selectWaitInitiation, nextProactiveBoundary, accrueProactiveClocks, authoritativePresence } from '../engine/proactiveCognition';
@@ -194,6 +196,17 @@ export function handleGetWorldDefinition(state: GameState, _ctx: HandlerContext)
     ...emptyResult(),
     payload: { worldDefinition: serializeWorldDefinitionForClient(loaded.definition), contentIdentity: worldContentIdentity(loaded.definition), persistedContentFingerprint: state.definitionContentFingerprint },
   };
+}
+
+export function handleRestartWorld(state:GameState):HandlerResult {
+  restartDefeatedWorld(state);
+  return {...emptyResult(),payload:{restarted:true,definitionWorldId:state.definitionWorldId,completedWorldIds:[...state.completedWorldIds]}};
+}
+export function handleDeployTroops(state:GameState,ctx:HandlerContext):HandlerResult {
+  const factionId=resolveActingFactionId(state,ctx.req),territoryId=requireString(ctx.req,'territoryId');
+  const quantity=paramNumber(ctx.req,'quantity')!;
+  const armyId=deployBankedTroops(state,factionId,territoryId,quantity);
+  return {...emptyResult(),armiesChanged:[{armyId}],payload:{armyId,territoryId,quantity,bankedTroops:bankedTroops(state,factionId)}};
 }
 
 export function handleTransitionToNextWorld(state: GameState, ctx: HandlerContext): HandlerResult {
@@ -646,6 +659,7 @@ export function handleAdvanceWorld(state: GameState, ctx: HandlerContext): Handl
  * Exact timers finish before the next physical boundary; full selection uses the
  * authoritative state at its decision boundary. No per-second polling. */
 export function progressProactiveThrough(state: GameState, ctx: HandlerContext, horizon: number, allowEndpointDecision = true): HandlerResult {
+  if(state.levelDefeat.status==='defeated')return emptyResult();
   const result=emptyResult();
   const decisions: WorldAdvanceResult['aiDecisions']=[];
   const resolutions: WorldAdvanceResult['commitmentResolutions']=[];
@@ -846,7 +860,12 @@ function startOperation(state: GameState, ctx: HandlerContext, selected: AIOpera
       op.links.constructionId = project.id;
     }
     if (typeof inner.payload.invasionId === 'string') op.links.invasionId = inner.payload.invasionId;
-    if(op.action==='REINFORCE'||op.action==='OFFER_PEACE'||op.action==='TRADE') {
+    if(op.plan.action==='REINFORCE'&&usesTroopBank(op.plan)){
+      if(!settleOperation(draft,op.id,'completed','Instant bank deployment'))throw new Error('Bank deployment failed');
+      // An instant defense can remove its own threat. Record the successful
+      // intervention before the transaction's post-effect observation sees that.
+      if(op.responseContextId){const response=draft.aiResponses.get(op.responseContextId)!;response.operationId=op.id;closeResponseContext(draft,response,'INTERVENTION_STARTED');}
+    } else if(op.action==='REINFORCE'||op.action==='OFFER_PEACE'||op.action==='TRADE') {
       const primary=opportunity(draft,op.warlordId);
       if(!op.responseContextId)primary.primaryOperationId=op.id;
       const timing=op.action==='REINFORCE'?RECRUIT:op.action==='TRADE'?TRADE_TIMING:{initiationOnlineMs:PEACE_TIMING.initiationOnlineMs,initiationOfflineMs:PEACE_TIMING.initiationOfflineMs};
@@ -934,6 +953,8 @@ export function handleResolveCommitment(state: GameState, ctx: HandlerContext): 
 export type MutatingHandler = (state: GameState, ctx: HandlerContext) => HandlerResult;
 
 export const MUTATING_HANDLERS: Record<string, MutatingHandler> = {
+  RESTART_WORLD: handleRestartWorld,
+  DEPLOY_TROOPS: handleDeployTroops,
   ATTACK: handleAttack,
   MOVE: handleMove,
   BUILD: handleBuild,

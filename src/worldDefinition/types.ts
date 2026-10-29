@@ -90,6 +90,8 @@ export interface RegionDefinition {
 }
 
 export interface TerritoryDefinition {
+  /** Food consumed per production cycle. Legacy fallback: existing one Food. */
+  foodUpkeep?: number;
   id: TerritoryId;
   regionId: RegionId;
   startingOwnerFactionId: FactionId;
@@ -163,6 +165,8 @@ export interface WorldCompositionDefinition {
 }
 
 export interface WorldDefinition {
+  /** Per-active-empire Food consumption per cycle. Legacy compatibility: zero. */
+  empireFoodBaselinePerCycle?: number;
   /** Absent on legacy content. Never infer a ratio; new-policy callers must require it. */
   workoutRewards?: WorldWorkoutRewardPolicy;
   formatVersion: WorldFormatVersion;

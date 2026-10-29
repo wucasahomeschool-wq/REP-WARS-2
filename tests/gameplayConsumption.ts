@@ -306,7 +306,7 @@ export function registerGameplayConsumptionTests(api: GameplayConsumptionTestApi
       consumeGoldenYield: true,
     });
     assert.ok(first.multiplier > 1);
-    assert.strictEqual(first.collected, Math.floor(first.base * first.multiplier));
+    assert.strictEqual(first.collected, Math.floor(first.base * first.multiplier)-first.base);
     assert.ok(first.collected > base.collected || first.multiplier === 1);
     assert.strictEqual(applied.state.playerRewards.pendingGoldenYieldEffects.length, 0);
 

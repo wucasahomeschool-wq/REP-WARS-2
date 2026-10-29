@@ -153,6 +153,8 @@ export interface StrategicAttackIntent {
     holdForInvasionId?: string | null;
 }
 export interface Territory {
+    /** Authored Food consumption per economy cycle; omitted legacy tiles use existing default. */
+    foodUpkeep?: number;
     id: TerritoryId;
     owner: FactionId | null;
     regionId: RegionId;
@@ -273,6 +275,8 @@ export interface AICommitment {
     completionCondition?: 'duration_elapsed';
 }
 export interface WarlordSnapshot {
+    /** NPC empire reserve. Player reserve remains playerRewards.bankedTroops. */
+    bankedTroops?: number;
     id: FactionId;
     name: string;
     personality: Personality;

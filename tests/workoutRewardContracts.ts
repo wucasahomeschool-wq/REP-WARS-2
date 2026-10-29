@@ -250,6 +250,8 @@ export function registerWorkoutRewardContractTests({ test }: { test: (name: stri
         success: true, payload: { sessionId: session().sessionId }, errors: [] } });
     const baseline = encodePersistable(value) as any;
     baseline.schemaVersion = 28;
+    // Empire-bank migration adds zero NPC reserves and full-world knowledge.
+    for (const [,f] of baseline.factions.$map) { f.bankedTroops=0;f.knownTerritories=baseline.territories.$map.map(([id]:[string,unknown])=>id);f.knownFactions=[...baseline.allFactionIds]; }
     const loaded = hydratePersistedPayload(baseline);
     assert.strictEqual(loaded.schemaVersion, GAME_STATE_SCHEMA_VERSION);
     assert.strictEqual(workoutCompletionRewardMode(loaded.playerFitness.activeSession!), 'LEGACY');
@@ -265,6 +267,8 @@ export function registerWorkoutRewardContractTests({ test }: { test: (name: stri
     value.playerFactionId = 'iron_kingdom';
     const baseline = encodePersistable(value) as any;
     baseline.schemaVersion = 28;
+    // Empire-bank migration adds zero NPC reserves and full-world knowledge.
+    for (const [,f] of baseline.factions.$map) { f.bankedTroops=0;f.knownTerritories=baseline.territories.$map.map(([id]:[string,unknown])=>id);f.knownFactions=[...baseline.allFactionIds]; }
     const loaded = hydratePersistedPayload(baseline);
     assert.deepStrictEqual(encodePersistable(loaded.playerFitness.pendingReward), encodePersistable(oldReward));
     assert.deepStrictEqual(encodePersistable(loaded), { ...baseline, schemaVersion: GAME_STATE_SCHEMA_VERSION, definitionContentFingerprint: null });

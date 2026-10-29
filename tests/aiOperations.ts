@@ -35,7 +35,7 @@ interface Api {
 }
 export function registerAiOperationTests({ test, makeSelf, makeTerritory, makeCmt, cmdReq }: Api): void {
   function world(): GameState {
-    return makeOperationTestWorld(makeSelf, makeTerritory);
+    const s=makeOperationTestWorld(makeSelf, makeTerritory);s.worldLevel=2;return s;
   }
   const plans = (s:GameState)=>generateConcretePlans(toDecisionEngineSnapshot(s),'me');
   const move = (s:GameState,id:string,dest='other')=>plans(s).find(p=>p.action==='MOVE'&&p.armyId===id&&p.destinationTerritoryId===dest)!;

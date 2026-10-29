@@ -1,3 +1,5 @@
+import {empireFoodDemand} from '../gameplay/economy/foodConsumption';
+import {bankedTroops,availableBankedTroops} from '../gameplay/military/troopBank';
 import {liveTradeShipments} from '../gameplay/trade/trade';
 import {conflictSummary} from '../conflict/ledger';
 import {availableStocks} from '../gameplay/trade/resources';
@@ -11,7 +13,6 @@ import { activeOperations } from '../engine/operations';
 import { calculateMovementDuration, movementTicksRemaining } from '../army/movement';
 import { combatDefenseMultiplier, defenseWorkoutMultiplier } from '../gameplay/defense/territoryDefense';
 import { effectiveResourceOutput } from '../gameplay/economy/effectiveOutput';
-import { ECONOMY_CONFIG } from '../gameplay/economy/config';
 import { getConstructionProjectDefinition } from '../gameplay/construction/definitions';
 import { cityIdFor } from '../gameplay/cities/city';
 import { displayedRemainingTicks } from '../gameplay/construction/progress';
@@ -54,6 +55,7 @@ export class FactualSupport {
   conflictFor(owner:string,opponent:string){return conflictSummary(this.conflictFacts,owner,opponent);}
   readonly territories = new Map<string,FactualTerritory>();
   readonly armies = new Map<string,Army>();
+  readonly troopBanks = new Map<string,{troops:number;available:number;reserved:number}>();
   readonly localPools = new Map<string,{troops:number;available:number;reserved:number}>();
   readonly stocks = new Map<string,Resources>();
   readonly wars = new Map<string,readonly string[]>();
@@ -79,7 +81,7 @@ export class FactualSupport {
     this.builds = [...state.constructions.values()].filter(p=>p.status==='in_progress').sort((a,b)=>comparePlanIds(a.id,b.id)).map(p=>({...p}));
     for(const [id,f] of [...state.factions].sort(([a],[b])=>comparePlanIds(a,b))) {
       this.stocks.set(id,availableStocks(state,id));
-      this.foodDemand.set(id,(state.worldLevel??0)>=2?f.territories.length*ECONOMY_CONFIG.foodPerTerritoryPerCycle:0);
+      this.foodDemand.set(id,(state.worldLevel??0)>=2?empireFoodDemand(state,id):0);
       this.wars.set(id,[...state.factions.keys()].filter(fid=>factionsAreHostile(state,id,fid)).sort(comparePlanIds));
       this.relationshipStates.set(id,new Map([...state.factions.keys()].filter(fid=>fid!==id).sort(comparePlanIds).map(fid=>[fid,relationshipBetween(state,id,fid)])));
     }
@@ -106,7 +108,8 @@ export class FactualSupport {
       movement:a.movement?{...a.movement}:null,
       // Intent identity/target only; never copy the future battle seed.
     });
-    for(const [id,pool] of state.territoryRecruitment) {const available=availableLocalTroops(state,id);this.localPools.set(id,{troops:pool.troops,available,reserved:pool.troops-available});}
+    for(const [id,pool] of state.territoryRecruitment){const available=availableLocalTroops(state,id);this.localPools.set(id,{troops:pool.troops,available,reserved:pool.troops-available});}
+    for(const [id] of state.factions){const troops=bankedTroops(state,id),available=availableBankedTroops(state,id);this.troopBanks.set(id,{troops,available,reserved:troops-available});}
     const operations=activeOperations(state);
     for(const invasion of [...state.activeInvasions.values()].sort((a,b)=>comparePlanIds(a.id,b.id)))if(invasion.defenseMobilization) {
       const power=Math.max(0,Math.round(invasion.defenseMobilization.defensePower*defenseWorkoutMultiplier(state,invasion.territoryId)));

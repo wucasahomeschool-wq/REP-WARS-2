@@ -41,6 +41,15 @@ export function foodConsumptionDisabled(state: GameState): boolean {
   return typeof level !== 'number' || level < 2;
 }
 
+/** Shared factual demand for upkeep, AI observation and resource valuation. */
+export function empireFoodDemand(state:GameState,factionId:string):number {
+  if(foodConsumptionDisabled(state))return 0;
+  const owned=[...state.territories.values()].filter(t=>t.owner===factionId);
+  if(!owned.length)return 0;
+  const demand=state.empireFoodBaselinePerCycle+owned.reduce((n,t)=>n+(t.foodUpkeep??ECONOMY_CONFIG.foodPerTerritoryPerCycle),0);
+  if(!Number.isSafeInteger(demand))throw new Error('Food demand overflow');return demand;
+}
+
 function applyFactionCycles(
   foodBefore: number,
   stabilityBefore: number,
@@ -97,7 +106,10 @@ export function consumeEmpireFood(state: GameState): FoodConsumptionResult {
   for (const factionId of state.allFactionIds) {
     const faction = state.factions.get(factionId);
     if (!faction) continue;
-    const demandPerCycle = faction.territories.length * ECONOMY_CONFIG.foodPerTerritoryPerCycle;
+    const owned=[...state.territories.values()].filter(t=>t.owner===factionId);
+    if(owned.length===0)continue;
+    const demandPerCycle = empireFoodDemand(state,factionId);
+    if(!Number.isSafeInteger(demandPerCycle)||!Number.isSafeInteger(demandPerCycle*cycles))throw new Error('Food demand overflow');
     const foodBefore = Math.max(0, faction.resources.food);
     const stabilityBefore = faction.stability;
     const reserved=reservedResource(state,factionId,'food');

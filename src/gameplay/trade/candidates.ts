@@ -1,10 +1,11 @@
+import {empireFoodDemand} from '../economy/foodConsumption';
 import type {GameState} from '../../types/GameState';
 import type {TradePlan} from '../../types/AIConcretePlan';
 import {makeConcretePlan,comparePlanIds} from '../../types/AIConcretePlan';
 import {availableStocks,committedTradeReceipts} from './resources';
-import {tradeNode,tradeAcceptanceRoutes} from './policy';
+import {tradeNode} from './policy';
 import {TRADE_TUNING} from '../../constants/trade';
-import {RESOURCE_KEYS,ECONOMY_CONFIG} from '../economy/config';
+import {RESOURCE_KEYS} from '../economy/config';
 import {listConstructionProjectTypes,getConstructionProjectDefinition,constructionStartProblem} from '../construction/definitions';
 /** Factual present-rule demand only. Current bank storage, eligible authored
  * sites and upkeep; no inferred private Goals or future localized warehouses. */
@@ -15,7 +16,7 @@ export function tradeDemand(state:GameState,fid:string) {
       const d=getConstructionProjectDefinition(kind);if(constructionStartProblem(kind,{state,factionId:fid,territoryId:t.id}))continue;
       for(const r of RESOURCE_KEYS)demand[r]=Math.max(demand[r],d.cost[r]??0);
     }
-  if((state.worldLevel??0)>=2)demand.food=Math.max(demand.food,(state.factions.get(fid)?.territories.length??0)*ECONOMY_CONFIG.foodPerTerritoryPerCycle);
+  if((state.worldLevel??0)>=2)demand.food=Math.max(demand.food,empireFoodDemand(state,fid));
   return demand;
 }
 /** Declared complete bound: each ordered pair of distinct resources with a real
@@ -28,17 +29,15 @@ export function tradeCandidates(state:GameState,fid:string,counterparty:string,s
   const node=tradeNode(state,fid),otherNode=tradeNode(state,counterparty);
   if(!node||!otherNode||fid===counterparty||!state.factions.get(fid)?.knownFactions.includes(counterparty))return [];
   const own=ownStock,other=availableStocks(state,counterparty),incoming=committedTradeReceipts(state,fid),otherIncoming=committedTradeReceipts(state,counterparty),demand=tradeDemand(state,fid),otherDemand=tradeDemand(state,counterparty),plans:TradePlan[]=[];
-  let routesFeasible:boolean|undefined; // All plans in this scope share exact endpoints.
   for(const want of RESOURCE_KEYS)for(const give of RESOURCE_KEYS) {
     if(want===give)continue;
     const requested=Math.min(TRADE_TUNING.batch,Math.max(0,demand[want]-own[want]-incoming[want]),Math.max(0,other[want]-otherDemand[want]));
     const offered=Math.min(TRADE_TUNING.batch,Math.max(0,otherDemand[give]-other[give]-otherIncoming[give]),Math.max(0,own[give]-demand[give]));
     if(!Number.isSafeInteger(requested)||!Number.isSafeInteger(offered)||requested<=0||offered<=0)continue;
-    const plan=makeConcretePlan({action:'TRADE',factionId:fid,counterpartyId:counterparty,offered:{[give]:offered},requested:{[want]:requested},proposerSource:{kind:'faction_stock',factionId:fid,resources:{[give]:offered}},delivery:{proposerTerritoryId:node,recipientTerritoryId:otherNode},...(sourceContextId?{sourceContextId}:{})}) as TradePlan;
+    const plan=makeConcretePlan({action:'TRADE',factionId:fid,counterpartyId:counterparty,offered:{[give]:offered},requested:{[want]:requested},proposerSource:{kind:'faction_stock',factionId:fid,resources:{[give]:offered}},...(sourceContextId?{sourceContextId}:{})}) as TradePlan;
     // Explicit publication can precede route restoration, but ordinary proactive
     // selection must not knowingly initiate undeliverable current-policy terms.
-    routesFeasible??=!!tradeAcceptanceRoutes(state,plan);
-    if(routesFeasible)plans.push(plan);
+    plans.push(plan);
   }
   return plans.sort((a,b)=>comparePlanIds(a.id,b.id));
 }

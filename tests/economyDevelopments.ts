@@ -150,7 +150,7 @@ export function registerEconomyDevelopmentsTests({ test }: EconomyDevelopmentsTe
     assert.strictEqual(tile.resourceOutput.food, base.food);
   });
 
-  test('Golden Yield still multiplies the collected effective yield', () => {
+  test('Golden Yield bonus retains multiplier on effective Farm production', () => {
     const state = merchantState();
     completeFarm(state);
     const rec = state.territoryEconomy.get(REACH)!;
@@ -177,7 +177,7 @@ export function registerEconomyDevelopmentsTests({ test }: EconomyDevelopmentsTe
       consumeGoldenYield: true,
     });
     assert.strictEqual(collected.multiplier, 2);
-    assert.strictEqual(collected.transferredResources.food, baseYield.food * 2);
+    assert.strictEqual(collected.transferredResources.food, baseYield.food);
     assert.strictEqual(collected.effectConsumed, true);
   });
 

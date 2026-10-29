@@ -247,7 +247,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
     assert.strictEqual(orch.getState().worldTick, 5760);
   });
 
-  test('collection transfers uncollected yield and resets it; a second collect is not a duplicate', () => {
+  test('manual collection acknowledges already banked production without duplicate credit', () => {
     const orch = new Orchestrator(playerState());
     const goldBefore = orch.getState().factions.get(PLAYER_FACTION)!.resources.gold;
     const ironBefore = orch.getState().factions.get(PLAYER_FACTION)!.resources.iron;
@@ -255,14 +255,14 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
     const collect = orch.execute(cmdReq('COLLECT_RESOURCES', { territoryId: SPIRE }));
     assert.strictEqual(collect.success, true, collect.errors[0]?.message);
     const expected = expectedYield(60);
-    assert.strictEqual(collect.payload.collected, expected.gold);
-    assert.strictEqual(orch.getState().factions.get(PLAYER_FACTION)!.resources.gold, goldBefore + expected.gold);
-    assert.strictEqual(orch.getState().factions.get(PLAYER_FACTION)!.resources.iron, ironBefore + expected.iron);
+    assert.strictEqual(collect.payload.collected, 0);
+    assert.strictEqual(orch.getState().factions.get(PLAYER_FACTION)!.resources.gold, goldBefore + orch.getState().factions.get(PLAYER_FACTION)!.territories.reduce((n,id)=>n+(orch.getState().territories.get(id)!.resourceOutput.gold??0),0));
+    assert.strictEqual(orch.getState().factions.get(PLAYER_FACTION)!.resources.iron, ironBefore + orch.getState().factions.get(PLAYER_FACTION)!.territories.reduce((n,id)=>n+(orch.getState().territories.get(id)!.resourceOutput.iron??0),0));
     assert.strictEqual(orch.getState().territoryEconomy.get(SPIRE)!.uncollected.gold, 0);
     const second = orch.execute(cmdReq('COLLECT_RESOURCES', { territoryId: SPIRE }));
     assert.strictEqual(second.success, true);
     assert.strictEqual(second.payload.collected, 0);
-    assert.strictEqual(orch.getState().factions.get(PLAYER_FACTION)!.resources.gold, goldBefore + expected.gold);
+    assert.strictEqual(orch.getState().factions.get(PLAYER_FACTION)!.resources.gold, goldBefore + orch.getState().factions.get(PLAYER_FACTION)!.territories.reduce((n,id)=>n+(orch.getState().territories.get(id)!.resourceOutput.gold??0),0));
   });
 
   test('invalid territory and wrong owner collections are rejected without mutation', () => {
@@ -308,7 +308,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
     const first = orch.execute(cmdReq('COLLECT_RESOURCES', { territoryId: SPIRE, useGoldenYield: true }));
     assert.strictEqual(first.success, true, first.errors[0]?.message);
     assert.strictEqual(first.payload.multiplier, pending.multiplier);
-    assert.strictEqual(first.payload.collected, Math.floor(base.gold * pending.multiplier));
+    assert.strictEqual(first.payload.collected, Math.floor(base.gold * pending.multiplier)-base.gold);
     assert.strictEqual(orch.getState().playerRewards.pendingGoldenYieldEffects.length, 0);
     jump(orch, 60);
     const retry = orch.execute(cmdReq('COLLECT_RESOURCES', { territoryId: SPIRE, useGoldenYield: true }));
@@ -316,7 +316,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
     const normal = orch.execute(cmdReq('COLLECT_RESOURCES', { territoryId: SPIRE }));
     assert.strictEqual(normal.success, true);
     assert.strictEqual(normal.payload.multiplier, 1);
-    assert.strictEqual(normal.payload.collected, expectedYield(60).gold);
+    assert.strictEqual(normal.payload.collected, 0);
   });
 
   test('failed Golden Yield collection leaves the effect and resources untouched', () => {
@@ -501,7 +501,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
     assert.strictEqual(orch.getState().constructions.get('con_other')!.remainingTicks, GAMEPLAY_CONFIG.defaultConstructionDurationTicks);
   });
 
-  test('ownership transfer forfeits uncollected yield and starts the new owner\'s clock', () => {
+  test('ownership transfer clears bonus eligibility and starts the new owner\'s clock', () => {
     const orch = new Orchestrator(playerState());
     jump(orch, 60);
     assert.strictEqual(peekCollectibleResources(orch.getState(), SPIRE).gold, 30);
@@ -515,7 +515,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
     const winner = state.factions.get(OTHER_FACTION)!;
     if (!winner.territories.includes(SPIRE)) winner.territories.push(SPIRE);
     tile.owner = OTHER_FACTION;
-    settleTerritoryOwnershipChange(state, SPIRE, OTHER_FACTION);
+    settleTerritoryOwnershipChange(state, SPIRE, OTHER_FACTION, previous);
     assert.strictEqual(peekCollectibleResources(state, SPIRE).gold, 0);
     assert.strictEqual(state.factions.get(PLAYER_FACTION)!.resources.gold, oldGold);
     assert.strictEqual(state.factions.get(OTHER_FACTION)!.resources.gold, newGold);
@@ -530,7 +530,7 @@ export function registerEconomyCitiesTests(api: EconomyCitiesTestApi): void {
       playerId: PLAYER_ID,
       consumeGoldenYield: false,
     });
-    assert.strictEqual(state.factions.get(OTHER_FACTION)!.resources.gold, newGold + 30);
+    assert.strictEqual(state.factions.get(OTHER_FACTION)!.resources.gold, newGold + state.factions.get(OTHER_FACTION)!.territories.reduce((n,id)=>n+(state.territories.get(id)!.resourceOutput.gold??0),0));
     assert.throws(() => collectTerritoryYield(state, {
       factionId: PLAYER_FACTION,
       territoryId: SPIRE,
