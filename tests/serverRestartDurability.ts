@@ -1,3 +1,4 @@
+import {nextMutationTestId} from './mutationTestRequests';
 import { requireLiveSupabase } from './skip';
 import assert from 'assert';
 import { request as httpRequest } from 'node:http';
@@ -94,7 +95,7 @@ export async function assertFailedWorldSaveRollsHistoryBack(): Promise<void> {
     originalUpsert(entry);
   };
   const host = createSessionHost(persistence);
-  const started = await host.execute({
+  const started = await host.execute({worldAttempt: 0,
     commandId: 'START_WORKOUT',
     playerId,
     requestId: 'start',
@@ -102,7 +103,7 @@ export async function assertFailedWorldSaveRollsHistoryBack(): Promise<void> {
   });
   assert.strictEqual(started.success, true, started.errors[0]?.message);
   await assert.rejects(
-    () => host.execute({
+    () => host.execute({worldAttempt: 0,
       commandId: 'ABANDON_WORKOUT',
       playerId,
       requestId: 'abandon',
@@ -112,7 +113,7 @@ export async function assertFailedWorldSaveRollsHistoryBack(): Promise<void> {
   );
   assert.deepStrictEqual(upserts, [SESSION_ID]);
   assert.strictEqual(inner.history.get(playerId, SESSION_ID), null);
-  const reloaded = await host.execute({
+  const reloaded = await host.execute({worldAttempt: 0,
     commandId: 'GET_GAME_STATE',
     playerId,
     requestId: 'reload',
@@ -171,7 +172,7 @@ function httpJson(port: number, method: string, requestPath: string, body?: unkn
 }
 
 function command(port: number, playerId: string, commandId: string, parameters: Record<string, unknown>, requestId: string): Promise<Record<string, unknown>> {
-  return httpJson(port, 'POST', '/commands', { commandId, playerId, requestId, parameters }).then((response) => {
+  return httpJson(port, 'POST', '/commands', {worldAttempt: 0,  commandId, playerId, requestId, parameters }).then((response) => {
     if (response.status !== 200 || response.json.success !== true) {
       const errors = response.json.errors as { message?: string }[] | undefined;
       const message = errors?.[0]?.message ?? response.json.message ?? JSON.stringify(response.json);
@@ -302,7 +303,7 @@ export async function runSupabaseServerRestart(): Promise<void> {
     const store = new SupabaseGameStateStore(worlds);
     const boot = initializePlayerWorld({ playerId, store, seed: 17 });
     const legacy = new Orchestrator(boot.state);
-    seedLegacyWorkoutSession(legacy, { commandId: 'START_WORKOUT', playerId,
+    seedLegacyWorkoutSession(legacy, {worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'START_WORKOUT', playerId,
       parameters: { purpose: 'NORMAL_TROOPS', sessionId: SESSION_ID, now: 1000 } });
     const seeded = store.save(playerId, legacy.getState(), boot.record!.stateVersion);
     assert.ok(seeded.ok);
@@ -337,7 +338,7 @@ export async function runSupabaseServerRestart(): Promise<void> {
     servers.push(third);
     await gameSnapshot(thirdPort, playerId, 'third_boot');
     await command(secondPort, playerId, 'SET_PLAYER_PAUSE', { paused: true }, 'pause');
-    const conflict = await httpJson(thirdPort, 'POST', '/commands', {
+    const conflict = await httpJson(thirdPort, 'POST', '/commands', {worldAttempt: 0,
       commandId: 'SET_PLAYER_PAUSE',
       playerId,
       requestId: 'stale_pause',

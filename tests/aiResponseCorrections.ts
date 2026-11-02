@@ -1,3 +1,4 @@
+import {nextMutationTestId} from './mutationTestRequests';
 import assert from 'assert';
 import { request } from 'node:http';
 import { inspect } from 'node:util';
@@ -191,7 +192,7 @@ export function registerAiResponseCorrectionTests(api:Api,f:Fixtures):void {
     if(kind==='end')s.gameplaySessionLeases=[endGameplaySessionLease(s.gameplaySessionLeases[0]!,1000).lease];
     const store=new InMemoryGameStateStore();assert.ok(store.save('r2',s,0).ok);let saves=0;
     const persistence:PlayerWorldPersistence={name:'memory',history:new InMemoryWorkoutHistoryStore(),ensure:id=>{const result=store.load(id);if(!result.ok)throw new Error(result.message);return {state:result.state,record:result.record,created:false};},save:(id,state,version)=>{saves++;return store.save(id,state,version);}};
-    const host=createSessionHost(persistence,{nowMs:()=>1000});const receipt=()=>kind==='open'?host.openGameplaySession('r2','r2-open'):kind==='heartbeat'?host.heartbeatGameplaySession('r2','r2-heartbeat','r2-session',1):host.endGameplaySession('r2','r2-end','r2-session');
+    const host=createSessionHost(persistence,{nowMs:()=>1000});const receipt=()=>kind==='open'?host.openGameplaySession('r2','r2-open', 0):kind==='heartbeat'?host.heartbeatGameplaySession('r2','r2-heartbeat','r2-session',1, 0):host.endGameplaySession('r2','r2-end','r2-session', 0);
     const result=await receipt();assert.strictEqual(result.outcome,'idempotent_replay');assert.strictEqual(saves,1);
     const loaded=store.load('r2');assert.ok(loaded.ok);if(!loaded.ok)return;
     assert.strictEqual(loaded.state.lastAccrualAtMs,1000);assert.strictEqual(loaded.state.aiResponses.size,1);assert.strictEqual([...loaded.state.aiResponses.values()][0]!.lane,'OPERATION_RECOVERY');
@@ -261,14 +262,14 @@ export function registerAiResponseCorrectionTests(api:Api,f:Fixtures):void {
       const payload=JSON.stringify(body),req=request({hostname:'127.0.0.1',port:address.port,path,method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(payload)}},res=>{let text='';res.on('data',chunk=>text+=chunk);res.on('end',()=>resolve(JSON.parse(text)));});req.on('error',reject);req.end(payload);
     });
     try {
-      const result=await post('/commands',{commandId:'COLLECT_RESOURCES',playerId:'r2',parameters:{territoryId:'safe'}}),json=JSON.stringify(result);
+      const result=await post('/commands',{worldAttempt: 0, requestId: nextMutationTestId(), commandId:'COLLECT_RESOURCES',playerId:'r2',parameters:{territoryId:'safe'}}),json=JSON.stringify(result);
       assert.strictEqual(result.success,false);assert.ok(json.includes('INVALID_GAME_STATE'));assert.ok(!json.includes('response:v1:'));assert.ok(!json.includes(JSON.stringify(proposal.id).slice(1,-1)));
       const publicErrors=result.errors as {message:string;details?:unknown}[];assert.strictEqual(publicErrors[0]!.details,undefined);
       const nested=result.payload as {worldAdvance:{errors:{details?:unknown}[]}};assert.strictEqual(nested.worldAdvance.errors[0]!.details,undefined);
       assert.ok(JSON.stringify(diagnostics).includes('response:v1:'));assert.deepStrictEqual(result.events,[]);assert.deepStrictEqual(result.notifications,[]);assert.deepStrictEqual(encodePersistable(orchestrator.getState()),before);
-      const domain=await post('/commands',{commandId:'COLLECT_RESOURCES',playerId:'r2',parameters:{territoryId:'absent'}});
+      const domain=await post('/commands',{worldAttempt: 0, requestId: nextMutationTestId(), commandId:'COLLECT_RESOURCES',playerId:'r2',parameters:{territoryId:'absent'}});
       assert.ok(JSON.stringify(domain).includes('INVALID_TERRITORY'));assert.ok(JSON.stringify(domain).includes('absent'));
-      const thrown=await post('/session/open',{playerId:'r2',requestId:'open'});assert.strictEqual(thrown.error,'INTERNAL');assert.ok(!JSON.stringify(thrown).includes(proposal.id));
+      const thrown=await post('/session/open',{worldAttempt: 0, playerId:'r2',requestId:'open'});assert.strictEqual(thrown.error,'INTERNAL');assert.ok(!JSON.stringify(thrown).includes(proposal.id));
     }finally{await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
   });
 

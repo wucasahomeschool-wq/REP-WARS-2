@@ -249,8 +249,8 @@ export function registerArmyIdentityTests({ test }: { test: (name: string, fn: (
       save: (playerId, state, version) => store.save(playerId, state, version),
     };
     const host = createSessionHost(persistence, { nowMs: () => 1000 });
-    const opened = await host.openGameplaySession('c2_retry', 'open');
-    const request = { commandId: 'ATTACK', playerId: 'c2_retry', gameplaySessionId: opened.sessionId,
+    const opened = await host.openGameplaySession('c2_retry', 'open', 0);
+    const request = {worldAttempt: 0,  commandId: 'ATTACK', playerId: 'c2_retry', gameplaySessionId: opened.sessionId,
       commandSequence: 1, renewalSequence: 1, requestId: 'attack_lost', parameters: { territoryId: 'target1', commitAmount: 101, seed: 7 } };
     const lost = await host.execute(request);
     assert.strictEqual(lost.success, true, JSON.stringify(lost.errors));
@@ -310,7 +310,7 @@ export function registerArmyIdentityTests({ test }: { test: (name: string, fn: (
     assert.strictEqual(orch.getState().nextArmySequence, 2);
   });
 
-  test('C2 a migrated schema-27 command receipt still replays its unchanged legacy army ID', async () => {
+  test('C2 migrated schema-27 receipt fences unverifiable intent and preserves the legacy army ID', async () => {
     const store = new InMemoryGameStateStore();
     assert.ok(store.save('c2_legacy_retry', fixture(), 0).ok);
     const persistence: PlayerWorldPersistence = {
@@ -319,8 +319,8 @@ export function registerArmyIdentityTests({ test }: { test: (name: string, fn: (
       save: (playerId, state, version) => store.save(playerId, state, version),
     };
     const host = createSessionHost(persistence, { nowMs: () => 1000 });
-    const opened = await host.openGameplaySession('c2_legacy_retry', 'open');
-    const request = { commandId: 'ATTACK', playerId: 'c2_legacy_retry', gameplaySessionId: opened.sessionId,
+    const opened = await host.openGameplaySession('c2_legacy_retry', 'open', 0);
+    const request = {worldAttempt: 0,  commandId: 'ATTACK', playerId: 'c2_legacy_retry', gameplaySessionId: opened.sessionId,
       commandSequence: 1, renewalSequence: 1, requestId: 'legacy_attack', parameters: { territoryId: 'target1', commitAmount: 101, seed: 7 } };
     const first = await host.execute(request);
     assert.strictEqual(first.success, true, JSON.stringify(first.errors));
@@ -338,8 +338,9 @@ export function registerArmyIdentityTests({ test }: { test: (name: string, fn: (
     assert.ok(store.save('c2_legacy_retry', migrated, saved.record.stateVersion).ok);
     const restart = createSessionHost(persistence, { nowMs: () => 1000 });
     const replay = await restart.execute(request);
-    assert.strictEqual(replay.idempotentReplay, true);
-    assert.strictEqual(replay.payload.committedArmyId, legacyId);
+    assert.strictEqual(replay.errors[0]?.code, 'COMMAND_IDENTITY_CONFLICT');
+    assert.strictEqual(migrated.commandReceipts.get('legacy_attack')!.payload.committedArmyId, legacyId);
+    assert.strictEqual(migrated.commandReceipts.get('legacy_attack')!.intentHash, null);
     const after = store.load('c2_legacy_retry');
     assert.ok(after.ok);
     if (!after.ok) throw new Error('reload');

@@ -23,10 +23,10 @@ export async function runCommandIdempotencyTests(
 
   await report('replaying the latest command does not mutate again', async () => {
     const { store, host } = harness();
-    const opened = await host.openGameplaySession('cmd_replay', 'open-1');
+    const opened = await host.openGameplaySession('cmd_replay', 'open-1', 0);
     const first = await pause(host, 'cmd_replay', opened.sessionId, 'command-A', 1, true);
     assert.strictEqual(first.success, true, first.errors[0]?.message);
-    const replay = await pause(host, 'cmd_replay', opened.sessionId, 'command-A', 1, false);
+    const replay = await pause(host, 'cmd_replay', opened.sessionId, 'command-A', 1, true);
     assert.strictEqual(replay.idempotentReplay, true);
     assert.strictEqual(replay.payload.paused, true);
     const state = load(store, 'cmd_replay');
@@ -36,12 +36,12 @@ export async function runCommandIdempotencyTests(
 
   await report('an older command after a later one does not mutate', async () => {
     const { store, host } = harness();
-    const opened = await host.openGameplaySession('cmd_old', 'open-1');
+    const opened = await host.openGameplaySession('cmd_old', 'open-1', 0);
     assert.strictEqual((await pause(host, 'cmd_old', opened.sessionId, 'command-A', 1, true)).success, true);
     assert.strictEqual((await pause(host, 'cmd_old', opened.sessionId, 'command-B', 2, false)).success, true);
     const replay = await pause(host, 'cmd_old', opened.sessionId, 'command-A', 1, true);
-    assert.strictEqual(replay.success, false);
-    assert.strictEqual(replay.errors[0]?.code, ErrorCode.COMMAND_STALE);
+    assert.strictEqual(replay.success, true);
+    assert.strictEqual(replay.idempotentReplay, true);
     const state = load(store, 'cmd_old');
     assert.strictEqual(state.playerEmpirePause.paused, false);
     assert.strictEqual(state.gameplaySessionLeases[0]!.lastCommandSequence, 2);
@@ -50,10 +50,10 @@ export async function runCommandIdempotencyTests(
 
   await report('replaying the latest command after a newer one returns its receipt', async () => {
     const { store, host } = harness();
-    const opened = await host.openGameplaySession('cmd_latest', 'open-1');
+    const opened = await host.openGameplaySession('cmd_latest', 'open-1', 0);
     await pause(host, 'cmd_latest', opened.sessionId, 'command-A', 1, true);
     await pause(host, 'cmd_latest', opened.sessionId, 'command-B', 2, false);
-    const replay = await pause(host, 'cmd_latest', opened.sessionId, 'command-B', 2, true);
+    const replay = await pause(host, 'cmd_latest', opened.sessionId, 'command-B', 2, false);
     assert.strictEqual(replay.idempotentReplay, true);
     assert.strictEqual(replay.payload.paused, false);
     assert.strictEqual(load(store, 'cmd_latest').playerEmpirePause.paused, false);
@@ -62,20 +62,20 @@ export async function runCommandIdempotencyTests(
   await report('the same command stays idempotent after restart', async () => {
     const { store, persistence } = harness();
     const first = createSessionHost(persistence, { nowMs: () => 10_000 });
-    const opened = await first.openGameplaySession('cmd_restart', 'open-1');
+    const opened = await first.openGameplaySession('cmd_restart', 'open-1', 0);
     await pause(first, 'cmd_restart', opened.sessionId, 'command-A', 1, true);
     const restarted = createSessionHost(persistence, { nowMs: () => 40_000 });
-    const replay = await pause(restarted, 'cmd_restart', opened.sessionId, 'command-A', 1, false);
+    const replay = await pause(restarted, 'cmd_restart', opened.sessionId, 'command-A', 1, true);
     assert.strictEqual(replay.idempotentReplay, true);
     assert.strictEqual(load(store, 'cmd_restart').playerEmpirePause.paused, true);
     assert.strictEqual(load(store, 'cmd_restart').gameplaySessionLeases[0]!.expiresAtMs, 10_000 + 90_000);
   });
 
-  await report('a command replay after an unrelated mutation stays stale', async () => {
+  await report('a command replay after an unrelated mutation returns the original receipt', async () => {
     const { store, host } = harness();
-    const opened = await host.openGameplaySession('cmd_between', 'open-1');
+    const opened = await host.openGameplaySession('cmd_between', 'open-1', 0);
     await pause(host, 'cmd_between', opened.sessionId, 'command-A', 1, true);
-    const other = await host.execute({
+    const other = await host.execute({worldAttempt: 0,
       commandId: 'SET_PLAYER_PAUSE',
       playerId: 'cmd_between',
       requestId: 'outside-session',
@@ -90,8 +90,8 @@ export async function runCommandIdempotencyTests(
 
   await report('two sessions can commit distinct commands with the same sequence', async () => {
     const { store, host } = harness();
-    const first = await host.openGameplaySession('cmd_two', 'open-a');
-    const second = await host.openGameplaySession('cmd_two', 'open-b');
+    const first = await host.openGameplaySession('cmd_two', 'open-a', 0);
+    const second = await host.openGameplaySession('cmd_two', 'open-b', 0);
     assert.strictEqual((await pause(host, 'cmd_two', first.sessionId, 'session-a', 1, true)).success, true);
     assert.strictEqual((await pause(host, 'cmd_two', second.sessionId, 'session-b', 1, false)).success, true);
     const state = load(store, 'cmd_two');
@@ -100,7 +100,7 @@ export async function runCommandIdempotencyTests(
     assert.strictEqual(state.gameplaySessionLeases[1]!.lastCommandSequence, 1);
     assert.strictEqual(state.gameplaySessionLeases[0]!.lastCommandReceipt?.requestId, 'session-a');
     assert.strictEqual(state.gameplaySessionLeases[1]!.lastCommandReceipt?.requestId, 'session-b');
-    const replay = await pause(host, 'cmd_two', first.sessionId, 'session-a', 1, false);
+    const replay = await pause(host, 'cmd_two', first.sessionId, 'session-a', 1, true);
     assert.strictEqual(replay.idempotentReplay, true);
     assert.strictEqual(replay.payload.paused, true);
     assert.strictEqual(load(store, 'cmd_two').playerEmpirePause.paused, false);
@@ -110,7 +110,7 @@ export async function runCommandIdempotencyTests(
     const clock = manualClock();
     const { store, persistence } = harness({ clock });
     const opener = createSessionHost(persistence, { nowMs: clock.now });
-    const opened = await opener.openGameplaySession('cmd_conflict', 'open-1');
+    const opened = await opener.openGameplaySession('cmd_conflict', 'open-1', 0);
     const failing = armNextSave(persistence, () => undefined, false);
     const firstHost = createSessionHost(failing, { nowMs: clock.now });
     await assert.rejects(
@@ -123,7 +123,7 @@ export async function runCommandIdempotencyTests(
     assert.strictEqual(retry.success, true, retry.errors[0]?.message);
     assert.strictEqual(retry.idempotentReplay, undefined);
     assert.strictEqual(load(store, 'cmd_conflict').playerEmpirePause.paused, true);
-    const again = await pause(firstHost, 'cmd_conflict', opened.sessionId, 'command-A', 1, false);
+    const again = await pause(firstHost, 'cmd_conflict', opened.sessionId, 'command-A', 1, true);
     assert.strictEqual(again.idempotentReplay, true);
     assert.strictEqual(load(store, 'cmd_conflict').playerEmpirePause.paused, true);
   });
@@ -132,7 +132,7 @@ export async function runCommandIdempotencyTests(
     const clock = manualClock();
     const { store, persistence } = harness({ clock });
     const opener = createSessionHost(persistence, { nowMs: clock.now });
-    const opened = await opener.openGameplaySession('cmd_race', 'open-1');
+    const opened = await opener.openGameplaySession('cmd_race', 'open-1', 0);
     const racing = armNextSave(persistence, () => {
       const loaded = store.load('cmd_race');
       assert.strictEqual(loaded.ok, true);
@@ -167,14 +167,12 @@ export async function runCommandIdempotencyTests(
     const clock = manualClock();
     const { store, persistence } = harness({ clock });
     const opener = createSessionHost(persistence, { nowMs: clock.now });
-    const opened = await opener.openGameplaySession('cmd_build', 'open-1');
+    const opened = await opener.openGameplaySession('cmd_build', 'open-1', 0);
     prepareConstruction(store, 'cmd_build');
     const losing = armNextSave(persistence, () => undefined, true);
     const lostHost = createSessionHost(losing, { nowMs: clock.now });
-    await assert.rejects(
-      () => build(lostHost, 'cmd_build', opened.sessionId, 'build-A', 1),
-      (err: unknown) => err instanceof PersistenceFailedError,
-    );
+    const resolved = await build(lostHost, 'cmd_build', opened.sessionId, 'build-A', 1);
+    assert.strictEqual(resolved.idempotentReplay, true);
     const state = load(store, 'cmd_build');
     assert.strictEqual(state.constructions.size, 1);
     const projectId = [...state.constructions.keys()][0]!;
@@ -186,7 +184,7 @@ export async function runCommandIdempotencyTests(
 
   await report('a seeded attack replay keeps the committed army and battle', async () => {
     const { store, host } = harness();
-    const opened = await host.openGameplaySession('cmd_attack', 'open-1');
+    const opened = await host.openGameplaySession('cmd_attack', 'open-1', 0);
     prepareAttack(store, 'cmd_attack');
     const attacker = createSessionHost(harnessOf(store).persistence, { nowMs: () => 6_000 });
     const first = await attack(attacker, 'cmd_attack', opened.sessionId, 'attack-A', 1);
@@ -207,7 +205,7 @@ export async function runCommandIdempotencyTests(
 
   await report('finalizing a specialized workout twice does not grant a second effect', async () => {
     const { store, host, history } = harness();
-    const opened = await host.openGameplaySession('cmd_workout', 'open-1');
+    const opened = await host.openGameplaySession('cmd_workout', 'open-1', 0);
     let sequence = 1;
     const started = await host.execute(command('cmd_workout', opened.sessionId, 'workout-start', sequence, 'START_WORKOUT', {
       purpose: 'GOLDEN_YIELD',
@@ -217,7 +215,7 @@ export async function runCommandIdempotencyTests(
     assert.strictEqual(started.success, true, started.errors[0]?.message);
     const replayStart = await host.execute(command('cmd_workout', opened.sessionId, 'workout-start', sequence, 'START_WORKOUT', {
       purpose: 'GOLDEN_YIELD',
-      sessionId: 'wses-other',
+      sessionId: 'wses-idem',
       now: 9_000,
     }));
     assert.strictEqual(replayStart.idempotentReplay, true);
@@ -267,15 +265,15 @@ export async function runCommandIdempotencyTests(
 
   await report('a duplicate command does not renew the lease again', async () => {
     const { store, host, clock } = harness();
-    const opened = await host.openGameplaySession('cmd_lease', 'open-1');
+    const opened = await host.openGameplaySession('cmd_lease', 'open-1', 0);
     clock.set(10_000);
     const first = await host.execute(command('cmd_lease', opened.sessionId, 'command-A', 1, 'SET_PLAYER_PAUSE', { paused: true }, 1));
     assert.strictEqual(first.success, true, first.errors[0]?.message);
     clock.set(30_000);
-    const staleRenewal = await host.execute(command('cmd_lease', opened.sessionId, 'command-A', 1, 'SET_PLAYER_PAUSE', { paused: false }, 1));
+    const staleRenewal = await host.execute(command('cmd_lease', opened.sessionId, 'command-A', 1, 'SET_PLAYER_PAUSE', { paused: true }, 1));
     assert.strictEqual(staleRenewal.idempotentReplay, true);
     clock.set(40_000);
-    const newRenewal = await host.execute(command('cmd_lease', opened.sessionId, 'command-A', 1, 'SET_PLAYER_PAUSE', { paused: false }, 4));
+    const newRenewal = await host.execute(command('cmd_lease', opened.sessionId, 'command-A', 1, 'SET_PLAYER_PAUSE', { paused: true }, 4));
     assert.strictEqual(newRenewal.idempotentReplay, true);
     const lease = load(store, 'cmd_lease').gameplaySessionLeases[0]!;
     assert.strictEqual(load(store, 'cmd_lease').playerEmpirePause.paused, true);
@@ -284,9 +282,9 @@ export async function runCommandIdempotencyTests(
     assert.strictEqual(lease.lastCommandSequence, 1);
   });
 
-  await report('a rejected command does not consume command identity', async () => {
+  await report('a rejected command retains identity without consuming session sequence', async () => {
     const { store, host } = harness();
-    const opened = await host.openGameplaySession('cmd_reject', 'open-1');
+    const opened = await host.openGameplaySession('cmd_reject', 'open-1', 0);
     const rejected = await pause(host, 'cmd_reject', opened.sessionId, 'command-bad', 1, true, {});
     assert.strictEqual(rejected.success, false);
     assert.strictEqual(rejected.errors[0]?.code, ErrorCode.MISSING_PARAMETER);
@@ -301,7 +299,7 @@ export async function runCommandIdempotencyTests(
 
   await report('a read-only command does not store command identity', async () => {
     const { store, host } = harness();
-    const opened = await host.openGameplaySession('cmd_read', 'open-1');
+    const opened = await host.openGameplaySession('cmd_read', 'open-1', 0);
     const read = await host.execute({
       commandId: 'GET_GAME_STATE',
       playerId: 'cmd_read',
@@ -312,12 +310,12 @@ export async function runCommandIdempotencyTests(
     assert.strictEqual(read.success, true, read.errors[0]?.message);
     assert.strictEqual(load(store, 'cmd_read').gameplaySessionLeases[0]!.lastCommandSequence, null);
     assert.strictEqual(load(store, 'cmd_read').gameplaySessionLeases[0]!.lastCommandReceipt, null);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 31);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 32);
   });
 
-  await report('many commands keep one command receipt', async () => {
+  await report('many commands retain logical receipts and one latest sequencing receipt', async () => {
     const { store, host } = harness();
-    const opened = await host.openGameplaySession('cmd_long', 'open-1');
+    const opened = await host.openGameplaySession('cmd_long', 'open-1', 0);
     for (let sequence = 1; sequence <= 40; sequence += 1) {
       const paused = sequence % 2 === 1;
       const response = await pause(host, 'cmd_long', opened.sessionId, `req-${String(sequence).padStart(3, '0')}`, sequence, paused);
@@ -403,7 +401,7 @@ function command(
   parameters: Record<string, unknown>,
   renewalSequence = commandSequence,
 ) {
-  return {
+  return {worldAttempt: 0,
     commandId,
     playerId,
     requestId,

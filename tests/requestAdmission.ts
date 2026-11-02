@@ -1,3 +1,4 @@
+import {nextMutationTestId} from './mutationTestRequests';
 import assert from 'node:assert/strict';
 import { request } from 'node:http';
 import { inspect } from 'node:util';
@@ -47,8 +48,8 @@ export async function runRequestAdmissionTests(report: Report): Promise<void> {
   });
   await report('admission: per-player capacity leaves room for another player without reordering accepted work', async () => {
     const s = fixture({ maxPendingRequests: 3, maxPendingRequestsPerPlayer: 1 });
-    const first = s.host.execute({ commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: true } });
-    const rejected = assert.rejects(s.host.execute({ commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: false } }), busy);
+    const first = s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: true } });
+    const rejected = assert.rejects(s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: false } }), busy);
     const other = read(s.host, 'b');
     await Promise.all([first, rejected, other]);
     assert.equal(s.load('a').playerEmpirePause.paused, true);
@@ -95,18 +96,18 @@ export async function runRequestAdmissionTests(report: Report): Promise<void> {
       if (fail) { fail = false; throw new Error('injected write failure'); }
       return port.save(...args);
     } }));
-    await assert.rejects(s.host.execute({ commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: true } }), /write failure/);
+    await assert.rejects(s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: true } }), /write failure/);
     assert.equal(s.load('a').playerEmpirePause.paused, false);
-    const invalid = await s.host.execute({ commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: 'invalid' } });
+    const invalid = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: 'invalid' } });
     assert.equal(invalid.success, false);
     assert.ok((await read(s.host, 'b')).success);
     assert.ok((await read(s.host, 'a')).success);
   });
   await report('admission: rejected logical command can retry and its committed receipt still prevents replay', async () => {
     const s = fixture({ maxPendingRequests: 1 });
-    const lease = await s.host.openGameplaySession('a', 'open');
+    const lease = await s.host.openGameplaySession('a', 'open', 0);
     await read(s.host, 'b');
-    const command = { commandId: 'SET_PLAYER_PAUSE', playerId: 'a', requestId: 'pause',
+    const command = {worldAttempt: 0,  commandId: 'SET_PLAYER_PAUSE', playerId: 'a', requestId: 'pause',
       gameplaySessionId: lease.sessionId, commandSequence: 1, renewalSequence: 1, parameters: { paused: true } };
     const before = snapshotGameState(s.load('a')), writes = s.store.saveCount.value;
     const accepted = read(s.host, 'b');
@@ -120,12 +121,12 @@ export async function runRequestAdmissionTests(report: Report): Promise<void> {
   });
   await report('admission: open heartbeat and end share capacity and rejected attempts change no leases', async () => {
     const s = fixture({ maxPendingRequests: 1 });
-    const lease = await s.host.openGameplaySession('a', 'open');
+    const lease = await s.host.openGameplaySession('a', 'open', 0);
     await read(s.host, 'b');
     for (const attempt of [
-      () => s.host.openGameplaySession('a', 'second-open'),
-      () => s.host.heartbeatGameplaySession('a', 'heartbeat', lease.sessionId, 1),
-      () => s.host.endGameplaySession('a', 'end', lease.sessionId),
+      () => s.host.openGameplaySession('a', 'second-open', 0),
+      () => s.host.heartbeatGameplaySession('a', 'heartbeat', lease.sessionId, 1, 0),
+      () => s.host.endGameplaySession('a', 'end', lease.sessionId, 0),
     ]) {
       const before = snapshotGameState(s.load('a')), writes = s.store.saveCount.value;
       const accepted = read(s.host, 'b');
@@ -133,13 +134,13 @@ export async function runRequestAdmissionTests(report: Report): Promise<void> {
       assert.deepEqual(snapshotGameState(s.load('a')), before);
       assert.equal(s.store.saveCount.value, writes);
     }
-    await s.host.heartbeatGameplaySession('a', 'heartbeat', lease.sessionId, 1);
-    await s.host.endGameplaySession('a', 'end', lease.sessionId);
+    await s.host.heartbeatGameplaySession('a', 'heartbeat', lease.sessionId, 1, 0);
+    await s.host.endGameplaySession('a', 'end', lease.sessionId, 0);
   });
   await report('admission: accepted concurrency preserves canonical state with zero cache retention', async () => {
     const bounded = fixture({ maxCachedPlayers: 0, maxPendingRequests: 4, maxPendingRequestsPerPlayer: 3 });
     const sequential = fixture({ maxCachedPlayers: 0 });
-    const commands = [true, false, true].map(paused => ({ commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused } }));
+    const commands = [true, false, true].map(paused => ({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused } }));
     const queued = commands.map(command => bounded.host.execute(command));
     await Promise.all([...queued, read(bounded.host, 'b')]);
     for (const command of commands) assert.ok((await sequential.host.execute(command)).success);
@@ -150,9 +151,9 @@ export async function runRequestAdmissionTests(report: Report): Promise<void> {
     const s = fixture({ maxPendingRequests: 1, maxPendingRequestsPerPlayer: 1 });
     const other = createSessionHost(s.base, { nowMs: () => 1000 });
     await read(s.host, 'a'); await read(other, 'a');
-    assert.ok((await other.execute({ commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: true } })).success);
+    assert.ok((await other.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: true } })).success);
     const before = snapshotGameState(s.load('a'));
-    await assert.rejects(s.host.execute({ commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: false } }),
+    await assert.rejects(s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SET_PLAYER_PAUSE', playerId: 'a', parameters: { paused: false } }),
       (e: unknown) => e instanceof PersistenceFailedError && e.code === 'persistence.conflict');
     assert.ok((await read(s.host, 'a')).success);
     assert.deepEqual(snapshotGameState(s.load('a')), before);
@@ -160,7 +161,7 @@ export async function runRequestAdmissionTests(report: Report): Promise<void> {
   for (const path of ['/commands', '/session/open', '/session/heartbeat', '/session/end']) {
     await report(`admission: ${path} emits safe retryable HTTP 503 under real host pressure`, async () => {
       const s = fixture({ maxPendingRequests: 1 });
-      const lease = await s.host.openGameplaySession('a', 'open');
+      const lease = await s.host.openGameplaySession('a', 'open', 0);
       await read(s.host, 'occupier');
       const before = snapshotGameState(s.load('a')), writes = s.store.saveCount.value;
       // Occupy the actual host synchronously just before this route reaches it.
@@ -177,7 +178,7 @@ export async function runRequestAdmissionTests(report: Report): Promise<void> {
       };
       let reports = 0;
       await serve(pressured, async post => {
-        const response = await post(path, { commandId: 'SET_PLAYER_PAUSE', parameters: { paused: true, maxPendingRequests: 999 },
+        const response = await post(path, {worldAttempt: 0,  commandId: 'SET_PLAYER_PAUSE', parameters: { paused: true, maxPendingRequests: 999 },
           requestId: 'attempt', gameplaySessionId: lease.sessionId, commandSequence: 1, renewalSequence: 1,
           maxPendingRequests: 999, maxPendingRequestsPerPlayer: 999 });
         assert.equal(response.status, 503);

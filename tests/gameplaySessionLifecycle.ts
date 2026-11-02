@@ -1,3 +1,4 @@
+import {nextMutationTestId} from './mutationTestRequests';
 import assert from 'assert';
 import { request as httpRequest } from 'node:http';
 import { BALANCE } from '../src/constants/balance';
@@ -43,7 +44,7 @@ export async function runGameplaySessionLifecycleTests(
   await report('server open issues a session at the server receipt and ignores client time', async () => {
     const { store, host, clock } = harness();
     clock.set(1_700_000_000_000);
-    const opened = await host.openGameplaySession('player_open', 'open-1');
+    const opened = await host.openGameplaySession('player_open', 'open-1', 0);
     assert.match(opened.sessionId, UUID);
     assert.notStrictEqual(opened.sessionId, 'player_open');
     assert.notStrictEqual(opened.sessionId, 'client-picked');
@@ -56,16 +57,16 @@ export async function runGameplaySessionLifecycleTests(
     assert.strictEqual(state.gameplaySessionLeases[0]!.sessionId, opened.sessionId);
     assert.strictEqual(state.gameplaySessionLeases[0]!.openedByRequestId, 'open-1');
     assert.deepStrictEqual(temporal(state), anchoredTemporal(1_700_000_000_000));
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 31);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 32);
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
   });
 
   await report('the same open request recovers the committed session', async () => {
     const { store, host, clock } = harness();
     clock.set(5_000);
-    const first = await host.openGameplaySession('player_replay', 'open-same');
+    const first = await host.openGameplaySession('player_replay', 'open-same', 0);
     clock.set(50_000);
-    const second = await host.openGameplaySession('player_replay', 'open-same');
+    const second = await host.openGameplaySession('player_replay', 'open-same', 0);
     assert.strictEqual(second.outcome, 'idempotent_replay');
     assert.strictEqual(second.sessionId, first.sessionId);
     assert.strictEqual(second.openedAtMs, 5_000);
@@ -75,7 +76,7 @@ export async function runGameplaySessionLifecycleTests(
 
   await report('a lost open success does not create a second session on retry', async () => {
     const { store, host } = harness({ loseAfter: 0 });
-    const opened = await host.openGameplaySession('player_lost_open', 'open-lost');
+    const opened = await host.openGameplaySession('player_lost_open', 'open-lost', 0);
     assert.strictEqual(opened.outcome, 'idempotent_replay');
     const leases = load(store, 'player_lost_open').gameplaySessionLeases;
     assert.strictEqual(leases.length, 1);
@@ -86,9 +87,9 @@ export async function runGameplaySessionLifecycleTests(
   await report('two opens create independent sessions', async () => {
     const { store, host, clock } = harness();
     clock.set(1_000);
-    const first = await host.openGameplaySession('player_multi', 'open-a');
+    const first = await host.openGameplaySession('player_multi', 'open-a', 0);
     clock.set(2_000);
-    const second = await host.openGameplaySession('player_multi', 'open-b');
+    const second = await host.openGameplaySession('player_multi', 'open-b', 0);
     assert.notStrictEqual(first.sessionId, second.sessionId);
     const ids = load(store, 'player_multi').gameplaySessionLeases.map((lease) => lease.sessionId);
     assert.deepStrictEqual(ids, [first.sessionId, second.sessionId]);
@@ -97,11 +98,11 @@ export async function runGameplaySessionLifecycleTests(
   await report('heartbeat renews only the named session at the captured receipt', async () => {
     const { store, host, clock } = harness();
     clock.set(1_000);
-    const first = await host.openGameplaySession('player_hb', 'open-a');
-    const second = await host.openGameplaySession('player_hb', 'open-b');
+    const first = await host.openGameplaySession('player_hb', 'open-a', 0);
+    const second = await host.openGameplaySession('player_hb', 'open-b', 0);
     clock.set(10_000);
     const callsBefore = clock.calls();
-    const renewed = await host.heartbeatGameplaySession('player_hb', 'hb-1', first.sessionId, 1);
+    const renewed = await host.heartbeatGameplaySession('player_hb', 'hb-1', first.sessionId, 1, 0);
     assert.strictEqual(clock.calls(), callsBefore + 1);
     assert.strictEqual(renewed.outcome, 'renewed');
     assert.strictEqual(renewed.expiresAtMs, 10_000 + LEASE_MS);
@@ -118,12 +119,12 @@ export async function runGameplaySessionLifecycleTests(
     const { store, persistence, clock } = harness();
     clock.set(1_000);
     const firstHost = createSessionHost(persistence, { nowMs: clock.now });
-    const opened = await firstHost.openGameplaySession('player_hb_replay', 'open-1');
+    const opened = await firstHost.openGameplaySession('player_hb_replay', 'open-1', 0);
     clock.set(20_000);
-    await firstHost.heartbeatGameplaySession('player_hb_replay', 'hb-1', opened.sessionId, 1);
+    await firstHost.heartbeatGameplaySession('player_hb_replay', 'hb-1', opened.sessionId, 1, 0);
     clock.set(40_000);
     const restarted = createSessionHost(persistence, { nowMs: clock.now });
-    const replay = await restarted.heartbeatGameplaySession('player_hb_replay', 'hb-1', opened.sessionId, 1);
+    const replay = await restarted.heartbeatGameplaySession('player_hb_replay', 'hb-1', opened.sessionId, 1, 0);
     assert.strictEqual(replay.outcome, 'idempotent_replay');
     assert.strictEqual(replay.expiresAtMs, 20_000 + LEASE_MS);
     assert.strictEqual(load(store, 'player_hb_replay').gameplaySessionLeases[0]!.lastReceiptAtMs, 20_000);
@@ -133,10 +134,10 @@ export async function runGameplaySessionLifecycleTests(
     const clock = manualClock(0);
     clock.set(8_000);
     const { store, host } = harness({ clock, loseAfter: 1 });
-    const opened = await host.openGameplaySession('player_retry_receipt', 'open-1');
+    const opened = await host.openGameplaySession('player_retry_receipt', 'open-1', 0);
     const before = clock.calls();
     clock.set(30_000);
-    const renewed = await host.heartbeatGameplaySession('player_retry_receipt', 'hb-retry', opened.sessionId, 1);
+    const renewed = await host.heartbeatGameplaySession('player_retry_receipt', 'hb-retry', opened.sessionId, 1, 0);
     assert.strictEqual(clock.calls(), before + 1);
     assert.strictEqual(renewed.outcome, 'idempotent_replay');
     assert.strictEqual(load(store, 'player_retry_receipt').gameplaySessionLeases[0]!.expiresAtMs, 30_000 + LEASE_MS);
@@ -146,25 +147,25 @@ export async function runGameplaySessionLifecycleTests(
   await report('an expired or ended or unknown session is not renewed or invented', async () => {
     const { store, host, clock } = harness();
     clock.set(0);
-    const opened = await host.openGameplaySession('player_closed', 'open-1');
+    const opened = await host.openGameplaySession('player_closed', 'open-1', 0);
     clock.set(LEASE_MS);
-    const expired = await host.heartbeatGameplaySession('player_closed', 'hb-late', opened.sessionId, 1);
+    const expired = await host.heartbeatGameplaySession('player_closed', 'hb-late', opened.sessionId, 1, 0);
     assert.strictEqual(expired.outcome, 'expired');
     let lease = load(store, 'player_closed').gameplaySessionLeases[0]!;
     assert.strictEqual(lease.expiresAtMs, LEASE_MS);
     assert.strictEqual(lease.endedAtMs, null);
     assert.strictEqual(lease.lastRenewalRequestId, null);
     clock.set(1_000);
-    const endedOpen = await host.openGameplaySession('player_closed', 'open-ended');
+    const endedOpen = await host.openGameplaySession('player_closed', 'open-ended', 0);
     clock.set(4_000);
-    await host.endGameplaySession('player_closed', 'end-1', endedOpen.sessionId);
+    await host.endGameplaySession('player_closed', 'end-1', endedOpen.sessionId, 0);
     clock.set(5_000);
-    const ended = await host.heartbeatGameplaySession('player_closed', 'hb-ended', endedOpen.sessionId, 1);
+    const ended = await host.heartbeatGameplaySession('player_closed', 'hb-ended', endedOpen.sessionId, 1, 0);
     assert.strictEqual(ended.outcome, 'ended');
     lease = load(store, 'player_closed').gameplaySessionLeases.find((item) => item.sessionId === endedOpen.sessionId)!;
     assert.strictEqual(lease.endedAtMs, 4_000);
     assert.strictEqual(lease.expiresAtMs, 1_000 + LEASE_MS);
-    const unknown = await host.heartbeatGameplaySession('player_closed', 'hb-missing', 'missing-session', 1);
+    const unknown = await host.heartbeatGameplaySession('player_closed', 'hb-missing', 'missing-session', 1, 0);
     assert.strictEqual(unknown.outcome, 'unknown_session');
     assert.strictEqual(load(store, 'player_closed').gameplaySessionLeases.length, 2);
   });
@@ -172,20 +173,20 @@ export async function runGameplaySessionLifecycleTests(
   await report('explicit end changes one lease at the server receipt', async () => {
     const { store, host, clock } = harness();
     clock.set(1_000);
-    const first = await host.openGameplaySession('player_end', 'open-a');
-    const second = await host.openGameplaySession('player_end', 'open-b');
+    const first = await host.openGameplaySession('player_end', 'open-a', 0);
+    const second = await host.openGameplaySession('player_end', 'open-b', 0);
     clock.set(12_000);
-    const ended = await host.endGameplaySession('player_end', 'end-1', first.sessionId);
+    const ended = await host.endGameplaySession('player_end', 'end-1', first.sessionId, 0);
     assert.strictEqual(ended.outcome, 'ended');
     assert.strictEqual(ended.endedAtMs, 12_000);
     assert.strictEqual(ended.expiresAtMs, 1_000 + LEASE_MS);
     clock.set(18_000);
-    const again = await host.endGameplaySession('player_end', 'end-2', first.sessionId);
+    const again = await host.endGameplaySession('player_end', 'end-2', first.sessionId, 0);
     assert.strictEqual(again.outcome, 'idempotent_replay');
     assert.strictEqual(again.endedAtMs, 12_000);
     const lateHostClock = 1_000 + LEASE_MS;
     clock.set(lateHostClock);
-    const late = await host.endGameplaySession('player_end', 'end-late', second.sessionId);
+    const late = await host.endGameplaySession('player_end', 'end-late', second.sessionId, 0);
     assert.strictEqual(late.outcome, 'expired');
     const leases = load(store, 'player_end').gameplaySessionLeases;
     assert.strictEqual(leases[0]!.endedAtMs, 12_000);
@@ -201,13 +202,13 @@ export async function runGameplaySessionLifecycleTests(
     const { store, persistence } = harness({ clock });
     clock.set(2_000);
     const firstHost = createSessionHost(persistence, { nowMs: clock.now });
-    const active = await firstHost.openGameplaySession('player_restart', 'open-active');
-    const other = await firstHost.openGameplaySession('player_restart', 'open-other');
+    const active = await firstHost.openGameplaySession('player_restart', 'open-active', 0);
+    const other = await firstHost.openGameplaySession('player_restart', 'open-other', 0);
     clock.set(9_000);
-    await firstHost.heartbeatGameplaySession('player_restart', 'hb-active', active.sessionId, 1);
+    await firstHost.heartbeatGameplaySession('player_restart', 'hb-active', active.sessionId, 1, 0);
     const restarted = createSessionHost(persistence, { nowMs: clock.now });
     clock.set(15_000);
-    const continued = await restarted.heartbeatGameplaySession('player_restart', 'hb-next', active.sessionId, 2);
+    const continued = await restarted.heartbeatGameplaySession('player_restart', 'hb-next', active.sessionId, 2, 0);
     assert.strictEqual(continued.outcome, 'renewed');
     assert.strictEqual(continued.expiresAtMs, 15_000 + LEASE_MS);
     const otherLease = load(store, 'player_restart').gameplaySessionLeases[1]!;
@@ -217,20 +218,20 @@ export async function runGameplaySessionLifecycleTests(
 
     clock.set(0);
     const expiryHost = createSessionHost(persistence, { nowMs: clock.now });
-    const expiring = await expiryHost.openGameplaySession('player_restart_exp', 'open-exp');
+    const expiring = await expiryHost.openGameplaySession('player_restart_exp', 'open-exp', 0);
     clock.set(LEASE_MS);
     const afterExpiry = createSessionHost(persistence, { nowMs: clock.now });
-    const expired = await afterExpiry.heartbeatGameplaySession('player_restart_exp', 'hb-exp', expiring.sessionId, 1);
+    const expired = await afterExpiry.heartbeatGameplaySession('player_restart_exp', 'hb-exp', expiring.sessionId, 1, 0);
     assert.strictEqual(expired.outcome, 'expired');
     assert.strictEqual(load(store, 'player_restart_exp').gameplaySessionLeases.length, 1);
 
     clock.set(3_000);
     const endHost = createSessionHost(persistence, { nowMs: clock.now });
-    const ending = await endHost.openGameplaySession('player_restart_end', 'open-end');
+    const ending = await endHost.openGameplaySession('player_restart_end', 'open-end', 0);
     clock.set(6_000);
-    await endHost.endGameplaySession('player_restart_end', 'end-1', ending.sessionId);
+    await endHost.endGameplaySession('player_restart_end', 'end-1', ending.sessionId, 0);
     const afterEnd = createSessionHost(persistence, { nowMs: clock.now });
-    const stillEnded = await afterEnd.heartbeatGameplaySession('player_restart_end', 'hb-end', ending.sessionId, 1);
+    const stillEnded = await afterEnd.heartbeatGameplaySession('player_restart_end', 'hb-end', ending.sessionId, 1, 0);
     assert.strictEqual(stillEnded.outcome, 'ended');
     assert.strictEqual(load(store, 'player_restart_end').gameplaySessionLeases[0]!.endedAtMs, 6_000);
   });
@@ -238,10 +239,10 @@ export async function runGameplaySessionLifecycleTests(
   await report('an accepted gameplay command renews its session in the same save', async () => {
     const { store, host, clock } = harness();
     clock.set(1_000);
-    const opened = await host.openGameplaySession('player_cmd', 'open-1');
+    const opened = await host.openGameplaySession('player_cmd', 'open-1', 0);
     const savesBefore = (store as InMemoryGameStateStore).saveCount.value;
     clock.set(25_000);
-    const paused = await host.execute({
+    const paused = await host.execute({worldAttempt: 0,
       commandId: 'SET_PLAYER_PAUSE',
       playerId: 'player_cmd',
       requestId: 'pause-1',
@@ -261,7 +262,7 @@ export async function runGameplaySessionLifecycleTests(
     assert.deepStrictEqual(temporal(state), {...anchoredTemporal(25_000),subTickMicroticks:400_000});
     assert.strictEqual(state.aiClock.nowMs,25_000);
     clock.set(80_000);
-    const replay = await host.execute({
+    const replay = await host.execute({worldAttempt: 0,
       commandId: 'SET_PLAYER_PAUSE',
       playerId: 'player_cmd',
       requestId: 'pause-1',
@@ -278,9 +279,9 @@ export async function runGameplaySessionLifecycleTests(
   await report('rejected, read-only, and unexposed commands do not renew a session', async () => {
     const { store, host, clock } = harness();
     clock.set(1_000);
-    const opened = await host.openGameplaySession('player_reject', 'open-1');
+    const opened = await host.openGameplaySession('player_reject', 'open-1', 0);
     clock.set(30_000);
-    const rejected = await host.execute({
+    const rejected = await host.execute({worldAttempt: 0,
       commandId: 'SET_PLAYER_PAUSE',
       playerId: 'player_reject',
       requestId: 'pause-bad',
@@ -290,7 +291,7 @@ export async function runGameplaySessionLifecycleTests(
       parameters: {},
     });
     assert.strictEqual(rejected.success, false);
-    const denied = await host.execute({
+    const denied = await host.execute({worldAttempt: 0,
       commandId: 'SET_PLAYER_PAUSE',
       playerId: 'player_reject',
       requestId: 'pause-faction',
@@ -310,7 +311,7 @@ export async function runGameplaySessionLifecycleTests(
     });
     assert.strictEqual(read.success, true);
     await assert.rejects(
-      () => host.execute({
+      () => host.execute({worldAttempt: 0,
         commandId: 'ADVANCE_WORLD',
         playerId: 'player_reject',
         requestId: 'advance-1',
@@ -320,7 +321,7 @@ export async function runGameplaySessionLifecycleTests(
       (err: unknown) => err instanceof CommandNotExposedError,
     );
     clock.set(1_000 + LEASE_MS);
-    const tooLate = await host.execute({
+    const tooLate = await host.execute({worldAttempt: 0,
       commandId: 'SET_PLAYER_PAUSE',
       playerId: 'player_reject',
       requestId: 'pause-too-late',
@@ -342,10 +343,10 @@ export async function runGameplaySessionLifecycleTests(
   await report('a conflicting gameplay save does not leave a renewed lease behind', async () => {
     const { store, host, clock } = harness({ failNextCommand: true });
     clock.set(1_000);
-    const opened = await host.openGameplaySession('player_cmd_conflict', 'open-1');
+    const opened = await host.openGameplaySession('player_cmd_conflict', 'open-1', 0);
     clock.set(20_000);
     await assert.rejects(
-      () => host.execute({
+      () => host.execute({worldAttempt: 0,
         commandId: 'SET_PLAYER_PAUSE',
         playerId: 'player_cmd_conflict',
         requestId: 'pause-conflict',
@@ -364,8 +365,8 @@ export async function runGameplaySessionLifecycleTests(
   await report('a stale heartbeat reloads and keeps both sessions at their own receipts', async () => {
     const { store, host, clock, persistence } = harness();
     clock.set(1_000);
-    const first = await host.openGameplaySession('player_race', 'open-a');
-    const second = await host.openGameplaySession('player_race', 'open-b');
+    const first = await host.openGameplaySession('player_race', 'open-a', 0);
+    const second = await host.openGameplaySession('player_race', 'open-b', 0);
     clock.set(11_000);
     const racing = wrapSave(persistence, () => {
       const loaded = store.load('player_race');
@@ -378,7 +379,7 @@ export async function runGameplaySessionLifecycleTests(
       assert.strictEqual(saved.ok, true);
     });
     const hostRace = createSessionHost(racing, { nowMs: clock.now });
-    const result = await hostRace.heartbeatGameplaySession('player_race', 'hb-a', first.sessionId, 1);
+    const result = await hostRace.heartbeatGameplaySession('player_race', 'hb-a', first.sessionId, 1, 0);
     assert.strictEqual(result.outcome, 'renewed');
     const leases = load(store, 'player_race').gameplaySessionLeases;
     assert.deepStrictEqual(leases.map((lease) => lease.sessionId), [first.sessionId, second.sessionId]);
@@ -391,7 +392,7 @@ export async function runGameplaySessionLifecycleTests(
   await report('a heartbeat that loses the version to an end does not extend that lease', async () => {
     const { store, host, clock, persistence } = harness();
     clock.set(1_000);
-    const opened = await host.openGameplaySession('player_end_race', 'open-1');
+    const opened = await host.openGameplaySession('player_end_race', 'open-1', 0);
     clock.set(7_000);
     const racing = wrapSave(persistence, () => {
       const loaded = store.load('player_end_race');
@@ -406,7 +407,7 @@ export async function runGameplaySessionLifecycleTests(
       assert.strictEqual(store.save('player_end_race', next, loaded.record.stateVersion).ok, true);
     });
     const hostRace = createSessionHost(racing, { nowMs: clock.now });
-    const result = await hostRace.heartbeatGameplaySession('player_end_race', 'hb-race', opened.sessionId, 1);
+    const result = await hostRace.heartbeatGameplaySession('player_end_race', 'hb-race', opened.sessionId, 1, 0);
     assert.strictEqual(result.outcome, 'ended');
     const lease = load(store, 'player_end_race').gameplaySessionLeases[0]!;
     assert.strictEqual(lease.endedAtMs, 6_500);
@@ -417,7 +418,7 @@ export async function runGameplaySessionLifecycleTests(
   await report('a heartbeat that loses the version to gameplay keeps that gameplay and its own receipt', async () => {
     const { store, host, clock, persistence } = harness();
     clock.set(1_000);
-    const opened = await host.openGameplaySession('player_play_race', 'open-1');
+    const opened = await host.openGameplaySession('player_play_race', 'open-1', 0);
     clock.set(13_000);
     const racing = wrapSave(persistence, () => {
       const loaded = store.load('player_play_race');
@@ -427,7 +428,7 @@ export async function runGameplaySessionLifecycleTests(
       assert.strictEqual(store.save('player_play_race', loaded.state, loaded.record.stateVersion).ok, true);
     });
     const hostRace = createSessionHost(racing, { nowMs: clock.now });
-    const result = await hostRace.heartbeatGameplaySession('player_play_race', 'hb-play', opened.sessionId, 1);
+    const result = await hostRace.heartbeatGameplaySession('player_play_race', 'hb-play', opened.sessionId, 1, 0);
     assert.strictEqual(result.outcome, 'renewed');
     const state = load(store, 'player_play_race');
     assert.strictEqual(state.playerEmpirePause.paused, true);
@@ -445,8 +446,8 @@ export async function runGameplaySessionLifecycleTests(
   await report('another player cannot use a persisted session id, and public state hides leases', async () => {
     const { store, host, clock } = harness();
     clock.set(4_000);
-    const opened = await host.openGameplaySession('player_a', 'open-a');
-    const intruder = await host.heartbeatGameplaySession('player_b', 'hb-stolen', opened.sessionId, 1);
+    const opened = await host.openGameplaySession('player_a', 'open-a', 0);
+    const intruder = await host.heartbeatGameplaySession('player_b', 'hb-stolen', opened.sessionId, 1, 0);
     assert.strictEqual(intruder.outcome, 'unknown_session');
     assert.strictEqual(load(store, 'player_a').gameplaySessionLeases[0]!.expiresAtMs, 4_000 + LEASE_MS);
     assert.strictEqual(load(store, 'player_b').gameplaySessionLeases.length, 0);
@@ -459,7 +460,7 @@ export async function runGameplaySessionLifecycleTests(
 
   await report('a workout session id is not gameplay-session authority', async () => {
     const { store, host } = harness();
-    const started = await host.execute({
+    const started = await host.execute({worldAttempt: 0,
       commandId: 'START_WORKOUT',
       playerId: 'player_workout',
       requestId: 'workout-start',
@@ -492,7 +493,7 @@ export async function runGameplaySessionLifecycleTests(
     assert.deepStrictEqual(checkGameStateInvariants(loaded.state), []);
     const clock = manualClock(10_000);
     const host = createSessionHost(persistenceFor(store), { nowMs: clock.now });
-    const renewed = await host.heartbeatGameplaySession('player_legacy', 'hb-legacy', 'legacy-session', 1);
+    const renewed = await host.heartbeatGameplaySession('player_legacy', 'hb-legacy', 'legacy-session', 1, 0);
     assert.strictEqual(renewed.outcome, 'renewed');
     assert.strictEqual(renewed.expiresAtMs, 10_000 + LEASE_MS);
     const duplicate = insertGameplaySessionLease(createGameState(), openGameplaySessionLease({
@@ -514,10 +515,10 @@ export async function runGameplaySessionLifecycleTests(
     const store = new SupabaseGameStateStore(table);
     const clock = manualClock(6_000);
     const host = createSessionHost(persistenceFor(store), { nowMs: clock.now });
-    const opened = await host.openGameplaySession('player_supabase', 'open-sb');
+    const opened = await host.openGameplaySession('player_supabase', 'open-sb', 0);
     clock.set(12_000);
     const restarted = createSessionHost(persistenceFor(store), { nowMs: clock.now });
-    const renewed = await restarted.heartbeatGameplaySession('player_supabase', 'hb-sb', opened.sessionId, 1);
+    const renewed = await restarted.heartbeatGameplaySession('player_supabase', 'hb-sb', opened.sessionId, 1, 0);
     assert.strictEqual(renewed.outcome, 'renewed');
     assert.strictEqual(renewed.expiresAtMs, 12_000 + LEASE_MS);
     const server = createCommandHttpServer(restarted);
@@ -525,7 +526,7 @@ export async function runGameplaySessionLifecycleTests(
     const address = server.address();
     if (!address || typeof address === 'string') throw new Error('session HTTP did not bind');
     try {
-      const httpOpened = await httpJson(address.port, '/session/open', {
+      const httpOpened = await httpJson(address.port, '/session/open', {worldAttempt: 0,
         playerId: 'player_http',
         requestId: 'open-http',
         timestamp: 1,
@@ -541,7 +542,7 @@ export async function runGameplaySessionLifecycleTests(
       assert.match(String(httpOpened.json.sessionId), UUID);
       const leaked = JSON.stringify(httpOpened.json);
       assert.strictEqual(leaked.includes('gameplaySessionLeases'), false);
-      const heartbeat = await httpJson(address.port, '/session/heartbeat', {
+      const heartbeat = await httpJson(address.port, '/session/heartbeat', {worldAttempt: 0,
         playerId: 'player_http',
         requestId: 'hb-http',
         gameplaySessionId: httpOpened.json.sessionId,
@@ -553,7 +554,7 @@ export async function runGameplaySessionLifecycleTests(
       assert.strictEqual(heartbeat.status, 200);
       assert.strictEqual(heartbeat.json.outcome, 'renewed');
       assert.strictEqual(heartbeat.json.expiresAtMs, 12_000 + LEASE_MS);
-      const ended = await httpJson(address.port, '/session/end', {
+      const ended = await httpJson(address.port, '/session/end', {worldAttempt: 0,
         playerId: 'player_http',
         requestId: 'end-http',
         gameplaySessionId: httpOpened.json.sessionId,
@@ -563,7 +564,7 @@ export async function runGameplaySessionLifecycleTests(
       assert.strictEqual(ended.json.outcome, 'ended');
       assert.strictEqual(ended.json.endedAtMs, 12_000);
       assert.strictEqual(ended.json.expiresAtMs, 12_000 + LEASE_MS);
-      const malformed = await httpJson(address.port, '/commands', { commandId: '' });
+      const malformed = await httpJson(address.port, '/commands', {worldAttempt: 0, requestId: nextMutationTestId(),  commandId: '' });
       assert.strictEqual(malformed.status, 400);
       const state = store.load('player_http');
       assert.strictEqual(state.ok, true);

@@ -1,3 +1,4 @@
+import {nextMutationTestId} from './mutationTestRequests';
 import assert from 'assert';
 import { request } from 'node:http';
 import { createCommandHttpServer as createHttpServer } from '../src/server/http';
@@ -62,7 +63,7 @@ export async function runHttpBridgeTest(): Promise<void> {
     const payload = state.json.payload as { gameState?: { playerFactionId?: string } };
     assert.strictEqual(payload.gameState?.playerFactionId, 'f_player');
 
-    const denied = await httpJson(address.port, 'POST', '/commands', {
+    const denied = await httpJson(address.port, 'POST', '/commands', {worldAttempt: 0, requestId: nextMutationTestId(),
       commandId: 'ADVANCE_WORLD',
       playerId: 'player_local',
     });

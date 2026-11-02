@@ -290,6 +290,7 @@ function commandFromBody(playerId: string, parsed: unknown): CommandRequest {
   }
   return {
     commandId: body.commandId,
+    worldAttempt: body.worldAttempt as number | undefined,
     playerId,
     timestamp: body.timestamp as number | undefined,
     parameters: optionalObject(body.parameters, 'parameters'),
@@ -357,15 +358,16 @@ async function handleSession(
     if (playerId === null) return;
     const requestId = requireRequestId(body);
     const view = kind === 'open'
-      ? await host.openGameplaySession(playerId, requestId)
+      ? await host.openGameplaySession(playerId, requestId, body.worldAttempt as number)
       : kind === 'heartbeat'
         ? await host.heartbeatGameplaySession(
           playerId,
           requestId,
           requireGameplaySessionId(body),
           requireRenewalSequence(body),
+          body.worldAttempt as number,
         )
-        : await host.endGameplaySession(playerId, requestId, requireGameplaySessionId(body));
+        : await host.endGameplaySession(playerId, requestId, requireGameplaySessionId(body), body.worldAttempt as number);
     sendPublicJson(res, 200, view, report);
   } catch (err) {
     const kind = httpErrorKind(err);

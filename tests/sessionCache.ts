@@ -1,3 +1,4 @@
+import {nextMutationTestId, gameplaySnapshot} from './mutationTestRequests';
 import assert from 'node:assert/strict';
 import { createSessionHost, CommandSessionHost, PersistenceFailedError } from '../src/server/session';
 import { createInMemoryPersistence, PlayerWorldPersistence } from '../src/server/persistencePort';
@@ -10,8 +11,8 @@ import { getAuthoredWorkoutCatalog, installAuthoredWorkoutCatalog } from '../src
 import { RoutingHistoryStore } from '../src/persistence/supabase/commandHistoryBuffer';
 
 type Report = (name: string, fn: () => Promise<void>) => Promise<void>;
-const read = (host: CommandSessionHost, playerId: string) => host.execute({ commandId: 'GET_GAME_STATE', playerId });
-const pause = (host: CommandSessionHost, playerId: string, paused: boolean) => host.execute({
+const read = (host: CommandSessionHost, playerId: string) => host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'GET_GAME_STATE', playerId });
+const pause = (host: CommandSessionHost, playerId: string, paused: boolean) => host.execute({worldAttempt: 0, requestId: nextMutationTestId(),
   commandId: 'SET_PLAYER_PAUSE', playerId, parameters: { paused },
 });
 function fixture(maxCachedPlayers: number | undefined = 1) {
@@ -70,28 +71,31 @@ export async function runSessionCacheTests(report: Report): Promise<void> {
     await read(s.host, 'a'); assert.equal(s.loads.get('a'), 2);
   });
   await report('cache: eviction preserves lost-response receipts and rejects stale commands', async () => {
-    const s = fixture(1), opened = await s.host.openGameplaySession('a', 'open');
-    const req = { commandId: 'SET_PLAYER_PAUSE', playerId: 'a', requestId: 'pause', gameplaySessionId: opened.sessionId,
+    const s = fixture(1), opened = await s.host.openGameplaySession('a', 'open', 0);
+    const req = {worldAttempt: 0,  commandId: 'SET_PLAYER_PAUSE', playerId: 'a', requestId: 'pause', gameplaySessionId: opened.sessionId,
       commandSequence: 1, renewalSequence: 1, parameters: { paused: true } };
     assert.ok((await s.host.execute(req)).success);
     const before = snapshotGameState(s.load('a').state);
     await read(s.host, 'b');
-    const replay = await s.host.execute({ ...req, parameters: { paused: false } });
+    const conflict = await s.host.execute({ ...req, parameters: { paused: false } });
+    assert.equal(conflict.errors[0]?.code, ErrorCode.COMMAND_IDENTITY_CONFLICT);
+    const replay = await s.host.execute(req);
     assert.equal(replay.idempotentReplay, true); assert.equal(replay.payload.paused, true);
     assert.deepEqual(snapshotGameState(s.load('a').state), before);
     assert.ok((await s.host.execute({ ...req, requestId: 'unpause', commandSequence: 2, renewalSequence: 2, parameters: { paused: false } })).success);
     await read(s.host, 'b');
-    const stale = await s.host.execute(req); assert.equal(stale.errors[0]?.code, ErrorCode.COMMAND_STALE);
+    const retained = await s.host.execute(req); assert.equal(retained.idempotentReplay, true);
+    const stale = await s.host.execute({...req, requestId: 'unseen-old-sequence'}); assert.equal(stale.errors[0]?.code, ErrorCode.COMMAND_STALE);
     assert.equal(s.load('a').state.playerEmpirePause.paused, false);
   });
   await report('cache: open heartbeat and end receipts survive eviction', async () => {
-    const s = fixture(0), opened = await s.host.openGameplaySession('a', 'open');
-    assert.equal((await s.host.openGameplaySession('a', 'open')).sessionId, opened.sessionId);
-    await s.host.heartbeatGameplaySession('a', 'heartbeat', opened.sessionId, 1);
-    assert.equal((await s.host.heartbeatGameplaySession('a', 'heartbeat', opened.sessionId, 1)).outcome, 'idempotent_replay');
-    await s.host.endGameplaySession('a', 'end', opened.sessionId);
+    const s = fixture(0), opened = await s.host.openGameplaySession('a', 'open', 0);
+    assert.equal((await s.host.openGameplaySession('a', 'open', 0)).sessionId, opened.sessionId);
+    await s.host.heartbeatGameplaySession('a', 'heartbeat', opened.sessionId, 1, 0);
+    assert.equal((await s.host.heartbeatGameplaySession('a', 'heartbeat', opened.sessionId, 1, 0)).outcome, 'idempotent_replay');
+    await s.host.endGameplaySession('a', 'end', opened.sessionId, 0);
     const before = snapshotGameState(s.load('a').state);
-    await s.host.endGameplaySession('a', 'end', opened.sessionId);
+    await s.host.endGameplaySession('a', 'end', opened.sessionId, 0);
     assert.deepEqual(snapshotGameState(s.load('a').state), before);
   });
   await report('cache: a thrown save cannot expose its uncommitted draft to queued reads', async () => {
@@ -139,10 +143,10 @@ export async function runSessionCacheTests(report: Report): Promise<void> {
       const host = s.host;
       await read(host, 'a'); await pause(host, 'a', true); await read(host, 'b');
       s.setTime(601000);
-      await pause(host, 'a', false); assert.ok((await host.execute({ commandId: 'SYNC_PLAYER_WORLD', playerId: 'a' })).success);
+      await pause(host, 'a', false); assert.ok((await host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SYNC_PLAYER_WORLD', playerId: 'a' })).success);
       assert.equal(s.load('a').state.worldTick, 1);
     }
-    assert.deepEqual(snapshotGameState(a.load('a').state), snapshotGameState(b.load('a').state));
+    assert.deepEqual(gameplaySnapshot(a.load('a').state), gameplaySnapshot(b.load('a').state));
   });
   await report('cache: committed reward survives a lost response and eviction without paying twice', async () => {
     const prior = getAuthoredWorkoutCatalog();
@@ -156,16 +160,16 @@ export async function runSessionCacheTests(report: Report): Promise<void> {
         return saved;
       } };
       const options = { nowMs: () => 1000, maxCachedPlayers: 0 }, host = createSessionHost(persistence, options);
-      const opened = await host.openGameplaySession(playerId, 'open');
-      assert.ok((await host.execute({ commandId: 'START_WORKOUT', playerId, requestId: 'start',
+      const opened = await host.openGameplaySession(playerId, 'open', 0);
+      assert.ok((await host.execute({worldAttempt: 0,  commandId: 'START_WORKOUT', playerId, requestId: 'start',
         gameplaySessionId: opened.sessionId, commandSequence: 1, renewalSequence: 1,
         parameters: { purpose: 'NORMAL_TROOPS', size: 'STANDARD' } })).success);
       const lock = s.load().state.playerFitness.activeSession!.completionRewardEntitlement;
       await finish(host, s);
       assert.deepEqual(s.load().state.playerFitness.activeSession!.completionRewardEntitlement, lock);
-      const finalize = { commandId: 'FINALIZE_WORKOUT', playerId, requestId: 'finalize', gameplaySessionId: opened.sessionId,
+      const finalize = {worldAttempt: 0,  commandId: 'FINALIZE_WORKOUT', playerId, requestId: 'finalize', gameplaySessionId: opened.sessionId,
         commandSequence: 2, renewalSequence: 2 };
-      await assert.rejects(host.execute(finalize), /lost committed reply/);
+      assert.equal((await host.execute(finalize)).idempotentReplay, true);
       const before = snapshotGameState(s.load().state);
       assert.equal(s.load().state.playerRewards.bankedTroops, 125);
       const retry = await host.execute(finalize); assert.ok(retry.success); assert.equal(retry.idempotentReplay, true);

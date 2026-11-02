@@ -106,8 +106,9 @@ import { GameRewardResult } from '../rewards/types';
  * 29 = Optional immutable workout completion entitlement (R1-C). Legacy sessions remain unlocked.
  * 30 = Authored world content fingerprint; legacy provenance remains explicitly unknown.
  * 31 = Empire banks, authored Food upkeep, bonus-only collection and world trophies.
+ * 32 = Retained command receipts and monotonic world-attempt identity.
  */
-export const GAME_STATE_SCHEMA_VERSION = 31;
+export const GAME_STATE_SCHEMA_VERSION = 32;
 
 export type InvasionId = string;
 
@@ -432,6 +433,10 @@ export interface GameState {
    * An empty array is not historical offline time and not an online session.
    */
   gameplaySessionLeases: GameplaySessionLease[];
+  /** Monotonic restart/transition fence; independent of ticks and authored IDs. */
+  worldAttempt: number;
+  /** Retained logical receipts, persisted atomically with mutations. */
+  commandReceipts: Map<string, import('../world/mutationReceipts').MutationReceipt>;
   /**
    * Last world tick at which Food consumption was applied (or skipped
    * while Level 1-gated). Schema 11 stores the stamp only — consume is
@@ -616,6 +621,8 @@ export function emptyWorldClock(): {
   accrualDivisionRemainder: number;
   lastAccrualAtMs: number | null;
   gameplaySessionLeases: GameplaySessionLease[];
+  worldAttempt: number;
+  commandReceipts: Map<string, import('../world/mutationReceipts').MutationReceipt>;
   /** Authored empire baseline Food per 60-tick cycle; legacy compatibility is zero. */
   empireFoodBaselinePerCycle: number;
   /** Permanent trophy identities, not independently simulated empires. */
@@ -637,6 +644,8 @@ export function emptyWorldClock(): {
     accrualDivisionRemainder: 0,
     lastAccrualAtMs: null,
     gameplaySessionLeases: [],
+    worldAttempt: 0,
+    commandReceipts: new Map(),
     empireFoodBaselinePerCycle: 0,
     completedWorldIds: [],
     lastFoodConsumptionTick: 0,

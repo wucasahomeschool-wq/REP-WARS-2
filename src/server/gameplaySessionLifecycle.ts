@@ -41,10 +41,16 @@ export type GameplaySessionOutcome =
   | 'stale'
   | 'ended'
   | 'expired'
-  | 'unknown_session';
+  | 'unknown_session'
+  | 'rejected';
 
 /** Status for the requesting client. Never the player's full lease set. */
 export interface GameplaySessionView {
+  /** Public host adds the authoritative attempt fence. Pure lease helpers do not. */
+  worldAttempt?: number;
+  error?: string;
+  /** Original stored outcome when outcome is idempotent_replay. */
+  replayedOutcome?: GameplaySessionOutcome;
   sessionId: string;
   outcome: GameplaySessionOutcome;
   /** Receipt used for this decision, or the committed receipt when the call is a replay. */

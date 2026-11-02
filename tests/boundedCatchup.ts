@@ -1,3 +1,4 @@
+import {nextMutationTestId, gameplaySnapshot} from './mutationTestRequests';
 import assert from 'node:assert/strict';
 import { createSessionHost, SessionHostOptions, PersistenceFailedError } from '../src/server/session';
 import { createInMemoryPersistence, PlayerWorldPersistence } from '../src/server/persistencePort';
@@ -35,7 +36,7 @@ function fixture(ticks = 150, maxCatchUpChunks = 1, wrap?: (p: PlayerWorldPersis
   const options: Options = { nowMs: () => now, maxCatchUpChunks };
   const host = createSessionHost(persistence, options);
   const load = () => { const r = store.load('player'); assert.ok(r.ok); return r; };
-  const sync = () => host.execute({ commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
+  const sync = () => host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
   return { host, persistence, base, store, options, load, sync, setNow: (ms: number) => { now = ms; } };
 }
 
@@ -47,14 +48,14 @@ export async function runBoundedCatchupTests(report: Report): Promise<void> {
     assert.equal(s.load().state.accruedTargetWorldTick, 150);
     assert.equal(response.payload.remainingTicks, 86); assert.equal(response.payload.complete, false);
     const reloaded = createSessionHost(s.persistence, s.options);
-    await reloaded.execute({ commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
+    await reloaded.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
     assert.equal(s.load().state.worldTick, 128);
-    const completed = await reloaded.execute({ commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
+    const completed = await reloaded.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
     assert.equal(s.load().state.worldTick, 150); assert.equal(completed.payload.complete, true);
   });
   await report('bounded catch-up: gameplay is deferred without consuming its logical receipt', async () => {
-    const s = fixture(), lease = await s.host.openGameplaySession('player', 'open');
-    const command = { commandId: 'SET_PLAYER_PAUSE', playerId: 'player', requestId: 'pause', parameters: { paused: true },
+    const s = fixture(), lease = await s.host.openGameplaySession('player', 'open', 0);
+    const command = {worldAttempt: 0,  commandId: 'SET_PLAYER_PAUSE', playerId: 'player', requestId: 'pause', parameters: { paused: true },
       gameplaySessionId: lease.sessionId, commandSequence: 1, renewalSequence: 1 };
     for (const tick of [64, 128]) {
       const response = await s.host.execute(command);
@@ -73,10 +74,10 @@ export async function runBoundedCatchupTests(report: Report): Promise<void> {
     const sliced = fixture(), whole = fixture(150, 100);
     for (let i = 0; i < 3; i++) {
       const host = createSessionHost(sliced.persistence, sliced.options);
-      assert.ok((await host.execute({ commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' })).success);
+      assert.ok((await host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' })).success);
     }
     assert.ok((await whole.sync()).success);
-    assert.deepEqual(snapshotGameState(sliced.load().state), snapshotGameState(whole.load().state));
+    assert.deepEqual(gameplaySnapshot(sliced.load().state), gameplaySnapshot(whole.load().state));
   });
   await report('bounded catch-up: failed persistence keeps backlog and retries the same deterministic slice', async () => {
     let fail = true;
@@ -90,7 +91,7 @@ export async function runBoundedCatchupTests(report: Report): Promise<void> {
   });
   await report('bounded catch-up: clients cannot override the trusted chunk budget or earn extra ticks', async () => {
     const s = fixture();
-    const result = await s.host.execute({ commandId: 'SYNC_PLAYER_WORLD', playerId: 'player',
+    const result = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SYNC_PLAYER_WORLD', playerId: 'player',
       parameters: { maxCatchUpChunks: 999999, now: Number.MAX_SAFE_INTEGER }, clientContext: { maxCatchUpChunks: 999999 } });
     assert.ok(result.success); assert.equal(s.load().state.worldTick, 64); assert.equal(s.load().state.accruedTargetWorldTick, 150);
   });
@@ -105,22 +106,22 @@ export async function runBoundedCatchupTests(report: Report): Promise<void> {
       const whole = fixture(193, 100, undefined, seed, mixedPresence);
       const target = whole.load().state.accruedTargetWorldTick;
       assert.ok((await whole.sync()).success);
-      const expected = snapshotGameState(whole.load().state);
+      const expected = gameplaySnapshot(whole.load().state);
       for (const budget of [1, 2]) {
         const sliced = fixture(193, budget, undefined, seed, mixedPresence);
         for (let request = 0; request < 5 && sliced.load().state.worldTick < target; request++) {
           const host = createSessionHost(sliced.persistence, sliced.options);
-          const result = await host.execute({ commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
+          const result = await host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
           assert.ok(result.success, JSON.stringify(result.errors));
           assert.deepEqual(checkGameStateInvariants(sliced.load().state), []);
         }
-        assert.deepEqual(snapshotGameState(sliced.load().state), expected);
+        assert.deepEqual(gameplaySnapshot(sliced.load().state), expected);
       }
     }
   });
   await report('bounded catch-up: a sequenced partial sync replays its receipt and continues with a new sequence', async () => {
-    const s = fixture(), lease = await s.host.openGameplaySession('player', 'open');
-    const command = { commandId: 'SYNC_PLAYER_WORLD', playerId: 'player', requestId: 'sync-1',
+    const s = fixture(), lease = await s.host.openGameplaySession('player', 'open', 0);
+    const command = {worldAttempt: 0,  commandId: 'SYNC_PLAYER_WORLD', playerId: 'player', requestId: 'sync-1',
       gameplaySessionId: lease.sessionId, commandSequence: 1, renewalSequence: 1 };
     const first = await s.host.execute(command); assert.ok(first.success); assert.equal(first.payload.complete, false);
     const before = snapshotGameState(s.load().state);
@@ -129,7 +130,7 @@ export async function runBoundedCatchupTests(report: Report): Promise<void> {
     assert.deepEqual(snapshotGameState(s.load().state), before);
     await host.execute({ ...command, requestId: 'sync-2', commandSequence: 2, renewalSequence: 2 });
     assert.equal(s.load().state.worldTick, 128);
-    assert.equal((await host.execute(command)).errors[0]?.code, 'COMMAND_STALE');
+    assert.equal((await host.execute(command)).idempotentReplay, true);
   });
   await report('bounded catch-up: new earned time extends the backlog without replacing or dropping it', async () => {
     const s = fixture(); await s.sync();
@@ -143,7 +144,7 @@ export async function runBoundedCatchupTests(report: Report): Promise<void> {
   await report('bounded catch-up: stale host cannot commit another version of a processed slice', async () => {
     const s = fixture(), other = createSessionHost(s.persistence, s.options);
     await s.host.execute({ commandId: 'GET_GAME_STATE', playerId: 'player' });
-    await other.execute({ commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
+    await other.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
     const before = snapshotGameState(s.load().state);
     await assert.rejects(s.sync(), (e: unknown) => e instanceof PersistenceFailedError && e.code === 'persistence.conflict');
     assert.deepEqual(snapshotGameState(s.load().state), before);
@@ -156,8 +157,8 @@ export async function runBoundedCatchupTests(report: Report): Promise<void> {
       if (result.ok && args[1].worldTick === 64 && lose) { lose = false; throw new Error('lost slice response'); }
       return result;
     } }));
-    const lease = await s.host.openGameplaySession('player', 'open');
-    const command = { commandId: 'SET_PLAYER_PAUSE', playerId: 'player', requestId: 'pause', parameters: { paused: true },
+    const lease = await s.host.openGameplaySession('player', 'open', 0);
+    const command = {worldAttempt: 0,  commandId: 'SET_PLAYER_PAUSE', playerId: 'player', requestId: 'pause', parameters: { paused: true },
       gameplaySessionId: lease.sessionId, commandSequence: 1, renewalSequence: 1 };
     await assert.rejects(s.host.execute(command), /lost slice response/);
     assert.equal(s.load().state.worldTick, 64); assert.equal(s.load().state.playerEmpirePause.paused, false);
@@ -168,17 +169,18 @@ export async function runBoundedCatchupTests(report: Report): Promise<void> {
   });
   await report('bounded catch-up: default host budget stops at four chunks', async () => {
     const s = fixture(300), host = createSessionHost(s.persistence, { nowMs: s.options.nowMs });
-    const response = await host.execute({ commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
+    const response = await host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SYNC_PLAYER_WORLD', playerId: 'player' });
     assert.ok(response.success); assert.equal(response.payload.chunks, 4);
     assert.equal(s.load().state.worldTick, 256); assert.equal(s.load().state.accruedTargetWorldTick, 300);
   });
   await report('bounded catch-up: smaller authorized targets leave earned backlog visible and excessive targets fail safely', async () => {
     const s = fixture();
-    const response = await s.host.execute({ commandId: 'SYNC_PLAYER_WORLD', playerId: 'player', parameters: { targetWorldTick: 10 } });
+    const response = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SYNC_PLAYER_WORLD', playerId: 'player', parameters: { targetWorldTick: 10 } });
     assert.ok(response.success); assert.equal(response.payload.complete, true); assert.equal(response.payload.backlogTicks, 140);
-    const before = snapshotGameState(s.load().state);
-    const invalid = await s.host.execute({ commandId: 'SYNC_PLAYER_WORLD', playerId: 'player', parameters: { targetWorldTick: 151 } });
-    assert.equal(invalid.errors[0]?.code, 'TIME_UNAUTHORIZED'); assert.deepEqual(snapshotGameState(s.load().state), before);
+    const before = gameplaySnapshot(s.load().state);
+    const invalid = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SYNC_PLAYER_WORLD', playerId: 'player', parameters: { targetWorldTick: 151 } });
+    assert.equal(invalid.errors[0]?.code, 'TIME_UNAUTHORIZED'); assert.equal(invalid.mutationOutcome, 'rejected');
+    assert.deepEqual(gameplaySnapshot(s.load().state), before);
   });
   await report('bounded catch-up: invasion expiry and construction settle in the same order across slices', async () => {
     const worlds = [fixture(150, 1, undefined, 11), fixture(150, 100, undefined, 11)];
@@ -194,7 +196,7 @@ export async function runBoundedCatchupTests(report: Report): Promise<void> {
     assert.equal(worlds[0].load().state.activeInvasions.has('inv_slice'), false);
     while (worlds[0].load().state.worldTick < 150) assert.ok((await worlds[0].sync()).success);
     assert.ok((await worlds[1].sync()).success);
-    assert.deepEqual(snapshotGameState(worlds[0].load().state), snapshotGameState(worlds[1].load().state));
+    assert.deepEqual(gameplaySnapshot(worlds[0].load().state), gameplaySnapshot(worlds[1].load().state));
   });
   await report('bounded catch-up: terminal history and the partial world use one atomic commit and roll back together', async () => {
     let fail = true, staged = 0;
@@ -226,7 +228,7 @@ export async function runBoundedCatchupTests(report: Report): Promise<void> {
     const address = server.address(); assert.ok(address && typeof address !== 'string');
     try {
       const post = async (commandId: string, parameters = {}) => {
-        const response = await fetch(`http://127.0.0.1:${address.port}/commands`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commandId, parameters }) });
+        const response = await fetch(`http://127.0.0.1:${address.port}/commands`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({worldAttempt: 0, requestId: nextMutationTestId(),  commandId, parameters }) });
         assert.equal(response.status, 200); return await response.json() as { success: boolean; errors: {code: string}[]; payload: Record<string, unknown> };
       };
       const deferred = await post('SET_PLAYER_PAUSE', { paused: true });

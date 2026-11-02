@@ -1,3 +1,4 @@
+import {cloneMutationReceipts} from '../world/mutationReceipts';
 import { createResponseMap } from '../engine/responseRecords';
 import {indexedTradeMap} from '../gameplay/trade/records';
 import {proposalLive,shipmentLive} from '../gameplay/trade/trade';
@@ -246,6 +247,8 @@ export function adoptOwnedTransactionState(target: GameState, next: GameState): 
   target.accrualDivisionRemainder = next.accrualDivisionRemainder;
   target.lastAccrualAtMs = next.lastAccrualAtMs;
   target.gameplaySessionLeases = next.gameplaySessionLeases;
+  target.worldAttempt = next.worldAttempt;
+  target.commandReceipts = next.commandReceipts;
   target.empireFoodBaselinePerCycle = next.empireFoodBaselinePerCycle;
   target.completedWorldIds = next.completedWorldIds;
   target.lastFoodConsumptionTick = next.lastFoodConsumptionTick;
@@ -340,6 +343,8 @@ export function cloneGameState(state: GameState): GameState {
     accrualDivisionRemainder: state.accrualDivisionRemainder,
     lastAccrualAtMs: state.lastAccrualAtMs,
     gameplaySessionLeases: state.gameplaySessionLeases.map(cloneGameplaySessionLease),
+    worldAttempt: state.worldAttempt,
+    commandReceipts: cloneMutationReceipts(state.commandReceipts),
     empireFoodBaselinePerCycle: state.empireFoodBaselinePerCycle,
     completedWorldIds: [...state.completedWorldIds],
     lastFoodConsumptionTick: state.lastFoodConsumptionTick,

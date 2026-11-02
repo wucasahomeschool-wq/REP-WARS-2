@@ -54,7 +54,8 @@ export interface GameplaySessionLease {
   lastCommandSequence?: number | null;
   /**
    * Compact result of the latest committed gameplay command on this session.
-   * Older commands are not retained. Null until the first command commits.
+   * Sequencing compatibility only: logical replay uses the host’s retained command receipts.
+   * Null until the first command commits.
    */
   lastCommandReceipt?: GameplayCommandReceipt | null;
 }

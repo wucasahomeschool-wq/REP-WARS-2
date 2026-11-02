@@ -164,7 +164,7 @@ export function registerGameplayContractTests({test}:{test:(name:string,fn:()=>v
   test('empire contract: real schema30 cargo credits recipients once and keeps history on reload',()=>{
     const raw=JSON.parse(readFileSync(join(__dirname,'fixtures/gameplay-contracts/schema30-live-trade.json'),'utf8'));
     const s=hydratePersistedPayload(raw);
-    assert.equal(s.schemaVersion,31);assert.equal(s.tradeShipments.size,2);
+    assert.equal(s.schemaVersion,32);assert.equal(s.tradeShipments.size,2);
     assert.equal(s.factions.get('f_player')!.resources.food,110);
     assert.equal(s.factions.get('f_player')!.resources.wood,80);
     assert.equal(s.factions.get('f_ai_01')!.resources.food,90);
@@ -234,22 +234,24 @@ export function registerGameplayContractTests({test}:{test:(name:string,fn:()=>v
     return {store,persistence,host,load};
   };
   test('empire contract: deployment receipt survives lost response reconnect and stale replay',async()=>{
-    const {host,load,persistence}=hostFixture(),lease=await host.openGameplaySession('p','open');
-    const command={commandId:'DEPLOY_TROOPS',playerId:'p',requestId:'deploy-one',gameplaySessionId:lease.sessionId,commandSequence:1,renewalSequence:1,parameters:{territoryId:'t_02',quantity:40}};
+    const {host,load,persistence}=hostFixture(),lease=await host.openGameplaySession('p','open', 0);
+    const command={worldAttempt: 0, commandId:'DEPLOY_TROOPS',playerId:'p',requestId:'deploy-one',gameplaySessionId:lease.sessionId,commandSequence:1,renewalSequence:1,parameters:{territoryId:'t_02',quantity:40}};
     const first=await host.execute(command);assert(first.success,JSON.stringify(first.errors));const after=snapshotGameState(load());
-    const restarted=createSessionHost(persistence,{nowMs:()=>5000});const replay=await restarted.execute({...command,parameters:{territoryId:'t_02',quantity:99}});
+    const restarted=createSessionHost(persistence,{nowMs:()=>5000});
+    const altered=await restarted.execute({...command,parameters:{territoryId:'t_02',quantity:99}});assert.equal(altered.errors[0]?.code,'COMMAND_IDENTITY_CONFLICT');
+    const replay=await restarted.execute(command);
     assert.equal(replay.idempotentReplay,true);assert.equal(replay.payload.armyId,first.payload.armyId);assert.deepEqual(snapshotGameState(load()),after);
     assert((await restarted.execute({...command,requestId:'deploy-two',commandSequence:2,renewalSequence:2,parameters:{territoryId:'t_02',quantity:10}})).success);
-    const late=await restarted.execute(command);assert.equal(late.success,false);assert.equal(load().playerRewards.bankedTroops,50);
+    const late=await restarted.execute(command);assert.equal(late.idempotentReplay,true);assert.equal(load().playerRewards.bankedTroops,50);
   });
   for(const writeBeforeFailure of [false,true])test(`empire contract: deployment save failure retry preserves exactly once ${writeBeforeFailure}`,async()=>{
-    const {persistence,host,load}=hostFixture(),lease=await host.openGameplaySession('p','open');let armed=true;
+    const {persistence,host,load}=hostFixture(),lease=await host.openGameplaySession('p','open', 0);let armed=true;
     const failing:PlayerWorldPersistence={...persistence,save:(id,state,version)=>{
       if(!armed)return persistence.save(id,state,version);armed=false;
       if(writeBeforeFailure)assert(persistence.save(id,state,version).ok);
       return {ok:false,persisted:false,code:'persistence.conflict',message:'injected conflict'};
     }};
-    const runner=createSessionHost(failing,{nowMs:()=>5000}),command={commandId:'DEPLOY_TROOPS',playerId:'p',requestId:'deploy',gameplaySessionId:lease.sessionId,commandSequence:1,renewalSequence:1,parameters:{territoryId:'t_02',quantity:40}};
+    const runner=createSessionHost(failing,{nowMs:()=>5000}),command={worldAttempt: 0, commandId:'DEPLOY_TROOPS',playerId:'p',requestId:'deploy',gameplaySessionId:lease.sessionId,commandSequence:1,renewalSequence:1,parameters:{territoryId:'t_02',quantity:40}};
     try{await runner.execute(command);}catch{} // Persisted result below, rather than transport exception shape, is authoritative.
     const retry=await runner.execute(command);assert(retry.success,JSON.stringify(retry.errors));assert.equal(load().playerRewards.bankedTroops,60);
     assert.equal([...load().armies.values()].filter(a=>a.id===retry.payload.armyId).length,1);
@@ -258,15 +260,15 @@ export function registerGameplayContractTests({test}:{test:(name:string,fn:()=>v
     // Registered production identity is retained for the persisted server fixture.
     const s=fixture(),t=s.levelAnchorTerritoryIds[0]!;s.worldTick=60;s.accruedTargetWorldTick=60;persistAllTerritoryAccrual(s);
     s.playerRewards.pendingGoldenYieldEffects.push({applicationId:'gy',sessionId:'gy',workoutId:'fixture',playerId:'p',multiplier:2,effect:'ONE_TIME_COLLECTION',permanence:'EPHEMERAL',consumed:false,appliedAtTick:0,sourcePhysicalOutput:10});
-    const {host,persistence,load}=hostFixture(s),lease=await host.openGameplaySession('p','open');
-    const command={commandId:'COLLECT_RESOURCES',playerId:'p',requestId:'collect',gameplaySessionId:lease.sessionId,commandSequence:1,renewalSequence:1,parameters:{territoryId:t,useGoldenYield:true}};
+    const {host,persistence,load}=hostFixture(s),lease=await host.openGameplaySession('p','open', 0);
+    const command={worldAttempt: 0, commandId:'COLLECT_RESOURCES',playerId:'p',requestId:'collect',gameplaySessionId:lease.sessionId,commandSequence:1,renewalSequence:1,parameters:{territoryId:t,useGoldenYield:true}};
     const first=await host.execute(command);assert(first.success,JSON.stringify(first.errors));const once=snapshotGameState(load());
     const retry=await createSessionHost(persistence,{nowMs:()=>5000}).execute(command);assert.equal(retry.idempotentReplay,true);
     assert.deepEqual(retry.payload,first.payload);assert.deepEqual(snapshotGameState(load()),once);
   });
   test('empire contract: restart retains its receipt so retry cannot erase subsequent deployment',async()=>{
-    const s=fixture();defeat(s);const {host,load}=hostFixture(s),lease=await host.openGameplaySession('p','open');
-    const command={commandId:'RESTART_WORLD',playerId:'p',requestId:'restart',gameplaySessionId:lease.sessionId,commandSequence:1,renewalSequence:1,parameters:{}};
+    const s=fixture();defeat(s);const {host,load}=hostFixture(s),lease=await host.openGameplaySession('p','open', 0);
+    const command={worldAttempt: 0, commandId:'RESTART_WORLD',playerId:'p',requestId:'restart',gameplaySessionId:lease.sessionId,commandSequence:1,renewalSequence:1,parameters:{}};
     const first=await host.execute(command);assert(first.success,JSON.stringify(first.errors));const once=snapshotGameState(load());
     const retry=await host.execute(command);assert.equal(retry.idempotentReplay,true);assert.deepEqual(snapshotGameState(load()),once);
     const next=await host.execute({...command,requestId:'another-restart',commandSequence:2,renewalSequence:2});assert.equal(next.success,false);

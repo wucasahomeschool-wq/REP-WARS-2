@@ -1,3 +1,4 @@
+import {nextMutationTestId} from './mutationTestRequests';
 import assert from 'assert';
 import { createLegacySampleMapGameState } from '../src/state/createGameState';
 import { Orchestrator } from '../src/orchestration/orchestrator';
@@ -73,7 +74,7 @@ function normalAttack(seed: number, player: string | null = 'iron_kingdom') {
     // This is the shared internal AI attack handler, not a public command
     // impersonating the opposing faction (which correctly fails authorization).
     const tx = runStateTransaction(h.orch.getState(), draft => executeAttack(draft, {
-      req: { commandId: 'ATTACK', playerId: 'ai', parameters: { seed } }, registry: h.registry,
+      req: {worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'ATTACK', playerId: 'ai', parameters: { seed } }, registry: h.registry,
       def: COMMAND_INDEX.find(c => c.commandId === 'ATTACK')!, runtime: { aiWarlordStates: new Map() },
     }, 'eastern_hills', 'iron_kingdom'));
     h.orch = new Orchestrator(tx.state, h.registry);
@@ -103,7 +104,7 @@ function finishDelayed(state: GameState, battle: RecordingBattle, armyId: string
   state.worldTick = state.accruedTargetWorldTick = end;
   progressArmyMovements(state, end);
   const result = executeReadyStrategicAttack(state, {
-    req: { commandId: 'ADVANCE_WORLD', playerId: 'c3', parameters: { seed: requestSeed } },
+    req: {worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'ADVANCE_WORLD', playerId: 'c3', parameters: { seed: requestSeed } },
     registry: { requireBattle: () => battle },
   }, armyId);
   assert.strictEqual(result.commandSuccess, undefined, JSON.stringify(result.errors));
@@ -213,7 +214,7 @@ export function registerBattleSeedAuthorityTests({ test }: { test: (name: string
   test('C3 failed battle transactions do not consume army identity or change subsequent randomness', () => {
     const state = fixture(), before = snapshotGameState(state), h = harness(state);
     assert.throws(() => runStateTransaction(state, draft => {
-      executeAttack(draft, { req: { commandId: 'ATTACK', playerId: 'c3', parameters: {
+      executeAttack(draft, { req: {worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'ATTACK', playerId: 'c3', parameters: {
         territoryId: 'eastern_hills', commitAmount: 301, seed: 987 } }, registry: h.registry,
         def: COMMAND_INDEX.find(c => c.commandId === 'ATTACK')!, runtime: { aiWarlordStates: new Map() } }, 'eastern_hills');
       throw new Error('abort after battle');
@@ -224,15 +225,18 @@ export function registerBattleSeedAuthorityTests({ test }: { test: (name: string
     assert.strictEqual(state.nextArmySequence, 0);
   });
 
-  test('C3 changed seed on lost-response retry returns the original persisted result after restart', async () => {
+  test('C3 changed seed conflicts without reroll; identical lost-response retry returns persisted result', async () => {
     const { store, persistence, host } = persistenceHarness();
-    const opened = await host.openGameplaySession('c3', 'open');
-    const req = { commandId: 'ATTACK', playerId: 'c3', requestId: 'same_attack', gameplaySessionId: opened.sessionId,
+    const opened = await host.openGameplaySession('c3', 'open', 0);
+    const req = {worldAttempt: 0,  commandId: 'ATTACK', playerId: 'c3', requestId: 'same_attack', gameplaySessionId: opened.sessionId,
       commandSequence: 1, renewalSequence: 1, parameters: { territoryId: 'eastern_hills', commitAmount: 301, seed: 1 } };
     const first = await host.execute(req);
     assert.strictEqual(first.success, true, JSON.stringify(first.errors));
     const saved = store.load('c3'); assert.ok(saved.ok); if (!saved.ok) throw new Error('load');
-    const retry = await createSessionHost(persistence, { nowMs: () => 1000 }).execute({ ...req, parameters: { ...req.parameters, seed: 999999 } });
+    const restarted = createSessionHost(persistence, { nowMs: () => 1000 });
+    const altered = await restarted.execute({ ...req, parameters: { ...req.parameters, seed: 999999 } });
+    assert.strictEqual(altered.errors[0]?.code, 'COMMAND_IDENTITY_CONFLICT');
+    const retry = await restarted.execute(req);
     assert.strictEqual(retry.idempotentReplay, true);
     assert.deepStrictEqual(retry.payload, first.payload);
     const after = store.load('c3'); assert.ok(after.ok); if (!after.ok) throw new Error('reload');
@@ -294,12 +298,12 @@ export function registerBattleSeedAuthorityTests({ test }: { test: (name: string
     const results: unknown[] = [];
     for (const seed of [1, 999999]) {
       const { host } = persistenceHarness();
-      const opened = await host.openGameplaySession('c3', 'http_open');
+      const opened = await host.openGameplaySession('c3', 'http_open', 0);
       const server = createCommandHttpServer(host);
       await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
       try {
         const address = server.address(); if (!address || typeof address === 'string') throw new Error('port');
-        const body = JSON.stringify({ commandId: 'ATTACK', playerId: 'c3', requestId: 'http_attack',
+        const body = JSON.stringify({worldAttempt: 0,  commandId: 'ATTACK', playerId: 'c3', requestId: 'http_attack',
           gameplaySessionId: opened.sessionId, commandSequence: 1, renewalSequence: 1, seed,
           parameters: { territoryId: 'eastern_hills', commitAmount: 301, seed, battleSeed: seed, rngSeed: seed } });
         const response = await new Promise<{ success: boolean; payload: Record<string, unknown>; errors: unknown }>((resolve, reject) => {

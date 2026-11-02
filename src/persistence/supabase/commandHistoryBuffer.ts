@@ -93,7 +93,19 @@ export class RoutingHistoryStore implements WorkoutHistoryStore {
 
   replacePlayer(playerId: string, entries: readonly WorkoutHistoryEntry[]): void {
     if (this.pending.has(playerId)) {
-      throw new PersistenceError('persistence.invalid_state', 'History replacement is inside an atomic commit');
+      // Orchestrator rollback restores its pre-handler snapshot. Never write
+      // that snapshot to the base store inside an uncommitted transaction.
+      const stored = new Map(this.base.clonePlayer(playerId).map(entry => [entry.sessionId, entry]));
+      const restored = new PendingHistory();
+      for (const entry of entries) {
+        if (entry.playerId !== playerId) throw new PersistenceError('persistence.invalid_state', 'History player mismatch');
+        if (JSON.stringify(stored.get(entry.sessionId)) !== JSON.stringify(entry)) restored.upsert(entry);
+        stored.delete(entry.sessionId);
+      }
+      // History is append/upsert only. A rollback cannot delete durable rows.
+      if (stored.size) throw new PersistenceError('persistence.invalid_state', 'History rollback would delete durable rows');
+      this.pending.set(playerId, restored);
+      return;
     }
     this.base.replacePlayer(playerId, entries);
   }

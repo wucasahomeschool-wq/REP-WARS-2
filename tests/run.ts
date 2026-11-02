@@ -122,6 +122,7 @@ import { registerPresenceLeaseTests } from './presenceLeases';
 import { registerGameplaySessionLeasePersistenceTests } from './gameplaySessionLeases';
 import { runGameplaySessionLifecycleTests } from './gameplaySessionLifecycle';
 import { runLeaseWorldAccrualTests } from './leaseWorldAccrual';
+import { runMutationIdentityTests } from './mutationIdentity';
 import { runCommandIdempotencyTests } from './commandIdempotency';
 import { runSessionReplayTests } from './sessionReplay';
 import { registerSupabasePersistenceTests } from './supabasePersistence';
@@ -1694,7 +1695,7 @@ test('createGameState() contains the expected major state domains', () => {
   const expected = [
     'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiResponses', 'aiResponseScheduler', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'conflictLedger', 'conflictEventReceipts', 'opinionEvents', 'operationClaims', 'operations', 'constructions',
     'definitionContentFingerprint', 'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
-    'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'tradeProposals', 'tradeShipments', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
+    'commandReceipts', 'worldAttempt', 'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'tradeProposals', 'tradeShipments', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick', 'nextArmySequence', 'completedWorldIds', 'empireFoodBaselinePerCycle',
   ].sort();
   assert.deepStrictEqual(keys, expected, 'GameState shape drifted from the documented domains');
@@ -3281,6 +3282,7 @@ void (async () => {
   await executeTest('live atomic commit rolls both tables back together', runAtomicCommitProof);
   await executeTest('live supabase server restart restores the empire', runSupabaseServerRestart);
   await runCommandIdempotencyTests(executeTest);
+  await runMutationIdentityTests(executeTest);
   await runSessionReplayTests(executeTest);
   await runLeaseWorldAccrualTests(executeTest);
   await runGameplaySessionLifecycleTests(executeTest);

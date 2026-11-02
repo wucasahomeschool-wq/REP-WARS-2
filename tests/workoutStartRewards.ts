@@ -1,3 +1,4 @@
+import {nextMutationTestId} from './mutationTestRequests';
 import assert from 'assert';
 import { request as httpRequest } from 'node:http';
 import { compileAuthoringDocument } from '../src/fitness/authoring/compile';
@@ -56,7 +57,7 @@ export function scenario() {
     const value = cloneGameState(state);
     value.gameplaySessionLeases = [openGameplaySessionLease({ sessionId: 'server-fixture-lease', receiptMs: 0 })];
     const orch = new Orchestrator(value);
-    const req: CommandRequest = { commandId: 'START_WORKOUT', playerId: PLAYER, requestId: 'start',
+    const req: CommandRequest = {worldAttempt: 0,  commandId: 'START_WORKOUT', playerId: PLAYER, requestId: 'start',
       gameplaySessionId: 'server-fixture-lease', commandSequence: 1, renewalSequence: 1,
       parameters: { purpose: 'NORMAL_TROOPS', size: 'STANDARD', now: 1000 } };
     return { orch, req };
@@ -71,15 +72,15 @@ function entitlement(response: CommandResponse): CompletionRewardEntitlement {
   return value;
 }
 export async function open(s: Scenario) {
-  const opened = await s.host.openGameplaySession(PLAYER, 'open');
-  return { commandId: 'START_WORKOUT', playerId: PLAYER, requestId: 'start', gameplaySessionId: opened.sessionId,
+  const opened = await s.host.openGameplaySession(PLAYER, 'open', 0);
+  return {worldAttempt: 0,  commandId: 'START_WORKOUT', playerId: PLAYER, requestId: 'start', gameplaySessionId: opened.sessionId,
     commandSequence: 1, renewalSequence: 1, parameters: { purpose: 'NORMAL_TROOPS', size: 'STANDARD', now: 1000 } } as CommandRequest;
 }
 export async function finish(host: ReturnType<typeof createSessionHost>, s: Scenario): Promise<WorkoutSession> {
   let now = 2000;
   while (s.load().state.playerFitness.activeSession?.state === 'ACTIVE') {
     const session = s.load().state.playerFitness.activeSession!, step = getCurrentExercise(session)!;
-    const response = await host.execute({ commandId: 'RECORD_EXERCISE', playerId: PLAYER,
+    const response = await host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'RECORD_EXERCISE', playerId: PLAYER,
       parameters: { order: step.order, now: now += 1000, ...(step.prescription.kind === 'repetitions'
         ? { repetitions: step.prescription.repetitions } : { durationSeconds: step.prescription.durationSeconds }) } });
     assert.ok(response.success, JSON.stringify(response.errors));
@@ -132,7 +133,7 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
   test('authored ID collision with a tutorial workout cannot bypass readiness', s => {
     s.catalog.workouts.wk_moderate_full_body = { ...s.catalog.workouts.aw_squat_stage2!, id: 'wk_moderate_full_body' };
     const orch = new Orchestrator(createGameState());
-    const result = orch.execute({ commandId: 'START_WORKOUT', playerId: PLAYER,
+    const result = orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'START_WORKOUT', playerId: PLAYER,
       parameters: { purpose: 'NORMAL_TROOPS', workoutId: 'wk_moderate_full_body', now: 1000 } });
     assert.strictEqual(result.success, false); assert.match(result.errors[0]!.message, /eligible/);
     assert.strictEqual(orch.getState().playerFitness.activeSession, null);
@@ -178,13 +179,13 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
   test('exercise progress pause resume feedback and client terms cannot alter a lock', async s => {
     const locked = entitlement(await s.host.execute(await open(s)));
     for (const commandId of ['PAUSE_WORKOUT', 'RESUME_WORKOUT']) {
-      const response = await s.host.execute({ commandId, playerId: PLAYER, parameters: { now: 1500, completionRewardEntitlement: { soldiers: 9999 } } });
+      const response = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId, playerId: PLAYER, parameters: { now: 1500, completionRewardEntitlement: { soldiers: 9999 } } });
       assert.ok(response.success);
     }
     const done = await finish(s.host, s);
     assert.strictEqual(done.state, 'COMPLETED');
     assert.deepStrictEqual(done.completionRewardEntitlement, locked);
-    const feedback = await s.host.execute({ commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
+    const feedback = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
       parameters: { value: 'ABOUT_RIGHT', now: 20000, soldiers: 99999 } });
     assert.ok(feedback.success);
     assert.deepStrictEqual(s.load().state.playerFitness.activeSession!.completionRewardEntitlement, locked);
@@ -197,7 +198,7 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
     const saved = s.load(); saved.state.playerFitness.progression.movementReadiness.mf_squat = 'ms_sq_3';
     assert.ok(s.store.save(PLAYER, saved.state, saved.record.stateVersion).ok);
     const reconnected = createSessionHost(s.persistence, { nowMs: () => 1000 });
-    const view = await reconnected.execute({ commandId: 'GET_GAME_STATE', playerId: PLAYER });
+    const view = await reconnected.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'GET_GAME_STATE', playerId: PLAYER });
     assert.deepStrictEqual((view.payload.gameState as any).playerGameplay.activeWorkout.completionRewardEntitlement, locked);
     await finish(reconnected, s);
     assert.deepStrictEqual(s.load().state.playerFitness.activeSession!.completionRewardEntitlement, locked);
@@ -206,15 +207,17 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
     const req = await open(s), first = await s.host.execute(req), locked = entitlement(first);
     const before = snapshotGameState(s.load().state);
     s.world.workoutRewards = policy(8_000_000);
-    const retry = await createSessionHost(s.persistence, { nowMs: () => 1000 }).execute({ ...req,
-      parameters: { purpose: 'NORMAL_TROOPS', size: 'LONG', sessionId: 'retry-forgery', soldiers: 99999 } });
+    const host = createSessionHost(s.persistence, { nowMs: () => 1000 });
+    const forged = await host.execute({ ...req, parameters: { purpose: 'NORMAL_TROOPS', size: 'LONG', sessionId: 'retry-forgery', soldiers: 99999 } });
+    assert.strictEqual(forged.errors[0]?.code, 'COMMAND_IDENTITY_CONFLICT');
+    const retry = await host.execute(req);
     assert.strictEqual(retry.idempotentReplay, true); assert.deepStrictEqual(retry.payload, JSON.parse(JSON.stringify(first.payload)));
     assert.deepStrictEqual(s.load().state.playerFitness.activeSession!.completionRewardEntitlement, locked);
     assert.deepStrictEqual(snapshotGameState(s.load().state), before);
   });
   test('stale and conflicting command attempts cannot replace an entitlement', async s => {
     const req = await open(s), locked = entitlement(await s.host.execute({ ...req, commandSequence: 5 }));
-    for (const changed of [{ commandSequence: 4 }, { commandSequence: 5, requestId: 'different' }, { commandSequence: 6 }]) {
+    for (const changed of [{ commandSequence: 4, requestId: 'stale-new' }, { commandSequence: 5, requestId: 'different' }, { commandSequence: 6, requestId: 'replacement-new' }]) {
       assert.strictEqual((await s.host.execute({ ...req, ...changed })).success, false);
       assert.deepStrictEqual(s.load().state.playerFitness.activeSession!.completionRewardEntitlement, locked);
     }
@@ -244,11 +247,11 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
   test('CAS loser cannot leave another committed lock or overwrite the winner', async s => {
     const req = await open(s);
     const competing = createSessionHost(s.persistence, { nowMs: () => 1000 });
-    await competing.execute({ commandId: 'GET_GAME_STATE', playerId: PLAYER }); // Cache the same pre-start version.
+    await competing.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'GET_GAME_STATE', playerId: PLAYER }); // Cache the same pre-start version.
     const first = await s.host.execute(req), committed = s.load();
     const before = snapshotGameState(committed.state);
     s.world.workoutRewards = policy(9_000_000);
-    await assert.rejects(competing.execute(req), /Stale world write/);
+    assert.strictEqual((await competing.execute(req)).idempotentReplay, true);
     const result = await competing.execute(req);
     assert.deepStrictEqual(result.payload, JSON.parse(JSON.stringify(first.payload)));
     assert.deepStrictEqual(snapshotGameState(s.load().state), before);
@@ -304,9 +307,9 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
     const req = await open(s);
     assert.strictEqual((await s.host.execute(req)).success, false);
     await finish(s.host, s);
-    assert.ok((await s.host.execute({ commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
+    assert.ok((await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
       parameters: { value: 'ABOUT_RIGHT', now: 10000 } })).success);
-    const finalize: CommandRequest = { ...req, commandId: 'FINALIZE_WORKOUT', requestId: 'legacy-finalize', commandSequence: 2, parameters: { now: 11000 } };
+    const finalize: CommandRequest = {worldAttempt: 0,  ...req, commandId: 'FINALIZE_WORKOUT', requestId: 'legacy-finalize', commandSequence: 2, parameters: { now: 11000 } };
     const response = await s.host.execute(finalize);
     assert.ok(response.success, JSON.stringify(response.errors));
     assert.strictEqual(s.load().state.playerRewards.bankedTroops, Math.floor(Number(response.payload.physicalOutput) * 10));
@@ -341,10 +344,10 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
     const req = await open(s), locked = entitlement(await s.host.execute(req));
     await finish(s.host, s);
     for (const parameters of [{ purpose: 'NORMAL_TROOPS', size: 'LONG' }, { purpose: 'GOLDEN_YIELD' }, { purpose: 'EXTRA_CONSTRUCTION_WORKERS' }]) {
-      const result = await s.host.execute({ ...req, commandSequence: 2, requestId: 'replacement', parameters });
+      const result = await s.host.execute({ ...req, commandSequence: 2, requestId: nextMutationTestId(), parameters });
       assert.strictEqual(result.success, false); assert.match(result.errors[0]!.message, /settled/);
     }
-    const result = await s.host.execute({ commandId: 'FINALIZE_WORKOUT', playerId: PLAYER });
+    const result = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'FINALIZE_WORKOUT', playerId: PLAYER });
     assert.strictEqual(result.success, true);
     const state = s.load().state;
     assert.strictEqual(state.playerRewards.bankedTroops, locked.soldiers); assert.strictEqual(state.playerRewards.appliedRewards.length, 1);
@@ -362,7 +365,7 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
   });
   test('abandoned locked workout can be replaced only by a fresh server identity', async s => {
     const req = await open(s), first = entitlement(await s.host.execute(req));
-    assert.ok((await s.host.execute({ ...req, commandId: 'ABANDON_WORKOUT', requestId: 'abandon', commandSequence: 2, parameters: { now: 1500 } })).success);
+    assert.ok((await s.host.execute({worldAttempt: 0,  ...req, commandId: 'ABANDON_WORKOUT', requestId: 'abandon', commandSequence: 2, parameters: { now: 1500 } })).success);
     const second = entitlement(await s.host.execute({ ...req, requestId: 'fresh', commandSequence: 3,
       parameters: { ...req.parameters, sessionId: first.sessionId } }));
     assert.notStrictEqual(second.sessionId, first.sessionId); assert.notStrictEqual(second.entitlementId, first.entitlementId);
@@ -375,25 +378,25 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
   });
   test('same-instant specialized starts allocate fresh default identities without a waiting gate', s => {
     const { orch } = s.direct();
-    const req: CommandRequest = { commandId: 'START_WORKOUT', playerId: PLAYER,
+    const req: CommandRequest = {worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'START_WORKOUT', playerId: PLAYER,
       parameters: { purpose: 'GOLDEN_YIELD', workoutId: 'wk_very_easy_mobility', now: 1000 } };
     const first = orch.execute(req); assert.ok(first.success, JSON.stringify(first.errors));
-    assert.ok(orch.execute({ commandId: 'ABANDON_WORKOUT', playerId: PLAYER, parameters: { now: 1000 } }).success);
+    assert.ok(orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'ABANDON_WORKOUT', playerId: PLAYER, parameters: { now: 1000 } }).success);
     const second = orch.execute(req); assert.ok(second.success, JSON.stringify(second.errors));
     assert.notStrictEqual(second.payload.sessionId, first.payload.sessionId);
     assert.strictEqual(orch.getState().worldTick, 0);
   });
   test('a fresh default defense identity stays bound to the invasion after a clock collision', s => {
     const { orch } = s.direct(), value = orch.getState(), player = value.playerFactionId!;
-    const prior = orch.execute({ commandId: 'START_WORKOUT', playerId: PLAYER,
+    const prior = orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'START_WORKOUT', playerId: PLAYER,
       parameters: { purpose: 'GOLDEN_YIELD', workoutId: 'wk_very_easy_mobility', now: 1000 } });
     assert.ok(prior.success);
-    assert.ok(orch.execute({ commandId: 'ABANDON_WORKOUT', playerId: PLAYER, parameters: { now: 1000 } }).success);
+    assert.ok(orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'ABANDON_WORKOUT', playerId: PLAYER, parameters: { now: 1000 } }).success);
     const current = orch.getState();
     current.activeInvasions.set('fresh-defense', createActiveInvasion({ id: 'fresh-defense', territoryId: current.factions.get(player)!.territories[0]!,
       defenderFactionId: player, attackerFactionId: [...current.factions.keys()].find(id => id !== player)!,
       startedAtTick: 0, notifiedAtTick: 0, responseDeadlineTick: 30 }));
-    const defense = orch.execute({ commandId: 'START_WORKOUT', playerId: PLAYER,
+    const defense = orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'START_WORKOUT', playerId: PLAYER,
       parameters: { purpose: 'DEFENSE', invasionId: 'fresh-defense', workoutId: 'wk_very_easy_mobility', now: 1000 } });
     assert.ok(defense.success, JSON.stringify(defense.errors));
     assert.notStrictEqual(defense.payload.sessionId, prior.payload.sessionId);
@@ -404,7 +407,7 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
   for (const purpose of ['GOLDEN_YIELD', 'EXTRA_CONSTRUCTION_WORKERS'] as const) {
     test(`${purpose} starts without a normal entitlement or world policy`, async s => {
       delete s.world.workoutRewards;
-      const response = await s.host.execute({ commandId: 'START_WORKOUT', playerId: PLAYER,
+      const response = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'START_WORKOUT', playerId: PLAYER,
         parameters: { purpose, workoutId: 'wk_very_easy_mobility', sessionId: purpose, now: 1000 } });
       assert.ok(response.success, JSON.stringify(response.errors));
       assert.ok(!('completionRewardEntitlement' in response.payload));
@@ -418,7 +421,7 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
     value.activeInvasions.set('defense-fixture', createActiveInvasion({ id: 'defense-fixture', territoryId: target,
       defenderFactionId: player, attackerFactionId: other, startedAtTick: 0, notifiedAtTick: 0, responseDeadlineTick: 30 }));
     value.worldTick = value.accruedTargetWorldTick = 30;
-    const response = orch.execute({ commandId: 'START_WORKOUT', playerId: PLAYER, parameters: { purpose: 'DEFENSE',
+    const response = orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'START_WORKOUT', playerId: PLAYER, parameters: { purpose: 'DEFENSE',
       workoutId: 'wk_very_easy_mobility', invasionId: 'defense-fixture', sessionId: 'fresh-defense', now: 1000 } });
     assert.ok(response.success, JSON.stringify(response.errors));
     assert.strictEqual(orch.getState().playerFitness.activeSession!.completionRewardEntitlement, undefined);
@@ -429,7 +432,7 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
     value.activeInvasions.set('late-defense', createActiveInvasion({ id: 'late-defense', territoryId: value.factions.get(player)!.territories[0]!,
       defenderFactionId: player, attackerFactionId: [...value.factions.keys()].find(id => id !== player)!, startedAtTick: 0, notifiedAtTick: 0, responseDeadlineTick: 30 }));
     value.worldTick = value.accruedTargetWorldTick = 31;
-    assert.strictEqual(orch.execute({ commandId: 'START_WORKOUT', playerId: PLAYER, parameters: { purpose: 'DEFENSE', invasionId: 'late-defense',
+    assert.strictEqual(orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'START_WORKOUT', playerId: PLAYER, parameters: { purpose: 'DEFENSE', invasionId: 'late-defense',
       workoutId: 'wk_very_easy_mobility' } }).success, false);
   });
   test('HTTP wire body exposes only server-calculated lock and active-session terms', async s => {
@@ -446,7 +449,7 @@ export async function runWorkoutStartRewardTests(report: (name: string, fn: () =
       });
       const locked = entitlement(response); assert.strictEqual(locked.soldiers, 125);
       assert.notStrictEqual(locked.sessionId, 'client-wire-id');
-      const view = await s.host.execute({ commandId: 'GET_GAME_STATE', playerId: PLAYER });
+      const view = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'GET_GAME_STATE', playerId: PLAYER });
       assert.deepStrictEqual((view.payload.gameState as any).playerGameplay.activeWorkout.completionRewardEntitlement, locked);
     } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
   });

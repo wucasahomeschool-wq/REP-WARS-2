@@ -143,6 +143,7 @@ export function serializePublicGameState(state: GameState, viewerFactionId: Fact
     : undefined;
   return {
     schemaVersion: state.schemaVersion,
+    worldAttempt: state.worldAttempt,
     diplomacy: publicPeaceState(state,viewerFactionId),
     trade:publicTradeState(state,viewerFactionId),
     turn: state.turn,

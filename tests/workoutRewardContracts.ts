@@ -255,7 +255,8 @@ export function registerWorkoutRewardContractTests({ test }: { test: (name: stri
     const loaded = hydratePersistedPayload(baseline);
     assert.strictEqual(loaded.schemaVersion, GAME_STATE_SCHEMA_VERSION);
     assert.strictEqual(workoutCompletionRewardMode(loaded.playerFitness.activeSession!), 'LEGACY');
-    assert.deepStrictEqual(encodePersistable(loaded), { ...baseline, schemaVersion: GAME_STATE_SCHEMA_VERSION, definitionContentFingerprint: null });
+    assert.deepStrictEqual(encodePersistable(loaded), { ...baseline, schemaVersion: GAME_STATE_SCHEMA_VERSION, definitionContentFingerprint: null,
+      worldAttempt: 0, commandReceipts: {$map: [['legacy-command', { ...value.gameplaySessionLeases[0]!.lastCommandReceipt!, worldAttempt: 0, intentHash: null }]]} });
   });
   test('R1-C schema 28 pending reward migration retains identity amount and exactly-once retry', () => {
     const value = state(null), done = completed('legacy-pending');

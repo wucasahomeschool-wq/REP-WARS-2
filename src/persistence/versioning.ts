@@ -328,6 +328,27 @@ export function migrateGameStatePayload(raw: unknown): Record<string, unknown> {
   migrateTemporalAccrual(state, schema, worldTick);
   migrateGameplaySessionLeases(state, schema);
   migrateGameplayCommandReceipts(state, schema);
+  if (schema < 32) {
+    state.worldAttempt = 0;
+    const receipts = new Map();
+    for (const lease of (state.gameplaySessionLeases as import('../world/presenceLeases').GameplaySessionLease[])) {
+      const receipt = lease.lastCommandReceipt;
+      if (receipt && !receipts.has(receipt.requestId)) receipts.set(receipt.requestId, {
+        ...structuredClone(receipt), worldAttempt: 0, intentHash: null,
+      });
+      // Legacy leases also retain these IDs, but not their full request terms.
+      // Fence their reuse; do not fabricate an executable/replayable meaning.
+      for (const [id, commandId] of [[lease.openedByRequestId, 'SESSION_OPEN'],
+        [lease.lastRenewalRequestId, 'SESSION_HEARTBEAT']] as const) {
+        if (id && !receipts.has(id)) receipts.set(id, {
+          requestId: id, commandId, sequence: 0, success: true, payload: {}, errors: [],
+          worldAttempt: 0, intentHash: null,
+        });
+      }
+    }
+    state.commandReceipts = receipts;
+  }
+
   if (!Number.isInteger(state.lastFoodConsumptionTick) || (state.lastFoodConsumptionTick as number) < 0) {
     state.lastFoodConsumptionTick = worldTick;
   }

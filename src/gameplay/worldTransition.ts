@@ -1,3 +1,4 @@
+import {carryMutationIdentity} from '../world/mutationReceipts';
 import { cloneFitnessEstimate } from '../fitness/estimate/clone';
 import { clonePlayerProgressionState, emptyPlayerProgressionState } from '../fitness/progression/types';
 import { GameState, PlayerFitnessState } from '../types/GameState';
@@ -153,6 +154,7 @@ export function buildNextWorldState(
 
   const next = createGameStateFromWorld(loaded.definition, { seed: state.worldSeed });
   next.nextArmySequence = state.nextArmySequence;
+  carryMutationIdentity(state,next);
   next.completedWorldIds = [...new Set([...state.completedWorldIds,currentId])].sort();
   // The transition command must retain its durable session/receipt authority.
   // World ticks and accrual initialization still come from the new definition.

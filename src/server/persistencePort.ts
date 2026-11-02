@@ -8,6 +8,7 @@ import { SupabaseGameStateStore } from '../persistence/supabase/adapter';
 import { RoutingHistoryStore } from '../persistence/supabase/commandHistoryBuffer';
 import { SupabaseWorkoutHistoryStore } from '../persistence/supabase/historyAdapter';
 import { GameState } from '../types/GameState';
+import { snapshotGameState } from '../persistence/snapshot';
 
 /**
  * HTTP persistence boundary.
@@ -21,8 +22,8 @@ export interface PlayerWorldPersistence {
   ensure(playerId: string): EnsurePlayerWorldResult;
   save(playerId: string, state: GameState, expectedVersion: number): SaveWorldResult;
   /**
-   * Present for Supabase. Commits the world and this command's history upserts
-   * in commit_authoritative_player_world. Memory persistence omits it.
+   * Present for the built-in providers. Commits the world and this command's history upserts
+   * in commit_authoritative_player_world (or its synchronous memory equivalent).
    */
   commitWorld?(
     playerId: string,
@@ -53,7 +54,35 @@ export function createInMemoryPersistence(
   store: InMemoryGameStateStore = new InMemoryGameStateStore(),
   history: WorkoutHistoryStore = new InMemoryWorkoutHistoryStore(),
 ): PlayerWorldPersistence {
-  return bindStore('memory', store, history);
+  const routed = new RoutingHistoryStore(history);
+  return {
+    ...bindStore('memory', store, routed),
+    commitWorld(playerId, state, expectedVersion, historyEntries) {
+      // Same buffered commit contract as Supabase, using synchronous memory
+      // stores. No history write occurs before the world wins CAS.
+      const backup = history.clonePlayer(playerId);
+      const publishHistory = () => {
+        try { for (const entry of historyEntries) history.upsert(entry); }
+        catch (error) {
+          store.revertLastSave(playerId);
+          history.replacePlayer(playerId, backup);
+          throw error;
+        }
+      };
+      let saved: SaveWorldResult;
+      try { saved = this.save(playerId, state, expectedVersion); }
+      catch (error) {
+        // A test/development adapter can lose the save acknowledgment. Finish
+        // this synchronous commit only if the exact candidate won that CAS.
+        const loaded = store.load(playerId);
+        if (loaded.ok && loaded.record.stateVersion === expectedVersion + 1
+          && JSON.stringify(loaded.record.payload) === JSON.stringify(snapshotGameState(state))) publishHistory();
+        throw error;
+      }
+      if (saved.ok) publishHistory();
+      return saved;
+    },
+  };
 }
 
 export function createSupabasePersistence(): PlayerWorldPersistence {

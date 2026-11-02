@@ -26,6 +26,12 @@ export function authorizeCommand(
   def: CommandDefinition,
 ): void {
   if(state.levelDefeat.status==='defeated'&&['ARMY','COMBAT','TERRITORY','ECONOMY','DIPLOMACY','AI'].includes(def.category))throw new OrchestrationError(ErrorCode.ACTION_NOT_ALLOWED,'This world attempt has ended; restart the world to continue');
+  authorizeCommandActor(state, req, def);
+}
+
+/** Actor authorization also applies before replay; current gameplay eligibility
+ * (defeat, ownership, balances) is not re-executed for a committed outcome. */
+export function authorizeCommandActor(state: GameState, req: CommandRequest, def: CommandDefinition): void {
   if (def.category === 'SYSTEM' || def.category === 'WORLD' || def.category === 'AI') {
     return;
   }

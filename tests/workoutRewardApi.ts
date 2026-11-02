@@ -1,3 +1,4 @@
+import {nextMutationTestId} from './mutationTestRequests';
 import assert from 'assert';
 import { request as httpRequest } from 'node:http';
 import { scenario, open, finish } from './workoutStartRewards';
@@ -19,7 +20,7 @@ import { toWorkoutHistoryEntry } from '../src/fitness/history/record';
 
 const PLAYER = 'r1-d-player';
 type Scenario = ReturnType<typeof scenario>;
-const command = (commandId: string, parameters: Record<string, unknown> = {}): CommandRequest => ({ commandId, playerId: PLAYER, parameters });
+const command = (commandId: string, parameters: Record<string, unknown> = {}): CommandRequest => ({worldAttempt: 0, requestId: nextMutationTestId(),  commandId, playerId: PLAYER, parameters });
 function reward(response: CommandResponse): WorkoutRewardView {
   assert.ok(response.success, JSON.stringify(response.errors));
   const value = response.payload.workoutReward as WorkoutRewardView;
@@ -140,7 +141,7 @@ export async function runWorkoutRewardApiTests(report: (name: string, fn: () => 
   test('historical lookup and feedback work after another workout replaces the paid session', async s => {
     const old = await completed(s), paid = reward(await settle(s));
     const lease = s.load().state.gameplaySessionLeases[0]!;
-    reward(await s.host.execute({ commandId: 'START_WORKOUT', playerId: PLAYER, gameplaySessionId: lease.sessionId,
+    reward(await s.host.execute({worldAttempt: 0,  commandId: 'START_WORKOUT', playerId: PLAYER, gameplaySessionId: lease.sessionId,
       requestId: 'next', renewalSequence: 2, commandSequence: 2, parameters: { purpose: 'NORMAL_TROOPS', size: 'SHORT', now: 30000 } }));
     const current = s.load().state.playerFitness.activeSession!;
     s.host = createSessionHost(s.persistence, { nowMs: () => 1000 });
@@ -190,7 +191,7 @@ export async function runWorkoutRewardApiTests(report: (name: string, fn: () => 
       assert.strictEqual(foreign.response.success, false); assert.deepStrictEqual(foreign.response.errors, missing.response.errors);
       assert.ok(!foreign.text.includes('test-only-revision')); assert.ok(!foreign.text.includes('entitlementId'));
       for (const commandId of ['FINALIZE_WORKOUT', 'SUBMIT_WORKOUT_FEEDBACK']) {
-        const attempted = await post({ commandId, playerId: 'other-player', parameters: { sessionId: session.sessionId, value: 'EASY', now: 20000 } });
+        const attempted = await post({worldAttempt: 0, requestId: nextMutationTestId(),  commandId, playerId: 'other-player', parameters: { sessionId: session.sessionId, value: 'EASY', now: 20000 } });
         assert.strictEqual(attempted.response.success, false);
       }
       assert.strictEqual(s.load().state.playerRewards.bankedTroops, 125);

@@ -1,3 +1,4 @@
+import {carryMutationIdentity} from '../world/mutationReceipts';
 import type {GameState} from '../types/GameState';
 import {ErrorCode,OrchestrationError} from '../orchestration/errors';
 import {getDefaultWorldCatalog,isLegacyDefinitionWorldId,assertWorldIdentity} from '../worldDefinition';
@@ -19,6 +20,7 @@ export function restartDefeatedWorld(s:GameState):void {
   assertWorldIdentity(s,loaded.definition);
   const next=createGameStateFromWorld(loaded.definition,{seed:s.worldSeed,playerFactionId:s.playerFactionId});
   next.nextArmySequence=s.nextArmySequence;
+  carryMutationIdentity(s,next);
   next.completedWorldIds=[...s.completedWorldIds];
   next.gameplaySessionLeases=s.gameplaySessionLeases.map(validateGameplaySessionLease);
   carryPlayerScopedFitness(s.playerFitness,next.playerFitness);

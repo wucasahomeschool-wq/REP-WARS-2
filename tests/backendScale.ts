@@ -1,3 +1,4 @@
+import {nextMutationTestId, gameplaySnapshot} from './mutationTestRequests';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { loadTinyWorldDefinition, getDefaultWorldCatalog } from '../src/worldDefinition/catalog';
@@ -74,7 +75,7 @@ export async function runScaleWorld(definition: WorldDefinition, seed: number, m
     assert.ok(requests++ <= ticks); // Detect non-progress without assuming fixed chunk boundaries.
     const host = createSessionHost(persistence,{nowMs:()=>now,maxCatchUpChunks,maxCachedPlayers:0});
     const requestStart = performance.now();
-    const result = await host.execute({commandId:'SYNC_PLAYER_WORLD',playerId:'scale-player'});
+    const result = await host.execute({worldAttempt: 0, requestId: nextMutationTestId(), commandId:'SYNC_PLAYER_WORLD',playerId:'scale-player'});
     timings.push(performance.now()-requestStart);assert.ok(result.success,JSON.stringify(result.errors));
     const advance = result.payload.worldAdvance as WorldAdvanceResult;
 
@@ -106,7 +107,7 @@ export async function runScaleWorld(definition: WorldDefinition, seed: number, m
     }
   }
   const final = store.load('scale-player'); assert.ok(final.ok);
-  const snapshot = snapshotGameState(final.state), canonical = JSON.stringify(snapshot);
+  const snapshot = gameplaySnapshot(final.state), canonical = JSON.stringify(snapshot);
   const publicStart = performance.now();let publicBytes=0;
   for (let i=0;i<100;i++) publicBytes=Buffer.byteLength(JSON.stringify(serializePublicGameState(final.state,final.state.playerFactionId)));
   const publicMs=performance.now()-publicStart;

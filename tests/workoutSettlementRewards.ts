@@ -1,3 +1,4 @@
+import {nextMutationTestId} from './mutationTestRequests';
 import assert from 'assert';
 import { scenario, open, finish } from './workoutStartRewards';
 import { getAuthoredWorkoutCatalog, installAuthoredWorkoutCatalog } from '../src/fitness/authoring/registry';
@@ -32,7 +33,7 @@ import { playerProtectionTicks } from '../src/gameplay/config';
 
 const PLAYER = 'r1-d-player';
 type Scenario = ReturnType<typeof scenario>;
-const finalize = (s: Scenario, sessionId?: string, requestId?: string) => s.host.execute({
+const finalize = (s: Scenario, sessionId?: string, requestId: string = nextMutationTestId()) => s.host.execute({worldAttempt: 0,
   commandId: 'FINALIZE_WORKOUT', playerId: PLAYER, requestId, parameters: sessionId ? { sessionId } : {},
 });
 async function completed(s: Scenario) {
@@ -73,7 +74,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
       assert.ok((await s.host.execute({ ...req, parameters: { ...req.parameters, size } })).success);
       const session = await finish(s.host, s);
       assert.strictEqual(session.feedback, null);
-      const result = await s.host.execute({ commandId: 'FINALIZE_WORKOUT', playerId: PLAYER });
+      const result = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'FINALIZE_WORKOUT', playerId: PLAYER });
       assert.ok(result.success, JSON.stringify(result));
       const state = s.load().state;
       assert.strictEqual(state.playerRewards.bankedTroops, amount);
@@ -109,7 +110,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
     assert.deepStrictEqual(s.load().state.playerRewards, before);
     const active = s.load().state.playerFitness.activeSession!;
     const step = getCurrentExercise(active)!;
-    const response = await s.host.execute({ commandId: 'RECORD_EXERCISE', playerId: PLAYER,
+    const response = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'RECORD_EXERCISE', playerId: PLAYER,
       parameters: { order: step.order, repetitions: 1, now: 2000 } });
     assert.ok(response.success);
     assert.strictEqual((await finalize(s)).success, false);
@@ -117,7 +118,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
   });
   test('abandoned workout earns nothing and can leave a completed campaign', async s => {
     assert.ok((await s.host.execute(await open(s))).success);
-    assert.ok((await s.host.execute({ commandId: 'ABANDON_WORKOUT', playerId: PLAYER, parameters: { now: 2000 } })).success);
+    assert.ok((await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'ABANDON_WORKOUT', playerId: PLAYER, parameters: { now: 2000 } })).success);
     assert.strictEqual((await finalize(s)).success, false);
     const state = conquered(); state.playerFitness.activeSession = s.load().state.playerFitness.activeSession;
     assert.ok(evaluateWorldTransition(state).eligible);
@@ -172,7 +173,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
   test('lost response sequenced retry replays the committed response; stale commands cannot pay', async s => {
     const session = await completed(s);
     const lease = s.load().state.gameplaySessionLeases[0]!;
-    const request: CommandRequest = { commandId: 'FINALIZE_WORKOUT', playerId: PLAYER, requestId: 'lost',
+    const request: CommandRequest = {worldAttempt: 0,  commandId: 'FINALIZE_WORKOUT', playerId: PLAYER, requestId: 'lost',
       gameplaySessionId: lease.sessionId, commandSequence: 2, renewalSequence: 2, parameters: { sessionId: session.sessionId } };
     const first = await s.host.execute(request);
     assert.ok(first.success);
@@ -187,9 +188,9 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
   test('restart before and after settlement preserves lock and ledger', async s => {
     const session = await completed(s);
     const host = createSessionHost(s.persistence, { nowMs: () => 1000 });
-    assert.ok((await host.execute({ commandId: 'FINALIZE_WORKOUT', playerId: PLAYER })).success);
+    assert.ok((await host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'FINALIZE_WORKOUT', playerId: PLAYER })).success);
     const restored = createSessionHost(s.persistence, { nowMs: () => 1000 });
-    const result = await restored.execute({ commandId: 'FINALIZE_WORKOUT', playerId: PLAYER, parameters: { sessionId: session.sessionId } });
+    const result = await restored.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'FINALIZE_WORKOUT', playerId: PLAYER, parameters: { sessionId: session.sessionId } });
     assert.ok(result.success); assert.strictEqual(result.payload.alreadyProcessed, true);
     assert.strictEqual(s.load().state.playerRewards.bankedTroops, 125);
   });
@@ -200,11 +201,11 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
       ? { ok: false, code: 'persistence.save_failed', message: 'injected failure', persisted: false }
       : s.persistence.save(player, state, version) };
     const host = createSessionHost(persistence, { nowMs: () => 1000 });
-    await assert.rejects(() => host.execute({ commandId: 'FINALIZE_WORKOUT', playerId: PLAYER }));
+    await assert.rejects(() => host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'FINALIZE_WORKOUT', playerId: PLAYER }));
     assert.deepStrictEqual(snapshotGameState(s.load().state), snapshotGameState(original.state));
     assert.deepStrictEqual(s.history.clonePlayer(PLAYER), priorHistory);
     fail = false;
-    assert.ok((await host.execute({ commandId: 'FINALIZE_WORKOUT', playerId: PLAYER })).success);
+    assert.ok((await host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'FINALIZE_WORKOUT', playerId: PLAYER })).success);
     assert.strictEqual(s.load().state.playerRewards.bankedTroops, session.completionRewardEntitlement!.soldiers);
   });
   test('buffered atomic history failure publishes neither world nor history and retries safely', async s => {
@@ -220,12 +221,12 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
         return saved;
       } };
     const host = createSessionHost(persistence, { nowMs: () => 1000 });
-    await assert.rejects(() => host.execute({ commandId: 'FINALIZE_WORKOUT', playerId: PLAYER }));
+    await assert.rejects(() => host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'FINALIZE_WORKOUT', playerId: PLAYER }));
     assert.strictEqual(entries, 1);
     assert.deepStrictEqual(snapshotGameState(s.load().state), snapshotGameState(before.state));
     assert.strictEqual(s.history.get(PLAYER, before.state.playerFitness.activeSession!.sessionId), null);
     fail = false;
-    assert.ok((await host.execute({ commandId: 'FINALIZE_WORKOUT', playerId: PLAYER })).success);
+    assert.ok((await host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'FINALIZE_WORKOUT', playerId: PLAYER })).success);
     assert.strictEqual(s.load().state.playerRewards.bankedTroops, 125);
   });
   test('two loaded writers conflict at CAS; loser reloads original settlement', async s => {
@@ -244,7 +245,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
   test('late feedback evaluates fitness once without another soldier payout', async s => {
     const session = await completed(s); assert.ok((await finalize(s)).success);
     const before = s.load().state.playerRewards;
-    const request: CommandRequest = { commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
+    const request: CommandRequest = {worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
       parameters: { sessionId: session.sessionId, value: 'ABOUT_RIGHT', now: 20000 } };
     assert.ok((await s.host.execute(request)).success);
     const after = s.load().state;
@@ -260,7 +261,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
   });
   test('feedback before settlement preserves evidence and pays the same locked amount', async s => {
     const session = await completed(s);
-    assert.ok((await s.host.execute({ commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
+    assert.ok((await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
       parameters: { value: 'HARD', now: 20000 } })).success);
     assert.strictEqual(s.load().state.playerRewards.bankedTroops, 0);
     assert.ok((await finalize(s)).success);
@@ -270,11 +271,11 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
   test('historical feedback does not replace another active session or repay old reward', async s => {
     const old = await completed(s); assert.ok((await finalize(s)).success);
     const lease = s.load().state.gameplaySessionLeases[0]!;
-    assert.ok((await s.host.execute({ commandId: 'START_WORKOUT', playerId: PLAYER, requestId: 'next',
+    assert.ok((await s.host.execute({worldAttempt: 0,  commandId: 'START_WORKOUT', playerId: PLAYER, requestId: 'next',
       gameplaySessionId: lease.sessionId, commandSequence: 2, renewalSequence: 2,
       parameters: { purpose: 'NORMAL_TROOPS', size: 'SHORT', now: 30000 } })).success);
     const active = s.load().state.playerFitness.activeSession!;
-    assert.ok((await s.host.execute({ commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
+    assert.ok((await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
       parameters: { sessionId: old.sessionId, value: 'EASY', now: 40000 } })).success);
     assert.deepStrictEqual(s.load().state.playerFitness.activeSession, active);
     assert.ok((await finalize(s, old.sessionId)).success);
@@ -292,9 +293,9 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
     const registry = createDefaultRegistry(); registry.workoutHistory = s.history;
     const orch = new Orchestrator(next, registry);
     const before = next.playerRewards.bankedTroops;
-    assert.ok(orch.execute({ commandId: 'FINALIZE_WORKOUT', playerId: PLAYER, parameters: { sessionId: session.sessionId } }).success);
+    assert.ok(orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'FINALIZE_WORKOUT', playerId: PLAYER, parameters: { sessionId: session.sessionId } }).success);
     assert.strictEqual(orch.getState().playerRewards.bankedTroops, before);
-    assert.ok(orch.execute({ commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
+    assert.ok(orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
       parameters: { sessionId: session.sessionId, value: 'ABOUT_RIGHT', now: 20000 } }).success);
     assert.ok(orch.getState().playerFitness.estimate);
     assert.strictEqual(orch.getState().playerRewards.bankedTroops, before);
@@ -348,12 +349,12 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
   });
   for (const purpose of ['GOLDEN_YIELD', 'EXTRA_CONSTRUCTION_WORKERS'] as const) {
     test(`${purpose} retains specialized effects without ordinary soldiers`, async s => {
-      const start = await s.host.execute({ commandId: 'START_WORKOUT', playerId: PLAYER,
+      const start = await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'START_WORKOUT', playerId: PLAYER,
         parameters: { purpose, workoutId: 'wk_easy_core', now: 1000 } });
       assert.ok(start.success, JSON.stringify(start.errors));
       const session = await finish(s.host, s);
       assert.strictEqual(session.completionRewardEntitlement, undefined);
-      assert.ok((await s.host.execute({ commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
+      assert.ok((await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
         parameters: { value: 'ABOUT_RIGHT', now: 20000 } })).success);
       const response = await finalize(s); assert.ok(response.success, JSON.stringify(response.errors));
       const state = s.load().state;
@@ -386,7 +387,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
   });
   test('paused workout blocks campaign transition', async s => {
     assert.ok((await s.host.execute(await open(s))).success);
-    assert.ok((await s.host.execute({ commandId: 'PAUSE_WORKOUT', playerId: PLAYER, parameters: { now: 1500 } })).success);
+    assert.ok((await s.host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'PAUSE_WORKOUT', playerId: PLAYER, parameters: { now: 1500 } })).success);
     const state = conquered(); state.playerFitness.activeSession = s.load().state.playerFitness.activeSession;
     assert.strictEqual(evaluateWorldTransition(state).eligible, false);
     assert.throws(() => buildNextWorldState(state), /active/);
@@ -396,7 +397,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
     const state = conquered(); state.playerFitness.activeSession = s.load().state.playerFitness.activeSession;
     const registry = createDefaultRegistry(); registry.workoutHistory = s.history;
     const orch = new Orchestrator(state, registry), before = snapshotGameState(orch.getState());
-    const response = orch.execute({ commandId: 'TRANSITION_TO_NEXT_WORLD', playerId: PLAYER });
+    const response = orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'TRANSITION_TO_NEXT_WORLD', playerId: PLAYER });
     assert.strictEqual(response.success, false);
     assert.deepStrictEqual(snapshotGameState(orch.getState()), before);
   });
@@ -429,7 +430,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
     const persistence: PlayerWorldPersistence = { ...s.persistence, save: () => ({ ok: false,
       code: 'persistence.save_failed', message: 'feedback rollback', persisted: false }) };
     const host = createSessionHost(persistence, { nowMs: () => 1000 });
-    await assert.rejects(() => host.execute({ commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
+    await assert.rejects(() => host.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
       parameters: { value: 'EASY', now: 20000 } }));
     assert.deepStrictEqual(snapshotGameState(s.load().state), snapshotGameState(before.state));
     assert.deepStrictEqual(s.history.get(PLAYER, session.sessionId), historyBefore);
@@ -455,8 +456,8 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
     await completed(s);
     const registry = createDefaultRegistry(); registry.workoutHistory = s.history;
     const orch = new Orchestrator(s.load().state, registry), before = snapshotGameState(orch.getState());
-    assert.strictEqual(orch.execute({ commandId: 'FINALIZE_WORKOUT', playerId: 'other' }).success, false);
-    assert.strictEqual(orch.execute({ commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: 'other',
+    assert.strictEqual(orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'FINALIZE_WORKOUT', playerId: 'other' }).success, false);
+    assert.strictEqual(orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: 'other',
       parameters: { value: 'EASY', now: 20000 } }).success, false);
     assert.deepStrictEqual(snapshotGameState(orch.getState()), before);
   });
@@ -468,7 +469,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
     original.state.playerFitness.estimate = { ...newer.value, observationCount: 4 };
     const registry = createDefaultRegistry(); registry.workoutHistory = s.history;
     const orch = new Orchestrator(original.state, registry);
-    assert.ok(orch.execute({ commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER, parameters: { value: 'ABOUT_RIGHT', now: 20000 } }).success);
+    assert.ok(orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER, parameters: { value: 'ABOUT_RIGHT', now: 20000 } }).success);
     const state = orch.getState();
     assert.ok(state.playerFitness.estimate); assert.strictEqual(state.playerFitness.estimate!.lastUpdatedAt, 50000);
     assert.strictEqual(s.history.get(PLAYER, session.sessionId)!.evidence!.completedAt, session.completedAt);
@@ -481,7 +482,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
     state.gameplaySessionLeases = before.state.gameplaySessionLeases;
     assert.ok(s.store.save(PLAYER, state, before.record.stateVersion).ok);
     const host = createSessionHost(s.persistence, { nowMs: () => 1000 });
-    const request: CommandRequest = { commandId: 'TRANSITION_TO_NEXT_WORLD', playerId: PLAYER, requestId: 'transition',
+    const request: CommandRequest = {worldAttempt: 0,  commandId: 'TRANSITION_TO_NEXT_WORLD', playerId: PLAYER, requestId: 'transition',
       gameplaySessionId: state.gameplaySessionLeases[0]!.sessionId, commandSequence: 2, renewalSequence: 2 };
     const response = await host.execute(request); assert.ok(response.success, JSON.stringify(response));
     const restored = createSessionHost(s.persistence, { nowMs: () => 1000 });
@@ -492,7 +493,7 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
     assert.strictEqual(next.playerRewards.appliedRewards.length, 1);
     assert.strictEqual(next.worldTick, 0); assert.strictEqual(next.accruedTargetWorldTick, 0);
     assert.strictEqual(next.gameplaySessionLeases[0]!.lastCommandReceipt!.commandId, 'TRANSITION_TO_NEXT_WORLD');
-    assert.ok((await restored.execute({ commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
+    assert.ok((await restored.execute({worldAttempt: 1, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
       parameters: { sessionId: session.sessionId, value: 'ABOUT_RIGHT', now: 20000 } })).success);
     assert.ok(s.load().state.playerFitness.estimate);
     assert.strictEqual(s.load().state.playerFitness.lastWorkoutCompletedAtTick, null);
@@ -507,11 +508,11 @@ export async function runWorkoutSettlementRewardTests(report: (name: string, fn:
     assert.strictEqual(isPlayerProtected(state), false);
     const registry = createDefaultRegistry(); registry.workoutHistory = s.history;
     const orch = new Orchestrator(state, registry);
-    assert.ok(orch.execute({ commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
+    assert.ok(orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'SUBMIT_WORKOUT_FEEDBACK', playerId: PLAYER,
       parameters: { sessionId: session.sessionId, value: 'ABOUT_RIGHT', now: 20000 } }).success);
     assert.strictEqual(orch.getState().playerFitness.lastWorkoutCompletedAtTick, 0);
     assert.strictEqual(isPlayerProtected(orch.getState()), false);
-    assert.ok(orch.execute({ commandId: 'FINALIZE_WORKOUT', playerId: PLAYER, parameters: { sessionId: session.sessionId } }).success);
+    assert.ok(orch.execute({worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'FINALIZE_WORKOUT', playerId: PLAYER, parameters: { sessionId: session.sessionId } }).success);
     assert.strictEqual(orch.getState().playerFitness.lastWorkoutCompletedAtTick, 0);
     assert.strictEqual(isPlayerProtected(orch.getState()), false);
   });

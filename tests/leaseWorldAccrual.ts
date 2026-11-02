@@ -34,16 +34,16 @@ export async function runLeaseWorldAccrualTests(
     assert.strictEqual(state.accrualDivisionRemainder, 0);
     assert.strictEqual(state.lastAccrualAtMs, 30 * MINUTE);
     assert.strictEqual(state.lastProcessedAtMs, 1);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 31);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 32);
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
   });
 
   await report('online 60 seconds earns one target tick', async () => {
     const { host, clock, store } = harness();
     clock.set(0);
-    const opened = await host.openGameplaySession('online-minute', 'open-1');
+    const opened = await host.openGameplaySession('online-minute', 'open-1', 0);
     clock.set(MINUTE);
-    const beat = await host.heartbeatGameplaySession('online-minute', 'hb-1', opened.sessionId, 1);
+    const beat = await host.heartbeatGameplaySession('online-minute', 'hb-1', opened.sessionId, 1, 0);
     assert.strictEqual(beat.outcome, 'renewed');
     const state = load(store, 'online-minute');
     assert.strictEqual(state.worldTick, 0);
@@ -117,10 +117,10 @@ export async function runLeaseWorldAccrualTests(
   await report('opening at T does not make the previous interval online', async () => {
     const { host, clock, store } = harness();
     clock.set(0);
-    const missing = await host.heartbeatGameplaySession('gap', 'hb-missing', 'missing-session', 1);
+    const missing = await host.heartbeatGameplaySession('gap', 'hb-missing', 'missing-session', 1, 0);
     assert.strictEqual(missing.outcome, 'unknown_session');
     clock.set(30 * MINUTE);
-    const opened = await host.openGameplaySession('gap', 'open-1');
+    const opened = await host.openGameplaySession('gap', 'open-1', 0);
     assert.strictEqual(opened.openedAtMs, 30 * MINUTE);
     const state = load(store, 'gap');
     assert.strictEqual(state.worldTick, 0);
@@ -134,9 +134,9 @@ export async function runLeaseWorldAccrualTests(
   await report('time after expiry is offline', async () => {
     const { host, clock, store } = harness();
     clock.set(0);
-    const opened = await host.openGameplaySession('expired', 'open-1');
+    const opened = await host.openGameplaySession('expired', 'open-1', 0);
     clock.set(90_000 + 10 * MINUTE);
-    const late = await host.heartbeatGameplaySession('expired', 'hb-late', opened.sessionId, 1);
+    const late = await host.heartbeatGameplaySession('expired', 'hb-late', opened.sessionId, 1, 0);
     assert.strictEqual(late.outcome, 'expired');
     const state = load(store, 'expired');
     assert.strictEqual(state.gameplaySessionLeases[0]!.expiresAtMs, 90_000);
@@ -149,11 +149,11 @@ export async function runLeaseWorldAccrualTests(
   await report('time after an explicit end is offline', async () => {
     const { host, clock, store } = harness();
     clock.set(0);
-    const opened = await host.openGameplaySession('ended', 'open-1');
+    const opened = await host.openGameplaySession('ended', 'open-1', 0);
     clock.set(MINUTE);
-    await host.endGameplaySession('ended', 'end-1', opened.sessionId);
+    await host.endGameplaySession('ended', 'end-1', opened.sessionId, 0);
     clock.set(2 * MINUTE);
-    await host.openGameplaySession('ended', 'open-2');
+    await host.openGameplaySession('ended', 'open-2', 0);
     const state = load(store, 'ended');
     assert.strictEqual(state.gameplaySessionLeases[0]!.endedAtMs, MINUTE);
     assert.strictEqual(state.worldTick, 0);
@@ -179,12 +179,12 @@ export async function runLeaseWorldAccrualTests(
   await report('ending one session leaves the other session online', async () => {
     const { host, clock, store } = harness();
     clock.set(0);
-    const first = await host.openGameplaySession('union', 'open-a');
-    const second = await host.openGameplaySession('union', 'open-b');
+    const first = await host.openGameplaySession('union', 'open-a', 0);
+    const second = await host.openGameplaySession('union', 'open-b', 0);
     clock.set(30_000);
-    await host.endGameplaySession('union', 'end-a', first.sessionId);
+    await host.endGameplaySession('union', 'end-a', first.sessionId, 0);
     clock.set(MINUTE);
-    await host.heartbeatGameplaySession('union', 'hb-b', second.sessionId, 1);
+    await host.heartbeatGameplaySession('union', 'hb-b', second.sessionId, 1, 0);
     const state = load(store, 'union');
     assert.strictEqual(state.gameplaySessionLeases[0]!.endedAtMs, 30_000);
     assert.strictEqual(state.worldTick, 0);
@@ -196,9 +196,9 @@ export async function runLeaseWorldAccrualTests(
   await report('a crash stays online until expiry and offline after it', async () => {
     const { host, clock, store } = harness();
     clock.set(0);
-    await host.openGameplaySession('crash', 'open-1');
+    await host.openGameplaySession('crash', 'open-1', 0);
     clock.set(10 * MINUTE);
-    await host.openGameplaySession('crash', 'open-2');
+    await host.openGameplaySession('crash', 'open-2', 0);
     const state = load(store, 'crash');
     assert.strictEqual(state.gameplaySessionLeases[0]!.endedAtMs, null);
     assert.strictEqual(state.gameplaySessionLeases[0]!.expiresAtMs, 90_000);
@@ -212,9 +212,9 @@ export async function runLeaseWorldAccrualTests(
   await report('a late heartbeat does not rewrite the expired gap', async () => {
     const { host, clock, store } = harness();
     clock.set(0);
-    const opened = await host.openGameplaySession('late', 'open-1');
+    const opened = await host.openGameplaySession('late', 'open-1', 0);
     clock.set(10 * MINUTE);
-    const late = await host.heartbeatGameplaySession('late', 'hb-late', opened.sessionId, 1);
+    const late = await host.heartbeatGameplaySession('late', 'hb-late', opened.sessionId, 1, 0);
     assert.strictEqual(late.outcome, 'expired');
     const state = load(store, 'late');
     assert.strictEqual(state.gameplaySessionLeases.length, 1);
@@ -226,12 +226,12 @@ export async function runLeaseWorldAccrualTests(
   await report('a new session after expiry is online only from its open receipt', async () => {
     const { host, clock, store } = harness();
     clock.set(0);
-    const opened = await host.openGameplaySession('reopen', 'open-1');
+    const opened = await host.openGameplaySession('reopen', 'open-1', 0);
     clock.set(10 * MINUTE);
-    await host.heartbeatGameplaySession('reopen', 'hb-late', opened.sessionId, 1);
-    const revived = await host.openGameplaySession('reopen', 'open-2');
+    await host.heartbeatGameplaySession('reopen', 'hb-late', opened.sessionId, 1, 0);
+    const revived = await host.openGameplaySession('reopen', 'open-2', 0);
     clock.set(10 * MINUTE + MINUTE);
-    await host.heartbeatGameplaySession('reopen', 'hb-new', revived.sessionId, 1);
+    await host.heartbeatGameplaySession('reopen', 'hb-new', revived.sessionId, 1, 0);
     const state = load(store, 'reopen');
     assert.strictEqual(state.gameplaySessionLeases.length, 2);
     assert.strictEqual(state.gameplaySessionLeases[1]!.openedAtMs, 10 * MINUTE);
@@ -269,10 +269,10 @@ export async function runLeaseWorldAccrualTests(
   await report('two sessions do not double the world rate', async () => {
     const { host, clock, store } = harness();
     clock.set(0);
-    const first = await host.openGameplaySession('double', 'open-a');
-    await host.openGameplaySession('double', 'open-b');
+    const first = await host.openGameplaySession('double', 'open-a', 0);
+    await host.openGameplaySession('double', 'open-b', 0);
     clock.set(MINUTE);
-    await host.heartbeatGameplaySession('double', 'hb-a', first.sessionId, 1);
+    await host.heartbeatGameplaySession('double', 'hb-a', first.sessionId, 1, 0);
     const state = load(store, 'double');
     assert.strictEqual(state.gameplaySessionLeases.length, 2);
     assert.strictEqual(state.accruedTargetWorldTick, 1);
@@ -295,12 +295,12 @@ export async function runLeaseWorldAccrualTests(
   await report('heartbeats on two leases still earn one online rate', async () => {
     const { host, clock, store } = harness();
     clock.set(0);
-    const first = await host.openGameplaySession('beats', 'open-a');
-    const second = await host.openGameplaySession('beats', 'open-b');
+    const first = await host.openGameplaySession('beats', 'open-a', 0);
+    const second = await host.openGameplaySession('beats', 'open-b', 0);
     clock.set(30_000);
-    await host.heartbeatGameplaySession('beats', 'hb-a', first.sessionId, 1);
+    await host.heartbeatGameplaySession('beats', 'hb-a', first.sessionId, 1, 0);
     clock.set(MINUTE);
-    await host.heartbeatGameplaySession('beats', 'hb-b', second.sessionId, 1);
+    await host.heartbeatGameplaySession('beats', 'hb-b', second.sessionId, 1, 0);
     const state = load(store, 'beats');
     assert.strictEqual(state.accruedTargetWorldTick, 1);
     assert.strictEqual(state.subTickMicroticks, 0);
@@ -346,7 +346,7 @@ export async function runLeaseWorldAccrualTests(
     const { store, clock, persistence } = harness();
     clock.set(0);
     const host = createSessionHost(persistence, { nowMs: clock.now });
-    const opened = await host.openGameplaySession('race', 'open-1');
+    const opened = await host.openGameplaySession('race', 'open-1', 0);
     clock.set(MINUTE);
     const racing = wrapSave(persistence, () => {
       const loaded = store.load('race');
@@ -361,7 +361,7 @@ export async function runLeaseWorldAccrualTests(
       assert.strictEqual(store.save('race', applied.state, loaded.record.stateVersion).ok, true);
     });
     const racer = createSessionHost(racing, { nowMs: () => MINUTE });
-    const result = await racer.heartbeatGameplaySession('race', 'hb-racer', opened.sessionId, 2);
+    const result = await racer.heartbeatGameplaySession('race', 'hb-racer', opened.sessionId, 2, 0);
     assert.strictEqual(result.outcome, 'renewed');
     const state = load(store, 'race');
     assert.strictEqual(state.worldTick, 0);
@@ -374,14 +374,14 @@ export async function runLeaseWorldAccrualTests(
   await report('a stale writer conflicts and the retry keeps the captured receipt', async () => {
     const control = harness();
     control.clock.set(0);
-    const controlOpen = await control.host.openGameplaySession('control', 'open-1');
+    const controlOpen = await control.host.openGameplaySession('control', 'open-1', 0);
     control.clock.set(MINUTE);
-    await control.host.heartbeatGameplaySession('control', 'hb-1', controlOpen.sessionId, 1);
+    await control.host.heartbeatGameplaySession('control', 'hb-1', controlOpen.sessionId, 1, 0);
 
     const { store, clock, persistence } = harness();
     clock.set(0);
     const host = createSessionHost(persistence, { nowMs: clock.now });
-    const opened = await host.openGameplaySession('retry', 'open-1');
+    const opened = await host.openGameplaySession('retry', 'open-1', 0);
     clock.set(MINUTE);
     const racing = wrapSave(persistence, () => {
       const loaded = store.load('retry');
@@ -396,7 +396,7 @@ export async function runLeaseWorldAccrualTests(
       assert.strictEqual(store.save('retry', applied.state, loaded.record.stateVersion).ok, true);
     });
     const racer = createSessionHost(racing, { nowMs: () => MINUTE });
-    await racer.heartbeatGameplaySession('retry', 'hb-racer', opened.sessionId, 2);
+    await racer.heartbeatGameplaySession('retry', 'hb-racer', opened.sessionId, 2, 0);
     assert.deepStrictEqual(temporal(load(store, 'retry')), temporal(load(control.store, 'control')));
   });
 
@@ -404,7 +404,7 @@ export async function runLeaseWorldAccrualTests(
     const { store, clock, persistence } = harness();
     clock.set(0);
     const host = createSessionHost(persistence, { nowMs: clock.now });
-    const opened = await host.openGameplaySession('regress', 'open-1');
+    const opened = await host.openGameplaySession('regress', 'open-1', 0);
     const loaded = store.load('regress');
     assert.strictEqual(loaded.ok, true);
     if (!loaded.ok) return;
@@ -417,7 +417,7 @@ export async function runLeaseWorldAccrualTests(
     assert.strictEqual(store.save('regress', applied.state, loaded.record.stateVersion).ok, true);
     clock.set(30_000);
     const earlier = createSessionHost(persistence, { nowMs: clock.now });
-    await assert.rejects(() => earlier.heartbeatGameplaySession('regress', 'hb-earlier', opened.sessionId, 2));
+    await assert.rejects(() => earlier.heartbeatGameplaySession('regress', 'hb-earlier', opened.sessionId, 2, 0));
     const state = load(store, 'regress');
     assert.strictEqual(state.accruedTargetWorldTick, 1);
     assert.strictEqual(state.subTickMicroticks, 0);
@@ -484,7 +484,7 @@ export async function runLeaseWorldAccrualTests(
   await report('mutating commands observe trusted receipts while reads remain non-mutating', async () => {
     const { host, clock, store } = harness();
     clock.set(1_000);
-    const opened = await host.openGameplaySession('command', 'open-1');
+    const opened = await host.openGameplaySession('command', 'open-1', 0);
     const version = store.load('command');
     assert.strictEqual(version.ok, true);
     if (!version.ok) return;
@@ -496,7 +496,7 @@ export async function runLeaseWorldAccrualTests(
       timestamp: 1,
     });
     assert.strictEqual(read.success, true, read.errors[0]?.message);
-    const paused = await host.execute({
+    const paused = await host.execute({worldAttempt: 0,
       commandId: 'SET_PLAYER_PAUSE',
       playerId: 'command',
       requestId: 'pause-1',

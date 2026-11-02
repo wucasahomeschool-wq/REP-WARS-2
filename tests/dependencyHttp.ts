@@ -58,8 +58,8 @@ export async function runDependencyHttpTests(report:Report):Promise<void> {
   });
   await report('dependency HTTP: timeout then retry preserves logical command receipts exactly once',async()=>{
     const s=fixture(),held=deferred<string>();let stalled=true;
-    const lease=await s.host.openGameplaySession('alice','open');
-    const command={commandId:'SET_PLAYER_PAUSE',requestId:'pause',gameplaySessionId:lease.sessionId,commandSequence:1,renewalSequence:1,parameters:{paused:true}};
+    const lease=await s.host.openGameplaySession('alice','open', 0);
+    const command={worldAttempt: 0, commandId:'SET_PLAYER_PAUSE',requestId:'pause',gameplaySessionId:lease.sessionId,commandSequence:1,renewalSequence:1,parameters:{paused:true}};
     const load=()=>{const result=s.store.load('alice');assert.ok(result.ok);return snapshotGameState(result.state);};
     await serve(s,{authenticationLimits:{maxPending:1,timeoutMs:20},identity:{mode:'authenticated',authenticate:()=>stalled?held.promise:'alice'}},async send=>{
       const before=load(),writes=s.store.saveCount.value;

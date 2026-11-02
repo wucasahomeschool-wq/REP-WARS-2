@@ -1,3 +1,4 @@
+import {nextMutationTestId, gameplaySnapshot} from './mutationTestRequests';
 import { Orchestrator } from '../src/orchestration';
 import { createGameState } from '../src/state';
 import { makeConcretePlan } from '../src/types/AIConcretePlan';
@@ -55,25 +56,25 @@ export async function runBackendBoundaryTests(report: Report): Promise<void> {
     const oldCatalog=getAuthoredWorkoutCatalog(),s=scenario();let now=1000;
     const host=createSessionHost(s.persistence,{nowMs:()=>now});
     try {await serve(host,{identity:{mode:'authenticated',authenticate:()=> 'r1-d-player'}},async post=>{
-      const opened=await post('/session/open',{requestId:'diplomacy-open'}),lease=opened.body.sessionId;
+      const opened=await post('/session/open',{worldAttempt: 0, requestId:'diplomacy-open'}),lease=opened.body.sessionId;
       const fid=s.state.playerFactionId!,other=s.state.allFactionIds.find(f=>f!==fid)!;
       const plan=kind==='PEACE'?makeConcretePlan({action:'OFFER_PEACE',factionId:fid,counterpartyId:other})
         :makeConcretePlan({action:'TRADE',factionId:fid,counterpartyId:other,offered:{gold:1},requested:{food:1},
           proposerSource:{kind:'faction_stock',factionId:fid,resources:{gold:1}},
           delivery:{proposerTerritoryId:tradeNode(s.state,fid)!,recipientTerritoryId:tradeNode(s.state,other)!}});
-      const request={commandId:kind==='PEACE'?'OFFER_PEACE':'TRADE',requestId:'offer',parameters:{plan},gameplaySessionId:lease,commandSequence:1,renewalSequence:1};
+      const request={worldAttempt: 0, commandId:kind==='PEACE'?'OFFER_PEACE':'TRADE',requestId:'offer',parameters:{plan},gameplaySessionId:lease,commandSequence:1,renewalSequence:1};
       const result=await post('/commands',request);assert.equal(result.body.success,true,JSON.stringify(result.body));
       const saved=snapshotGameState(s.load().state);
       const replay=await post('/commands',request);assert.equal(replay.body.idempotentReplay,true);assert.deepEqual(snapshotGameState(s.load().state),saved);
       if(kind==='TRADE')assert.equal(reservedResource(s.load().state,fid,'gold'),1);
       now+=kind==='PEACE'?1000:2000;
-      const sync=await post('/commands',{commandId:'SYNC_PLAYER_WORLD'});assert.equal(sync.body.success,true,JSON.stringify(sync.body));
+      const sync=await post('/commands',{worldAttempt: 0, requestId: nextMutationTestId(), commandId:'SYNC_PLAYER_WORLD'});assert.equal(sync.body.success,true,JSON.stringify(sync.body));
       const proposals=kind==='PEACE'?s.load().state.peaceProposals:s.load().state.tradeProposals;
       const proposal=[...proposals.values()].find(p=>p.proposer===fid)!;assert.equal(proposal.status,'pending');
-      const before=snapshotGameState(s.load().state);
-      const unauthorized=await post('/commands',{commandId:`RESPOND_${kind}`,parameters:{proposalId:proposal.id,response:`ACCEPT_${kind}`}});
-      assert.equal(unauthorized.body.success,false);assert.deepEqual(snapshotGameState(s.load().state),before);
-      const withdrawal={commandId:`WITHDRAW_${kind}`,requestId:'withdraw',parameters:{proposalId:proposal.id},gameplaySessionId:lease,commandSequence:2,renewalSequence:2};
+      const before=gameplaySnapshot(s.load().state);
+      const unauthorized=await post('/commands',{worldAttempt: 0, requestId: nextMutationTestId(), commandId:`RESPOND_${kind}`,parameters:{proposalId:proposal.id,response:`ACCEPT_${kind}`}});
+      assert.equal(unauthorized.body.success,false);assert.equal(unauthorized.body.mutationOutcome,'rejected');assert.deepEqual(gameplaySnapshot(s.load().state),before);
+      const withdrawal={worldAttempt: 0, commandId:`WITHDRAW_${kind}`,requestId:'withdraw',parameters:{proposalId:proposal.id},gameplaySessionId:lease,commandSequence:2,renewalSequence:2};
       const cancelled=await post('/commands',withdrawal);assert.equal(cancelled.body.success,true,JSON.stringify(cancelled.body));
       assert.equal((kind==='PEACE'?s.load().state.peaceProposals:s.load().state.tradeProposals).get(proposal.id)!.status,'withdrawn');
       const after=snapshotGameState(s.load().state);await post('/commands',withdrawal);assert.deepEqual(snapshotGameState(s.load().state),after);
@@ -91,10 +92,10 @@ export async function runBackendBoundaryTests(report: Report): Promise<void> {
     let lease = '', workout = '', attack: Record<string, unknown> = {}, attackPayload: unknown;
     try {
       await serve(host, options, async post => {
-        const opened = await post('/session/open', { requestId: 'integration-open' });
+        const opened = await post('/session/open', {worldAttempt: 0,  requestId: 'integration-open' });
         assert.equal(opened.status, 200); lease = opened.body.sessionId as string;
         const command = async (commandId: string, parameters: Record<string,unknown> = {}, sequence?: number) => {
-          const result = await post('/commands', { commandId, parameters, requestId: `integration-${commandId}`,
+          const result = await post('/commands', {worldAttempt: 0,  commandId, parameters, requestId: sequence === undefined ? nextMutationTestId() : `integration-${commandId}-${sequence}`,
             ...(sequence === undefined ? {} : { gameplaySessionId: lease, commandSequence: sequence, renewalSequence: sequence }) });
           assert.equal(result.body.success, true, JSON.stringify(result.body)); return result.body;
         };
@@ -116,11 +117,11 @@ export async function runBackendBoundaryTests(report: Report): Promise<void> {
         await command('FINALIZE_WORKOUT', {}, 2);
         assert.deepEqual(snapshotGameState(s.load().state), beforeRetry);
         const beforeAttack = s.load().state, initialTotal = troops(beforeAttack);
-        const invalid = await post('/commands', {commandId:'ATTACK',parameters:{territoryId:'t_03',commitAmount:181},
+        const invalid = await post('/commands', {worldAttempt: 0, requestId: nextMutationTestId(), commandId:'ATTACK',parameters:{territoryId:'t_03',commitAmount:181},
           gameplaySessionId:lease,commandSequence:3,renewalSequence:3});
         assert.equal(invalid.body.success, false);
-        assert.deepEqual(snapshotGameState(s.load().state), snapshotGameState(beforeAttack));
-        attack = {commandId:'ATTACK',requestId:'integration-attack',gameplaySessionId:lease,commandSequence:3,renewalSequence:3,
+        assert.equal(invalid.body.mutationOutcome,'rejected');assert.deepEqual(gameplaySnapshot(s.load().state), gameplaySnapshot(beforeAttack));
+        attack = {worldAttempt: 0, commandId:'ATTACK',requestId:'integration-attack',gameplaySessionId:lease,commandSequence:3,renewalSequence:3,
           parameters:{territoryId:'t_07',commitAmount:181,seed:99999}};
         const result = await post('/commands', attack); assert.equal(result.body.success,true,JSON.stringify(result.body));
         const payload = result.body.payload as {battleResult:{attacker:{casualties:{total:number}};defender:{casualties:{total:number}}};committedArmyId:string};
@@ -133,17 +134,19 @@ export async function runBackendBoundaryTests(report: Report): Promise<void> {
       const committed = snapshotGameState(s.load().state);
       host = createSessionHost(s.persistence, {nowMs:()=>now});
       await serve(host,options,async post=>{
-        const retry = await post('/commands', {...attack,parameters:{territoryId:'t_07',commitAmount:181,seed:1}});
+        const altered = await post('/commands', {...attack,parameters:{territoryId:'t_07',commitAmount:181,seed:1}});
+        assert.equal((altered.body.errors as {code:string}[])[0].code,'COMMAND_IDENTITY_CONFLICT');
+        const retry = await post('/commands', attack);
         assert.equal(retry.body.success,true);assert.equal(retry.body.idempotentReplay,true);assert.deepEqual(retry.body.payload,attackPayload);
         assert.deepEqual(snapshotGameState(s.load().state),committed);
         const history = await post('/commands',{commandId:'GET_WORKOUT_REWARD',parameters:{sessionId:workout}});
         const reward = (history.body.payload as {workoutReward:WorkoutRewardView}).workoutReward;
         assert.equal(reward.status,'SETTLED');assert.equal(reward.settlement!.amountOrEffect.kind,'TROOPS');
         const effect=reward.settlement!.amountOrEffect; if(effect.kind!=='TROOPS') throw new Error('Wrong effect'); assert.equal(effect.amount,181);assert.equal(reward.currentBankedTroops,0);
-        await post('/session/end',{requestId:'disconnect',gameplaySessionId:lease});
+        await post('/session/end',{worldAttempt: 0, requestId:'disconnect',gameplaySessionId:lease});
         const tick = s.load().state.worldTick;
         now += 600_000; // Exactly one offline simulation minute, not ten online ticks.
-        const sync = await post('/commands',{commandId:'SYNC_PLAYER_WORLD'});assert.equal(sync.body.success,true,JSON.stringify(sync.body));
+        const sync = await post('/commands',{worldAttempt: 0, requestId: nextMutationTestId(), commandId:'SYNC_PLAYER_WORLD'});assert.equal(sync.body.success,true,JSON.stringify(sync.body));
         assert.equal(s.load().state.worldTick,tick+1);
         assert.equal(s.load().state.accruedTargetWorldTick,s.load().state.worldTick);
         assert.deepEqual(checkGameStateInvariants(s.load().state),[]);
@@ -161,7 +164,7 @@ export async function runBackendBoundaryTests(report: Report): Promise<void> {
     await report(`boundary: authenticated body identity cannot select a victim at ${path}`, async () => {
       const store = new InMemoryGameStateStore();
       await serve(createSessionHost(createInMemoryPersistence(store)), authenticated, async post => {
-        const result = await post(path, { commandId: 'SET_PLAYER_PAUSE', parameters: { paused: true }, playerId: 'bob', requestId: 'r' }, 'test-alice');
+        const result = await post(path, {worldAttempt: 0,  commandId: 'SET_PLAYER_PAUSE', parameters: { paused: true }, playerId: 'bob', requestId: 'r' }, 'test-alice');
         assert.equal(result.status, 403); assert.equal(store.load('bob').ok, false); assert.equal(store.load('alice').ok, false);
       });
     });
@@ -197,10 +200,10 @@ export async function runBackendBoundaryTests(report: Report): Promise<void> {
   await report('boundary: foreign gameplay session cannot renew or end another empire', async () => {
     const store = new InMemoryGameStateStore();
     await serve(createSessionHost(createInMemoryPersistence(store), { nowMs: () => 1000 }), authenticated, async post => {
-      const opened = await post('/session/open', { requestId: 'bob-open' }, 'test-bob'); assert.equal(opened.status, 200);
+      const opened = await post('/session/open', {worldAttempt: 0,  requestId: 'bob-open' }, 'test-bob'); assert.equal(opened.status, 200);
       const before = store.load('bob'); assert.ok(before.ok);
       for (const path of ['/session/heartbeat', '/session/end']) {
-        const result = await post(path, { requestId: 'alice-r', gameplaySessionId: opened.body.sessionId, renewalSequence: 1 }, 'test-alice');
+        const result = await post(path, { worldAttempt: 0, requestId: nextMutationTestId(), gameplaySessionId: opened.body.sessionId, renewalSequence: 1 }, 'test-alice');
         assert.equal(result.status, 200);
         assert.equal(result.body.outcome, 'unknown_session');
         assert.equal(result.body.receiptMs, null);
@@ -215,7 +218,7 @@ export async function runBackendBoundaryTests(report: Report): Promise<void> {
       assert.ok(payload.commands.length > 0); assert.ok(payload.commands.every(c => c.status === 'implemented'));
       for (const id of ['DECLARE_WAR','NEGOTIATE','REINFORCE','ADVANCE_WORLD','AI_DECIDE','RESOLVE_COMMITMENT']) {
         assert.ok(!payload.commands.some(c => c.commandId === id));
-        assert.equal((await post('/commands', { commandId: id }, 'test-alice')).status, 403);
+        assert.equal((await post('/commands', {worldAttempt: 0, requestId: nextMutationTestId(),  commandId: id }, 'test-alice')).status, 403);
       }
     });
   });
@@ -249,12 +252,12 @@ export async function runBackendBoundaryTests(report: Report): Promise<void> {
       const lock = s.load().state.playerFitness.activeSession!.completionRewardEntitlement;
       while (s.load().state.playerFitness.activeSession!.state === 'ACTIVE') {
         const step = getCurrentExercise(s.load().state.playerFitness.activeSession!)!; now += 1000;
-        const result = await post('/commands', { commandId: 'RECORD_EXERCISE', parameters: { order: step.order, now: -1e12,
+        const result = await post('/commands', {worldAttempt: 0, requestId: nextMutationTestId(),  commandId: 'RECORD_EXERCISE', parameters: { order: step.order, now: -1e12,
           ...(step.prescription.kind === 'repetitions' ? { repetitions: step.prescription.repetitions } : { durationSeconds: step.prescription.durationSeconds }) } });
         assert.equal(result.body.success, true); assert.equal(s.load().state.playerFitness.activeSession!.performances[step.order]!.completedAt, now);
       }
       assert.deepEqual(s.load().state.playerFitness.activeSession!.completionRewardEntitlement, lock);
-      const finalCommand = { commandId: 'FINALIZE_WORKOUT', requestId: 'finish', gameplaySessionId: s.load().state.gameplaySessionLeases[0]!.sessionId, commandSequence: 2, renewalSequence: 2, parameters: { now: 1e15, reward: 1e9 } };
+      const finalCommand = {worldAttempt: 0,  commandId: 'FINALIZE_WORKOUT', requestId: 'finish', gameplaySessionId: s.load().state.gameplaySessionLeases[0]!.sessionId, commandSequence: 2, renewalSequence: 2, parameters: { now: 1e15, reward: 1e9 } };
       const paid = await post('/commands', finalCommand);
       assert.equal(paid.body.success, true);
       const reward = (paid.body.payload as { workoutReward: WorkoutRewardView }).workoutReward;

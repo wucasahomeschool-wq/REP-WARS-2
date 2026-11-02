@@ -1,3 +1,7 @@
+import {mutationIntent, validMutationId, validWorldAttempt, type MutationReceipt} from '../world/mutationReceipts';
+import {authorizeCommandActor} from '../orchestration/authorization';
+import {OrchestrationError} from '../orchestration/errors';
+import {cloneGameState} from '../state/cloneGameState';
 import { progressProactiveThrough } from '../orchestration/handlers';
 import { liveResponseContexts } from '../engine/responseRecords';
 import { getCommandDefinition } from '../orchestration/commandIndex';
@@ -86,14 +90,15 @@ export interface SessionHostOptions {
 export interface CommandSessionHost {
   readonly persistenceName: PlayerWorldPersistence['name'];
   execute(request: CommandRequest): Promise<CommandResponse>;
-  openGameplaySession(playerId: string, requestId: string): Promise<GameplaySessionView>;
+  openGameplaySession(playerId: string, requestId: string, worldAttempt?: number): Promise<GameplaySessionView>;
   heartbeatGameplaySession(
     playerId: string,
     requestId: string,
     gameplaySessionId: string,
     renewalSequence: number,
+    worldAttempt?: number,
   ): Promise<GameplaySessionView>;
-  endGameplaySession(playerId: string, requestId: string, gameplaySessionId: string): Promise<GameplaySessionView>;
+  endGameplaySession(playerId: string, requestId: string, gameplaySessionId: string, worldAttempt?: number): Promise<GameplaySessionView>;
 }
 
 /**
@@ -109,12 +114,16 @@ export interface CommandSessionHost {
  * path does not retry, so it does not sample the clock again.
  * A renewal sequence equal to the committed sequence does not extend the
  * lease. A lower sequence does not extend it either. Gameplay commands can
- * still apply again; only the lease renewal is replay-protected.
+ * use the retained logical receipt before sequencing or lease renewal.
  */
 export function createSessionHost(
   persistence: PlayerWorldPersistence,
   options: SessionHostOptions = {},
 ): CommandSessionHost {
+  if (process.env.NODE_ENV === 'production' && persistence.name === 'supabase'
+    && (!persistence.commitWorld || !isRoutingHistoryStore(persistence.history))) {
+    throw new Error('Production requires atomic world and history persistence');
+  }
   if (process.env.NODE_ENV === 'production' && aiInvasionFixtureMode()) throw new Error('AI invasion fixtures are forbidden in production');
   const maxCachedPlayers = options.maxCachedPlayers === undefined ? DEFAULT_MAX_CACHED_PLAYERS : options.maxCachedPlayers;
   if (!Number.isSafeInteger(maxCachedPlayers) || maxCachedPlayers < 0) {
@@ -224,9 +233,20 @@ export function createSessionHost(
   function commitSession(
     playerId: string,
     session: PlayerSession,
+    request: CommandRequest,
     apply: (state: GameState) => GameplaySessionChange,
   ): GameplaySessionView {
+    const hash = mutationIntent(request.commandId, request.parameters);
     const committed = commitGameplaySession(persistence, playerId, state => {
+      const replay = retainedCommandReplay(state, request, hash);
+      if (replay) {
+        const view: GameplaySessionView = replay.idempotentReplay
+          ? {...replay.payload as unknown as GameplaySessionView, replayedOutcome: (replay.payload as unknown as GameplaySessionView).outcome,
+            outcome: 'idempotent_replay', worldAttempt: state.worldAttempt}
+          : {sessionId: '', outcome: 'rejected', receiptMs: null, openedAtMs: null, expiresAtMs: null,
+            endedAtMs: null, lastRenewalSequence: null, worldAttempt: state.worldAttempt, error: replay.errors[0]!.code};
+        return {state, changed: false, view};
+      }
       const changed=apply(state);
       // Lease receipts may finish sub-tick cognition/WAIT. A physical backlog
       // must be ordered by the existing SYNC/catch-up path first.
@@ -242,6 +262,13 @@ export function createSessionHost(
         progressProactiveThrough(changed.state,{req,def:getCommandDefinition('ADVANCE_WORLD')!,registry,runtime:{aiWarlordStates:new Map()}},changed.state.lastAccrualAtMs);
         changed.changed=changed.changed || before!==cognitionSnapshot();
       }
+      changed.view.worldAttempt = changed.state.worldAttempt;
+      changed.state.commandReceipts.set(request.requestId!, {
+        requestId: request.requestId!, commandId: request.commandId, sequence: 0,
+        worldAttempt: request.worldAttempt!, intentHash: hash, success: true,
+        payload: {...changed.view}, errors: [],
+      });
+      changed.changed = true;
       return changed;
     });
     if (!committed.ok) throw new PersistenceFailedError(committed.code, committed.message);
@@ -249,13 +276,15 @@ export function createSessionHost(
     return committed.view;
   }
 
-  function openGameplaySession(playerId: string, requestId: string): Promise<GameplaySessionView> {
+  function openGameplaySession(playerId: string, requestId: string, worldAttempt?: number): Promise<GameplaySessionView> {
     assertRequestKey(requestId);
+    if (!validWorldAttempt(worldAttempt)) throw new BadRequestError('worldAttempt must be a nonnegative safe integer');
     const receiptMs = nowMs();
     const sessionId = issueGameplaySessionId();
     return withPlayer(playerId, (session) => commitSession(
       playerId,
       session,
+      {playerId, requestId, worldAttempt, commandId: 'SESSION_OPEN', parameters: {}},
       (state) => applyGameplaySessionOpen(state, { sessionId, requestId, receiptMs }),
     ));
   }
@@ -265,14 +294,17 @@ export function createSessionHost(
     requestId: string,
     gameplaySessionId: string,
     renewalSequence: number,
+    worldAttempt?: number,
   ): Promise<GameplaySessionView> {
     assertRequestKey(requestId);
+    if (!validWorldAttempt(worldAttempt)) throw new BadRequestError('worldAttempt must be a nonnegative safe integer');
     assertSessionKey(gameplaySessionId);
     assertRenewalSequence(renewalSequence);
     const receiptMs = nowMs();
     return withPlayer(playerId, (session) => commitSession(
       playerId,
       session,
+      {playerId, requestId, worldAttempt, commandId: 'SESSION_HEARTBEAT', parameters: {gameplaySessionId, renewalSequence}},
       (state) => applyGameplaySessionHeartbeat(state, {
         sessionId: gameplaySessionId,
         requestId,
@@ -286,13 +318,16 @@ export function createSessionHost(
     playerId: string,
     requestId: string,
     gameplaySessionId: string,
+    worldAttempt?: number,
   ): Promise<GameplaySessionView> {
     assertRequestKey(requestId);
+    if (!validWorldAttempt(worldAttempt)) throw new BadRequestError('worldAttempt must be a nonnegative safe integer');
     assertSessionKey(gameplaySessionId);
     const receiptMs = nowMs();
     return withPlayer(playerId, (session) => commitSession(
       playerId,
       session,
+      {playerId, requestId, worldAttempt, commandId: 'SESSION_END', parameters: {gameplaySessionId}},
       (state) => applyGameplaySessionEnd(state, { sessionId: gameplaySessionId, receiptMs }),
     ));
   }
@@ -301,9 +336,26 @@ export function createSessionHost(
     if (!isCommandExposed(request.commandId)) {
       return Promise.reject(new CommandNotExposedError(request.commandId));
     }
+    const definition = getCommandDefinition(request.commandId);
+    let intentHash: string | null = null;
+    if (definition?.changesState) {
+      const invalid = invalidMutationIdentity(request);
+      if (invalid) return Promise.resolve(invalid);
+      try { intentHash = mutationIntent(request.commandId, request.parameters); }
+      catch { return Promise.resolve(rejectedCommand(request, 'Command intent must be bounded JSON', ErrorCode.COMMAND_IDENTITY_INVALID)); }
+    }
     const receiptMs = nowMs();
     return withPlayer(request.playerId, (current) => {
-      const definition = getCommandDefinition(request.commandId);
+      if (definition?.changesState) {
+        try { authorizeCommandActor(current.orchestrator.getState(), request, definition); }
+        catch (e) { if (e instanceof OrchestrationError) return rejectedCommand(request, e.message, e.code); throw e; }
+        // A presented lease must belong to this authenticated player's world,
+        // even on replay. Ended leases may still name a committed command.
+        if (hasGameplaySession(request) && !current.orchestrator.getState().gameplaySessionLeases.some(l=>l.sessionId===request.gameplaySessionId))
+          return rejectedCommand(request, 'Gameplay session is unknown');
+        const replay = retainedCommandReplay(current.orchestrator.getState(), request, intentHash!);
+        if (replay) return replay;
+      }
       const sessionCommand = definition?.changesState === true && hasGameplaySession(request);
       if (sessionCommand) {
         const replay = committedCommandReplay(current.orchestrator.getState(), request);
@@ -324,19 +376,21 @@ export function createSessionHost(
         history.begin(request.playerId);
         try {
           response = current.orchestrator.executeAtAuthoritativeReceipt(request,receiptMs,maxCatchUpChunks);
-          finishCommandCommit(current, request, before, response, renewal);
+          finishCommandCommit(current, request, before, response, renewal, intentHash);
           const saved = persistence.commitWorld(
             request.playerId,
             current.orchestrator.getState(),
             current.expectedVersion,
             history.drain(request.playerId),
           );
-          if (!saved.ok) {
-            reload(request.playerId, current);
-            throw new PersistenceFailedError(saved.code, saved.message);
-          }
+          if (!saved.ok) throw new PersistenceFailedError(saved.code, saved.message);
           current.expectedVersion = saved.record.stateVersion;
           return response;
+        } catch (error) {
+          try { reload(request.playerId, current); } catch { throw error; }
+          const replay = retainedCommandReplay(current.orchestrator.getState(), request, intentHash!, false);
+          if (replay) return replay;
+          throw error;
         } finally {
           history.end(request.playerId);
         }
@@ -350,21 +404,25 @@ export function createSessionHost(
         if (historyBackup) persistence.history.replacePlayer(request.playerId, historyBackup);
         throw err;
       }
-      finishCommandCommit(current, request, before, response, renewal);
+      finishCommandCommit(current, request, before, response, renewal, intentHash);
       if (definition?.changesState) {
-        const saved = persistence.save(request.playerId, current.orchestrator.getState(), current.expectedVersion);
-        if (!saved.ok) {
-          let message = saved.message;
-          try {
-            if (historyBackup) persistence.history.replacePlayer(request.playerId, historyBackup);
-          } catch (rollbackErr) {
-            const rollbackMessage = rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr);
-            message = `${message} Rollback failed: ${rollbackMessage}`;
-          }
-          reload(request.playerId, current);
-          throw new PersistenceFailedError(saved.code, message);
+        try {
+          const saved = persistence.save(request.playerId, current.orchestrator.getState(), current.expectedVersion);
+          if (!saved.ok) throw new PersistenceFailedError(saved.code, saved.message);
+          current.expectedVersion = saved.record.stateVersion;
+        } catch (error) {
+          const expectedVersion = current.expectedVersion;
+          try { reload(request.playerId, current); } catch { throw error; }
+          const replay = retainedCommandReplay(current.orchestrator.getState(), request, intentHash!, false);
+          // Do not roll back history after a successful write with a lost reply.
+          if (replay) return replay;
+          // The memory/test fallback has no RPC. Roll back its synchronous
+          // history effects only when the authoritative world did not advance.
+          // Production uses the atomic commitWorld + buffered-history path.
+          if (historyBackup && current.expectedVersion === expectedVersion)
+            persistence.history.replacePlayer(request.playerId, historyBackup);
+          throw error;
         }
-        current.expectedVersion = saved.record.stateVersion;
       }
       return response;
     });
@@ -384,10 +442,9 @@ function hasGameplaySession(request: CommandRequest): boolean {
 }
 
 /**
- * Command identity is `commandSequence` on one gameplay session.
- * Renewal identity is `renewalSequence`. HTTP `requestId` names the attempt.
- * A committed sequence is returned from its receipt and is not executed again.
- * A lower sequence is stale. Renewal is applied only for a command that runs.
+ * Ordering is commandSequence within a lease; renewal has its own sequence.
+ * Logical requestId replay is checked first, independently of both sequences.
+ * A new ID cannot reuse a consumed sequence. Renewal applies only on execution.
  */
 function committedCommandReplay(state: GameState, request: CommandRequest): CommandResponse | null {
   if (!isRenewalSequence(request.commandSequence)) {
@@ -403,11 +460,7 @@ function committedCommandReplay(state: GameState, request: CommandRequest): Comm
   const last = current.lastCommandSequence ?? null;
   const sequence = request.commandSequence;
   if (last !== null && sequence === last) {
-    const receipt = current.lastCommandReceipt;
-    if (!receipt || receipt.requestId !== requestId) {
-      return rejectedCommand(request, 'Gameplay command sequence was already committed', ErrorCode.COMMAND_SEQUENCE_CONFLICT);
-    }
-    return responseFromReceipt(request, receipt);
+    return rejectedCommand(request, 'Gameplay command sequence was already committed', ErrorCode.COMMAND_SEQUENCE_CONFLICT);
   }
   if (last !== null && sequence < last) {
     return rejectedCommand(request, 'Gameplay command sequence is stale', ErrorCode.COMMAND_STALE);
@@ -421,15 +474,33 @@ function finishCommandCommit(
   before: GameState,
   response: CommandResponse,
   renewal: { lease: GameplaySessionLease } | { unchanged: true } | null,
+  intentHash: string | null,
 ): void {
   // A slice may have committed historical world/history progress, but the
   // requested gameplay handler has not run. Preserve its sequence for retry.
-  if (response.errors.some(error => error.code === ErrorCode.WORLD_CATCHUP_PENDING)) return;
-  const mutated = current.orchestrator.getState() !== before;
+  const pending = response.errors.some(error => error.code === ErrorCode.WORLD_CATCHUP_PENDING);
+  // Read-only calls do not acquire an identity. Operational/configuration
+  // failures and catch-up continuations are not finalized gameplay outcomes.
+  if (intentHash === null || response.errors.some(e => [ErrorCode.ENGINE_ERROR, ErrorCode.ENGINE_UNAVAILABLE,
+    ErrorCode.INVALID_GAME_STATE, ErrorCode.WORKOUT_CONFIGURATION_UNAVAILABLE].includes(e.code as never))) return;
+  const handlerMutated = current.orchestrator.getState() !== before;
+  if (!handlerMutated) current.orchestrator.replaceState(cloneGameState(before));
+  const retainedState = current.orchestrator.getState();
+  const retained: MutationReceipt = {
+    sequence: isRenewalSequence(request.commandSequence) ? request.commandSequence : 0, requestId: request.requestId!, commandId: request.commandId,
+    success: response.success, payload: JSON.parse(JSON.stringify(response.payload)),
+    errors: response.errors.map(e=>({code:e.code,message:e.message})), worldAttempt: request.worldAttempt!, intentHash,
+  };
+  retainedState.commandReceipts.set(retained.requestId, retained);
+  response.mutationOutcome = pending ? 'pending' : response.success ? 'committed' : 'rejected';
+  if (pending) { response.worldAttempt = retainedState.worldAttempt; return; }
+  response.worldAttempt = retainedState.worldAttempt;
   if (response.success && renewal && 'lease' in renewal) {
     current.orchestrator.replaceState(replaceGameplaySessionLease(current.orchestrator.getState(), renewal.lease));
   }
-  if (!mutated || !isRenewalSequence(request.commandSequence) || !hasGameplaySession(request)) return;
+  // Final rejection is retained, but preserves existing command sequencing:
+  // only successful/previously-mutating responses consume the lease sequence.
+  if ((!response.success && !handlerMutated) || !isRenewalSequence(request.commandSequence) || !hasGameplaySession(request)) return;
   const state = current.orchestrator.getState();
   const sessionId = request.gameplaySessionId ?? '';
   const lease = state.gameplaySessionLeases.find((item) => item.sessionId === sessionId);
@@ -469,6 +540,7 @@ function responseFromReceipt(request: CommandRequest, receipt: GameplayCommandRe
     })),
     payload: JSON.parse(JSON.stringify(receipt.payload)) as Record<string, unknown>,
     idempotentReplay: true,
+    mutationOutcome: receipt.success ? 'replayed' : 'rejected',
   };
 }
 
@@ -526,8 +598,8 @@ function rejectedCommand(
 }
 
 function assertRequestKey(requestId: string): void {
-  if (typeof requestId !== 'string' || requestId.trim() === '' || requestId !== requestId.trim()) {
-    throw new BadRequestError('requestId must be a non-empty string');
+  if (!validMutationId(requestId)) {
+    throw new BadRequestError('requestId must contain 1-128 ASCII letters/digits/._:- and start with a letter/digit');
   }
 }
 
@@ -541,4 +613,22 @@ function assertRenewalSequence(renewalSequence: number): void {
   if (!isRenewalSequence(renewalSequence)) {
     throw new BadRequestError('renewalSequence must be a positive safe integer');
   }
+}
+
+/** Both commands and session lifecycle routes reuse the canonical receipt form. */
+function invalidMutationIdentity(request: CommandRequest): CommandResponse | null {
+  return validMutationId(request.requestId) && validWorldAttempt(request.worldAttempt) ? null
+    : rejectedCommand(request, 'Mutation requires requestId (1-128 ASCII letters/digits/._:-) and nonnegative safe-integer worldAttempt', ErrorCode.COMMAND_IDENTITY_INVALID);
+}
+function retainedCommandReplay(state: GameState, request: CommandRequest, hash: string, checkAttempt = true): CommandResponse | null {
+  const receipt = state.commandReceipts.get(request.requestId!);
+  if (receipt) {
+    if (receipt.intentHash !== hash || receipt.worldAttempt !== request.worldAttempt)
+      return rejectedCommand(request, 'Logical requestId is already bound to different or unverifiable legacy intent', ErrorCode.COMMAND_IDENTITY_CONFLICT);
+    if (!receipt.errors.some(e=>e.code===ErrorCode.WORLD_CATCHUP_PENDING))
+      return { ...responseFromReceipt(request, receipt), worldAttempt: state.worldAttempt };
+  }
+  if (checkAttempt && request.worldAttempt !== state.worldAttempt)
+    return rejectedCommand(request, 'Mutation belongs to a different world attempt', ErrorCode.COMMAND_ATTEMPT_STALE);
+  return null;
 }
