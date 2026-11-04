@@ -131,6 +131,7 @@ export const COMMAND_INDEX: CommandDefinition[] = [
     optional: [
       p('factionId', 'string', 'Attacking faction'),
       p('commitAmount', 'number', 'Banked Troops to commit. Remaining banked Troops stay unused.'),
+      p('onlyArmyId', 'string', 'Select an existing owned field army instead of commitAmount; normal availability and staging rules apply.'),
     ],
     validation: ['Target must be foreign-owned', 'Attacker needs an eligible force on a legal owned staging tile, or one adjacent hop to one'],
     routesTo: ['battle', 'state'],

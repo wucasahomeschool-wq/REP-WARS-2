@@ -122,6 +122,7 @@ import { registerPresenceLeaseTests } from './presenceLeases';
 import { registerGameplaySessionLeasePersistenceTests } from './gameplaySessionLeases';
 import { runGameplaySessionLifecycleTests } from './gameplaySessionLifecycle';
 import { runLeaseWorldAccrualTests } from './leaseWorldAccrual';
+import { runTutorialDeployedForceTests } from './tutorialDeployedForce';
 import { runMutationIdentityTests } from './mutationIdentity';
 import { runCommandIdempotencyTests } from './commandIdempotency';
 import { runSessionReplayTests } from './sessionReplay';
@@ -3283,6 +3284,7 @@ void (async () => {
   await executeTest('live supabase server restart restores the empire', runSupabaseServerRestart);
   await runCommandIdempotencyTests(executeTest);
   await runMutationIdentityTests(executeTest);
+  await runTutorialDeployedForceTests(executeTest);
   await runSessionReplayTests(executeTest);
   await runLeaseWorldAccrualTests(executeTest);
   await runGameplaySessionLifecycleTests(executeTest);

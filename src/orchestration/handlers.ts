@@ -289,7 +289,7 @@ export function executeAttack(state: GameState, ctx: HandlerContext, territoryId
   }
   requireTerritory(state, territoryId);
   const commitAmount = paramNumber(ctx.req, 'commitAmount');
-  assertLevel1TutorialPlayerAttackAllowed(state, attackerId, territoryId, commitAmount);
+  assertLevel1TutorialPlayerAttackAllowed(state, attackerId, territoryId);
 
   if (state.playerFactionId && attackerId === state.playerFactionId) {
     if (commitAmount !== undefined) {

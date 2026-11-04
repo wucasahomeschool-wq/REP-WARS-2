@@ -1,7 +1,7 @@
 /**
  * Level 1 tutorial/scenario controller.
  *
- * Sequences existing workout, banked-troop ATTACK, invasion, and completion
+ * Sequences existing workout, banked/deployed-force ATTACK, invasion, and completion
  * systems. Not a general narrative engine and not a second combat/AI/economy
  * implementation. Active only on the production Level 1 world when a player
  * faction is present.
@@ -19,7 +19,10 @@ import {
 import { PRODUCTION_LEVEL_1_WORLD_ID } from '../../worldDefinition/worldConfig';
 import { OrchestrationError, ErrorCode } from '../../orchestration/errors';
 import { GameEvent, HandlerResult } from '../../orchestration/protocol';
-import { MIN_ATTACKING_TROOPS, listImmediateAttackingArmies } from '../../army/strategicAttack';
+import { MIN_ATTACKING_TROOPS, listImmediateAttackingArmies, selectDelayedAttackPlan, listLegalStagingTerritoryIds, armyHasActiveStrategicOperation } from '../../army/strategicAttack';
+import { availableBankedTroops } from '../military/troopBank';
+import { assertClaimAvailable } from '../../engine/operations';
+import { assertHostilityAllowed } from '../diplomacy/relationships';
 import { emptyHandlerResult } from '../construction/handlerResult';
 import {
   playerOwnedNonAnchorTerritoryIds,
@@ -230,6 +233,38 @@ function computeBeat(state: GameState, tut: Level1TutorialState): Level1Tutorial
   return 'FIRST_WORKOUT_PENDING';
 }
 
+/** Advisory view only. Execution still uses the ordinary military handler.
+ * Test each explicitly selectable force, so a claimed sibling cannot hide a
+ * legal army and no query ever executes a battle or mutates canonical state. */
+function tutorialAttackAvailable(state: GameState, beat: Level1TutorialBeat | null): boolean {
+  const player = state.playerFactionId;
+  if (!player) return false;
+  const targets = beat === 'FIRST_ATTACK_AVAILABLE'
+    ? listFirstTutorialAttackTerritoryIds(state) : listFinalTutorialAttackTerritoryIds(state);
+  const available = (check: () => void) => {
+    try { check(); return true; }
+    catch (error) { if (error instanceof OrchestrationError) return false; throw error; }
+  };
+  for (const target of targets) {
+    if (!available(() => {
+      assertHostilityAllowed(state, player, state.territories.get(target)!.owner!, target);
+      assertClaimAvailable(state, 'engagement_target', target, null, player);
+      assertClaimAvailable(state, 'invasion_target', target);
+    })) continue;
+    if ([...state.armies.values()].some(a => a.owner === player && a.attackIntent?.targetTerritoryId === target
+      && (a.attackIntent.status === 'pending_movement' || a.attackIntent.status === 'ready'))) continue;
+    if (availableBankedTroops(state, player) > MIN_ATTACKING_TROOPS
+      && listLegalStagingTerritoryIds(state, player, target).length > 0) return true;
+    for (const army of state.armies.values()) {
+      if (army.owner !== player || armyHasActiveStrategicOperation(army)
+        || !available(() => assertClaimAvailable(state, 'force', army.id))) continue;
+      const selected = {...state, armies: new Map([[army.id, army]])};
+      if (listImmediateAttackingArmies(selected, player, target).length || selectDelayedAttackPlan(selected, player, target)) return true;
+    }
+  }
+  return false;
+}
+
 function nextActionAllowed(state: GameState, viewBeat: Level1TutorialBeat | null): boolean {
   const expected = expectedActionForBeat(viewBeat);
   const active = state.playerFitness.activeSession;
@@ -241,7 +276,7 @@ function nextActionAllowed(state: GameState, viewBeat: Level1TutorialBeat | null
     return !!invasion && isOpenInvasion(invasion) && invasion.status === 'pending_response' && !busy;
   }
   if (expected === 'ATTACK') {
-    return state.playerRewards.bankedTroops > MIN_ATTACKING_TROOPS;
+    return tutorialAttackAvailable(state, viewBeat);
   }
   return false;
 }
@@ -528,7 +563,6 @@ export function assertLevel1TutorialPlayerAttackAllowed(
   state: GameState,
   attackerId: string,
   territoryId: TerritoryId,
-  commitAmount: number | undefined,
 ): void {
   if (!isLevel1TutorialGating(state)) return;
   if (state.playerFactionId && attackerId !== state.playerFactionId) return;
@@ -538,13 +572,6 @@ export function assertLevel1TutorialPlayerAttackAllowed(
       ErrorCode.ACTION_NOT_ALLOWED,
       `Level 1 tutorial does not allow ATTACK during ${beat}`,
       { tutorialBeat: beat, expectedAction: expectedActionForBeat(beat) },
-    );
-  }
-  if (commitAmount === undefined) {
-    throw new OrchestrationError(
-      ErrorCode.MISSING_PARAMETER,
-      'Level 1 tutorial attacks require commitAmount',
-      { tutorialBeat: beat },
     );
   }
   if (beat === 'FIRST_ATTACK_AVAILABLE' && !isValidFirstTutorialAttackTarget(state, territoryId)) {
