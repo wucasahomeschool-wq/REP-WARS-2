@@ -1,3 +1,4 @@
+import {RESOURCE_KEYS} from '../gameplay/economy/config';
 import {mutationReceiptProblems} from '../world/mutationReceipts';
 import {bankedTroops} from '../gameplay/military/troopBank';
 import { isContentFingerprint } from '../worldDefinition/contentIdentity';
@@ -214,6 +215,12 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
 
   // ---- territory ownership references a valid faction ----
   for (const t of state.territories.values()) {
+    const output = t.resourceOutput;
+    if (!output || typeof output !== 'object' || Array.isArray(output)
+      || Object.entries(output).some(([key, value]) => !(RESOURCE_KEYS as readonly string[]).includes(key)
+        || typeof value !== 'number' || !Number.isFinite(value) || value < 0)) {
+      push('territory.invalid_resource_output', `territory ${t.id} has invalid canonical resource output`);
+    }
     if (t.owner !== null && !state.factions.has(t.owner)) {
       push('territory.invalid_owner', `territory ${t.id} owner ${t.owner} is not a known faction`);
     }

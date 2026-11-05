@@ -24,9 +24,10 @@ function scaleMatchingOutput(raw: number, multiplier: number): number {
 }
 
 /**
- * Collectible / income rating for one tile. Starts from authored
- * `resourceOutput` (events already applied) and multiplies matching
- * keys when a development occupies the tile. Gold is never scaled.
+ * Collectible / income rating for one tile. Starts from canonical
+ * `resourceOutput` (authored initialization plus already-applied event
+ * consequences) and multiplies matching keys when a development occupies
+ * the tile. Gold is never scaled.
  */
 export function effectiveResourceOutput(
   state: GameState,

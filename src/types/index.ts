@@ -171,7 +171,8 @@ export interface Territory {
      * authored worlds initialize to 0.
      */
     baseValue: number;
-    /** Authored WorldDefinition production; rebound from catalog on hydrate. */
+    /** Canonical production initialized from WorldDefinition, then mutated by
+     * authoritative event consequences. Persisted verbatim; never rebound on hydrate. */
     resourceOutput: Partial<Resources>;
     fortification: number;
     garrison: number;

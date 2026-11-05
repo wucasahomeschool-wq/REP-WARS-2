@@ -1,3 +1,4 @@
+import { runEventEffectPersistenceTests } from './eventEffectPersistence';
 import {registerGameplayContractTests} from './gameplayContracts';
 import {registerStrategicAccessTests} from './strategicAccess';
 import { registerDeclinedTradeTests } from './declinedTradeContext';
@@ -3285,6 +3286,7 @@ void (async () => {
   await runCommandIdempotencyTests(executeTest);
   await runMutationIdentityTests(executeTest);
   await runTutorialDeployedForceTests(executeTest);
+  await runEventEffectPersistenceTests(executeTest);
   await runSessionReplayTests(executeTest);
   await runLeaseWorldAccrualTests(executeTest);
   await runGameplaySessionLifecycleTests(executeTest);

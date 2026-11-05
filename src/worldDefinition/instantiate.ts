@@ -275,7 +275,9 @@ export function applyImmutableWorldDefinition(state: GameState, definition: Worl
     tile.regionId = tDef.regionId;
     tile.terrain = tDef.terrain;
     tile.neighboring = [...tDef.neighborIds];
-    tile.resourceOutput = { ...tDef.resourceOutput };
+    // resourceOutput is canonical mutable production: events already applied
+    // their consequences before snapshotting. Rebinding the authored base here
+    // would erase those effects. Content identity still pins the authored base.
     if(tDef.foodUpkeep !== undefined)tile.foodUpkeep=tDef.foodUpkeep;else delete tile.foodUpkeep;
   }
 
