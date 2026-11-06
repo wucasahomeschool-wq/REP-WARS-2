@@ -1,3 +1,4 @@
+import { runProductionWorkoutActivationTests } from './productionWorkoutActivation';
 import { runEventEffectPersistenceTests } from './eventEffectPersistence';
 import {registerGameplayContractTests} from './gameplayContracts';
 import {registerStrategicAccessTests} from './strategicAccess';
@@ -3287,6 +3288,7 @@ void (async () => {
   await runMutationIdentityTests(executeTest);
   await runTutorialDeployedForceTests(executeTest);
   await runEventEffectPersistenceTests(executeTest);
+  await runProductionWorkoutActivationTests(executeTest);
   await runSessionReplayTests(executeTest);
   await runLeaseWorldAccrualTests(executeTest);
   await runGameplaySessionLifecycleTests(executeTest);

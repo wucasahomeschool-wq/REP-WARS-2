@@ -1,6 +1,6 @@
 import { WorkoutSession } from '../fitness/session/types';
 import { CompletionRewardEntitlement, createCompletionRewardEntitlement } from '../rewards/completionEntitlement';
-import { requireWorldWorkoutRewardPolicy } from '../rewards/completionPolicy';
+import { calculateCompletionSoldiers, COMPLETION_REWARD_UNITS, requireWorldWorkoutRewardPolicy } from '../rewards/completionPolicy';
 import { GameState } from '../types/GameState';
 import { assertWorldIdentity, resolveWorldDefinition } from '../worldDefinition';
 import { CommandRequest } from '../orchestration/protocol';
@@ -64,9 +64,9 @@ export function assertWorkoutSessionIdAvailable(state: GameState, sessionId: str
   }
 }
 
-/** Pure assembly from resolved server content. Never infer a legacy size or use client reward terms. */
-export function lockWorkoutStartReward(state: GameState, session: WorkoutSession): CompletionRewardEntitlement {
-  const authored = session.authoredCatalog;
+/** Shared read-only prerequisites for discovery and start. Technical validity is
+ * not content approval; installing a catalog remains an operator responsibility. */
+export function requireWorkoutRewardConfiguration(state: GameState, authored: WorkoutSession['authoredCatalog']) {
   if (!authored) {
     throw new OrchestrationError(ErrorCode.WORKOUT_CONFIGURATION_UNAVAILABLE, 'Normal workouts require an authored workout size and catalog identity');
   }
@@ -75,9 +75,21 @@ export function lockWorkoutStartReward(state: GameState, session: WorkoutSession
   assertWorldIdentity(state, loaded.definition);
   try {
     const policy = requireWorldWorkoutRewardPolicy(loaded.definition);
+    calculateCompletionSoldiers(COMPLETION_REWARD_UNITS[authored.size], policy.soldiersPerRewardUnitMicros);
+    return { world: loaded.definition, policy };
+  } catch {
+    throw new OrchestrationError(ErrorCode.WORKOUT_CONFIGURATION_UNAVAILABLE, 'Current world has no valid authored workout reward policy');
+  }
+}
+
+/** Pure assembly from resolved server content. Never infer a legacy size or use client reward terms. */
+export function lockWorkoutStartReward(state: GameState, session: WorkoutSession): CompletionRewardEntitlement {
+  const {world, policy} = requireWorkoutRewardConfiguration(state, session.authoredCatalog);
+  const authored = session.authoredCatalog!;
+  try {
     return createCompletionRewardEntitlement({ session, size: authored.size, catalogId: authored.catalogId,
       catalogVersion: authored.catalogVersion,
-      world: { worldId: loaded.definition.worldId, formatVersion: loaded.definition.formatVersion, level: loaded.definition.level }, policy });
+      world: { worldId: world.worldId, formatVersion: world.formatVersion, level: world.level }, policy });
   } catch {
     throw new OrchestrationError(ErrorCode.WORKOUT_CONFIGURATION_UNAVAILABLE, 'Current world has no valid authored workout reward policy');
   }

@@ -24,7 +24,7 @@ import { getAuthoredWorkoutCatalog } from '../fitness/authoring/registry';
 import { WORKOUT_SIZES, WorkoutSize } from '../fitness/authoring/types';
 import { ensurePlayerProgression } from '../fitness/progression/apply';
 import { selectAuthoredWorkout, eligibleAuthoredWorkouts, AuthoredWorkoutSelection } from '../fitness/progression/select';
-import { workoutStartBlockReason } from './workoutStart';
+import { requireWorkoutRewardConfiguration, workoutStartBlockReason } from './workoutStart';
 import { emptyPlayerProgressionState } from '../fitness/progression/types';
 import { GameState, Level1TutorialBeat } from '../types/GameState';
 import { OrchestrationError, ErrorCode } from '../orchestration/errors';
@@ -60,6 +60,9 @@ export interface WorkoutSelectionView {
   tutorialBeat: Level1TutorialBeat | null;
   expectedAction: ReturnType<typeof expectedActionForBeat>;
   allowed: boolean;
+  /** A blocked compatibility preview is not a playable or approved prescription.
+   * Clients must honor allowed; START_WORKOUT independently revalidates. */
+  configurationError?: { code: typeof ErrorCode.WORKOUT_CONFIGURATION_UNAVAILABLE; message: string };
   recommendedInvasionId: string | null;
   constraints: WorkoutSelectionConstraints;
   size?: WorkoutSize;
@@ -359,6 +362,15 @@ export function serializeWorkoutSelectionView(
   if (!isWorkoutDifficulty(intendedDifficulty)) {
     throw new OrchestrationError(ErrorCode.INVALID_PARAMETER, 'intendedDifficulty is invalid');
   }
+  let configurationError: WorkoutSelectionView['configurationError'];
+  if (purpose === 'NORMAL_TROOPS') {
+    try {
+      requireWorkoutRewardConfiguration(state, workout.metadata.authored);
+    } catch (error) {
+      if (!(error instanceof OrchestrationError) || error.code !== ErrorCode.WORKOUT_CONFIGURATION_UNAVAILABLE) throw error;
+      configurationError = {code: error.code, message: error.message};
+    }
+  }
   return {
     purpose,
     selectedWorkoutId,
@@ -373,7 +385,8 @@ export function serializeWorkoutSelectionView(
     source,
     tutorialBeat,
     expectedAction: expectedActionForBeat(tutorialBeat),
-    allowed: isWorkoutStartAllowed(state, purpose),
+    allowed: !configurationError && isWorkoutStartAllowed(state, purpose),
+    ...(configurationError ? {configurationError} : {}),
     recommendedInvasionId: purpose === 'DEFENSE' ? recommendedDefenseInvasionId(state) : null,
     constraints: {
       requiresInvasionId: purpose === 'DEFENSE',

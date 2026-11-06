@@ -114,7 +114,7 @@ export function registerWorkoutSelectionTests(api: WorkoutSelectionTestApi): voi
     assert.ok(start!.optionalParameters.some((p) => p.name === 'workoutId'));
   });
 
-  test('Level 1 first workout selection is authoritative, deterministic, and frontend-complete', () => {
+  test('Level 1 historical selection remains a deterministic preview but cannot advertise an unconfigured normal start', () => {
     const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 1 }).state);
     const first = orch.execute(cmd('GET_WORKOUT_SELECTION', { purpose: 'NORMAL_TROOPS' }, 'sel_first'));
     assert.strictEqual(first.success, true, first.errors[0]?.message);
@@ -127,6 +127,7 @@ export function registerWorkoutSelectionTests(api: WorkoutSelectionTestApi): voi
       tutorialBeat: string;
       expectedAction: string;
       allowed: boolean;
+      configurationError: {code: string; message: string};
       constraints: { workoutIdMustMatchSelection: boolean };
     };
     assert.strictEqual(payload.purpose, 'NORMAL_TROOPS');
@@ -140,7 +141,9 @@ export function registerWorkoutSelectionTests(api: WorkoutSelectionTestApi): voi
     assert.strictEqual(payload.source, 'tutorial');
     assert.strictEqual(payload.tutorialBeat, 'FIRST_WORKOUT_PENDING');
     assert.strictEqual(payload.expectedAction, 'START_WORKOUT_NORMAL_TROOPS');
-    assert.strictEqual(payload.allowed, true);
+    assert.strictEqual(payload.allowed, false);
+    assert.strictEqual(payload.configurationError.code, ErrorCode.WORKOUT_CONFIGURATION_UNAVAILABLE);
+    assert.match(payload.configurationError.message, /authored workout size and catalog identity/);
     assert.strictEqual(payload.constraints.workoutIdMustMatchSelection, true);
 
     const again = orch.execute(cmd('GET_WORKOUT_SELECTION', { purpose: 'NORMAL_TROOPS' }, 'sel_first_b'));
@@ -160,7 +163,8 @@ export function registerWorkoutSelectionTests(api: WorkoutSelectionTestApi): voi
     const orch = new Orchestrator(initializePlayerWorld({ playerId: PLAYER_ID, seed: 2 }).state);
     const firstSel = orch.execute(cmd('GET_WORKOUT_SELECTION', { purpose: 'NORMAL_TROOPS' }, 'sel_l1_1'));
     assert.strictEqual(firstSel.payload.selectedWorkoutId, WORKOUT_ID);
-    assert.strictEqual(firstSel.payload.allowed, true);
+    assert.strictEqual(firstSel.payload.allowed, false);
+    assert.ok(firstSel.payload.configurationError); // Already-active legacy fixture below is not a new production start.
     const first = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_sel_1',
@@ -222,7 +226,8 @@ export function registerWorkoutSelectionTests(api: WorkoutSelectionTestApi): voi
     const finalSel = orch.execute(cmd('GET_WORKOUT_SELECTION', { purpose: 'NORMAL_TROOPS' }, 'sel_l1_2'));
     assert.strictEqual(finalSel.payload.tutorialBeat, 'FINAL_WORKOUT_PENDING');
     assert.strictEqual(finalSel.payload.selectedWorkoutId, WORKOUT_ID);
-    assert.strictEqual(finalSel.payload.allowed, true);
+    assert.strictEqual(finalSel.payload.allowed, false);
+    assert.ok(finalSel.payload.configurationError);
     const final = seedLegacyWorkoutSession(orch, cmd('START_WORKOUT', {
       purpose: 'NORMAL_TROOPS',
       sessionId: 'wses_sel_2',
