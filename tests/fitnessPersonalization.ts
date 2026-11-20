@@ -150,10 +150,9 @@ export function registerFitnessPersonalizationTests(api: FitnessPersonalizationT
     assert.strictEqual(prescribed.personalization.confidenceFactor, 0);
     assert.strictEqual(prescribed.personalization.effectiveMultiplier, 1);
     assert.strictEqual(trainingLoad(prescribed, moderate), trainingLoad(baselineModerate, moderate));
-    assert.strictEqual(stepById(prescribed, 'ex_push_ups').prescription.kind, 'repetitions');
-    if (stepById(prescribed, 'ex_push_ups').prescription.kind === 'repetitions') {
-      assert.strictEqual(stepById(prescribed, 'ex_push_ups').prescription.repetitions, 10);
-    }
+    const pushPrescription = stepById(prescribed, 'ex_push_ups').prescription;
+    assert.strictEqual(pushPrescription.kind, 'repetitions');
+    assert.strictEqual(pushPrescription.repetitions, 10);
   });
 
   test('high fitness with low confidence only nudges slightly toward the personalized target', () => {
@@ -371,7 +370,8 @@ export function registerFitnessPersonalizationTests(api: FitnessPersonalizationT
       playerId: 'player_1',
       fitnessEstimate: estimateAt(5, 0.5),
       desiredDifficulty: 'MODERATE',
-      configuration: bad,
+      // Deliberately malformed external configuration exercises runtime rejection.
+      configuration: bad as unknown as FitnessPersonalizationConfig,
     });
     assert.strictEqual(errCode(result), 'personalization.invalid_configuration');
   });

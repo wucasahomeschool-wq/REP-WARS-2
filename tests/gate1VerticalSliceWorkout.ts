@@ -201,7 +201,7 @@ export function registerGate1VerticalSliceWorkoutTests(api: Gate1VerticalSliceWo
       assert.strictEqual(start.state, 'ACTIVE');
       const session = orch.getState().playerFitness.activeSession!;
       assert.strictEqual(session.workoutId, EXPECTED_AUTHORED_SELECTED_ID);
-      assert.strictEqual(session.prescribedWorkout.personalization?.applied ?? false, false);
+      assert.strictEqual('personalization' in session.prescribedWorkout, false);
       assertPrescriptionsMatchAuthored(session);
       assert.ok(orch.getState().playerFitness.estimate);
       assert.strictEqual(orch.getState().playerFitness.estimate!.level, 9.5);

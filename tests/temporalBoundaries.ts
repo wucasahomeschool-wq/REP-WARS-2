@@ -40,7 +40,7 @@ const T0 = utcEpochMs('2026-10-01T18:00:00.000Z');
 const MINUTE = WORLD_TICK_DURATION_MS;
 const WORLD_ORIGIN = 1000;
 
-function segments(spans: readonly (readonly [number, TemporalPresence])[], origin = T0): PresenceSegmentInput[] {
+function segments(spans: readonly (readonly [number, TemporalPresence])[], origin = T0): (PresenceSegmentInput & { startMs: number; endMs: number })[] {
   let cursor = origin;
   return spans.map(([durationMs, presence]) => {
     const segment = { startMs: cursor, endMs: cursor + durationMs, presence };
@@ -93,7 +93,7 @@ export function registerTemporalBoundaryTests(api: TemporalBoundaryTestApi): voi
     assert.strictEqual(accrueSimulationTime(emptyFixedPointAccrual(), 0, 'ONLINE').subTickMicroticks, 0);
     assert.ok(accrueSimulationTime(emptyFixedPointAccrual(), 1, 'ONLINE').subTickMicroticks >= 1);
     assert.strictEqual(realMillisecondsForSimulationWork(1, 0, 'OFFLINE'), 10 * MINUTE);
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 29);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 30);
     assert.strictEqual(BALANCE.temporal.onlineRatePpm, 1_000_000);
     assert.strictEqual(BALANCE.temporal.offlineRatePpm, 100_000);
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'world', 'temporalBoundaries.ts'), 'utf8');

@@ -1,3 +1,4 @@
+import { requireLiveSupabase } from './skip';
 import assert from 'assert';
 import { request as httpRequest } from 'node:http';
 import { createServer } from 'node:net';
@@ -218,6 +219,8 @@ function startDevelopmentServer(port: number): Promise<ChildProcess> {
       ...process.env,
       PORT: String(port),
       REP_WARS_AI_INVASION_SETUP: '',
+      REP_WARS_ALLOW_DEVELOPMENT_IDENTITY: 'true',
+      NODE_ENV: 'test',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -290,10 +293,7 @@ async function finishWorkout(port: number, playerId: string): Promise<void> {
 }
 
 export async function runSupabaseServerRestart(): Promise<void> {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.log('  · live server restart skipped; credentials are not set');
-    return;
-  }
+  requireLiveSupabase();
   const playerId = `repwars_http_restart_${Date.now()}`;
   const worlds = new SupabasePlayerWorldTable();
   const historyTable = new SupabaseWorkoutHistoryTable();

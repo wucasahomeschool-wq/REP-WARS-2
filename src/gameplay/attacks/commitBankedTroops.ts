@@ -1,4 +1,4 @@
-import { Army } from '../../types';
+import { soldierForce } from '../../army/soldierForce';
 import { allocateArmyId } from '../../army/identity';
 import { GameState } from '../../types/GameState';
 import { MIN_ATTACKING_TROOPS, startStrategicAttack, StrategicAttackHost } from '../../army/strategicAttack';
@@ -60,18 +60,7 @@ export function commitBankedTroopsAndAttack(
 
   const spawnId = pickSpawnTerritory(state, params.factionId, params.territoryId);
   const armyId = allocateArmyId(state);
-  const army: Army = {
-    id: armyId,
-    owner: params.factionId,
-    location: spawnId,
-    soldiers: amount,
-    knights: 0,
-    siegeEngines: 0,
-    morale: 80,
-    supply: 80,
-    movement: null,
-    attackIntent: null,
-  };
+  const army = soldierForce(armyId, params.factionId, spawnId, amount);
   state.armies.set(armyId, army);
   const faction = requireFactionSnapshot(state, params.factionId);
   faction.armies.push(armyId);

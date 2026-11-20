@@ -31,7 +31,8 @@ import { createSessionHost, CommandSessionHost, PersistenceFailedError, CommandN
 import { BadRequestError } from '../src/server/identity';
 import { GameplaySessionReceiptError } from '../src/server/gameplaySessionLifecycle';
 import { PlayerWorldPersistence } from '../src/server/persistencePort';
-import { createCommandHttpServer } from '../src/server/http';
+import { createCommandHttpServer as createHttpServer } from '../src/server/http';
+const createCommandHttpServer: typeof createHttpServer = (host, options) => createHttpServer(host, { ...options, identity: { mode: 'development' } });
 
 type Api=Pick<Parameters<typeof import('./aiTrade').registerAiTradeTests>[0],'test'|'makeSelf'|'makeTerritory'|'cmdReq'>;
 interface Fixtures {

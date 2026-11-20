@@ -818,6 +818,7 @@ async function runAttackChainDemo(opts: CliOpts): Promise<void> {
     allFactionIds: [atk, def],
     playerFactionId: atk,
     definitionWorldId: 'cli:attack-chain',
+    definitionContentFingerprint: null,
     definitionFormatVersion: 'legacy-sample-map',
     worldLevel: 1,
     worldName: 'Attack Chain Demo',

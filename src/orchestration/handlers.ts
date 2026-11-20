@@ -1,3 +1,4 @@
+import { assertWorldIdentity, worldContentIdentity } from '../worldDefinition';
 import { markResponseWorldChanged } from '../engine/responseRecords';
 import { processNonProactiveBoundary, reactivePlans, responseContextExists } from '../engine/nonProactiveCognition';
 import type { AIResponseContext } from '../types/AIResponse';
@@ -186,9 +187,10 @@ export function handleGetWorldDefinition(state: GameState, _ctx: HandlerContext)
   if (!loaded.ok) {
     throw new OrchestrationError(ErrorCode.INVALID_GAME_STATE, formatWorldLoadFailure(worldId, loaded));
   }
+  assertWorldIdentity(state, loaded.definition);
   return {
     ...emptyResult(),
-    payload: { worldDefinition: serializeWorldDefinitionForClient(loaded.definition) },
+    payload: { worldDefinition: serializeWorldDefinitionForClient(loaded.definition), contentIdentity: worldContentIdentity(loaded.definition), persistedContentFingerprint: state.definitionContentFingerprint },
   };
 }
 

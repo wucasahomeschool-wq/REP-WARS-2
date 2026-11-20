@@ -1,0 +1,242 @@
+{
+  "format": "rep-wars-backend-validation.v1",
+  "recordedAtUtc": "2026-10-23T14:35:54.647664+00:00",
+  "baseline": "c5a3af52ef83ea3aaac18f132e27868ab3cb7ae0",
+  "branch": "feat/backend-completion",
+  "schema": 30,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux"
+  },
+  "tests": {
+    "command": "npm test",
+    "exitCode": 0,
+    "passed": 2174,
+    "failed": 0,
+    "skipped": 3,
+    "newRegisteredTests": 53,
+    "baselineReportedPassesIncludingSkips": 2124,
+    "baselineActualPasses": 2121,
+    "skipReason": "Live Supabase tests require explicit non-production opt-in and credentials"
+  },
+  "checks": [
+    {
+      "command": "npm run typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run typecheck:tests",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run build",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "testTypeDiagnostics": 0,
+  "baselineTestTypeDiagnostics": 28,
+  "focusedBoundary": {
+    "passed": 23,
+    "failed": 0
+  },
+  "longHorizon": [
+    {
+      "scenario": "legacy-ai-only",
+      "seed": 11,
+      "replay": 0,
+      "ticks": 1440,
+      "elapsedMs": 2429,
+      "sha256": "e68d781da9cf1696f1e57d405aa0085e53fe8e4ec963a778117e5c855c8fe530",
+      "bytes": 1460605,
+      "battles": 3,
+      "failedAttacks": 0,
+      "operations": 3
+    },
+    {
+      "scenario": "legacy-ai-only",
+      "seed": 11,
+      "replay": 1,
+      "ticks": 1440,
+      "elapsedMs": 2397,
+      "sha256": "e68d781da9cf1696f1e57d405aa0085e53fe8e4ec963a778117e5c855c8fe530",
+      "bytes": 1460605,
+      "battles": 3,
+      "failedAttacks": 0,
+      "operations": 3
+    },
+    {
+      "scenario": "legacy-ai-only",
+      "seed": 29,
+      "replay": 0,
+      "ticks": 1440,
+      "elapsedMs": 1934,
+      "sha256": "bc9eeed703f6353ebcd460696e9a79b237ed5c99467e27f1341576313ecd1a64",
+      "bytes": 847498,
+      "battles": 4,
+      "failedAttacks": 2,
+      "operations": 6
+    },
+    {
+      "scenario": "legacy-ai-only",
+      "seed": 29,
+      "replay": 1,
+      "ticks": 1440,
+      "elapsedMs": 1991,
+      "sha256": "bc9eeed703f6353ebcd460696e9a79b237ed5c99467e27f1341576313ecd1a64",
+      "bytes": 847498,
+      "battles": 4,
+      "failedAttacks": 2,
+      "operations": 6
+    }
+  ],
+  "longHorizonLimits": [
+    "Legacy SAMPLE_MAP/WARLORD_SPECS fixture, not a human calendar-time campaign",
+    "No formation triggered in this cohort; focused real-AI tests cover recovery",
+    "Attack resolution counts are not attacker victory rates",
+    "Wall times are environment-specific, not controlled speed comparisons"
+  ],
+  "pausedCatchUp": {
+    "ticks": 10000,
+    "elapsedMs": 15379,
+    "chunks": 157,
+    "stateChanges": 188,
+    "eventHistoryEntries": 0,
+    "resolutions": 0,
+    "events": 1046
+  },
+  "protectedWorktrees": [
+    {
+      "path": "/workspace/REP-WARS-2",
+      "headMatches": true,
+      "statusMatches": true
+    },
+    {
+      "path": "/workspace/REP-WARS-2-C1",
+      "headMatches": true,
+      "statusMatches": true
+    },
+    {
+      "path": "/workspace/REP-WARS-2-C2",
+      "headMatches": true,
+      "statusMatches": true
+    },
+    {
+      "path": "/workspace/REP-WARS-2-C3",
+      "headMatches": true,
+      "statusMatches": true
+    },
+    {
+      "path": "/workspace/REP-WARS-2-R1-C",
+      "headMatches": true,
+      "statusMatches": true
+    },
+    {
+      "path": "/workspace/REP-WARS-2-R1-D",
+      "headMatches": true,
+      "statusMatches": true
+    },
+    {
+      "path": "/workspace/REP-WARS-2-R1-E",
+      "headMatches": true,
+      "statusMatches": true
+    },
+    {
+      "path": "/workspace/REP-WARS-2-R1-F",
+      "headMatches": true,
+      "statusMatches": true
+    }
+  ],
+  "changedFiles": [
+    ".env.example",
+    ".github/workflows/backend.yml",
+    "docs/BACKEND_COMPLETION.md",
+    "docs/BACKEND_OPERATIONS.md",
+    "package.json",
+    "src/army/soldierForce.ts",
+    "src/engine/strategicPressure.ts",
+    "src/gameplay/attacks/commitBankedTroops.ts",
+    "src/gameplay/recruitment/reinforcement.ts",
+    "src/orchestration/authorization.ts",
+    "src/orchestration/handlers.ts",
+    "src/orchestration/orchestrator.ts",
+    "src/orchestration/publicView.ts",
+    "src/persistence/versioning.ts",
+    "src/scoring/strategicEvaluators.ts",
+    "src/server/allowlist.ts",
+    "src/server/http.ts",
+    "src/server/identity.ts",
+    "src/server/main.ts",
+    "src/server/production.ts",
+    "src/server/session.ts",
+    "src/simulation/cli.ts",
+    "src/state/cloneGameState.ts",
+    "src/state/createGameState.ts",
+    "src/state/gameStateInvariants.ts",
+    "src/types/GameState.ts",
+    "src/worldDefinition/contentIdentity.ts",
+    "src/worldDefinition/geometry.ts",
+    "src/worldDefinition/identity.ts",
+    "src/worldDefinition/index.ts",
+    "src/worldDefinition/instantiate.ts",
+    "src/worldDefinition/parse.ts",
+    "src/worldDefinition/validate.ts",
+    "tests/aiCognition.ts",
+    "tests/aiConflict.ts",
+    "tests/aiPeace.ts",
+    "tests/aiRecruitment.ts",
+    "tests/aiResponseCorrections.ts",
+    "tests/aiResponses.ts",
+    "tests/aiStrategicPressure.ts",
+    "tests/aiTrade.ts",
+    "tests/armyMovement.ts",
+    "tests/atomicCommit.ts",
+    "tests/backendBoundary.ts",
+    "tests/backendLongHorizon.ts",
+    "tests/battleSeedAuthority.ts",
+    "tests/commandIdempotency.ts",
+    "tests/economyDevelopments.ts",
+    "tests/economyFoundation.ts",
+    "tests/fitnessEvidence.ts",
+    "tests/fitnessPersonalization.ts",
+    "tests/fitnessPhysicalResult.ts",
+    "tests/gameRewards.ts",
+    "tests/gameplaySessionLeases.ts",
+    "tests/gameplaySessionLifecycle.ts",
+    "tests/gate1VerticalSliceWorkout.ts",
+    "tests/httpBridge.ts",
+    "tests/invasionLifecycle.ts",
+    "tests/leaseWorldAccrual.ts",
+    "tests/level1Production.ts",
+    "tests/localFormation.ts",
+    "tests/persistence.ts",
+    "tests/presenceLeases.ts",
+    "tests/run.ts",
+    "tests/serverRestartDurability.ts",
+    "tests/sessionReplay.ts",
+    "tests/skip.ts",
+    "tests/strategicAttack.ts",
+    "tests/supabasePersistence.ts",
+    "tests/temporalBoundaries.ts",
+    "tests/workoutProgression.ts",
+    "tests/workoutRewardApi.ts",
+    "tests/workoutRewardContracts.ts",
+    "tests/workoutSelection.ts",
+    "tests/workoutStartRewards.ts",
+    "tests/worldContentIdentity.ts",
+    "tests/worldTestHelpers.ts"
+  ],
+  "externalLogs": "/tmp/repwars-completion/",
+  "fullLogSha256": "0b562ad43feabd29ffdbb67412c8cf0c31d29899947c0c99c7b6606b6e5b5527",
+  "notExecuted": [
+    "live Supabase integration",
+    "Unity tests",
+    "hosted CI",
+    "deployment",
+    "backup restore rehearsal"
+  ],
+  "noRemoteChanges": true
+}

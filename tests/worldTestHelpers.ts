@@ -5,7 +5,7 @@ import { ensureCity } from '../src/gameplay/cities/city';
 /** Hand-built test GameState identity. Not an authored production world. */
 export function authoredWorldFields(territories: Map<TerritoryId, Territory>): Pick<
   GameState,
-  'definitionWorldId' | 'definitionFormatVersion' | 'worldLevel' | 'worldName' | 'regions'
+  'definitionWorldId' | 'definitionContentFingerprint' | 'definitionFormatVersion' | 'worldLevel' | 'worldName' | 'regions'
 > {
   const byRegion = new Map<string, TerritoryId[]>();
   for (const t of territories.values()) {
@@ -20,6 +20,7 @@ export function authoredWorldFields(territories: Map<TerritoryId, Territory>): P
   }
   return {
     definitionWorldId: 'test:fixture',
+    definitionContentFingerprint: null,
     definitionFormatVersion: 'legacy-sample-map',
     worldLevel: 1,
     worldName: 'Test Fixture',

@@ -1,3 +1,4 @@
+import { requireLiveSupabase } from './skip';
 import assert from 'assert';
 import { createGameState, PersistenceError, WORKOUT_HISTORY_FORMAT } from '../src';
 import type { WorkoutHistoryEntry } from '../src/fitness/history/types';
@@ -81,10 +82,7 @@ export function registerAtomicCommitTests(api: AtomicCommitTestApi): void {
 }
 
 export async function runAtomicCommitProof(): Promise<void> {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.log('  · live atomic commit skipped; credentials are not set');
-    return;
-  }
+  requireLiveSupabase();
   const playerId = `repwars_atomic_${Date.now()}`;
   const worlds = new SupabasePlayerWorldTable();
   const historyTable = new SupabaseWorkoutHistoryTable();

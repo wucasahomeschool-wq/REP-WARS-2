@@ -94,7 +94,8 @@ export class Orchestrator {
   /** Trusted server receipt only; HTTP request fields never supply this clock.
    * Process existing temporal boundaries before observing a newly applied command. */
   executeAtAuthoritativeReceipt(req: CommandRequest, receiptMs: number): CommandResponse {
-    return this.executeCommand(req,receiptMs);
+    if (!Number.isSafeInteger(receiptMs) || receiptMs < 0) throw new Error('Invalid server receipt time');
+    return this.executeCommand({ ...req, parameters: { ...req.parameters, now: receiptMs } }, receiptMs);
   }
 
   private executeCommand(req: CommandRequest, receiptMs?: number): CommandResponse {

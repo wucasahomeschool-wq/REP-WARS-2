@@ -11,7 +11,8 @@ import { GAME_STATE_PERSISTENCE_FORMAT, type GameStateStore, type SaveWorldResul
 import { InMemoryWorkoutHistoryStore } from '../src/fitness/history/inMemoryStore';
 import { checkGameStateInvariants, insertGameplaySessionLease } from '../src/state';
 import { createGameState } from '../src/state/createGameState';
-import { createCommandHttpServer } from '../src/server/http';
+import { createCommandHttpServer as createHttpServer } from '../src/server/http';
+const createCommandHttpServer: typeof createHttpServer = (host, options) => createHttpServer(host, { ...options, identity: { mode: 'development' } });
 import { CommandNotExposedError, createSessionHost, PersistenceFailedError } from '../src/server/session';
 import type { PlayerWorldPersistence } from '../src/server/persistencePort';
 import { GAME_STATE_SCHEMA_VERSION, type GameState } from '../src/types/GameState';
@@ -55,7 +56,7 @@ export async function runGameplaySessionLifecycleTests(
     assert.strictEqual(state.gameplaySessionLeases[0]!.sessionId, opened.sessionId);
     assert.strictEqual(state.gameplaySessionLeases[0]!.openedByRequestId, 'open-1');
     assert.deepStrictEqual(temporal(state), anchoredTemporal(1_700_000_000_000));
-    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 29);
+    assert.strictEqual(GAME_STATE_SCHEMA_VERSION, 30);
     assert.strictEqual(state.schemaVersion, GAME_STATE_SCHEMA_VERSION);
   });
 
@@ -648,7 +649,6 @@ function conflict(): SaveWorldResult {
 function load(store: GameStateStore, playerId: string): GameState {
   const loaded = store.load(playerId);
   assert.strictEqual(loaded.ok, true, loaded.ok ? '' : loaded.message);
-  if (!loaded.ok) throw new Error(loaded.message);
   return loaded.state;
 }
 

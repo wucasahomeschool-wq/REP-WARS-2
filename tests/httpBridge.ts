@@ -1,6 +1,7 @@
 import assert from 'assert';
 import { request } from 'node:http';
-import { createCommandHttpServer } from '../src/server/http';
+import { createCommandHttpServer as createHttpServer } from '../src/server/http';
+const createCommandHttpServer: typeof createHttpServer = (host, options) => createHttpServer(host, { ...options, identity: { mode: 'development' } });
 import { createInMemoryPersistence } from '../src/server/persistencePort';
 import { createSessionHost } from '../src/server/session';
 

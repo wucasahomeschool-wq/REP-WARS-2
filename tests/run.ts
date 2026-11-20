@@ -1,3 +1,8 @@
+import {registerLocalFormationTests} from './localFormation';
+import {registerBackendLongHorizonTests} from './backendLongHorizon';
+import { registerWorldContentTests } from './worldContentIdentity';
+import { runBackendBoundaryTests } from './backendBoundary';
+import { TestSkipped } from './skip';
 import {registerAiResponseTests} from './aiResponses';
 import {registerAiConflictTests} from './aiConflict';
 import {registerAiCognitionTests} from './aiCognition';
@@ -137,17 +142,23 @@ import { getConstructionProjectDefinition, GAMEPLAY_CONFIG } from '../src/gamepl
 
 let failed = 0;
 let passed = 0;
+let skipped = 0;
 
-function test(name: string, fn: () => void): void {
+const registeredTests: { name: string; fn: () => void | Promise<void> }[] = [];
+function test(name: string, fn: () => void | Promise<void>): void {
+  registeredTests.push({ name, fn });
+}
+
+async function executeTest(name: string, fn: () => void | Promise<void>): Promise<void> {
   try {
-    fn();
+    await fn();
     passed++;
     console.log(`  ✓ ${name}`);
   } catch (err) {
+    if (err instanceof TestSkipped) { skipped++; console.log(`  · SKIP ${name}: ${err.message}`); return; }
     failed++;
-    const msg = err instanceof Error ? err.message : String(err);
     console.error(`  ✗ ${name}`);
-    console.error(`    ${msg}`);
+    console.error(err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -836,7 +847,7 @@ test('ATTACK execution applies the exact BattleResult from BattleEngine: capture
     seed: expectedSeed,
     attackerFactionId: attackerId,
     defenderFactionId: defenderId,
-    attackerArmies: [{ id: 'atk_army', owner: attackerId, location: 'home', soldiers: 500, knights: 0, siegeEngines: 0, morale: 75, supply: 80 }],
+    attackerArmies: [{ soldiers: 500, knights: 0, siegeEngines: 0, morale: 75, supply: 80 }],
     defenderArmies: [],
     defenderGarrison: 20,
     territory: frontSnapshotBeforeMutation,
@@ -1669,7 +1680,7 @@ test('createGameState() contains the expected major state domains', () => {
   const keys = Object.keys(state).sort();
   const expected = [
     'accrualDivisionRemainder', 'accruedTargetWorldTick', 'activeEvents', 'activeInvasions', 'aiResponses', 'aiResponseScheduler', 'aiPressure', 'aiClock', 'aiDecisionOpportunities', 'strategicAttention', 'allFactionIds', 'armies', 'attackerCooldowns', 'cities', 'conflictLedger', 'conflictEventReceipts', 'opinionEvents', 'operationClaims', 'operations', 'constructions',
-    'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
+    'definitionContentFingerprint', 'definitionFormatVersion', 'definitionWorldId', 'eventHistory',
     'factions', 'gameplaySessionLeases', 'lastAccrualAtMs', 'lastAiDecisionTick', 'lastFoodConsumptionTick', 'lastProcessedAtMs', 'level1Tutorial', 'levelAnchorTerritoryIds', 'levelDefeat', 'playerEmpirePause', 'playerFactionId', 'playerFitness', 'playerRewards', 'regions', 'schemaVersion', 'subTickMicroticks', 'territories', 'territoryEconomy', 'territoryInfrastructure', 'territoryRecruitment', 'tradeProposals', 'tradeShipments', 'peaceProposals', 'peaceProposalThreads', 'peaceRelationships',
     'turn', 'worldLevel', 'worldName', 'worldSeed', 'worldTick', 'nextArmySequence',
   ].sort();
@@ -3211,6 +3222,8 @@ registerGate1VerticalSliceAttackTests({ test });
 
 registerGate1VerticalSlicePersistenceTests({ test });
 
+registerWorldContentTests({ test });
+
 registerWorldDefinitionTests({ test });
 
 registerLevel1ProductionTests({ test });
@@ -3232,110 +3245,21 @@ registerOrchestratorIntegrationTests({ test });
 registerLevelAnchorTests({ test });
 
 void (async () => {
-  await runWorkoutRewardApiTests(async (name, fn) => {
-    try { await fn(); passed++; console.log(`  ✓ ${name}`); }
-    catch (err) { failed++; console.error(`  ✗ ${name}`); console.error(err instanceof Error ? err.message : String(err)); }
-  });
-  await runWorkoutSettlementRewardTests(async (name, fn) => {
-    try { await fn(); passed++; console.log(`  ✓ ${name}`); }
-    catch (err) { failed++; console.error(`  ✗ ${name}`); console.error(err instanceof Error ? err.message : String(err)); }
-  });
-  await runWorkoutStartRewardTests(async (name, fn) => {
-    try { await fn(); passed++; console.log(`  ✓ ${name}`); }
-    catch (err) { failed++; console.error(`  ✗ ${name}`); console.error(err instanceof Error ? err.message : String(err)); }
-  });
-  console.log('HTTP command bridge');
-  try {
-    await runHttpBridgeTest();
-    passed++;
-    console.log('  ✓ GET_GAME_STATE over HTTP');
-  } catch (err) {
-    failed++;
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('  ✗ GET_GAME_STATE over HTTP');
-    console.error(`    ${msg}`);
-  }
-  try {
-    await assertFailedWorldSaveRollsHistoryBack();
-    passed++;
-    console.log('  ✓ failed world save rolls workout history back');
-  } catch (err) {
-    failed++;
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('  ✗ failed world save rolls workout history back');
-    console.error(`    ${msg}`);
-  }
-  try {
-    await runAtomicCommitProof();
-    passed++;
-    console.log('  ✓ atomic commit rolls both tables back together');
-  } catch (err) {
-    failed++;
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('  ✗ atomic commit rolls both tables back together');
-    console.error(`    ${msg}`);
-  }
-  try {
-    await runSupabaseServerRestart();
-    passed++;
-    console.log('  ✓ supabase server restart restores the empire');
-  } catch (err) {
-    failed++;
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('  ✗ supabase server restart restores the empire');
-    console.error(`    ${msg}`);
-  }
-  await runCommandIdempotencyTests(async (name, fn) => {
-    try {
-      await fn();
-      passed++;
-      console.log(`  ✓ ${name}`);
-    } catch (err) {
-      failed++;
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`  ✗ ${name}`);
-      console.error(`    ${msg}`);
-    }
-  });
-  await runSessionReplayTests(async (name, fn) => {
-    try {
-      await fn();
-      passed++;
-      console.log(`  ✓ ${name}`);
-    } catch (err) {
-      failed++;
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`  ✗ ${name}`);
-      console.error(`    ${msg}`);
-    }
-  });
-  await runLeaseWorldAccrualTests(async (name, fn) => {
-    try {
-      await fn();
-      passed++;
-      console.log(`  ✓ ${name}`);
-    } catch (err) {
-      failed++;
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`  ✗ ${name}`);
-      console.error(`    ${msg}`);
-    }
-  });
-  await runGameplaySessionLifecycleTests(async (name, fn) => {
-    try {
-      await fn();
-      passed++;
-      console.log(`  ✓ ${name}`);
-    } catch (err) {
-      failed++;
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`  ✗ ${name}`);
-      console.error(`    ${msg}`);
-    }
-  });
-  console.log('');
-  console.log(`Results: ${passed} passed, ${failed} failed`);
-  if (failed > 0) {
-    process.exit(1);
-  }
-})();
+  registerLocalFormationTests({test});
+  registerBackendLongHorizonTests({test});
+  for (const { name, fn } of registeredTests) await executeTest(name, fn);
+  await runBackendBoundaryTests(executeTest);
+  await runWorkoutRewardApiTests(executeTest);
+  await runWorkoutSettlementRewardTests(executeTest);
+  await runWorkoutStartRewardTests(executeTest);
+  await executeTest('GET_GAME_STATE over HTTP', runHttpBridgeTest);
+  await executeTest('failed world save rolls workout history back', assertFailedWorldSaveRollsHistoryBack);
+  await executeTest('live atomic commit rolls both tables back together', runAtomicCommitProof);
+  await executeTest('live supabase server restart restores the empire', runSupabaseServerRestart);
+  await runCommandIdempotencyTests(executeTest);
+  await runSessionReplayTests(executeTest);
+  await runLeaseWorldAccrualTests(executeTest);
+  await runGameplaySessionLifecycleTests(executeTest);
+  console.log(`Results: ${passed} passed, ${failed} failed, ${skipped} skipped`);
+  if (failed > 0) process.exitCode = 1;
+})().catch(error => { console.error(error); process.exitCode = 1; });

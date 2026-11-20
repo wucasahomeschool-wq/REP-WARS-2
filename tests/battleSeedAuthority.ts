@@ -17,7 +17,8 @@ import { InMemoryWorkoutHistoryStore } from '../src/fitness/history/inMemoryStor
 import { ensurePlayerWorld } from '../src/persistence/initializePlayerWorld';
 import { PlayerWorldPersistence } from '../src/server/persistencePort';
 import { createSessionHost } from '../src/server/session';
-import { createCommandHttpServer } from '../src/server/http';
+import { createCommandHttpServer as createHttpServer } from '../src/server/http';
+const createCommandHttpServer: typeof createHttpServer = (host, options) => createHttpServer(host, { ...options, identity: { mode: 'development' } });
 import { request } from 'node:http';
 import { COMMAND_INDEX } from '../src/orchestration/commandIndex';
 import { FixedWorldTimeAuthority } from '../src/persistence/timeAuthority';

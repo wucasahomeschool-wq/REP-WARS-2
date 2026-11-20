@@ -144,7 +144,8 @@ export function registerLevel1ProductionTests(api: Level1ProductionTestApi): voi
     const def = world.payload.worldDefinition as WorldDefinition;
     assert.strictEqual(def.worldId, PRODUCTION_LEVEL_1_WORLD_ID);
     assert.ok(def.island.rings[0]!.length >= 3);
-    assert.ok(def.territories.find((t) => t.id === PLAYER_HOME)?.polygon.rings[0]!.length >= 3);
+    const home = def.territories.find((t) => t.id === PLAYER_HOME);
+    assert.ok(home && home.polygon.rings[0]!.length >= 3);
     const catalog = orch.execute(cmd('GET_FITNESS_CATALOG'));
     assert.strictEqual(catalog.success, true, catalog.errors[0]?.message);
     const workouts = catalog.payload.workouts as { id: string }[];

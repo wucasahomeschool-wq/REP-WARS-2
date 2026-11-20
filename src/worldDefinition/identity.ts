@@ -1,5 +1,6 @@
 import { GameState } from '../types/GameState';
 import { WorldDefinition } from './types';
+import { worldContentFingerprint } from './contentIdentity';
 
 /** Shared authored-world identity. Same values on definition, GameState, and persistence. */
 export interface AuthoredWorldIdentity {
@@ -32,6 +33,9 @@ export function worldIdentitiesEqual(a: AuthoredWorldIdentity, b: AuthoredWorldI
 }
 
 export function assertWorldIdentity(state: GameState, definition: WorldDefinition): void {
+  if (state.definitionContentFingerprint != null && state.definitionContentFingerprint !== worldContentFingerprint(definition)) {
+    throw new Error('Authored world content differs from the persisted world; explicit content migration required');
+  }
   const fromState = identityFromGameState(state);
   const fromDef = identityFromDefinition(definition);
   if (!fromState || !worldIdentitiesEqual(fromState, fromDef)) {

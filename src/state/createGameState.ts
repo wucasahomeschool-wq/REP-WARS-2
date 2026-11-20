@@ -85,6 +85,7 @@ export function createLegacySampleMapGameState(options: CreateLegacySampleMapOpt
     allFactionIds: [...snapshot.allFactionIds],
     playerFactionId: options.playerFactionId ?? null,
     definitionWorldId: LEGACY_SAMPLE_WORLD_ID,
+    definitionContentFingerprint: null,
     definitionFormatVersion: 'legacy-sample-map',
     worldLevel: 1,
     worldName: 'Legacy Sample Map',

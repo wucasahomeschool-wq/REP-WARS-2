@@ -1,14 +1,16 @@
 import { IncomingMessage, Server, ServerResponse, createServer } from 'node:http';
 import { types } from 'node:util';
 import { CommandRequest } from '../orchestration/protocol';
-import { BadRequestError, resolvePlayerId } from './identity';
+import { BadRequestError, resolvePlayerId, validateIdentityBoundary, IdentityBoundary } from './identity';
 import { GameplaySessionReceiptError } from './gameplaySessionLifecycle';
 import { CommandNotExposedError, CommandSessionHost, PersistenceFailedError } from './session';
 import { ErrorCode, publicOrchestrationError } from '../orchestration/errors';
+import { isCommandExposed } from './allowlist';
+import { COMMAND_INDEX } from '../orchestration/commandIndex';
 import { PERSISTENCE_ERROR_CODES } from '../persistence/errors';
 
 const MAX_BODY_BYTES = 1024 * 1024;
-type InternalErrorReporter = (diagnostic: unknown) => void;
+export type InternalErrorReporter = (diagnostic: unknown) => void;
 
 // Trusted: server constants, validated primitive codes and explicitly configured
 // reporter callbacks. Thrown values and their properties are untrusted data.
@@ -256,7 +258,7 @@ function optionalObject(value: unknown, field: string): Record<string, unknown> 
   return value as Record<string, unknown>;
 }
 
-function commandFromBody(req: IncomingMessage, parsed: unknown): CommandRequest {
+function commandFromBody(playerId: string, parsed: unknown): CommandRequest {
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new BadRequestError('Request body must be a JSON object');
   }
@@ -279,7 +281,6 @@ function commandFromBody(req: IncomingMessage, parsed: unknown): CommandRequest 
   if (body.commandSequence !== undefined && typeof body.commandSequence !== 'number') {
     throw new BadRequestError('commandSequence must be a positive safe integer');
   }
-  const playerId = resolvePlayerId(req, body);
   return {
     commandId: body.commandId,
     playerId,
@@ -335,6 +336,7 @@ async function handleSession(
   host: CommandSessionHost,
   kind: 'open' | 'heartbeat' | 'end',
   report:InternalErrorReporter,
+  identity: IdentityBoundary,
 ): Promise<void> {
   let body: Record<string, unknown>;
   try {
@@ -344,7 +346,8 @@ async function handleSession(
     return;
   }
   try {
-    const playerId = resolvePlayerId(req, body);
+    const playerId = await authenticatedPlayer(req, res, body, identity, report);
+    if (playerId === null) return;
     const requestId = requireRequestId(body);
     const view = kind === 'open'
       ? await host.openGameplaySession(playerId, requestId)
@@ -375,7 +378,7 @@ async function handleSession(
   }
 }
 
-async function handleCommand(req: IncomingMessage, res: ServerResponse, host: CommandSessionHost,report:InternalErrorReporter): Promise<void> {
+async function handleCommand(req: IncomingMessage, res: ServerResponse, host: CommandSessionHost,report:InternalErrorReporter, identity: IdentityBoundary): Promise<void> {
   let parsed: Record<string, unknown>;
   try {
     parsed = await readJsonObject(req);
@@ -385,13 +388,19 @@ async function handleCommand(req: IncomingMessage, res: ServerResponse, host: Co
   }
   let request: CommandRequest;
   try {
-    request = commandFromBody(req, parsed);
+    const playerId = await authenticatedPlayer(req, res, parsed, identity, report);
+    if (playerId === null) return;
+    request = commandFromBody(playerId, parsed);
   } catch (err) {
     sendBadRequest(res, report, err);
     return;
   }
   try {
     const response = await host.execute(request);
+    if (request.commandId === 'GET_COMMAND_INDEX' && response.success) {
+      const commands = COMMAND_INDEX.filter(c => c.status === 'implemented' && isCommandExposed(c.commandId));
+      response.payload = { ...response.payload, summary: { total: commands.length, implemented: commands.length, unsupported: 0 }, commands };
+    }
     sendPublicJson(res, 200, response, report, { commandId: request.commandId, requestId: request.requestId });
   } catch (err) {
     const kind = httpErrorKind(err);
@@ -407,10 +416,40 @@ async function handleCommand(req: IncomingMessage, res: ServerResponse, host: Co
   }
 }
 
-export function createCommandHttpServer(host: CommandSessionHost,options:{onInternalError?:InternalErrorReporter}={}): Server {
+async function authenticatedPlayer(req: IncomingMessage, res: ServerResponse, body: Record<string, unknown>, identity: IdentityBoundary, report: InternalErrorReporter): Promise<string | null> {
+  const result = await resolvePlayerId(req, body, identity);
+  if (result.ok) return result.playerId;
+  sendPublicJson(res, result.status, { error: result.error, message: 'Authenticated player identity required' }, report);
+  return null;
+}
+
+export interface CommandHttpOptions {
+  onInternalError?: InternalErrorReporter;
+  /** Omission is authenticated mode without a provider: every player request fails closed. */
+  identity?: IdentityBoundary;
+  /** Trusted, read-only deployment probe for persistence and other dependencies.
+   * Must enforce its own I/O deadline. No probe means not production-ready. */
+  readiness?: () => boolean | Promise<boolean>;
+}
+export function createCommandHttpServer(host: CommandSessionHost, options: CommandHttpOptions = {}): Server {
+  const identity: IdentityBoundary = { ...(options.identity ?? { mode: 'authenticated' }) };
+  validateIdentityBoundary(identity);
+  if (process.env.NODE_ENV === 'production' && host.persistenceName !== 'supabase') {
+    throw new Error('Production cannot use ephemeral in-memory persistence');
+  }
   const report = options.onInternalError ?? defaultInternalErrorReporter;
+  const readiness = options.readiness;
   return createServer((req, res) => {
     const path = pathname(req);
+    if (req.method === 'GET' && path === '/ready') {
+      const authenticationConfigured = identity.mode === 'authenticated' && typeof identity.authenticate === 'function';
+      void (async () => {
+        let ready = false;
+        try { ready = authenticationConfigured && !!readiness && await readiness() === true; } catch { /* No dependency exception enters the response. */ }
+        sendPublicJson(res, ready ? 200 : 503, { ready, authenticationConfigured }, report);
+      })().catch((err: unknown) => { if (!res.headersSent) sendInternalError(res, report, err); });
+      return;
+    }
     if (req.method === 'GET' && path === '/health') {
       try {
         sendPublicJson(res, 200, { ok: true, service: 'rep-wars', persistence: host.persistenceName }, report);
@@ -419,14 +458,14 @@ export function createCommandHttpServer(host: CommandSessionHost,options:{onInte
     }
     if (req.method === 'POST' && (path === '/session/open' || path === '/session/heartbeat' || path === '/session/end')) {
       const kind = path === '/session/open' ? 'open' : path === '/session/heartbeat' ? 'heartbeat' : 'end';
-      void handleSession(req, res, host, kind,report).catch((err: unknown) => {
+      void handleSession(req, res, host, kind,report, identity).catch((err: unknown) => {
         if (res.headersSent) return;
         sendInternalError(res,report,err);
       });
       return;
     }
     if (req.method === 'POST' && path === '/commands') {
-      void handleCommand(req, res, host,report).catch((err: unknown) => {
+      void handleCommand(req, res, host,report, identity).catch((err: unknown) => {
         if (res.headersSent) return;
         sendInternalError(res,report,err);
       });

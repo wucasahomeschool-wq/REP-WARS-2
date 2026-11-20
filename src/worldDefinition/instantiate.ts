@@ -17,6 +17,7 @@ import { bindLevel1Tutorial } from '../gameplay/tutorial/level1';
 import { WorldDefinition, WorldFactionDefinition } from './types';
 import { assertValidWorld } from './validate';
 import { assertWorldIdentity } from './identity';
+import { worldContentFingerprint } from './contentIdentity';
 
 export const LEGACY_SAMPLE_WORLD_ID = 'legacy:sample-map';
 export const LEGACY_SAMPLE_REGION_ID = 'r_legacy_sample';
@@ -208,6 +209,7 @@ export function createGameStateFromWorld(
     allFactionIds: [...factionIds],
     playerFactionId,
     definitionWorldId: definition.worldId,
+    definitionContentFingerprint: worldContentFingerprint(definition),
     definitionFormatVersion: definition.formatVersion,
     worldLevel: definition.level,
     worldName: definition.name,
@@ -237,6 +239,7 @@ export function createGameStateFromWorld(
  */
 export function applyImmutableWorldDefinition(state: GameState, definition: WorldDefinition): void {
   assertValidWorld(definition);
+  assertWorldIdentity(state, definition);
   const authoredTerritoryIds = definition.territories.map((t) => t.id).sort();
   const runtimeTerritoryIds = [...state.territories.keys()].sort();
   if (authoredTerritoryIds.join('\0') !== runtimeTerritoryIds.join('\0')) {

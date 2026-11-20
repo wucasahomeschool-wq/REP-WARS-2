@@ -266,6 +266,7 @@ export function adoptOwnedTransactionState(target: GameState, next: GameState): 
   target.allFactionIds = next.allFactionIds;
   target.playerFactionId = next.playerFactionId;
   target.definitionWorldId = next.definitionWorldId;
+  target.definitionContentFingerprint = next.definitionContentFingerprint;
   target.definitionFormatVersion = next.definitionFormatVersion;
   target.worldLevel = next.worldLevel;
   target.worldName = next.worldName;
@@ -350,6 +351,7 @@ export function cloneGameState(state: GameState): GameState {
     allFactionIds: [...state.allFactionIds],
     playerFactionId: state.playerFactionId,
     definitionWorldId: state.definitionWorldId,
+    definitionContentFingerprint: state.definitionContentFingerprint,
     definitionFormatVersion: state.definitionFormatVersion,
     worldLevel: state.worldLevel,
     worldName: state.worldName,

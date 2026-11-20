@@ -29,6 +29,7 @@ import type {
   FitnessEstimate,
   PhysicalResult,
   PhysicalResultOpResult,
+  PersonalizationOpResult,
   SessionOpResult,
   WorkoutDefinition,
   WorkoutDifficulty,
@@ -43,7 +44,7 @@ export interface FitnessPhysicalResultTestApi {
 }
 
 function must<T>(
-  result: SessionOpResult<T> | EvaluationOpResult<T> | PhysicalResultOpResult<T>,
+  result: SessionOpResult<T> | EvaluationOpResult<T> | PhysicalResultOpResult<T> | PersonalizationOpResult<T>,
   label: string,
 ): T {
   if (!result.ok) {

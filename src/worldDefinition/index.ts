@@ -71,3 +71,5 @@ export {
 export { regionDisplayName, withTerritoryBattleLabel } from './display';
 export { serializeWorldDefinitionForClient } from './clientView';
 export { findNextProductionWorldRegistration } from './campaign';
+
+export * from './contentIdentity';

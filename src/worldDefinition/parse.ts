@@ -24,9 +24,8 @@ export function loadWorldDefinition(raw: unknown): WorldLoadResult {
       }],
     };
   }
-  const definition = rec as unknown as WorldDefinition;
-  if (!Array.isArray(definition.startingDiplomacy)) definition.startingDiplomacy = [];
-  if (!Array.isArray(definition.containedWorlds)) definition.containedWorlds = [];
+  const definition = { ...rec, startingDiplomacy: rec.startingDiplomacy === undefined ? [] : rec.startingDiplomacy,
+    containedWorlds: rec.containedWorlds === undefined ? [] : rec.containedWorlds } as unknown as WorldDefinition;
   const issues = validateWorldDefinition(definition);
   if (issues.length > 0) return { ok: false, issues };
   return { ok: true, definition };
