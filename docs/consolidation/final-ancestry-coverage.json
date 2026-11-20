@@ -1,0 +1,262 @@
+[
+  {
+    "ref": "refs/heads/audit/backend-completion-20261029",
+    "sha": "67280e363fd89f256cd770566a5676d6415af695",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/feat/backend-bounded-catchup",
+    "sha": "e1248f3e68776d57c32460df2fd005cf178de3ca",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/feat/backend-completion",
+    "sha": "c5a3af52ef83ea3aaac18f132e27868ab3cb7ae0",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/feat/backend-dependency-bounds",
+    "sha": "fcbbb046abbb6ae964d0c309b772d37e1af948a7",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/feat/backend-gameplay-contracts",
+    "sha": "e3f1781f8a53424462fabbd943cc01b0e2725154",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/feat/backend-request-admission",
+    "sha": "9a9c84685029c0b518678cfb9bd751c6d6c911cf",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/feat/backend-session-cache-bounds",
+    "sha": "b6e6b22455c31a919604b5cde2510e63c45c5070",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/feat/r1-c-workout-reward-contracts",
+    "sha": "942cec126859628108f4f42305f546694f61a1ed",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/feat/r1-d-workout-reward-locking",
+    "sha": "09677c38a54c4d438639f82ec7422eb988b54490",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/feat/r1-e-workout-reward-settlement",
+    "sha": "26aea031e401a35eb8c185a6cd8613449374be48",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/feat/r1-f-workout-reward-api",
+    "sha": "c5a3af52ef83ea3aaac18f132e27868ab3cb7ae0",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/fix/backend-declined-trade-context",
+    "sha": "a033904b120a4dc9b7c4af6eebf9df170fb8c369",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/fix/backend-durable-mutation-identity",
+    "sha": "b6891ccb4c9a21a09d94dc1e2e8be96b9b820997",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/fix/backend-event-effect-persistence",
+    "sha": "7c53bfa52d392a1d37ddb6d1a37935245ca125be",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/fix/backend-natural-event-eligibility",
+    "sha": "8b4fc709f1c19c7eaccfe49074fb876b7a6f53f5",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/fix/backend-production-workout-activation",
+    "sha": "0e69549d03b4f7f50252351a28868b9eaffc7e6d",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/fix/backend-strategic-access",
+    "sha": "c9473107bbd5281d011480dc3fe3ff1a207c9688",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/fix/backend-tutorial-deployed-force",
+    "sha": "1b194a8f90bda20cc55e7b7333d6f0bba048038e",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/fix/backend-world-geometry",
+    "sha": "c1063043fae039c333c8676ab5e0fcc0b47e733b",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/fix/c1-defense-troop-accounting",
+    "sha": "67d3bfb490327d8875859f9a67610c99cbd5bf91",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/fix/c2-army-id-uniqueness",
+    "sha": "5f510813ace5571967706ed8697c22d8f3d3c355",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/fix/c3-battle-rng-authority",
+    "sha": "68d566063cffc237281acfd2bbc4a69ef207b21d",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/master",
+    "sha": "9c23dedca790fda5aa7c8ee09edb0ed4bde49c83",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/perf/backend-construction-queries",
+    "sha": "4203a7fd709ddaba1cb000f08d54fb54469a6a3d",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/perf/backend-world-validation",
+    "sha": "e7f557fa903316ef1ab15770d42350bd0995fbbf",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/recovery/local-completion-preservation-20261120",
+    "sha": "7bf83a586d6b551e56a775fcb6e86c9cd866c061",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/heads/work",
+    "sha": "6f38eec6516682e64937b08744a5607f54bbba91",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/HEAD",
+    "sha": "6f38eec6516682e64937b08744a5607f54bbba91",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/REP-WARS-3",
+    "sha": "6f38eec6516682e64937b08744a5607f54bbba91",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/assets/3d-model-import",
+    "sha": "daf8c54ef6ff807f6a0ba2f900fa57322afce4f9",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/audit/backend-completion-20261029",
+    "sha": "67280e363fd89f256cd770566a5676d6415af695",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/codex-character-production",
+    "sha": "6652ab7f311cb5173ca749a264709442634c96fc",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/codex/ai-phase-l-frozen-review",
+    "sha": "8375022d43482658227415f078a40ac13356c9cb",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/codex/ai-phase-l-r2-correction",
+    "sha": "70b7529e07954069e77eddee9e4cbf3ec5018e29",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/codex/ai-phase-l-r2-privacy-correction",
+    "sha": "3fa0b6daf9aa329851c533ffeab1082ad2f0bed1",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/dev/ai-longrun-simulation",
+    "sha": "ce63ad0bd1d74494c0a87f494d65d9efb8d88b25",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/feat/backend-bounded-catchup",
+    "sha": "e1248f3e68776d57c32460df2fd005cf178de3ca",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/feat/backend-dependency-bounds",
+    "sha": "fcbbb046abbb6ae964d0c309b772d37e1af948a7",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/feat/backend-gameplay-contracts",
+    "sha": "e3f1781f8a53424462fabbd943cc01b0e2725154",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/feat/backend-request-admission",
+    "sha": "9a9c84685029c0b518678cfb9bd751c6d6c911cf",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/feat/backend-session-cache-bounds",
+    "sha": "b6e6b22455c31a919604b5cde2510e63c45c5070",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/fix/backend-declined-trade-context",
+    "sha": "a033904b120a4dc9b7c4af6eebf9df170fb8c369",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/fix/backend-durable-mutation-identity",
+    "sha": "b6891ccb4c9a21a09d94dc1e2e8be96b9b820997",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/fix/backend-event-effect-persistence",
+    "sha": "7c53bfa52d392a1d37ddb6d1a37935245ca125be",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/fix/backend-production-workout-activation",
+    "sha": "0e69549d03b4f7f50252351a28868b9eaffc7e6d",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/fix/backend-strategic-access",
+    "sha": "c9473107bbd5281d011480dc3fe3ff1a207c9688",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/fix/backend-tutorial-deployed-force",
+    "sha": "1b194a8f90bda20cc55e7b7333d6f0bba048038e",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/fix/backend-world-geometry",
+    "sha": "c1063043fae039c333c8676ab5e0fcc0b47e733b",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/perf/backend-construction-queries",
+    "sha": "4203a7fd709ddaba1cb000f08d54fb54469a6a3d",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/perf/backend-world-validation",
+    "sha": "e7f557fa903316ef1ab15770d42350bd0995fbbf",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/reconcile/backend-a-l-union",
+    "sha": "6f38eec6516682e64937b08744a5607f54bbba91",
+    "includedInMasterAncestry": true
+  },
+  {
+    "ref": "refs/remotes/origin/recovery/backend-completion-20261023",
+    "sha": "51de61e0f9d01146a6e5d2179ddc86f0e33c987b",
+    "includedInMasterAncestry": true
+  }
+]

@@ -25,7 +25,7 @@ Validation: current backend source and registered regression runner are unchange
 from the verified Phase 5A checkpoint. Its full suite completed 2,477 passes,
 0 failures and 3 credential-gated Supabase skips; 72 focused cases passed. Both
 production and test-inclusive TypeScript checks and production build pass in the
-consolidated tree. A focused post-merge run is recorded in the final handoff.
+consolidated tree. Post-merge focused execution: 39 passed, 0 failed, 0 skipped. All local and fetched remote refs were verified as ancestors of master.
 Unity and historical simulation execution are not verified here.
 
 No default-branch update, branch deletion, force push or deployment is performed.
