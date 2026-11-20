@@ -1,0 +1,111 @@
+[
+  {
+    "case": "large-29-online-360",
+    "beforeSeconds": 163.6140166,
+    "afterSeconds": 67.6656581,
+    "same": {
+      "stateDigest": true,
+      "decisionActions": true,
+      "operations": true,
+      "operationStatuses": true,
+      "battles": true,
+      "captures": true,
+      "formations": true,
+      "repeatedDeclinedExactOffers": true,
+      "failedAiUpkeepCycles": true,
+      "conservation": true,
+      "exactTimeline": true
+    },
+    "afterExit": "0"
+  },
+  {
+    "case": "small-11-online-10080",
+    "beforeSeconds": 92.507344729,
+    "afterSeconds": 84.96804094999999,
+    "same": {
+      "stateDigest": true,
+      "decisionActions": true,
+      "operations": true,
+      "operationStatuses": true,
+      "battles": true,
+      "captures": true,
+      "formations": true,
+      "repeatedDeclinedExactOffers": true,
+      "failedAiUpkeepCycles": true,
+      "conservation": true,
+      "exactTimeline": true
+    },
+    "afterExit": "0"
+  },
+  {
+    "case": "medium-11-online-1440",
+    "beforeSeconds": 161.564655984,
+    "afterSeconds": 107.587853595,
+    "sameState": true,
+    "exactTimeline": true,
+    "conservation": {
+      "initial": {
+        "resources": {
+          "gold": 5840,
+          "food": 4500,
+          "wood": 2070,
+          "iron": 1100,
+          "stone": 1820
+        },
+        "troops": 8700,
+        "siege": 10
+      },
+      "final": {
+        "resources": {
+          "gold": 9503,
+          "food": 12904,
+          "wood": 10410,
+          "iron": 4107,
+          "stone": 7881
+        },
+        "troops": 16336,
+        "siege": 0
+      },
+      "recruited": 43709,
+      "eventAndOwnershipTroopDelta": -21607,
+      "conflictLosses": {
+        "troops": 14466,
+        "siege": 10
+      },
+      "troopResidual": 0,
+      "siegeResidual": 0,
+      "resourceResidual": {
+        "gold": 0,
+        "food": 0,
+        "wood": 0,
+        "iron": 0,
+        "stone": 0
+      },
+      "observedNetResourceChanges": {
+        "gold": 3663,
+        "food": 8404,
+        "wood": 8340,
+        "iron": 3007,
+        "stone": 6061
+      }
+    },
+    "nestedDomainErrors": [
+      {
+        "code": "INSUFFICIENT_TROOPS",
+        "message": "Arrived army is no longer an eligible attacking force"
+      },
+      {
+        "code": "INSUFFICIENT_TROOPS",
+        "message": "Arrived army is no longer an eligible attacking force"
+      },
+      {
+        "code": "INSUFFICIENT_TROOPS",
+        "message": "Arrived army is no longer an eligible attacking force"
+      },
+      {
+        "code": "INSUFFICIENT_TROOPS",
+        "message": "Arrived army is no longer an eligible attacking force"
+      }
+    ]
+  }
+]

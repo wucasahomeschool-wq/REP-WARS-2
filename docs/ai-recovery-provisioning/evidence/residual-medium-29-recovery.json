@@ -1,0 +1,146 @@
+{
+  "faction": "f_ai_0",
+  "territories": [
+    "t_002",
+    "t_003",
+    "t_008",
+    "t_014"
+  ],
+  "pools": [
+    {
+      "site": "t_002",
+      "troops": 359
+    },
+    {
+      "site": "t_003",
+      "troops": 174
+    },
+    {
+      "site": "t_008",
+      "troops": 171
+    },
+    {
+      "site": "t_014",
+      "troops": 148
+    }
+  ],
+  "recovery": {
+    "territoryId": "t_003",
+    "targetTerritoryId": "t_004",
+    "counterpartyId": "f_ai_1",
+    "quantity": 101,
+    "travelTicks": 0
+  },
+  "sources": [
+    {
+      "kind": "PRODUCTIVE_DEVELOPMENT",
+      "subject": "t_002",
+      "blockers": 1,
+      "plans": []
+    },
+    {
+      "kind": "RESOURCE_EXCHANGE",
+      "subject": "f_ai_1",
+      "blockers": 0,
+      "plans": [
+        {
+          "action": "TRADE",
+          "qualifies": false
+        },
+        {
+          "action": "WAIT",
+          "qualifies": true
+        }
+      ]
+    },
+    {
+      "kind": "RESOURCE_EXCHANGE",
+      "subject": "f_ai_4",
+      "blockers": 0,
+      "plans": [
+        {
+          "action": "TRADE",
+          "qualifies": false
+        },
+        {
+          "action": "TRADE",
+          "qualifies": false
+        },
+        {
+          "action": "WAIT",
+          "qualifies": true
+        }
+      ]
+    },
+    {
+      "kind": "PRODUCTIVE_DEVELOPMENT",
+      "subject": "t_003",
+      "blockers": 1,
+      "plans": []
+    },
+    {
+      "kind": "PRODUCTIVE_DEVELOPMENT",
+      "subject": "t_008",
+      "blockers": 1,
+      "plans": []
+    },
+    {
+      "kind": "FRONTIER_DEVELOPMENT",
+      "subject": "t_003",
+      "blockers": 1,
+      "plans": []
+    },
+    {
+      "kind": "FRONTIER_DEVELOPMENT",
+      "subject": "t_008",
+      "blockers": 1,
+      "plans": []
+    },
+    {
+      "kind": "PRODUCTIVE_DEVELOPMENT",
+      "subject": "t_014",
+      "blockers": 1,
+      "plans": []
+    },
+    {
+      "kind": "FRONTIER_DEVELOPMENT",
+      "subject": "t_002",
+      "blockers": 1,
+      "plans": []
+    },
+    {
+      "kind": "COVERAGE_GAP",
+      "subject": "t_002",
+      "blockers": 1,
+      "plans": [
+        {
+          "action": "REINFORCE",
+          "qualifies": true
+        },
+        {
+          "action": "REINFORCE",
+          "qualifies": false
+        },
+        {
+          "action": "WAIT",
+          "qualifies": true
+        }
+      ]
+    },
+    {
+      "kind": "FIELD_FORCE_GAP",
+      "subject": "t_003",
+      "blockers": 0,
+      "plans": [
+        {
+          "action": "REINFORCE",
+          "qualifies": true
+        },
+        {
+          "action": "WAIT",
+          "qualifies": true
+        }
+      ]
+    }
+  ]
+}

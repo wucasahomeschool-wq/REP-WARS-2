@@ -1,0 +1,41 @@
+[
+  {
+    "suite": "focused-a-l",
+    "exit": 0,
+    "tail": [
+      "PASS Phase L: blocked cargo recovery preserves exact custody through reload",
+      "PASS Phase L: private counterparty cognition remains inaccessible to required Trade assessment",
+      "PASS Phase L: ordinary world ticks do not rescan healthy operations",
+      "PASS Phase L: distant committed arrival schedules only material urgency boundaries",
+      "PASS Phase L: invalid old attack objective cannot create a threat against the new owner",
+      "GROUP aiResponses 837 0",
+      "TOTAL 837 0"
+    ]
+  },
+  {
+    "suite": "integration",
+    "exit": 0,
+    "tail": [
+      "PASS a heartbeat that loses the version to gameplay keeps that gameplay and its own receipt",
+      "PASS another player cannot use a persisted session id, and public state hides leases",
+      "PASS a workout session id is not gameplay-session authority",
+      "PASS a legacy lease without an open request id remains valid authority",
+      "PASS supabase payload and http routes keep one player session and ignore client clocks",
+      "GROUP gameplaySessionLifecycle 319 0",
+      "TOTAL 319 0"
+    ]
+  },
+  {
+    "suite": "full-backend",
+    "exit": 0,
+    "tail": [
+      "  \u2713 a heartbeat that loses the version to gameplay keeps that gameplay and its own receipt",
+      "  \u2713 another player cannot use a persisted session id, and public state hides leases",
+      "  \u2713 a workout session id is not gameplay-session authority",
+      "  \u2713 a legacy lease without an open request id remains valid authority",
+      "  \u2713 supabase payload and http routes keep one player session and ignore client clocks",
+      "",
+      "Results: 1916 passed, 0 failed"
+    ]
+  }
+]

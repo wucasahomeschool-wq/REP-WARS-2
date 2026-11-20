@@ -1,0 +1,4 @@
+{"issue":1,"army":"army_1","location":"t_009","troops":868,"sources":[],"enemySites":["t_000","t_001","t_006"]}
+{"issue":2,"fieldArmies":0,"poolTroops":16798,"rejection":"Local-pool army creation has no authoritative domain path"}
+{"issue":3,"bankFood":0,"localFood":45507,"stability":34}
+{"issue":4,"declines":46,"exactRepeatedTerms":8,"reoffersIdenticalPlan":true,"candidateCount":3}

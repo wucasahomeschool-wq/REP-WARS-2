@@ -1,0 +1,60 @@
+{
+  "groups": [
+    {
+      "group": "durable-core",
+      "passed": 2444,
+      "failed": 0,
+      "skipped": 3,
+      "filtered": 33
+    },
+    {
+      "group": "durable-days",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "filtered": 2479
+    },
+    {
+      "group": "durable-weeks",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "filtered": 2479
+    },
+    {
+      "group": "durable-replay",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "filtered": 2479
+    },
+    {
+      "group": "durable-pause",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "filtered": 2479
+    },
+    {
+      "group": "full-journeys-final",
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0,
+      "filtered": 2451
+    }
+  ],
+  "registered": 2480,
+  "passed": 2477,
+  "failed": 0,
+  "skipped": 3,
+  "phasePasses": {
+    "1": 23,
+    "2": 28,
+    "3": 27,
+    "4": 12,
+    "5A eligibility": 19,
+    "5A production": 21
+  },
+  "preservedWorktrees": 24,
+  "preservedDirtyFiles": 78
+}

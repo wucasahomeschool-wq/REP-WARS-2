@@ -1,0 +1,4312 @@
+{
+  "configurations": 16,
+  "allCompletedAndConserved": true,
+  "casesWithNestedErrors": [
+    {
+      "name": "medium-11-online-1440",
+      "errors": [
+        {
+          "code": "INSUFFICIENT_TROOPS",
+          "message": "Arrived army is no longer an eligible attacking force"
+        },
+        {
+          "code": "INSUFFICIENT_TROOPS",
+          "message": "Arrived army is no longer an eligible attacking force"
+        },
+        {
+          "code": "INSUFFICIENT_TROOPS",
+          "message": "Arrived army is no longer an eligible attacking force"
+        },
+        {
+          "code": "INSUFFICIENT_TROOPS",
+          "message": "Arrived army is no longer an eligible attacking force"
+        }
+      ]
+    }
+  ],
+  "aggregate": {
+    "original": {
+      "decisions": 7234,
+      "actions": {
+        "ATTACK": 689,
+        "REINFORCE": 1,
+        "BUILD": 524,
+        "MOVE": 0,
+        "OFFER_PEACE": 0,
+        "TRADE": 50,
+        "RETREAT": 0,
+        "WAIT": 5970
+      },
+      "operations": 1296,
+      "battles": 278,
+      "captures": 638,
+      "formations": 0,
+      "recoveredFactionCases": 0,
+      "frontierGaps": 4,
+      "repeatDeclines": 38
+    },
+    "previous": {
+      "decisions": 7732,
+      "actions": {
+        "ATTACK": 678,
+        "REINFORCE": 3,
+        "BUILD": 524,
+        "MOVE": 5,
+        "OFFER_PEACE": 0,
+        "TRADE": 4,
+        "RETREAT": 1,
+        "WAIT": 6517
+      },
+      "operations": 1243,
+      "battles": 271,
+      "captures": 630,
+      "formations": 0,
+      "recoveredFactionCases": 0,
+      "frontierGaps": 3,
+      "repeatDeclines": 0
+    },
+    "current": {
+      "decisions": 8033,
+      "actions": {
+        "ATTACK": 808,
+        "REINFORCE": 64,
+        "BUILD": 617,
+        "MOVE": 7,
+        "OFFER_PEACE": 0,
+        "TRADE": 2,
+        "RETREAT": 1,
+        "WAIT": 6534
+      },
+      "operations": 1536,
+      "battles": 299,
+      "captures": 725,
+      "formations": 37,
+      "recoveredFactionCases": 22,
+      "frontierGaps": 1,
+      "repeatDeclines": 0
+    }
+  },
+  "cases": [
+    {
+      "name": "large-11-online-1440",
+      "config": {
+        "size": "large",
+        "seed": 11,
+        "ticks": 1440,
+        "presence": "online",
+        "stepTicks": 5,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 1139,
+        "actions": {
+          "ATTACK": 148,
+          "BUILD": 114,
+          "WAIT": 874,
+          "TRADE": 3
+        },
+        "operations": 273,
+        "operationActions": {
+          "ATTACK": 148,
+          "BUILD": 114,
+          "MOVE": 4,
+          "TRADE": 3,
+          "REINFORCE": 4
+        },
+        "battles": 55,
+        "captures": 136,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_4",
+          "f_ai_5",
+          "f_ai_7"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 1176,
+        "foodFinal": 44079,
+        "recruited": 72786,
+        "trade": {
+          "accepted": 3
+        },
+        "shipments": {
+          "delivered": 6
+        },
+        "repeatDeclines": 0,
+        "survivors": 4,
+        "seconds": 141.29171215899999,
+        "maxRssMiB": 771.2734375,
+        "canonicalDigest": "86fbd834040d7b18cc1df0dc3f93a14c86ecb62e2ab0cba85c288226e700cda4",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13960,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 28909,
+              "food": 44079,
+              "wood": 35875,
+              "iron": 11917,
+              "stone": 23337
+            },
+            "troops": 62096,
+            "siege": 1
+          },
+          "recruited": 72786,
+          "eventAndOwnershipTroopDelta": -10497,
+          "conflictLosses": {
+            "troops": 14153,
+            "siege": 15
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 20029,
+            "food": 36879,
+            "wood": 32445,
+            "iron": 10157,
+            "stone": 20307
+          }
+        },
+        "peakConcurrentOperations": 22
+      },
+      "previous": {
+        "decisions": 2068,
+        "actions": {
+          "ATTACK": 188,
+          "BUILD": 118,
+          "WAIT": 1757,
+          "MOVE": 2,
+          "RETREAT": 1,
+          "TRADE": 2
+        },
+        "operations": 317,
+        "operationActions": {
+          "ATTACK": 189,
+          "BUILD": 118,
+          "MOVE": 6,
+          "REINFORCE": 1,
+          "RETREAT": 1,
+          "TRADE": 2
+        },
+        "battles": 55,
+        "captures": 176,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_7"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 1176,
+        "foodFinal": 45378,
+        "recruited": 71041,
+        "trade": {
+          "accepted": 2
+        },
+        "shipments": {
+          "delivered": 4
+        },
+        "repeatDeclines": 0,
+        "survivors": 2,
+        "seconds": 164.772056675,
+        "maxRssMiB": 927.59375,
+        "canonicalDigest": "66f9b5de97aeeeaaedf5a7f45f1f8e48ee53c2109301c7a85acb77af90317e40",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13960,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 28530,
+              "food": 45378,
+              "wood": 31714,
+              "iron": 12547,
+              "stone": 24363
+            },
+            "troops": 59459,
+            "siege": 1
+          },
+          "recruited": 71041,
+          "eventAndOwnershipTroopDelta": -12106,
+          "conflictLosses": {
+            "troops": 13436,
+            "siege": 15
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 19650,
+            "food": 38178,
+            "wood": 28284,
+            "iron": 10787,
+            "stone": 21333
+          }
+        },
+        "peakConcurrentOperations": 22
+      },
+      "current": {
+        "decisions": 2142,
+        "actions": {
+          "ATTACK": 306,
+          "BUILD": 127,
+          "WAIT": 1655,
+          "MOVE": 4,
+          "REINFORCE": 49,
+          "RETREAT": 1
+        },
+        "operations": 501,
+        "operationActions": {
+          "ATTACK": 312,
+          "BUILD": 127,
+          "MOVE": 7,
+          "REINFORCE": 54,
+          "RETREAT": 1
+        },
+        "battles": 89,
+        "captures": 263,
+        "formations": 26,
+        "recoveredFactions": [
+          "f_ai_0",
+          "f_ai_1",
+          "f_ai_3",
+          "f_ai_5",
+          "f_ai_7"
+        ],
+        "frontierGaps": 1,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 1176,
+        "foodFinal": 37344,
+        "recruited": 70932,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 2,
+        "seconds": 200.089334806,
+        "maxRssMiB": 873.78125,
+        "canonicalDigest": "fe1a43ac512ca66b5075848366179e92ad22553a4ffa2899069d268af0431abd",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13960,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 23121,
+              "food": 37344,
+              "wood": 24690,
+              "iron": 10648,
+              "stone": 20626
+            },
+            "troops": 45271,
+            "siege": 0
+          },
+          "recruited": 70932,
+          "eventAndOwnershipTroopDelta": -21863,
+          "conflictLosses": {
+            "troops": 17758,
+            "siege": 16
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 14241,
+            "food": 30144,
+            "wood": 21260,
+            "iron": 8888,
+            "stone": 17596
+          }
+        },
+        "peakConcurrentOperations": 22
+      }
+    },
+    {
+      "name": "large-11-online-360",
+      "config": {
+        "size": "large",
+        "seed": 11,
+        "ticks": 360,
+        "presence": "online",
+        "stepTicks": 1,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 1139,
+        "actions": {
+          "ATTACK": 148,
+          "BUILD": 114,
+          "WAIT": 874,
+          "TRADE": 3
+        },
+        "operations": 273,
+        "operationActions": {
+          "ATTACK": 148,
+          "BUILD": 114,
+          "MOVE": 4,
+          "TRADE": 3,
+          "REINFORCE": 4
+        },
+        "battles": 55,
+        "captures": 136,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_4",
+          "f_ai_5",
+          "f_ai_7"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 11296,
+        "recruited": 18251,
+        "trade": {
+          "accepted": 3
+        },
+        "shipments": {
+          "delivered": 6
+        },
+        "repeatDeclines": 0,
+        "survivors": 4,
+        "seconds": 86.102213584,
+        "maxRssMiB": 728.16015625,
+        "canonicalDigest": "c6322647656881b67b26bf1238ad7e0cbb2bfa5ede9839475260ee0ad3d91eb1",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13960,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 6859,
+              "food": 11296,
+              "wood": 5728,
+              "iron": 2377,
+              "stone": 4257
+            },
+            "troops": 7561,
+            "siege": 1
+          },
+          "recruited": 18251,
+          "eventAndOwnershipTroopDelta": -10497,
+          "conflictLosses": {
+            "troops": 14153,
+            "siege": 15
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -2021,
+            "food": 4096,
+            "wood": 2298,
+            "iron": 617,
+            "stone": 1227
+          }
+        },
+        "peakConcurrentOperations": 23
+      },
+      "previous": {
+        "decisions": 1238,
+        "actions": {
+          "ATTACK": 188,
+          "BUILD": 118,
+          "WAIT": 927,
+          "MOVE": 2,
+          "RETREAT": 1,
+          "TRADE": 2
+        },
+        "operations": 317,
+        "operationActions": {
+          "ATTACK": 189,
+          "BUILD": 118,
+          "MOVE": 6,
+          "REINFORCE": 1,
+          "RETREAT": 1,
+          "TRADE": 2
+        },
+        "battles": 55,
+        "captures": 176,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_7"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 10980,
+        "recruited": 18121,
+        "trade": {
+          "accepted": 2
+        },
+        "shipments": {
+          "delivered": 4
+        },
+        "repeatDeclines": 0,
+        "survivors": 2,
+        "seconds": 96.452039518,
+        "maxRssMiB": 799.41796875,
+        "canonicalDigest": "c9fb692e3eca780c82807344a65884c08e34ac940ad462a51007b2de431586a3",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13960,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 6480,
+              "food": 10980,
+              "wood": 4984,
+              "iron": 2377,
+              "stone": 4023
+            },
+            "troops": 6539,
+            "siege": 1
+          },
+          "recruited": 18121,
+          "eventAndOwnershipTroopDelta": -12106,
+          "conflictLosses": {
+            "troops": 13436,
+            "siege": 15
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -2400,
+            "food": 3780,
+            "wood": 1554,
+            "iron": 617,
+            "stone": 993
+          }
+        },
+        "peakConcurrentOperations": 23
+      },
+      "current": {
+        "decisions": 1264,
+        "actions": {
+          "ATTACK": 212,
+          "BUILD": 127,
+          "WAIT": 911,
+          "MOVE": 3,
+          "REINFORCE": 10,
+          "RETREAT": 1
+        },
+        "operations": 361,
+        "operationActions": {
+          "ATTACK": 216,
+          "BUILD": 127,
+          "MOVE": 6,
+          "REINFORCE": 11,
+          "RETREAT": 1
+        },
+        "battles": 61,
+        "captures": 196,
+        "formations": 6,
+        "recoveredFactions": [
+          "f_ai_0",
+          "f_ai_1",
+          "f_ai_5",
+          "f_ai_7"
+        ],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_3"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 10782,
+        "recruited": 18080,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 2,
+        "seconds": 96.524996793,
+        "maxRssMiB": 792.98046875,
+        "canonicalDigest": "faff7326040fd6d0bcbd478c2e126ab9412a44f6675662d0d4805c3808a0fdb7",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13960,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 5962,
+              "food": 10782,
+              "wood": 4498,
+              "iron": 2346,
+              "stone": 4023
+            },
+            "troops": 5802,
+            "siege": 0
+          },
+          "recruited": 18080,
+          "eventAndOwnershipTroopDelta": -11705,
+          "conflictLosses": {
+            "troops": 14533,
+            "siege": 16
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -2918,
+            "food": 3582,
+            "wood": 1068,
+            "iron": 586,
+            "stone": 993
+          }
+        },
+        "peakConcurrentOperations": 23
+      }
+    },
+    {
+      "name": "large-29-offline-360",
+      "config": {
+        "size": "large",
+        "seed": 29,
+        "ticks": 360,
+        "presence": "offline",
+        "stepTicks": 5,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 220,
+        "actions": {
+          "BUILD": 53,
+          "ATTACK": 84,
+          "WAIT": 83
+        },
+        "operations": 137,
+        "operationActions": {
+          "BUILD": 53,
+          "ATTACK": 84
+        },
+        "battles": 39,
+        "captures": 79,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_6"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 12640,
+        "recruited": 18863,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 7,
+        "seconds": 22.840535825,
+        "maxRssMiB": 479.609375,
+        "canonicalDigest": "b71c318d0e55f52808223a3221d346dc63657d5968ba12774c29ec3b40e2fade",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13920,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 10102,
+              "food": 12640,
+              "wood": 7420,
+              "iron": 2889,
+              "stone": 5970
+            },
+            "troops": 18230,
+            "siege": 11
+          },
+          "recruited": 18863,
+          "eventAndOwnershipTroopDelta": -8452,
+          "conflictLosses": {
+            "troops": 6101,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 1222,
+            "food": 5440,
+            "wood": 3990,
+            "iron": 1129,
+            "stone": 2940
+          }
+        },
+        "peakConcurrentOperations": 8
+      },
+      "previous": {
+        "decisions": 220,
+        "actions": {
+          "BUILD": 53,
+          "ATTACK": 84,
+          "WAIT": 83
+        },
+        "operations": 137,
+        "operationActions": {
+          "BUILD": 53,
+          "ATTACK": 84
+        },
+        "battles": 39,
+        "captures": 79,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_6"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 12640,
+        "recruited": 18863,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 7,
+        "seconds": 21.769481506,
+        "maxRssMiB": 501.55859375,
+        "canonicalDigest": "b71c318d0e55f52808223a3221d346dc63657d5968ba12774c29ec3b40e2fade",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13920,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 10102,
+              "food": 12640,
+              "wood": 7420,
+              "iron": 2889,
+              "stone": 5970
+            },
+            "troops": 18230,
+            "siege": 11
+          },
+          "recruited": 18863,
+          "eventAndOwnershipTroopDelta": -8452,
+          "conflictLosses": {
+            "troops": 6101,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 1222,
+            "food": 5440,
+            "wood": 3990,
+            "iron": 1129,
+            "stone": 2940
+          }
+        },
+        "peakConcurrentOperations": 8
+      },
+      "current": {
+        "decisions": 220,
+        "actions": {
+          "BUILD": 53,
+          "ATTACK": 84,
+          "WAIT": 82,
+          "REINFORCE": 1
+        },
+        "operations": 138,
+        "operationActions": {
+          "BUILD": 53,
+          "ATTACK": 84,
+          "REINFORCE": 1
+        },
+        "battles": 39,
+        "captures": 79,
+        "formations": 1,
+        "recoveredFactions": [
+          "f_ai_0"
+        ],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_6"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 12640,
+        "recruited": 18863,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 7,
+        "seconds": 22.035822071000002,
+        "maxRssMiB": 530.4140625,
+        "canonicalDigest": "9ff151bef1b8b60d094e9821ff197fd0ecdbfa9cd1d2191821dddc3b070265c0",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13920,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 10102,
+              "food": 12640,
+              "wood": 7420,
+              "iron": 2889,
+              "stone": 5970
+            },
+            "troops": 18183,
+            "siege": 11
+          },
+          "recruited": 18863,
+          "eventAndOwnershipTroopDelta": -8351,
+          "conflictLosses": {
+            "troops": 6249,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 1222,
+            "food": 5440,
+            "wood": 3990,
+            "iron": 1129,
+            "stone": 2940
+          }
+        },
+        "peakConcurrentOperations": 8
+      }
+    },
+    {
+      "name": "large-29-online-360",
+      "config": {
+        "size": "large",
+        "seed": 29,
+        "ticks": 360,
+        "presence": "online",
+        "stepTicks": 1,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 1678,
+        "actions": {
+          "BUILD": 114,
+          "ATTACK": 153,
+          "WAIT": 1364,
+          "TRADE": 47
+        },
+        "operations": 316,
+        "operationActions": {
+          "BUILD": 114,
+          "ATTACK": 153,
+          "MOVE": 1,
+          "REINFORCE": 1,
+          "TRADE": 47
+        },
+        "battles": 52,
+        "captures": 145,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_1",
+          "f_ai_2",
+          "f_ai_3"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 10520,
+        "recruited": 18103,
+        "trade": {
+          "accepted": 1,
+          "declined": 46
+        },
+        "shipments": {
+          "delivered": 2
+        },
+        "repeatDeclines": 38,
+        "survivors": 6,
+        "seconds": 121.36963865899999,
+        "maxRssMiB": 741.23828125,
+        "canonicalDigest": "efce02d9236f51cdbc84f4b489293b532eb3dcd21a859482bf128effcc7b5f08",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13920,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 6268,
+              "food": 10520,
+              "wood": 4812,
+              "iron": 2048,
+              "stone": 3701
+            },
+            "troops": 9443,
+            "siege": 6
+          },
+          "recruited": 18103,
+          "eventAndOwnershipTroopDelta": -12180,
+          "conflictLosses": {
+            "troops": 10400,
+            "siege": 10
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -2612,
+            "food": 3320,
+            "wood": 1382,
+            "iron": 288,
+            "stone": 671
+          }
+        },
+        "peakConcurrentOperations": 25
+      },
+      "previous": {
+        "decisions": 1967,
+        "actions": {
+          "BUILD": 105,
+          "ATTACK": 99,
+          "WAIT": 1757,
+          "MOVE": 2,
+          "TRADE": 2,
+          "REINFORCE": 2
+        },
+        "operations": 210,
+        "operationActions": {
+          "BUILD": 105,
+          "ATTACK": 99,
+          "MOVE": 2,
+          "TRADE": 2,
+          "REINFORCE": 2
+        },
+        "battles": 44,
+        "captures": 94,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 14827,
+        "recruited": 18147,
+        "trade": {
+          "accepted": 1,
+          "declined": 1
+        },
+        "shipments": {
+          "delivered": 2
+        },
+        "repeatDeclines": 0,
+        "survivors": 7,
+        "seconds": 161.38109058,
+        "maxRssMiB": 780.02734375,
+        "canonicalDigest": "2999f54b080ad59db6e8fe4135ecdc8542259e992aa8ae3ea467a0477681f488",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13920,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 9421,
+              "food": 14827,
+              "wood": 9607,
+              "iron": 3310,
+              "stone": 6037
+            },
+            "troops": 19879,
+            "siege": 12
+          },
+          "recruited": 18147,
+          "eventAndOwnershipTroopDelta": -5810,
+          "conflictLosses": {
+            "troops": 6378,
+            "siege": 4
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 541,
+            "food": 7627,
+            "wood": 6177,
+            "iron": 1550,
+            "stone": 3007
+          }
+        },
+        "peakConcurrentOperations": 25
+      },
+      "current": {
+        "decisions": 1951,
+        "actions": {
+          "BUILD": 105,
+          "ATTACK": 101,
+          "WAIT": 1740,
+          "MOVE": 2,
+          "REINFORCE": 1,
+          "TRADE": 2
+        },
+        "operations": 211,
+        "operationActions": {
+          "BUILD": 105,
+          "ATTACK": 101,
+          "MOVE": 2,
+          "REINFORCE": 1,
+          "TRADE": 2
+        },
+        "battles": 45,
+        "captures": 96,
+        "formations": 1,
+        "recoveredFactions": [
+          "f_ai_5"
+        ],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 14697,
+        "recruited": 18145,
+        "trade": {
+          "accepted": 1,
+          "declined": 1
+        },
+        "shipments": {
+          "delivered": 2
+        },
+        "repeatDeclines": 0,
+        "survivors": 7,
+        "seconds": 163.6140166,
+        "maxRssMiB": 785.5625,
+        "canonicalDigest": "64b94fbe24a3ddcc05ff0d306870a655f8acd86c8deff67e5e0ffcb975abc563",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13920,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 9340,
+              "food": 14697,
+              "wood": 9523,
+              "iron": 3249,
+              "stone": 5917
+            },
+            "troops": 19628,
+            "siege": 12
+          },
+          "recruited": 18145,
+          "eventAndOwnershipTroopDelta": -6005,
+          "conflictLosses": {
+            "troops": 6432,
+            "siege": 4
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 460,
+            "food": 7497,
+            "wood": 6093,
+            "iron": 1489,
+            "stone": 2887
+          }
+        },
+        "peakConcurrentOperations": 25
+      }
+    },
+    {
+      "name": "large-47-online-360",
+      "config": {
+        "size": "large",
+        "seed": 47,
+        "ticks": 360,
+        "presence": "online",
+        "stepTicks": 1,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 1454,
+        "actions": {
+          "ATTACK": 164,
+          "WAIT": 1213,
+          "BUILD": 76,
+          "REINFORCE": 1
+        },
+        "operations": 245,
+        "operationActions": {
+          "ATTACK": 164,
+          "BUILD": 76,
+          "REINFORCE": 5
+        },
+        "battles": 54,
+        "captures": 153,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 10278,
+        "recruited": 18132,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 4,
+        "seconds": 104.607743143,
+        "maxRssMiB": 730.765625,
+        "canonicalDigest": "3ca58a1ed084eaa344d2f7a42e734462f1ccbc3e544bd996c993b39fdef76988",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13880,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 7391,
+              "food": 10278,
+              "wood": 5064,
+              "iron": 1845,
+              "stone": 3500
+            },
+            "troops": 8706,
+            "siege": 7
+          },
+          "recruited": 18132,
+          "eventAndOwnershipTroopDelta": -12721,
+          "conflictLosses": {
+            "troops": 10585,
+            "siege": 9
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -1489,
+            "food": 3078,
+            "wood": 1634,
+            "iron": 85,
+            "stone": 470
+          }
+        },
+        "peakConcurrentOperations": 22
+      },
+      "previous": {
+        "decisions": 1454,
+        "actions": {
+          "ATTACK": 164,
+          "WAIT": 1213,
+          "BUILD": 76,
+          "REINFORCE": 1
+        },
+        "operations": 245,
+        "operationActions": {
+          "ATTACK": 164,
+          "BUILD": 76,
+          "REINFORCE": 5
+        },
+        "battles": 54,
+        "captures": 153,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 10278,
+        "recruited": 18132,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 4,
+        "seconds": 91.85877538999999,
+        "maxRssMiB": 774.05859375,
+        "canonicalDigest": "3ca58a1ed084eaa344d2f7a42e734462f1ccbc3e544bd996c993b39fdef76988",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13880,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 7391,
+              "food": 10278,
+              "wood": 5064,
+              "iron": 1845,
+              "stone": 3500
+            },
+            "troops": 8706,
+            "siege": 7
+          },
+          "recruited": 18132,
+          "eventAndOwnershipTroopDelta": -12721,
+          "conflictLosses": {
+            "troops": 10585,
+            "siege": 9
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -1489,
+            "food": 3078,
+            "wood": 1634,
+            "iron": 85,
+            "stone": 470
+          }
+        },
+        "peakConcurrentOperations": 22
+      },
+      "current": {
+        "decisions": 1645,
+        "actions": {
+          "ATTACK": 162,
+          "WAIT": 1365,
+          "BUILD": 100,
+          "REINFORCE": 18
+        },
+        "operations": 285,
+        "operationActions": {
+          "ATTACK": 163,
+          "BUILD": 100,
+          "REINFORCE": 22
+        },
+        "battles": 60,
+        "captures": 139,
+        "formations": 12,
+        "recoveredFactions": [
+          "f_ai_0",
+          "f_ai_1",
+          "f_ai_3",
+          "f_ai_5",
+          "f_ai_6",
+          "f_ai_7"
+        ],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_5"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 294,
+        "foodFinal": 13262,
+        "recruited": 18388,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 5,
+        "seconds": 112.412259992,
+        "maxRssMiB": 825.76171875,
+        "canonicalDigest": "92355bc6dc5da2066edb7eb98505b66f71f6dc7860095807c1ab2da61f515801",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 8880,
+              "food": 7200,
+              "wood": 3430,
+              "iron": 1760,
+              "stone": 3030
+            },
+            "troops": 13880,
+            "siege": 16
+          },
+          "final": {
+            "resources": {
+              "gold": 8630,
+              "food": 13262,
+              "wood": 7656,
+              "iron": 2915,
+              "stone": 5486
+            },
+            "troops": 11785,
+            "siege": 2
+          },
+          "recruited": 18388,
+          "eventAndOwnershipTroopDelta": -7003,
+          "conflictLosses": {
+            "troops": 13480,
+            "siege": 14
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -250,
+            "food": 6062,
+            "wood": 4226,
+            "iron": 1155,
+            "stone": 2456
+          }
+        },
+        "peakConcurrentOperations": 22
+      }
+    },
+    {
+      "name": "medium-11-online-1440",
+      "config": {
+        "size": "medium",
+        "seed": 11,
+        "ticks": 1440,
+        "presence": "online",
+        "stepTicks": 5,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [
+        {
+          "code": "INSUFFICIENT_TROOPS",
+          "message": "Arrived army is no longer an eligible attacking force"
+        },
+        {
+          "code": "INSUFFICIENT_TROOPS",
+          "message": "Arrived army is no longer an eligible attacking force"
+        },
+        {
+          "code": "INSUFFICIENT_TROOPS",
+          "message": "Arrived army is no longer an eligible attacking force"
+        },
+        {
+          "code": "INSUFFICIENT_TROOPS",
+          "message": "Arrived army is no longer an eligible attacking force"
+        }
+      ],
+      "strictNestedErrorFree": false,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 904,
+        "actions": {
+          "BUILD": 54,
+          "ATTACK": 68,
+          "WAIT": 782
+        },
+        "operations": 128,
+        "operationActions": {
+          "BUILD": 54,
+          "ATTACK": 68,
+          "MOVE": 3,
+          "REINFORCE": 3
+        },
+        "battles": 33,
+        "captures": 65,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 696,
+        "foodFinal": 28658,
+        "recruited": 42310,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 58.342218965,
+        "maxRssMiB": 679.49609375,
+        "canonicalDigest": "84e0b7085a8d487a34231b250c1eef8b273a809ae189746205fb5c0bd3d8d825",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 18841,
+              "food": 28658,
+              "wood": 19840,
+              "iron": 6796,
+              "stone": 13397
+            },
+            "troops": 37953,
+            "siege": 2
+          },
+          "recruited": 42310,
+          "eventAndOwnershipTroopDelta": -4966,
+          "conflictLosses": {
+            "troops": 8091,
+            "siege": 8
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 13001,
+            "food": 24158,
+            "wood": 17770,
+            "iron": 5696,
+            "stone": 11577
+          }
+        },
+        "peakConcurrentOperations": 14
+      },
+      "previous": {
+        "decisions": 904,
+        "actions": {
+          "BUILD": 54,
+          "ATTACK": 68,
+          "WAIT": 782
+        },
+        "operations": 128,
+        "operationActions": {
+          "BUILD": 54,
+          "ATTACK": 68,
+          "MOVE": 3,
+          "REINFORCE": 3
+        },
+        "battles": 33,
+        "captures": 65,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 696,
+        "foodFinal": 28658,
+        "recruited": 42310,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 55.154289766000005,
+        "maxRssMiB": 689.65625,
+        "canonicalDigest": "84e0b7085a8d487a34231b250c1eef8b273a809ae189746205fb5c0bd3d8d825",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 18841,
+              "food": 28658,
+              "wood": 19840,
+              "iron": 6796,
+              "stone": 13397
+            },
+            "troops": 37953,
+            "siege": 2
+          },
+          "recruited": 42310,
+          "eventAndOwnershipTroopDelta": -4966,
+          "conflictLosses": {
+            "troops": 8091,
+            "siege": 8
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 13001,
+            "food": 24158,
+            "wood": 17770,
+            "iron": 5696,
+            "stone": 11577
+          }
+        },
+        "peakConcurrentOperations": 14
+      },
+      "current": {
+        "decisions": 3595,
+        "actions": {
+          "BUILD": 73,
+          "ATTACK": 269,
+          "WAIT": 3176,
+          "REINFORCE": 73,
+          "MOVE": 4
+        },
+        "operations": 447,
+        "operationActions": {
+          "BUILD": 73,
+          "ATTACK": 273,
+          "MOVE": 7,
+          "REINFORCE": 94
+        },
+        "battles": 81,
+        "captures": 220,
+        "formations": 28,
+        "recoveredFactions": [
+          "f_ai_0",
+          "f_ai_1",
+          "f_ai_2",
+          "f_ai_4"
+        ],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_0"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 696,
+        "foodFinal": 12904,
+        "recruited": 43709,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 3,
+        "seconds": 154.274418686,
+        "maxRssMiB": 912.2734375,
+        "canonicalDigest": "f76e547cc17e5ea44152fae46f2f78fa36443e2fb62b90e33dc429aca4d46ec4",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 9503,
+              "food": 12904,
+              "wood": 10410,
+              "iron": 4107,
+              "stone": 7881
+            },
+            "troops": 16336,
+            "siege": 0
+          },
+          "recruited": 43709,
+          "eventAndOwnershipTroopDelta": -21607,
+          "conflictLosses": {
+            "troops": 14466,
+            "siege": 10
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 3663,
+            "food": 8404,
+            "wood": 8340,
+            "iron": 3007,
+            "stone": 6061
+          }
+        },
+        "peakConcurrentOperations": 14
+      }
+    },
+    {
+      "name": "medium-11-online-360",
+      "config": {
+        "size": "medium",
+        "seed": 11,
+        "ticks": 360,
+        "presence": "online",
+        "stepTicks": 1,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 904,
+        "actions": {
+          "BUILD": 54,
+          "ATTACK": 68,
+          "WAIT": 782
+        },
+        "operations": 128,
+        "operationActions": {
+          "BUILD": 54,
+          "ATTACK": 68,
+          "MOVE": 3,
+          "REINFORCE": 3
+        },
+        "battles": 33,
+        "captures": 65,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 8300,
+        "recruited": 10990,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 36.280551632000005,
+        "maxRssMiB": 646.76953125,
+        "canonicalDigest": "857dcf6bc85d47c62fa78b265f15730d67fd59dd81ddb151674fd8239110dc29",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 5791,
+              "food": 8300,
+              "wood": 4360,
+              "iron": 1576,
+              "stone": 2957
+            },
+            "troops": 6633,
+            "siege": 2
+          },
+          "recruited": 10990,
+          "eventAndOwnershipTroopDelta": -4966,
+          "conflictLosses": {
+            "troops": 8091,
+            "siege": 8
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -49,
+            "food": 3800,
+            "wood": 2290,
+            "iron": 476,
+            "stone": 1137
+          }
+        },
+        "peakConcurrentOperations": 14
+      },
+      "previous": {
+        "decisions": 904,
+        "actions": {
+          "BUILD": 54,
+          "ATTACK": 68,
+          "WAIT": 782
+        },
+        "operations": 128,
+        "operationActions": {
+          "BUILD": 54,
+          "ATTACK": 68,
+          "MOVE": 3,
+          "REINFORCE": 3
+        },
+        "battles": 33,
+        "captures": 65,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 8300,
+        "recruited": 10990,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 48.99165239800001,
+        "maxRssMiB": 556.078125,
+        "canonicalDigest": "857dcf6bc85d47c62fa78b265f15730d67fd59dd81ddb151674fd8239110dc29",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 5791,
+              "food": 8300,
+              "wood": 4360,
+              "iron": 1576,
+              "stone": 2957
+            },
+            "troops": 6633,
+            "siege": 2
+          },
+          "recruited": 10990,
+          "eventAndOwnershipTroopDelta": -4966,
+          "conflictLosses": {
+            "troops": 8091,
+            "siege": 8
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -49,
+            "food": 3800,
+            "wood": 2290,
+            "iron": 476,
+            "stone": 1137
+          }
+        },
+        "peakConcurrentOperations": 14
+      },
+      "current": {
+        "decisions": 1055,
+        "actions": {
+          "BUILD": 69,
+          "ATTACK": 96,
+          "WAIT": 875,
+          "REINFORCE": 15
+        },
+        "operations": 187,
+        "operationActions": {
+          "BUILD": 69,
+          "ATTACK": 96,
+          "MOVE": 3,
+          "REINFORCE": 19
+        },
+        "battles": 39,
+        "captures": 84,
+        "formations": 8,
+        "recoveredFactions": [
+          "f_ai_0",
+          "f_ai_1",
+          "f_ai_2",
+          "f_ai_4"
+        ],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_0"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 7014,
+        "recruited": 11085,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 3,
+        "seconds": 47.828735206,
+        "maxRssMiB": 655.875,
+        "canonicalDigest": "8e4a7b242b2a0a589569f345227bfa403b8c7fee2c395b5e22211adb89a5613e",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 4756,
+              "food": 7014,
+              "wood": 3807,
+              "iron": 1549,
+              "stone": 2765
+            },
+            "troops": 4990,
+            "siege": 0
+          },
+          "recruited": 11085,
+          "eventAndOwnershipTroopDelta": -5329,
+          "conflictLosses": {
+            "troops": 9466,
+            "siege": 10
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -1084,
+            "food": 2514,
+            "wood": 1737,
+            "iron": 449,
+            "stone": 945
+          }
+        },
+        "peakConcurrentOperations": 14
+      }
+    },
+    {
+      "name": "medium-29-offline-360",
+      "config": {
+        "size": "medium",
+        "seed": 29,
+        "ticks": 360,
+        "presence": "offline",
+        "stepTicks": 5,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 148,
+        "actions": {
+          "BUILD": 34,
+          "ATTACK": 36,
+          "WAIT": 75,
+          "REINFORCE": 3
+        },
+        "operations": 76,
+        "operationActions": {
+          "BUILD": 34,
+          "ATTACK": 36,
+          "MOVE": 2,
+          "REINFORCE": 4
+        },
+        "battles": 23,
+        "captures": 33,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_3",
+          "f_ai_4"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 7711,
+        "recruited": 11920,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 5,
+        "seconds": 13.647407612999999,
+        "maxRssMiB": 451.98046875,
+        "canonicalDigest": "7ae3fad2add26fff579518acdcf8351d122c682008a10295d0a21c364b12ec66",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 6809,
+              "food": 7711,
+              "wood": 4774,
+              "iron": 1973,
+              "stone": 3993
+            },
+            "troops": 11115,
+            "siege": 5
+          },
+          "recruited": 11920,
+          "eventAndOwnershipTroopDelta": -4107,
+          "conflictLosses": {
+            "troops": 5398,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 969,
+            "food": 3211,
+            "wood": 2704,
+            "iron": 873,
+            "stone": 2173
+          }
+        },
+        "peakConcurrentOperations": 6
+      },
+      "previous": {
+        "decisions": 148,
+        "actions": {
+          "BUILD": 34,
+          "ATTACK": 36,
+          "WAIT": 75,
+          "REINFORCE": 3
+        },
+        "operations": 76,
+        "operationActions": {
+          "BUILD": 34,
+          "ATTACK": 36,
+          "MOVE": 2,
+          "REINFORCE": 4
+        },
+        "battles": 23,
+        "captures": 33,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_3",
+          "f_ai_4"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 7711,
+        "recruited": 11920,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 5,
+        "seconds": 7.607032680999999,
+        "maxRssMiB": 408.7734375,
+        "canonicalDigest": "7ae3fad2add26fff579518acdcf8351d122c682008a10295d0a21c364b12ec66",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 6809,
+              "food": 7711,
+              "wood": 4774,
+              "iron": 1973,
+              "stone": 3993
+            },
+            "troops": 11115,
+            "siege": 5
+          },
+          "recruited": 11920,
+          "eventAndOwnershipTroopDelta": -4107,
+          "conflictLosses": {
+            "troops": 5398,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 969,
+            "food": 3211,
+            "wood": 2704,
+            "iron": 873,
+            "stone": 2173
+          }
+        },
+        "peakConcurrentOperations": 6
+      },
+      "current": {
+        "decisions": 150,
+        "actions": {
+          "BUILD": 35,
+          "ATTACK": 35,
+          "WAIT": 74,
+          "REINFORCE": 6
+        },
+        "operations": 79,
+        "operationActions": {
+          "BUILD": 35,
+          "ATTACK": 35,
+          "MOVE": 2,
+          "REINFORCE": 7
+        },
+        "battles": 24,
+        "captures": 33,
+        "formations": 2,
+        "recoveredFactions": [
+          "f_ai_3",
+          "f_ai_4"
+        ],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_4"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 7628,
+        "recruited": 11926,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 5,
+        "seconds": 8.190835122000001,
+        "maxRssMiB": 429.0078125,
+        "canonicalDigest": "e7121935474ba4df853c0caab793c4d30d84898d4be55f89c47476096d1ce227",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 6731,
+              "food": 7628,
+              "wood": 4717,
+              "iron": 1928,
+              "stone": 3882
+            },
+            "troops": 10918,
+            "siege": 5
+          },
+          "recruited": 11926,
+          "eventAndOwnershipTroopDelta": -4121,
+          "conflictLosses": {
+            "troops": 5587,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 891,
+            "food": 3128,
+            "wood": 2647,
+            "iron": 828,
+            "stone": 2062
+          }
+        },
+        "peakConcurrentOperations": 6
+      }
+    },
+    {
+      "name": "medium-29-online-360",
+      "config": {
+        "size": "medium",
+        "seed": 29,
+        "ticks": 360,
+        "presence": "online",
+        "stepTicks": 1,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 901,
+        "actions": {
+          "BUILD": 60,
+          "ATTACK": 49,
+          "WAIT": 792
+        },
+        "operations": 112,
+        "operationActions": {
+          "BUILD": 60,
+          "ATTACK": 49,
+          "MOVE": 3
+        },
+        "battles": 27,
+        "captures": 45,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_0"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 9097,
+        "recruited": 11030,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 2,
+        "seconds": 33.456644665,
+        "maxRssMiB": 553.80078125,
+        "canonicalDigest": "00248f93a5bc999bdbd5ce8116900c5f57d42b1dc5d30804836a06bd023ef912",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 6301,
+              "food": 9097,
+              "wood": 5282,
+              "iron": 2376,
+              "stone": 4665
+            },
+            "troops": 9411,
+            "siege": 1
+          },
+          "recruited": 11030,
+          "eventAndOwnershipTroopDelta": -2764,
+          "conflictLosses": {
+            "troops": 7555,
+            "siege": 9
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 461,
+            "food": 4597,
+            "wood": 3212,
+            "iron": 1276,
+            "stone": 2845
+          }
+        },
+        "peakConcurrentOperations": 14
+      },
+      "previous": {
+        "decisions": 892,
+        "actions": {
+          "BUILD": 60,
+          "ATTACK": 49,
+          "WAIT": 783
+        },
+        "operations": 112,
+        "operationActions": {
+          "BUILD": 60,
+          "ATTACK": 49,
+          "MOVE": 3
+        },
+        "battles": 27,
+        "captures": 45,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_0"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 9097,
+        "recruited": 11030,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 2,
+        "seconds": 37.304040704,
+        "maxRssMiB": 628.2109375,
+        "canonicalDigest": "301f56ca0d8c7b3cef0508f1fc49389c6859f8f0df02a2fb94dbf1707f88e6d4",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 6301,
+              "food": 9097,
+              "wood": 5282,
+              "iron": 2376,
+              "stone": 4665
+            },
+            "troops": 9411,
+            "siege": 1
+          },
+          "recruited": 11030,
+          "eventAndOwnershipTroopDelta": -2764,
+          "conflictLosses": {
+            "troops": 7555,
+            "siege": 9
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 461,
+            "food": 4597,
+            "wood": 3212,
+            "iron": 1276,
+            "stone": 2845
+          }
+        },
+        "peakConcurrentOperations": 14
+      },
+      "current": {
+        "decisions": 926,
+        "actions": {
+          "BUILD": 82,
+          "ATTACK": 85,
+          "WAIT": 750,
+          "REINFORCE": 8,
+          "MOVE": 1
+        },
+        "operations": 182,
+        "operationActions": {
+          "BUILD": 82,
+          "ATTACK": 85,
+          "MOVE": 4,
+          "REINFORCE": 11
+        },
+        "battles": 33,
+        "captures": 77,
+        "formations": 4,
+        "recoveredFactions": [
+          "f_ai_0",
+          "f_ai_1",
+          "f_ai_4"
+        ],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_0"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 7369,
+        "recruited": 10998,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 3,
+        "seconds": 35.816573991,
+        "maxRssMiB": 706.828125,
+        "canonicalDigest": "3b3a808bb1cfdedd9d95c821e72e99dc002f83c375d74f1c1b06cbd16199d61c",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 4420,
+              "food": 7369,
+              "wood": 3676,
+              "iron": 1743,
+              "stone": 3241
+            },
+            "troops": 5831,
+            "siege": 0
+          },
+          "recruited": 10998,
+          "eventAndOwnershipTroopDelta": -4964,
+          "conflictLosses": {
+            "troops": 8903,
+            "siege": 10
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -1420,
+            "food": 2869,
+            "wood": 1606,
+            "iron": 643,
+            "stone": 1421
+          }
+        },
+        "peakConcurrentOperations": 14
+      }
+    },
+    {
+      "name": "medium-47-online-360",
+      "config": {
+        "size": "medium",
+        "seed": 47,
+        "ticks": 360,
+        "presence": "online",
+        "stepTicks": 1,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 1017,
+        "actions": {
+          "ATTACK": 50,
+          "BUILD": 63,
+          "WAIT": 904
+        },
+        "operations": 116,
+        "operationActions": {
+          "ATTACK": 50,
+          "BUILD": 63,
+          "MOVE": 3
+        },
+        "battles": 26,
+        "captures": 44,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_1",
+          "f_ai_3",
+          "f_ai_4"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 8552,
+        "recruited": 11476,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 5,
+        "seconds": 38.123137516999996,
+        "maxRssMiB": 554.7734375,
+        "canonicalDigest": "844b8d5dbc85fe3d588410bf7b593657a2319772ecd99bbf5b809a9dbbb433e9",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 6287,
+              "food": 8552,
+              "wood": 6317,
+              "iron": 2138,
+              "stone": 3921
+            },
+            "troops": 10988,
+            "siege": 3
+          },
+          "recruited": 11476,
+          "eventAndOwnershipTroopDelta": -2839,
+          "conflictLosses": {
+            "troops": 6349,
+            "siege": 7
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 447,
+            "food": 4052,
+            "wood": 4247,
+            "iron": 1038,
+            "stone": 2101
+          }
+        },
+        "peakConcurrentOperations": 14
+      },
+      "previous": {
+        "decisions": 1126,
+        "actions": {
+          "ATTACK": 50,
+          "BUILD": 63,
+          "WAIT": 1013
+        },
+        "operations": 116,
+        "operationActions": {
+          "ATTACK": 50,
+          "BUILD": 63,
+          "MOVE": 3
+        },
+        "battles": 26,
+        "captures": 44,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_1",
+          "f_ai_3",
+          "f_ai_4"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 8552,
+        "recruited": 11476,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 5,
+        "seconds": 42.005275848,
+        "maxRssMiB": 597.33203125,
+        "canonicalDigest": "2c59495bd435a0834d9a3811ea42b8d983fd3503185c6820ef5cadc9a9e1108f",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 6287,
+              "food": 8552,
+              "wood": 6317,
+              "iron": 2138,
+              "stone": 3921
+            },
+            "troops": 10988,
+            "siege": 3
+          },
+          "recruited": 11476,
+          "eventAndOwnershipTroopDelta": -2839,
+          "conflictLosses": {
+            "troops": 6349,
+            "siege": 7
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 447,
+            "food": 4052,
+            "wood": 4247,
+            "iron": 1038,
+            "stone": 2101
+          }
+        },
+        "peakConcurrentOperations": 14
+      },
+      "current": {
+        "decisions": 1041,
+        "actions": {
+          "ATTACK": 92,
+          "BUILD": 86,
+          "WAIT": 851,
+          "REINFORCE": 12
+        },
+        "operations": 195,
+        "operationActions": {
+          "ATTACK": 93,
+          "BUILD": 86,
+          "MOVE": 3,
+          "REINFORCE": 13
+        },
+        "battles": 29,
+        "captures": 80,
+        "formations": 6,
+        "recoveredFactions": [
+          "f_ai_0",
+          "f_ai_1",
+          "f_ai_3",
+          "f_ai_4"
+        ],
+        "frontierGaps": 0,
+        "armylessWithPool": [
+          "f_ai_1"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 174,
+        "foodFinal": 7909,
+        "recruited": 11312,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 5,
+        "seconds": 44.145994251,
+        "maxRssMiB": 710.44140625,
+        "canonicalDigest": "517ae3af2b542d318ddf315074d4776be414ef01308db7995fa71754c68fbe0d",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 5840,
+              "food": 4500,
+              "wood": 2070,
+              "iron": 1100,
+              "stone": 1820
+            },
+            "troops": 8700,
+            "siege": 10
+          },
+          "final": {
+            "resources": {
+              "gold": 5056,
+              "food": 7909,
+              "wood": 4794,
+              "iron": 2045,
+              "stone": 3563
+            },
+            "troops": 9261,
+            "siege": 2
+          },
+          "recruited": 11312,
+          "eventAndOwnershipTroopDelta": -3517,
+          "conflictLosses": {
+            "troops": 7234,
+            "siege": 8
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -784,
+            "food": 3409,
+            "wood": 2724,
+            "iron": 945,
+            "stone": 1743
+          }
+        },
+        "peakConcurrentOperations": 14
+      }
+    },
+    {
+      "name": "small-11-online-10080",
+      "config": {
+        "size": "small",
+        "seed": 11,
+        "ticks": 10080,
+        "presence": "online",
+        "stepTicks": 5,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 62,
+        "actions": {
+          "WAIT": 17,
+          "ATTACK": 21,
+          "BUILD": 24
+        },
+        "operations": 47,
+        "operationActions": {
+          "ATTACK": 21,
+          "BUILD": 24,
+          "MOVE": 2
+        },
+        "battles": 10,
+        "captures": 19,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_0"
+        ],
+        "foodFailures": 18,
+        "upkeepPaid": 1404,
+        "foodFinal": 60235,
+        "recruited": 97424,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 2,
+        "seconds": 78.355313759,
+        "maxRssMiB": 513.109375,
+        "canonicalDigest": "03ab9d0bd193b30bede41d92a2bfb317f2cd758031daa7071c7c93b4cc2b3a78",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5260,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 39591,
+              "food": 60235,
+              "wood": 42883,
+              "iron": 20492,
+              "stone": 41146
+            },
+            "troops": 98227,
+            "siege": 1
+          },
+          "recruited": 97424,
+          "eventAndOwnershipTroopDelta": -165,
+          "conflictLosses": {
+            "troops": 4292,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 36551,
+            "food": 57535,
+            "wood": 41523,
+            "iron": 19832,
+            "stone": 39936
+          }
+        },
+        "peakConcurrentOperations": 6
+      },
+      "previous": {
+        "decisions": 75,
+        "actions": {
+          "WAIT": 18,
+          "ATTACK": 24,
+          "BUILD": 32,
+          "MOVE": 1
+        },
+        "operations": 59,
+        "operationActions": {
+          "ATTACK": 24,
+          "BUILD": 32,
+          "MOVE": 3
+        },
+        "battles": 11,
+        "captures": 22,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 68,
+        "upkeepPaid": 900,
+        "foodFinal": 92458,
+        "recruited": 90740,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 90.04832955699999,
+        "maxRssMiB": 550.13671875,
+        "canonicalDigest": "54fa6eed74457ccf9db1bae675ad43e9b7bc2c517db0fd6c079010759ba49c98",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5260,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 39202,
+              "food": 92458,
+              "wood": 42669,
+              "iron": 22928,
+              "stone": 46060
+            },
+            "troops": 91229,
+            "siege": 1
+          },
+          "recruited": 90740,
+          "eventAndOwnershipTroopDelta": -343,
+          "conflictLosses": {
+            "troops": 4428,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 36162,
+            "food": 89758,
+            "wood": 41309,
+            "iron": 22268,
+            "stone": 44850
+          }
+        },
+        "peakConcurrentOperations": 6
+      },
+      "current": {
+        "decisions": 75,
+        "actions": {
+          "WAIT": 18,
+          "ATTACK": 24,
+          "BUILD": 32,
+          "MOVE": 1
+        },
+        "operations": 59,
+        "operationActions": {
+          "ATTACK": 24,
+          "BUILD": 32,
+          "MOVE": 3
+        },
+        "battles": 11,
+        "captures": 22,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 68,
+        "upkeepPaid": 900,
+        "foodFinal": 92458,
+        "recruited": 90740,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 92.507344729,
+        "maxRssMiB": 541.32421875,
+        "canonicalDigest": "54fa6eed74457ccf9db1bae675ad43e9b7bc2c517db0fd6c079010759ba49c98",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5260,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 39202,
+              "food": 92458,
+              "wood": 42669,
+              "iron": 22928,
+              "stone": 46060
+            },
+            "troops": 91229,
+            "siege": 1
+          },
+          "recruited": 90740,
+          "eventAndOwnershipTroopDelta": -343,
+          "conflictLosses": {
+            "troops": 4428,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 36162,
+            "food": 89758,
+            "wood": 41309,
+            "iron": 22268,
+            "stone": 44850
+          }
+        },
+        "peakConcurrentOperations": 6
+      }
+    },
+    {
+      "name": "small-11-online-1440",
+      "config": {
+        "size": "small",
+        "seed": 11,
+        "ticks": 1440,
+        "presence": "online",
+        "stepTicks": 5,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 56,
+        "actions": {
+          "WAIT": 17,
+          "ATTACK": 21,
+          "BUILD": 18
+        },
+        "operations": 41,
+        "operationActions": {
+          "ATTACK": 21,
+          "BUILD": 18,
+          "MOVE": 2
+        },
+        "battles": 10,
+        "captures": 19,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_0"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 216,
+        "foodFinal": 10062,
+        "recruited": 13904,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 2,
+        "seconds": 12.860745196,
+        "maxRssMiB": 403.25390625,
+        "canonicalDigest": "5e62b2270d4350fa2d5b1d93bba8bf22af96724346d9fe9a252cfd9bb4568a50",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5260,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 7371,
+              "food": 10062,
+              "wood": 7003,
+              "iron": 3212,
+              "stone": 6586
+            },
+            "troops": 14707,
+            "siege": 1
+          },
+          "recruited": 13904,
+          "eventAndOwnershipTroopDelta": -165,
+          "conflictLosses": {
+            "troops": 4292,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 4331,
+            "food": 7362,
+            "wood": 5643,
+            "iron": 2552,
+            "stone": 5376
+          }
+        },
+        "peakConcurrentOperations": 5
+      },
+      "previous": {
+        "decisions": 66,
+        "actions": {
+          "WAIT": 18,
+          "ATTACK": 24,
+          "BUILD": 23,
+          "MOVE": 1
+        },
+        "operations": 50,
+        "operationActions": {
+          "ATTACK": 24,
+          "BUILD": 23,
+          "MOVE": 3
+        },
+        "battles": 11,
+        "captures": 22,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 216,
+        "foodFinal": 10927,
+        "recruited": 12980,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 12.888936817,
+        "maxRssMiB": 413.453125,
+        "canonicalDigest": "0ad9cb04f1f1c666ac577a321371d7ed0a21096c34afc504bcf7accd648e68f3",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5260,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 7072,
+              "food": 10927,
+              "wood": 6849,
+              "iron": 3488,
+              "stone": 7180
+            },
+            "troops": 13469,
+            "siege": 1
+          },
+          "recruited": 12980,
+          "eventAndOwnershipTroopDelta": -343,
+          "conflictLosses": {
+            "troops": 4428,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 4032,
+            "food": 8227,
+            "wood": 5489,
+            "iron": 2828,
+            "stone": 5970
+          }
+        },
+        "peakConcurrentOperations": 5
+      },
+      "current": {
+        "decisions": 66,
+        "actions": {
+          "WAIT": 18,
+          "ATTACK": 24,
+          "BUILD": 23,
+          "MOVE": 1
+        },
+        "operations": 50,
+        "operationActions": {
+          "ATTACK": 24,
+          "BUILD": 23,
+          "MOVE": 3
+        },
+        "battles": 11,
+        "captures": 22,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 216,
+        "foodFinal": 10927,
+        "recruited": 12980,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 13.287927760999999,
+        "maxRssMiB": 421.91796875,
+        "canonicalDigest": "0ad9cb04f1f1c666ac577a321371d7ed0a21096c34afc504bcf7accd648e68f3",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5260,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 7072,
+              "food": 10927,
+              "wood": 6849,
+              "iron": 3488,
+              "stone": 7180
+            },
+            "troops": 13469,
+            "siege": 1
+          },
+          "recruited": 12980,
+          "eventAndOwnershipTroopDelta": -343,
+          "conflictLosses": {
+            "troops": 4428,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 4032,
+            "food": 8227,
+            "wood": 5489,
+            "iron": 2828,
+            "stone": 5970
+          }
+        },
+        "peakConcurrentOperations": 5
+      }
+    },
+    {
+      "name": "small-11-online-360",
+      "config": {
+        "size": "small",
+        "seed": 11,
+        "ticks": 360,
+        "presence": "online",
+        "stepTicks": 1,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 56,
+        "actions": {
+          "WAIT": 17,
+          "ATTACK": 21,
+          "BUILD": 18
+        },
+        "operations": 41,
+        "operationActions": {
+          "ATTACK": 21,
+          "BUILD": 18,
+          "MOVE": 2
+        },
+        "battles": 10,
+        "captures": 19,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 1,
+        "armylessWithPool": [
+          "f_ai_0"
+        ],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 4464,
+        "recruited": 3464,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 2,
+        "seconds": 5.70364277,
+        "maxRssMiB": 427.109375,
+        "canonicalDigest": "acefd2588e4a166e6f0607aa49ba837a8da1ac87e3c417242853f7e5cb5915c8",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5260,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3321,
+              "food": 4464,
+              "wood": 2503,
+              "iron": 1052,
+              "stone": 2266
+            },
+            "troops": 4267,
+            "siege": 1
+          },
+          "recruited": 3464,
+          "eventAndOwnershipTroopDelta": -165,
+          "conflictLosses": {
+            "troops": 4292,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 281,
+            "food": 1764,
+            "wood": 1143,
+            "iron": 392,
+            "stone": 1056
+          }
+        },
+        "peakConcurrentOperations": 6
+      },
+      "previous": {
+        "decisions": 66,
+        "actions": {
+          "WAIT": 18,
+          "ATTACK": 24,
+          "BUILD": 23,
+          "MOVE": 1
+        },
+        "operations": 50,
+        "operationActions": {
+          "ATTACK": 24,
+          "BUILD": 23,
+          "MOVE": 3
+        },
+        "battles": 11,
+        "captures": 22,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 4609,
+        "recruited": 3260,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 11.744354589,
+        "maxRssMiB": 551.98046875,
+        "canonicalDigest": "663c9017959f040dcf394ce1c1f989c9f5c0c80d82b306c8f447f9a391f6c3b5",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5260,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3022,
+              "food": 4609,
+              "wood": 2349,
+              "iron": 1058,
+              "stone": 2320
+            },
+            "troops": 3749,
+            "siege": 1
+          },
+          "recruited": 3260,
+          "eventAndOwnershipTroopDelta": -343,
+          "conflictLosses": {
+            "troops": 4428,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -18,
+            "food": 1909,
+            "wood": 989,
+            "iron": 398,
+            "stone": 1110
+          }
+        },
+        "peakConcurrentOperations": 6
+      },
+      "current": {
+        "decisions": 66,
+        "actions": {
+          "WAIT": 18,
+          "ATTACK": 24,
+          "BUILD": 23,
+          "MOVE": 1
+        },
+        "operations": 50,
+        "operationActions": {
+          "ATTACK": 24,
+          "BUILD": 23,
+          "MOVE": 3
+        },
+        "battles": 11,
+        "captures": 22,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 4609,
+        "recruited": 3260,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 6.833850355000001,
+        "maxRssMiB": 511.89453125,
+        "canonicalDigest": "663c9017959f040dcf394ce1c1f989c9f5c0c80d82b306c8f447f9a391f6c3b5",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5260,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3022,
+              "food": 4609,
+              "wood": 2349,
+              "iron": 1058,
+              "stone": 2320
+            },
+            "troops": 3749,
+            "siege": 1
+          },
+          "recruited": 3260,
+          "eventAndOwnershipTroopDelta": -343,
+          "conflictLosses": {
+            "troops": 4428,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": -18,
+            "food": 1909,
+            "wood": 989,
+            "iron": 398,
+            "stone": 1110
+          }
+        },
+        "peakConcurrentOperations": 6
+      }
+    },
+    {
+      "name": "small-29-offline-360",
+      "config": {
+        "size": "small",
+        "seed": 29,
+        "ticks": 360,
+        "presence": "offline",
+        "stepTicks": 5,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 41,
+        "actions": {
+          "WAIT": 5,
+          "ATTACK": 22,
+          "BUILD": 14
+        },
+        "operations": 38,
+        "operationActions": {
+          "ATTACK": 22,
+          "BUILD": 14,
+          "MOVE": 2
+        },
+        "battles": 11,
+        "captures": 21,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 3798,
+        "recruited": 3515,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 4.5640182949999994,
+        "maxRssMiB": 381.16015625,
+        "canonicalDigest": "efa9c01878e11ebd275655060641ab91bb0bff2140340a4de37a49abd4138c72",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5220,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3072,
+              "food": 3798,
+              "wood": 2095,
+              "iron": 755,
+              "stone": 1634
+            },
+            "troops": 3022,
+            "siege": 1
+          },
+          "recruited": 3515,
+          "eventAndOwnershipTroopDelta": -1351,
+          "conflictLosses": {
+            "troops": 4362,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 32,
+            "food": 1098,
+            "wood": 735,
+            "iron": 95,
+            "stone": 424
+          }
+        },
+        "peakConcurrentOperations": 4
+      },
+      "previous": {
+        "decisions": 41,
+        "actions": {
+          "WAIT": 5,
+          "ATTACK": 22,
+          "BUILD": 14
+        },
+        "operations": 38,
+        "operationActions": {
+          "ATTACK": 22,
+          "BUILD": 14,
+          "MOVE": 2
+        },
+        "battles": 11,
+        "captures": 21,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 3798,
+        "recruited": 3515,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 1.622284497,
+        "maxRssMiB": 355.01171875,
+        "canonicalDigest": "efa9c01878e11ebd275655060641ab91bb0bff2140340a4de37a49abd4138c72",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5220,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3072,
+              "food": 3798,
+              "wood": 2095,
+              "iron": 755,
+              "stone": 1634
+            },
+            "troops": 3022,
+            "siege": 1
+          },
+          "recruited": 3515,
+          "eventAndOwnershipTroopDelta": -1351,
+          "conflictLosses": {
+            "troops": 4362,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 32,
+            "food": 1098,
+            "wood": 735,
+            "iron": 95,
+            "stone": 424
+          }
+        },
+        "peakConcurrentOperations": 4
+      },
+      "current": {
+        "decisions": 42,
+        "actions": {
+          "WAIT": 6,
+          "ATTACK": 22,
+          "BUILD": 14
+        },
+        "operations": 38,
+        "operationActions": {
+          "ATTACK": 22,
+          "BUILD": 14,
+          "MOVE": 2
+        },
+        "battles": 11,
+        "captures": 21,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 3798,
+        "recruited": 3515,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 1.7372881080000002,
+        "maxRssMiB": 366.60546875,
+        "canonicalDigest": "b2c17c3c31824cb62f877946448f65b4467281f65bdca5a336ff309f3ac3aaf8",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5220,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3072,
+              "food": 3798,
+              "wood": 2095,
+              "iron": 755,
+              "stone": 1634
+            },
+            "troops": 3022,
+            "siege": 1
+          },
+          "recruited": 3515,
+          "eventAndOwnershipTroopDelta": -1351,
+          "conflictLosses": {
+            "troops": 4362,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 32,
+            "food": 1098,
+            "wood": 735,
+            "iron": 95,
+            "stone": 424
+          }
+        },
+        "peakConcurrentOperations": 4
+      }
+    },
+    {
+      "name": "small-29-online-360",
+      "config": {
+        "size": "small",
+        "seed": 29,
+        "ticks": 360,
+        "presence": "online",
+        "stepTicks": 1,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 54,
+        "actions": {
+          "WAIT": 18,
+          "ATTACK": 19,
+          "BUILD": 17
+        },
+        "operations": 38,
+        "operationActions": {
+          "ATTACK": 20,
+          "BUILD": 17,
+          "MOVE": 1
+        },
+        "battles": 11,
+        "captures": 17,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 4648,
+        "recruited": 3245,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 5.435495047000001,
+        "maxRssMiB": 451.22265625,
+        "canonicalDigest": "c53b3cda411813d851cbf90ee4884a1ee98bafebabbd3be1b9f5085d72cb7244",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5220,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3448,
+              "food": 4648,
+              "wood": 2426,
+              "iron": 1232,
+              "stone": 2511
+            },
+            "troops": 3753,
+            "siege": 1
+          },
+          "recruited": 3245,
+          "eventAndOwnershipTroopDelta": -270,
+          "conflictLosses": {
+            "troops": 4442,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 408,
+            "food": 1948,
+            "wood": 1066,
+            "iron": 572,
+            "stone": 1301
+          }
+        },
+        "peakConcurrentOperations": 6
+      },
+      "previous": {
+        "decisions": 54,
+        "actions": {
+          "WAIT": 18,
+          "ATTACK": 19,
+          "BUILD": 17
+        },
+        "operations": 38,
+        "operationActions": {
+          "ATTACK": 20,
+          "BUILD": 17,
+          "MOVE": 1
+        },
+        "battles": 11,
+        "captures": 17,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 4648,
+        "recruited": 3245,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 8.811888331,
+        "maxRssMiB": 556.8828125,
+        "canonicalDigest": "c53b3cda411813d851cbf90ee4884a1ee98bafebabbd3be1b9f5085d72cb7244",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5220,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3448,
+              "food": 4648,
+              "wood": 2426,
+              "iron": 1232,
+              "stone": 2511
+            },
+            "troops": 3753,
+            "siege": 1
+          },
+          "recruited": 3245,
+          "eventAndOwnershipTroopDelta": -270,
+          "conflictLosses": {
+            "troops": 4442,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 408,
+            "food": 1948,
+            "wood": 1066,
+            "iron": 572,
+            "stone": 1301
+          }
+        },
+        "peakConcurrentOperations": 6
+      },
+      "current": {
+        "decisions": 54,
+        "actions": {
+          "WAIT": 18,
+          "ATTACK": 19,
+          "BUILD": 17
+        },
+        "operations": 38,
+        "operationActions": {
+          "ATTACK": 20,
+          "BUILD": 17,
+          "MOVE": 1
+        },
+        "battles": 11,
+        "captures": 17,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 4648,
+        "recruited": 3245,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 5.871671849999999,
+        "maxRssMiB": 522.453125,
+        "canonicalDigest": "c53b3cda411813d851cbf90ee4884a1ee98bafebabbd3be1b9f5085d72cb7244",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5220,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3448,
+              "food": 4648,
+              "wood": 2426,
+              "iron": 1232,
+              "stone": 2511
+            },
+            "troops": 3753,
+            "siege": 1
+          },
+          "recruited": 3245,
+          "eventAndOwnershipTroopDelta": -270,
+          "conflictLosses": {
+            "troops": 4442,
+            "siege": 5
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 408,
+            "food": 1948,
+            "wood": 1066,
+            "iron": 572,
+            "stone": 1301
+          }
+        },
+        "peakConcurrentOperations": 6
+      }
+    },
+    {
+      "name": "small-47-online-360",
+      "config": {
+        "size": "small",
+        "seed": 47,
+        "ticks": 360,
+        "presence": "online",
+        "stepTicks": 1,
+        "reloadEvery": 60
+      },
+      "inputsMatch": true,
+      "originalReferenceDigestMatch": true,
+      "nestedErrors": [],
+      "strictNestedErrorFree": true,
+      "completedAndConserved": true,
+      "original": {
+        "decisions": 31,
+        "actions": {
+          "ATTACK": 17,
+          "BUILD": 8,
+          "WAIT": 6
+        },
+        "operations": 27,
+        "operationActions": {
+          "ATTACK": 17,
+          "BUILD": 8,
+          "MOVE": 2
+        },
+        "battles": 10,
+        "captures": 14,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 4488,
+        "recruited": 3462,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 4.805656826999999,
+        "maxRssMiB": 431.2578125,
+        "canonicalDigest": "b529b4496c48ca801fbe8f55c5478327e549d24eec74c103a6f96e30c3d40501",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5180,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3856,
+              "food": 4488,
+              "wood": 2695,
+              "iron": 1022,
+              "stone": 2087
+            },
+            "troops": 4568,
+            "siege": 2
+          },
+          "recruited": 3462,
+          "eventAndOwnershipTroopDelta": -128,
+          "conflictLosses": {
+            "troops": 3946,
+            "siege": 4
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 816,
+            "food": 1788,
+            "wood": 1335,
+            "iron": 362,
+            "stone": 877
+          }
+        },
+        "peakConcurrentOperations": 6
+      },
+      "previous": {
+        "decisions": 31,
+        "actions": {
+          "ATTACK": 17,
+          "BUILD": 8,
+          "WAIT": 6
+        },
+        "operations": 27,
+        "operationActions": {
+          "ATTACK": 17,
+          "BUILD": 8,
+          "MOVE": 2
+        },
+        "battles": 10,
+        "captures": 14,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 4488,
+        "recruited": 3462,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 7.818172793999999,
+        "maxRssMiB": 509.484375,
+        "canonicalDigest": "b529b4496c48ca801fbe8f55c5478327e549d24eec74c103a6f96e30c3d40501",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5180,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3856,
+              "food": 4488,
+              "wood": 2695,
+              "iron": 1022,
+              "stone": 2087
+            },
+            "troops": 4568,
+            "siege": 2
+          },
+          "recruited": 3462,
+          "eventAndOwnershipTroopDelta": -128,
+          "conflictLosses": {
+            "troops": 3946,
+            "siege": 4
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 816,
+            "food": 1788,
+            "wood": 1335,
+            "iron": 362,
+            "stone": 877
+          }
+        },
+        "peakConcurrentOperations": 6
+      },
+      "current": {
+        "decisions": 31,
+        "actions": {
+          "ATTACK": 17,
+          "BUILD": 8,
+          "WAIT": 6
+        },
+        "operations": 27,
+        "operationActions": {
+          "ATTACK": 17,
+          "BUILD": 8,
+          "MOVE": 2
+        },
+        "battles": 10,
+        "captures": 14,
+        "formations": 0,
+        "recoveredFactions": [],
+        "frontierGaps": 0,
+        "armylessWithPool": [],
+        "foodFailures": 0,
+        "upkeepPaid": 54,
+        "foodFinal": 4488,
+        "recruited": 3462,
+        "trade": {},
+        "shipments": {},
+        "repeatDeclines": 0,
+        "survivors": 1,
+        "seconds": 4.851285765000001,
+        "maxRssMiB": 513.25,
+        "canonicalDigest": "b529b4496c48ca801fbe8f55c5478327e549d24eec74c103a6f96e30c3d40501",
+        "conservation": {
+          "initial": {
+            "resources": {
+              "gold": 3040,
+              "food": 2700,
+              "wood": 1360,
+              "iron": 660,
+              "stone": 1210
+            },
+            "troops": 5180,
+            "siege": 6
+          },
+          "final": {
+            "resources": {
+              "gold": 3856,
+              "food": 4488,
+              "wood": 2695,
+              "iron": 1022,
+              "stone": 2087
+            },
+            "troops": 4568,
+            "siege": 2
+          },
+          "recruited": 3462,
+          "eventAndOwnershipTroopDelta": -128,
+          "conflictLosses": {
+            "troops": 3946,
+            "siege": 4
+          },
+          "troopResidual": 0,
+          "siegeResidual": 0,
+          "resourceResidual": {
+            "gold": 0,
+            "food": 0,
+            "wood": 0,
+            "iron": 0,
+            "stone": 0
+          },
+          "observedNetResourceChanges": {
+            "gold": 816,
+            "food": 1788,
+            "wood": 1335,
+            "iron": 362,
+            "stone": 877
+          }
+        },
+        "peakConcurrentOperations": 6
+      }
+    }
+  ]
+}

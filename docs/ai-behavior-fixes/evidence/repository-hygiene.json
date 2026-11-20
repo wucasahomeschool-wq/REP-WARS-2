@@ -1,0 +1,26 @@
+{
+  "branch": "dev/ai-longrun-simulation",
+  "HEAD": "6f38eec6516682e64937b08744a5607f54bbba91",
+  "stagedFiles": [],
+  "trackedDiffCheck": "PASS",
+  "followupTextTrailingWhitespace": [],
+  "originalPreservedPaths": 119,
+  "originalHashedEntries": 118,
+  "productionHashedEntries": 8,
+  "protectedRefs": {
+    "origin/REP-WARS-3": "ae2dc9277c50010d96ea5b775536617cf72d10ba",
+    "codex/ai-phase-l-r2-correction": "70b7529e07954069e77eddee9e4cbf3ec5018e29",
+    "codex/ai-phase-l-frozen-review": "8375022d43482658227415f078a40ac13356c9cb",
+    "codex/ai-phase-l-r2-privacy-correction": "3fa0b6daf9aa329851c533ffeab1082ad2f0bed1"
+  },
+  "originalCheckoutStatus": "clean",
+  "modifiedTrackedPaths": [
+    "src/engine/strategicPressure.ts",
+    "src/gameplay/trade/trade.ts",
+    "src/scoring/contextPlanComparison.ts",
+    "src/scoring/strategicEvaluators.ts",
+    "src/state/pressureInvariants.ts",
+    "src/types/AIPressure.ts"
+  ],
+  "nothingCommittedPushedOrMerged": true
+}

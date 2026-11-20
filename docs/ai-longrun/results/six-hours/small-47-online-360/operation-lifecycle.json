@@ -1,0 +1,783 @@
+[
+  {
+    "id": "cmt_1b_1dsm2he_1_0_ATTACK_t_006|\"f_ai_0\"",
+    "faction": "f_ai_0",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_0",
+      "armyId": "army_0",
+      "originTerritoryId": "t_000",
+      "stagingTerritoryId": "t_001",
+      "targetTerritoryId": "t_006",
+      "route": [
+        "t_000",
+        "t_001",
+        "t_006"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_0\",\"factionId\":\"f_ai_0\",\"originTerritoryId\":\"t_000\",\"route\":[\"t_000\",\"t_001\",\"t_006\"],\"stagingTerritoryId\":\"t_001\",\"targetTerritoryId\":\"t_006\"}"
+    },
+    "createdAtTick": 1,
+    "startedAtTick": 1,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 3
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hf_1_0_ATTACK_t_002|\"f_ai_1\"",
+    "faction": "f_ai_1",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_1",
+      "armyId": "army_1",
+      "originTerritoryId": "t_003",
+      "stagingTerritoryId": "t_003",
+      "targetTerritoryId": "t_002",
+      "route": [
+        "t_003",
+        "t_002"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_1\",\"factionId\":\"f_ai_1\",\"originTerritoryId\":\"t_003\",\"route\":[\"t_003\",\"t_002\"],\"stagingTerritoryId\":\"t_003\",\"targetTerritoryId\":\"t_002\"}"
+    },
+    "createdAtTick": 1,
+    "startedAtTick": 1,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 1
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hg_2_0_ATTACK_t_003|\"f_ai_2\"",
+    "faction": "f_ai_2",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_2",
+      "armyId": "army_2",
+      "originTerritoryId": "t_008",
+      "stagingTerritoryId": "t_008",
+      "targetTerritoryId": "t_003",
+      "route": [
+        "t_008",
+        "t_003"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_2\",\"factionId\":\"f_ai_2\",\"originTerritoryId\":\"t_008\",\"route\":[\"t_008\",\"t_003\"],\"stagingTerritoryId\":\"t_008\",\"targetTerritoryId\":\"t_003\"}"
+    },
+    "createdAtTick": 2,
+    "startedAtTick": 2,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 2
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2he_3_1_BUILD_t_001|\"f_ai_0\"",
+    "faction": "f_ai_0",
+    "action": "BUILD",
+    "plan": {
+      "action": "BUILD",
+      "factionId": "f_ai_0",
+      "territoryId": "t_001",
+      "projectType": "CITY",
+      "resourceSource": {
+        "kind": "faction_stock",
+        "factionId": "f_ai_0",
+        "resources": {
+          "gold": 80,
+          "iron": 40,
+          "stone": 40
+        }
+      },
+      "id": "plan:v1:{\"action\":\"BUILD\",\"factionId\":\"f_ai_0\",\"projectType\":\"CITY\",\"resourceSource\":{\"factionId\":\"f_ai_0\",\"kind\":\"faction_stock\",\"resources\":{\"gold\":80,\"iron\":40,\"stone\":40}},\"territoryId\":\"t_001\"}"
+    },
+    "createdAtTick": 3,
+    "startedAtTick": 3,
+    "terminal": {
+      "outcome": "failed",
+      "reason": "construction destroyed by ownership change",
+      "atTick": 7
+    },
+    "status": "failed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hf_3_1_BUILD_t_004|\"f_ai_1\"",
+    "faction": "f_ai_1",
+    "action": "BUILD",
+    "plan": {
+      "action": "BUILD",
+      "factionId": "f_ai_1",
+      "territoryId": "t_004",
+      "projectType": "MINE",
+      "resourceSource": {
+        "kind": "faction_stock",
+        "factionId": "f_ai_1",
+        "resources": {
+          "gold": 40,
+          "wood": 25
+        }
+      },
+      "id": "plan:v1:{\"action\":\"BUILD\",\"factionId\":\"f_ai_1\",\"projectType\":\"MINE\",\"resourceSource\":{\"factionId\":\"f_ai_1\",\"kind\":\"faction_stock\",\"resources\":{\"gold\":40,\"wood\":25}},\"territoryId\":\"t_004\"}"
+    },
+    "createdAtTick": 3,
+    "startedAtTick": 3,
+    "terminal": {
+      "outcome": "failed",
+      "reason": "construction destroyed by ownership change",
+      "atTick": 7
+    },
+    "status": "failed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hf_4_2_BUILD_t_009|\"f_ai_1\"",
+    "faction": "f_ai_1",
+    "action": "BUILD",
+    "plan": {
+      "action": "BUILD",
+      "factionId": "f_ai_1",
+      "territoryId": "t_009",
+      "projectType": "MINE",
+      "resourceSource": {
+        "kind": "faction_stock",
+        "factionId": "f_ai_1",
+        "resources": {
+          "gold": 40,
+          "wood": 25
+        }
+      },
+      "id": "plan:v1:{\"action\":\"BUILD\",\"factionId\":\"f_ai_1\",\"projectType\":\"MINE\",\"resourceSource\":{\"factionId\":\"f_ai_1\",\"kind\":\"faction_stock\",\"resources\":{\"gold\":40,\"wood\":25}},\"territoryId\":\"t_009\"}"
+    },
+    "createdAtTick": 4,
+    "startedAtTick": 4,
+    "terminal": {
+      "outcome": "failed",
+      "reason": "construction destroyed by ownership change",
+      "atTick": 7
+    },
+    "status": "failed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hg_4_1_ATTACK_t_009|\"f_ai_2\"",
+    "faction": "f_ai_2",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_2",
+      "armyId": "army_2",
+      "originTerritoryId": "t_003",
+      "stagingTerritoryId": "t_008",
+      "targetTerritoryId": "t_009",
+      "route": [
+        "t_003",
+        "t_008",
+        "t_009"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_2\",\"factionId\":\"f_ai_2\",\"originTerritoryId\":\"t_003\",\"route\":[\"t_003\",\"t_008\",\"t_009\"],\"stagingTerritoryId\":\"t_008\",\"targetTerritoryId\":\"t_009\"}"
+    },
+    "createdAtTick": 4,
+    "startedAtTick": 4,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 7
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hf_5_3_BUILD_t_002|\"f_ai_1\"",
+    "faction": "f_ai_1",
+    "action": "BUILD",
+    "plan": {
+      "action": "BUILD",
+      "factionId": "f_ai_1",
+      "territoryId": "t_002",
+      "projectType": "MINE",
+      "resourceSource": {
+        "kind": "faction_stock",
+        "factionId": "f_ai_1",
+        "resources": {
+          "gold": 40,
+          "wood": 25
+        }
+      },
+      "id": "plan:v1:{\"action\":\"BUILD\",\"factionId\":\"f_ai_1\",\"projectType\":\"MINE\",\"resourceSource\":{\"factionId\":\"f_ai_1\",\"kind\":\"faction_stock\",\"resources\":{\"gold\":40,\"wood\":25}},\"territoryId\":\"t_002\"}"
+    },
+    "createdAtTick": 5,
+    "startedAtTick": 5,
+    "terminal": {
+      "outcome": "failed",
+      "reason": "construction destroyed by ownership change",
+      "atTick": 12
+    },
+    "status": "failed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hg_5_2_BUILD_t_007|\"f_ai_2\"",
+    "faction": "f_ai_2",
+    "action": "BUILD",
+    "plan": {
+      "action": "BUILD",
+      "factionId": "f_ai_2",
+      "territoryId": "t_007",
+      "projectType": "CITY",
+      "resourceSource": {
+        "kind": "faction_stock",
+        "factionId": "f_ai_2",
+        "resources": {
+          "gold": 80,
+          "iron": 40,
+          "stone": 40
+        }
+      },
+      "id": "plan:v1:{\"action\":\"BUILD\",\"factionId\":\"f_ai_2\",\"projectType\":\"CITY\",\"resourceSource\":{\"factionId\":\"f_ai_2\",\"kind\":\"faction_stock\",\"resources\":{\"gold\":80,\"iron\":40,\"stone\":40}},\"territoryId\":\"t_007\"}"
+    },
+    "createdAtTick": 5,
+    "startedAtTick": 5,
+    "terminal": {
+      "outcome": "failed",
+      "reason": "construction destroyed by ownership change",
+      "atTick": 7
+    },
+    "status": "failed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hg_6_3_BUILD_t_003|\"f_ai_2\"",
+    "faction": "f_ai_2",
+    "action": "BUILD",
+    "plan": {
+      "action": "BUILD",
+      "factionId": "f_ai_2",
+      "territoryId": "t_003",
+      "projectType": "CITY",
+      "resourceSource": {
+        "kind": "faction_stock",
+        "factionId": "f_ai_2",
+        "resources": {
+          "gold": 80,
+          "iron": 40,
+          "stone": 40
+        }
+      },
+      "id": "plan:v1:{\"action\":\"BUILD\",\"factionId\":\"f_ai_2\",\"projectType\":\"CITY\",\"resourceSource\":{\"factionId\":\"f_ai_2\",\"kind\":\"faction_stock\",\"resources\":{\"gold\":80,\"iron\":40,\"stone\":40}},\"territoryId\":\"t_003\"}"
+    },
+    "createdAtTick": 6,
+    "startedAtTick": 6,
+    "terminal": {
+      "outcome": "failed",
+      "reason": "construction destroyed by ownership change",
+      "atTick": 17
+    },
+    "status": "failed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2he_7_4_ATTACK_t_007|\"f_ai_0\"",
+    "faction": "f_ai_0",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_0",
+      "armyId": "army_0",
+      "originTerritoryId": "t_006",
+      "stagingTerritoryId": "t_006",
+      "targetTerritoryId": "t_007",
+      "route": [
+        "t_006",
+        "t_007"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_0\",\"factionId\":\"f_ai_0\",\"originTerritoryId\":\"t_006\",\"route\":[\"t_006\",\"t_007\"],\"stagingTerritoryId\":\"t_006\",\"targetTerritoryId\":\"t_007\"}"
+    },
+    "createdAtTick": 7,
+    "startedAtTick": 7,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 7
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hf_7_4_ATTACK_t_001|\"f_ai_1\"",
+    "faction": "f_ai_1",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_1",
+      "armyId": "army_1",
+      "originTerritoryId": "t_002",
+      "stagingTerritoryId": "t_002",
+      "targetTerritoryId": "t_001",
+      "route": [
+        "t_002",
+        "t_001"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_1\",\"factionId\":\"f_ai_1\",\"originTerritoryId\":\"t_002\",\"route\":[\"t_002\",\"t_001\"],\"stagingTerritoryId\":\"t_002\",\"targetTerritoryId\":\"t_001\"}"
+    },
+    "createdAtTick": 7,
+    "startedAtTick": 7,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 7
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hg_7_4_ATTACK_t_004|\"f_ai_2\"",
+    "faction": "f_ai_2",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_2",
+      "armyId": "army_2",
+      "originTerritoryId": "t_009",
+      "stagingTerritoryId": "t_009",
+      "targetTerritoryId": "t_004",
+      "route": [
+        "t_009",
+        "t_004"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_2\",\"factionId\":\"f_ai_2\",\"originTerritoryId\":\"t_009\",\"route\":[\"t_009\",\"t_004\"],\"stagingTerritoryId\":\"t_009\",\"targetTerritoryId\":\"t_004\"}"
+    },
+    "createdAtTick": 7,
+    "startedAtTick": 7,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 7
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2he_9_5_ATTACK_t_008|\"f_ai_0\"",
+    "faction": "f_ai_0",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_0",
+      "armyId": "army_0",
+      "originTerritoryId": "t_007",
+      "stagingTerritoryId": "t_007",
+      "targetTerritoryId": "t_008",
+      "route": [
+        "t_007",
+        "t_008"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_0\",\"factionId\":\"f_ai_0\",\"originTerritoryId\":\"t_007\",\"route\":[\"t_007\",\"t_008\"],\"stagingTerritoryId\":\"t_007\",\"targetTerritoryId\":\"t_008\"}"
+    },
+    "createdAtTick": 9,
+    "startedAtTick": 9,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 9
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hf_9_5_ATTACK_t_003|\"f_ai_1\"",
+    "faction": "f_ai_1",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_1",
+      "armyId": "army_1",
+      "originTerritoryId": "t_001",
+      "stagingTerritoryId": "t_002",
+      "targetTerritoryId": "t_003",
+      "route": [
+        "t_001",
+        "t_002",
+        "t_003"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_1\",\"factionId\":\"f_ai_1\",\"originTerritoryId\":\"t_001\",\"route\":[\"t_001\",\"t_002\",\"t_003\"],\"stagingTerritoryId\":\"t_002\",\"targetTerritoryId\":\"t_003\"}"
+    },
+    "createdAtTick": 9,
+    "startedAtTick": 9,
+    "terminal": {
+      "outcome": "failed",
+      "reason": "claimed force destroyed in battle",
+      "atTick": 12
+    },
+    "status": "failed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hg_9_5_MOVE_t_003|\"f_ai_2\"",
+    "faction": "f_ai_2",
+    "action": "MOVE",
+    "plan": {
+      "action": "MOVE",
+      "factionId": "f_ai_2",
+      "armyId": "army_2",
+      "originTerritoryId": "t_004",
+      "destinationTerritoryId": "t_003",
+      "route": [
+        "t_004",
+        "t_003"
+      ],
+      "id": "plan:v1:{\"action\":\"MOVE\",\"armyId\":\"army_2\",\"destinationTerritoryId\":\"t_003\",\"factionId\":\"f_ai_2\",\"originTerritoryId\":\"t_004\",\"route\":[\"t_004\",\"t_003\"]}"
+    },
+    "createdAtTick": 9,
+    "startedAtTick": 9,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "army arrived",
+      "atTick": 12
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": "response:v1:[\"f_ai_2\",\"hostile_force\",\"army_1\",\"t_003\",\"cmt_1b_1dsm2hf_9_5_ATTACK_t_003|\\\"f_ai_1\\\"\"]"
+  },
+  {
+    "id": "cmt_1b_1dsm2hf_10_6_BUILD_t_001|\"f_ai_1\"",
+    "faction": "f_ai_1",
+    "action": "BUILD",
+    "plan": {
+      "action": "BUILD",
+      "factionId": "f_ai_1",
+      "territoryId": "t_001",
+      "projectType": "MINE",
+      "resourceSource": {
+        "kind": "faction_stock",
+        "factionId": "f_ai_1",
+        "resources": {
+          "gold": 40,
+          "wood": 25
+        }
+      },
+      "id": "plan:v1:{\"action\":\"BUILD\",\"factionId\":\"f_ai_1\",\"projectType\":\"MINE\",\"resourceSource\":{\"factionId\":\"f_ai_1\",\"kind\":\"faction_stock\",\"resources\":{\"gold\":40,\"wood\":25}},\"territoryId\":\"t_001\"}"
+    },
+    "createdAtTick": 10,
+    "startedAtTick": 10,
+    "terminal": {
+      "outcome": "failed",
+      "reason": "construction destroyed by ownership change",
+      "atTick": 29
+    },
+    "status": "failed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hg_11_7_BUILD_t_009|\"f_ai_2\"",
+    "faction": "f_ai_2",
+    "action": "BUILD",
+    "plan": {
+      "action": "BUILD",
+      "factionId": "f_ai_2",
+      "territoryId": "t_009",
+      "projectType": "CITY",
+      "resourceSource": {
+        "kind": "faction_stock",
+        "factionId": "f_ai_2",
+        "resources": {
+          "gold": 80,
+          "iron": 40,
+          "stone": 40
+        }
+      },
+      "id": "plan:v1:{\"action\":\"BUILD\",\"factionId\":\"f_ai_2\",\"projectType\":\"CITY\",\"resourceSource\":{\"factionId\":\"f_ai_2\",\"kind\":\"faction_stock\",\"resources\":{\"gold\":80,\"iron\":40,\"stone\":40}},\"territoryId\":\"t_009\"}"
+    },
+    "createdAtTick": 11,
+    "startedAtTick": 11,
+    "terminal": {
+      "outcome": "failed",
+      "reason": "construction destroyed by ownership change",
+      "atTick": 22
+    },
+    "status": "failed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2he_12_7_ATTACK_t_002|\"f_ai_0\"",
+    "faction": "f_ai_0",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_0",
+      "armyId": "army_0",
+      "originTerritoryId": "t_008",
+      "stagingTerritoryId": "t_007",
+      "targetTerritoryId": "t_002",
+      "route": [
+        "t_008",
+        "t_007",
+        "t_002"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_0\",\"factionId\":\"f_ai_0\",\"originTerritoryId\":\"t_008\",\"route\":[\"t_008\",\"t_007\",\"t_002\"],\"stagingTerritoryId\":\"t_007\",\"targetTerritoryId\":\"t_002\"}"
+    },
+    "createdAtTick": 12,
+    "startedAtTick": 12,
+    "terminal": {
+      "outcome": "failed",
+      "reason": "attack target now belongs to a different opposing faction",
+      "atTick": 14
+    },
+    "status": "failed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2hg_12_8_ATTACK_t_002|\"f_ai_2\"",
+    "faction": "f_ai_2",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_2",
+      "armyId": "army_2",
+      "originTerritoryId": "t_003",
+      "stagingTerritoryId": "t_003",
+      "targetTerritoryId": "t_002",
+      "route": [
+        "t_003",
+        "t_002"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_2\",\"factionId\":\"f_ai_2\",\"originTerritoryId\":\"t_003\",\"route\":[\"t_003\",\"t_002\"],\"stagingTerritoryId\":\"t_003\",\"targetTerritoryId\":\"t_002\"}"
+    },
+    "createdAtTick": 12,
+    "startedAtTick": 12,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 12
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2he_14_8_MOVE_t_008|\"f_ai_0\"",
+    "faction": "f_ai_0",
+    "action": "MOVE",
+    "plan": {
+      "action": "MOVE",
+      "factionId": "f_ai_0",
+      "armyId": "army_0",
+      "originTerritoryId": "t_007",
+      "destinationTerritoryId": "t_008",
+      "route": [
+        "t_007",
+        "t_008"
+      ],
+      "id": "plan:v1:{\"action\":\"MOVE\",\"armyId\":\"army_0\",\"destinationTerritoryId\":\"t_008\",\"factionId\":\"f_ai_0\",\"originTerritoryId\":\"t_007\",\"route\":[\"t_007\",\"t_008\"]}"
+    },
+    "createdAtTick": 14,
+    "startedAtTick": 14,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "army arrived",
+      "atTick": 17
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": "response:v1:[\"f_ai_0\",\"hostile_force\",\"army_2\",\"t_008\",\"cmt_1b_1dsm2hg_14_9_ATTACK_t_008|\\\"f_ai_2\\\"\"]"
+  },
+  {
+    "id": "cmt_1b_1dsm2hg_14_9_ATTACK_t_008|\"f_ai_2\"",
+    "faction": "f_ai_2",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_2",
+      "armyId": "army_2",
+      "originTerritoryId": "t_002",
+      "stagingTerritoryId": "t_003",
+      "targetTerritoryId": "t_008",
+      "route": [
+        "t_002",
+        "t_003",
+        "t_008"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_2\",\"factionId\":\"f_ai_2\",\"originTerritoryId\":\"t_002\",\"route\":[\"t_002\",\"t_003\",\"t_008\"],\"stagingTerritoryId\":\"t_003\",\"targetTerritoryId\":\"t_008\"}"
+    },
+    "createdAtTick": 14,
+    "startedAtTick": 14,
+    "terminal": {
+      "outcome": "failed",
+      "reason": "claimed force destroyed in battle",
+      "atTick": 17
+    },
+    "status": "failed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2he_17_b_ATTACK_t_003|\"f_ai_0\"",
+    "faction": "f_ai_0",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_0",
+      "armyId": "army_0",
+      "originTerritoryId": "t_008",
+      "stagingTerritoryId": "t_008",
+      "targetTerritoryId": "t_003",
+      "route": [
+        "t_008",
+        "t_003"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_0\",\"factionId\":\"f_ai_0\",\"originTerritoryId\":\"t_008\",\"route\":[\"t_008\",\"t_003\"],\"stagingTerritoryId\":\"t_008\",\"targetTerritoryId\":\"t_003\"}"
+    },
+    "createdAtTick": 17,
+    "startedAtTick": 17,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 17
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2he_19_c_ATTACK_t_009|\"f_ai_0\"",
+    "faction": "f_ai_0",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_0",
+      "armyId": "army_0",
+      "originTerritoryId": "t_003",
+      "stagingTerritoryId": "t_008",
+      "targetTerritoryId": "t_009",
+      "route": [
+        "t_003",
+        "t_008",
+        "t_009"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_0\",\"factionId\":\"f_ai_0\",\"originTerritoryId\":\"t_003\",\"route\":[\"t_003\",\"t_008\",\"t_009\"],\"stagingTerritoryId\":\"t_008\",\"targetTerritoryId\":\"t_009\"}"
+    },
+    "createdAtTick": 19,
+    "startedAtTick": 19,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 22
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2he_22_d_ATTACK_t_004|\"f_ai_0\"",
+    "faction": "f_ai_0",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_0",
+      "armyId": "army_0",
+      "originTerritoryId": "t_009",
+      "stagingTerritoryId": "t_009",
+      "targetTerritoryId": "t_004",
+      "route": [
+        "t_009",
+        "t_004"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_0\",\"factionId\":\"f_ai_0\",\"originTerritoryId\":\"t_009\",\"route\":[\"t_009\",\"t_004\"],\"stagingTerritoryId\":\"t_009\",\"targetTerritoryId\":\"t_004\"}"
+    },
+    "createdAtTick": 22,
+    "startedAtTick": 22,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 22
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2he_24_e_ATTACK_t_002|\"f_ai_0\"",
+    "faction": "f_ai_0",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_0",
+      "armyId": "army_0",
+      "originTerritoryId": "t_004",
+      "stagingTerritoryId": "t_003",
+      "targetTerritoryId": "t_002",
+      "route": [
+        "t_004",
+        "t_003",
+        "t_002"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_0\",\"factionId\":\"f_ai_0\",\"originTerritoryId\":\"t_004\",\"route\":[\"t_004\",\"t_003\",\"t_002\"],\"stagingTerritoryId\":\"t_003\",\"targetTerritoryId\":\"t_002\"}"
+    },
+    "createdAtTick": 24,
+    "startedAtTick": 24,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 27
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  },
+  {
+    "id": "cmt_1b_1dsm2he_29_f_ATTACK_t_001|\"f_ai_0\"",
+    "faction": "f_ai_0",
+    "action": "ATTACK",
+    "plan": {
+      "action": "ATTACK",
+      "factionId": "f_ai_0",
+      "armyId": "army_0",
+      "originTerritoryId": "t_002",
+      "stagingTerritoryId": "t_002",
+      "targetTerritoryId": "t_001",
+      "route": [
+        "t_002",
+        "t_001"
+      ],
+      "id": "plan:v1:{\"action\":\"ATTACK\",\"armyId\":\"army_0\",\"factionId\":\"f_ai_0\",\"originTerritoryId\":\"t_002\",\"route\":[\"t_002\",\"t_001\"],\"stagingTerritoryId\":\"t_002\",\"targetTerritoryId\":\"t_001\"}"
+    },
+    "createdAtTick": 29,
+    "startedAtTick": 29,
+    "terminal": {
+      "outcome": "completed",
+      "reason": "attacker result: attacker",
+      "atTick": 29
+    },
+    "status": "completed",
+    "phase": "terminal",
+    "responseContextId": null
+  }
+]

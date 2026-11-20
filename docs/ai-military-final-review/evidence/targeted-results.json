@@ -1,0 +1,22 @@
+[
+  {
+    "suite": "aiMilitaryReview",
+    "exit": 0,
+    "lastLine": "{\"passed\":5,\"failed\":0,\"skipped\":0}"
+  },
+  {
+    "suite": "aiMilitaryRecovery",
+    "exit": 0,
+    "lastLine": "{\"passed\":31,\"failed\":0,\"skipped\":0}"
+  },
+  {
+    "suite": "aiBehavioralFixes",
+    "exit": 0,
+    "lastLine": "{\"passed\":31,\"failed\":0,\"skipped\":0}"
+  },
+  {
+    "suite": "aiLongRunSimulation",
+    "exit": 0,
+    "lastLine": "{\"passed\":19,\"failed\":0,\"skipped\":0}"
+  }
+]

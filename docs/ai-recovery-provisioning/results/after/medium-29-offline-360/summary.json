@@ -1,0 +1,853 @@
+{
+  "config": {
+    "size": "medium",
+    "seed": 29,
+    "ticks": 360,
+    "presence": "offline",
+    "stepTicks": 5,
+    "reloadEvery": 60
+  },
+  "completed": true,
+  "processedTick": 360,
+  "earnedTick": 360,
+  "elapsedSeconds": 7.911913960000001,
+  "error": null,
+  "nestedErrors": [],
+  "stateDigest": "ed46fa7c1972ec0d331d88ac14f3b5390ac2141be862472dd4bf62ade4b119aa",
+  "decisions": 150,
+  "decisionActions": {
+    "BUILD": 34,
+    "ATTACK": 37,
+    "WAIT": 75,
+    "REINFORCE": 4
+  },
+  "operations": 78,
+  "operationActions": {
+    "BUILD": 34,
+    "ATTACK": 37,
+    "MOVE": 2,
+    "REINFORCE": 5
+  },
+  "operationStatuses": {
+    "failed": 7,
+    "completed": 69,
+    "executing": 2
+  },
+  "battles": 24,
+  "captures": 34,
+  "peakConcurrentOperations": 6,
+  "upkeepPaid": 174,
+  "failedUpkeepCycles": 6,
+  "conservation": {
+    "initial": {
+      "resources": {
+        "gold": 5840,
+        "food": 4500,
+        "wood": 2070,
+        "iron": 1100,
+        "stone": 1820
+      },
+      "troops": 8700,
+      "siege": 10
+    },
+    "final": {
+      "resources": {
+        "gold": 6730,
+        "food": 7578,
+        "wood": 4679,
+        "iron": 1918,
+        "stone": 3882
+      },
+      "troops": 10842,
+      "siege": 5
+    },
+    "recruited": 11925,
+    "eventAndOwnershipTroopDelta": -4196,
+    "conflictLosses": {
+      "troops": 5587,
+      "siege": 5
+    },
+    "troopResidual": 0,
+    "siegeResidual": 0,
+    "resourceResidual": {
+      "gold": 0,
+      "food": 0,
+      "wood": 0,
+      "iron": 0,
+      "stone": 0
+    },
+    "observedNetResourceChanges": {
+      "gold": 890,
+      "food": 3078,
+      "wood": 2609,
+      "iron": 818,
+      "stone": 2062
+    }
+  },
+  "factions": [
+    {
+      "id": "f_ai_0",
+      "personality": "aggressive",
+      "territories": 6,
+      "armies": 1,
+      "resources": {
+        "gold": 920,
+        "food": 857,
+        "iron": 20,
+        "wood": 10,
+        "stone": 400
+      },
+      "stability": 70,
+      "localTroops": 1411,
+      "goals": [
+        {
+          "id": "goal_0",
+          "type": "dominant_faction",
+          "priority": 90,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_0",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_1",
+          "type": "destroy_rival",
+          "priority": 80,
+          "targetFaction": "f_ai_2",
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_0",
+            "objective": {
+              "kind": "ELIMINATE_FACTION",
+              "factionId": "f_ai_2"
+            },
+            "status": "ACTIVE",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": null,
+            "reason": null
+          }
+        },
+        {
+          "id": "goal_2",
+          "type": "expand_to_resources",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_0",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "sim-development:f_ai_0",
+          "type": "develop_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_0",
+            "objective": {
+              "kind": "DEVELOPMENT",
+              "territoryId": "t_000",
+              "projectType": "FARM"
+            },
+            "status": "ACTIVE",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": null,
+            "reason": null
+          }
+        },
+        {
+          "id": "sim-border:f_ai_0",
+          "type": "control_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 1,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_0",
+            "objective": {
+              "kind": "CONTROL_TERRITORY",
+              "territoryId": "t_006"
+            },
+            "status": "COMPLETED",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": 9,
+            "reason": "Canonical objective satisfied"
+          }
+        }
+      ],
+      "lastDecisionTick": 354
+    },
+    {
+      "id": "f_ai_1",
+      "personality": "economic",
+      "territories": 11,
+      "armies": 1,
+      "resources": {
+        "gold": 840,
+        "food": 851,
+        "iron": 220,
+        "wood": 300,
+        "stone": 10
+      },
+      "stability": 70,
+      "localTroops": 2615,
+      "goals": [
+        {
+          "id": "goal_0",
+          "type": "economic_growth",
+          "priority": 90,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_1",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_1",
+          "type": "expand_to_resources",
+          "priority": 70,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_1",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_2",
+          "type": "form_alliance",
+          "priority": 55,
+          "targetFaction": "f_observer",
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_1",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "sim-development:f_ai_1",
+          "type": "develop_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_1",
+            "objective": {
+              "kind": "DEVELOPMENT",
+              "territoryId": "t_011",
+              "projectType": "FARM"
+            },
+            "status": "ACTIVE",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": null,
+            "reason": null
+          }
+        },
+        {
+          "id": "sim-border:f_ai_1",
+          "type": "control_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_1",
+            "objective": {
+              "kind": "CONTROL_TERRITORY",
+              "territoryId": "t_000"
+            },
+            "status": "ACTIVE",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": null,
+            "reason": null
+          }
+        }
+      ],
+      "lastDecisionTick": 358
+    },
+    {
+      "id": "f_ai_2",
+      "personality": "diplomatic",
+      "territories": 5,
+      "armies": 1,
+      "resources": {
+        "gold": 0,
+        "food": 879,
+        "iron": 100,
+        "wood": 650,
+        "stone": 480
+      },
+      "stability": 70,
+      "localTroops": 569,
+      "goals": [
+        {
+          "id": "goal_0",
+          "type": "form_alliance",
+          "priority": 85,
+          "targetFaction": "f_observer",
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_2",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_1",
+          "type": "economic_growth",
+          "priority": 75,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_2",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_2",
+          "type": "prepare_for_invasion",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_2",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "sim-development:f_ai_2",
+          "type": "develop_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_2",
+            "objective": {
+              "kind": "DEVELOPMENT",
+              "territoryId": "t_012",
+              "projectType": "FARM"
+            },
+            "status": "ACTIVE",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": null,
+            "reason": null
+          }
+        },
+        {
+          "id": "sim-border:f_ai_2",
+          "type": "seek_peace",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_2",
+            "objective": {
+              "kind": "PEACE",
+              "factionId": "f_ai_1"
+            },
+            "status": "ACTIVE",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": null,
+            "reason": null
+          }
+        }
+      ],
+      "lastDecisionTick": 349
+    },
+    {
+      "id": "f_ai_3",
+      "personality": "expansionist",
+      "territories": 6,
+      "armies": 1,
+      "resources": {
+        "gold": 1160,
+        "food": 864,
+        "iron": 100,
+        "wood": 60,
+        "stone": 480
+      },
+      "stability": 70,
+      "localTroops": 2423,
+      "goals": [
+        {
+          "id": "goal_0",
+          "type": "expand_to_resources",
+          "priority": 90,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_3",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_1",
+          "type": "control_region",
+          "priority": 75,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": "r_world",
+          "targetResource": null,
+          "progress": 20,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_3",
+            "objective": {
+              "kind": "CONTROL_REGION",
+              "regionId": "r_world"
+            },
+            "status": "ACTIVE",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": null,
+            "reason": null
+          }
+        },
+        {
+          "id": "goal_2",
+          "type": "dominant_faction",
+          "priority": 60,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_3",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "sim-development:f_ai_3",
+          "type": "develop_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_3",
+            "objective": {
+              "kind": "DEVELOPMENT",
+              "territoryId": "t_023",
+              "projectType": "FARM"
+            },
+            "status": "ACTIVE",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": null,
+            "reason": null
+          }
+        },
+        {
+          "id": "sim-border:f_ai_3",
+          "type": "control_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_3",
+            "objective": {
+              "kind": "CONTROL_TERRITORY",
+              "territoryId": "t_012"
+            },
+            "status": "ACTIVE",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": null,
+            "reason": null
+          }
+        }
+      ],
+      "lastDecisionTick": 352
+    },
+    {
+      "id": "f_ai_4",
+      "personality": "defensive",
+      "territories": 1,
+      "armies": 0,
+      "resources": {
+        "gold": 1120,
+        "food": 875,
+        "iron": 220,
+        "wood": 475,
+        "stone": 10
+      },
+      "stability": 70,
+      "localTroops": 359,
+      "goals": [
+        {
+          "id": "goal_0",
+          "type": "prepare_for_invasion",
+          "priority": 85,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_4",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_1",
+          "type": "economic_growth",
+          "priority": 70,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_4",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "goal_2",
+          "type": "form_alliance",
+          "priority": 55,
+          "targetFaction": "f_observer",
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 100,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_4",
+            "objective": null,
+            "status": "INVALIDATED",
+            "visibility": "PRIVATE",
+            "createdAtTick": null,
+            "resolvedAtTick": 0,
+            "reason": "Legacy objective lacks a concrete predicate"
+          }
+        },
+        {
+          "id": "sim-development:f_ai_4",
+          "type": "develop_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 0,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_4",
+            "objective": {
+              "kind": "DEVELOPMENT",
+              "territoryId": "t_024",
+              "projectType": "FARM"
+            },
+            "status": "ACTIVE",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": null,
+            "reason": null
+          }
+        },
+        {
+          "id": "sim-border:f_ai_4",
+          "type": "control_territory",
+          "priority": 50,
+          "targetFaction": null,
+          "targetTerritory": null,
+          "targetRegion": null,
+          "targetResource": null,
+          "progress": 1,
+          "targetProgress": 1,
+          "deadlineTurn": null,
+          "createdTurn": 0,
+          "lifecycle": {
+            "ownerId": "f_ai_4",
+            "objective": {
+              "kind": "CONTROL_TERRITORY",
+              "territoryId": "t_018"
+            },
+            "status": "COMPLETED",
+            "visibility": "PRIVATE",
+            "createdAtTick": 0,
+            "resolvedAtTick": 9,
+            "reason": "Canonical objective satisfied"
+          }
+        }
+      ],
+      "lastDecisionTick": 358
+    }
+  ],
+  "peace": {},
+  "trade": {},
+  "shipments": {},
+  "responseContexts": 16,
+  "activeClaims": 3,
+  "historyRows": 0,
+  "checkpointDigests": [
+    {
+      "tick": 60,
+      "digest": "eb2e4aaf30e4f830c0bdbb2c33375dfb11c37f4ad1bfb5a3447cd8b6a4b4d36b"
+    },
+    {
+      "tick": 120,
+      "digest": "598719c005b4056df266e88b83f0288a16db711a03e31c271136cd06887a57b2"
+    },
+    {
+      "tick": 180,
+      "digest": "a491d32b3e8c5e5de2fd0e3d0b3c572295e2e6af8c1722d85e72750f8aa45380"
+    },
+    {
+      "tick": 240,
+      "digest": "1a7bdba6e989d3597b0bfc0f74e99f698eb9f56f998552a63bafaf339e2117dd"
+    },
+    {
+      "tick": 300,
+      "digest": "38f48676f45e2962e978daf6181ab3b29bc8454d22cc6496906e9d6e45e5e82e"
+    },
+    {
+      "tick": 360,
+      "digest": "ed46fa7c1972ec0d331d88ac14f3b5390ac2141be862472dd4bf62ade4b119aa"
+    }
+  ],
+  "engine": "military-recovery-candidate",
+  "formations": [
+    {
+      "operationId": "cmt_t_1dsm2hh_179_f_REINFORCE_t_016|\"f_ai_3\"",
+      "factionId": "f_ai_3",
+      "status": "completed",
+      "armyId": "local-army:v1:\"cmt_t_1dsm2hh_179_f_REINFORCE_t_016|\\\"f_ai_3\\\"\"",
+      "territoryId": "t_016",
+      "quantity": 101,
+      "createdAtTick": 179,
+      "terminalTick": 179
+    },
+    {
+      "operationId": "cmt_t_1dsm2hi_241_k_REINFORCE_t_026|\"f_ai_4\"",
+      "factionId": "f_ai_4",
+      "status": "completed",
+      "armyId": "local-army:v1:\"cmt_t_1dsm2hi_241_k_REINFORCE_t_026|\\\"f_ai_4\\\"\"",
+      "territoryId": "t_026",
+      "quantity": 101,
+      "createdAtTick": 241,
+      "terminalTick": 241
+    }
+  ],
+  "recoveredFactions": [
+    "f_ai_3",
+    "f_ai_4"
+  ],
+  "memory": {
+    "rssBefore": 325894144,
+    "rssAfter": 475127808,
+    "heapBefore": 137766320,
+    "heapAfter": 200450456,
+    "maxRssBytes": 475127808,
+    "note": "Fresh process per case; includes TypeScript/bootstrap, retained diagnostics and serialization, not pure engine memory."
+  },
+  "uncommittedArmies": 3,
+  "unservedReachableFrontiers": [],
+  "militaryRecoveryBlocked": [
+    "f_ai_4"
+  ],
+  "failedAiUpkeepCycles": 0,
+  "bankStarvedWithLocalFood": [],
+  "repeatedDeclinedExactOffers": 0,
+  "declinedTermGroups": 0,
+  "contextBlockedPlans": 0,
+  "decisionDomains": {
+    "DEVELOPMENT": 35,
+    "MILITARY_INITIATIVE": 60,
+    "FORCE_POSITIONING": 27,
+    "TRADE_ECONOMIC": 28
+  }
+}
