@@ -599,6 +599,17 @@ export function checkGameStateInvariants(state: GameState): GameStateInvariantVi
 
   // ---- active events reference valid entities where required ----
   for (const e of state.activeEvents) {
+    if (e.productionBonusPolicy !== undefined) {
+      if (!['active-v1', 'instant-v1'].includes(e.productionBonusPolicy)
+        || !Number.isSafeInteger(e.startedTurn) || !Number.isSafeInteger(e.expiresTurn)
+        || e.startedTurn < 0 || e.expiresTurn < e.startedTurn)
+        push('event.invalid_production_bonus', `Invalid production bonus policy/window ${e.instanceId}`);
+      for (const c of e.consequences) {
+        const values = [...Object.values(c.delta.resourceOutputPct ?? {}), c.delta.foodProductionPct];
+        if (values.some(v => v !== undefined && !Number.isFinite(v)))
+          push('event.invalid_production_bonus', `Invalid production bonus amount ${e.instanceId}`);
+      }
+    }
     if (e.territoryId !== null && !state.territories.has(e.territoryId)) {
       push('event.invalid_territory', `active event ${e.instanceId} references unknown territory ${e.territoryId}`);
     }

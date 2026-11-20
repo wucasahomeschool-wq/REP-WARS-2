@@ -1,3 +1,6 @@
+import {withoutNewNaturalEvents} from './naturalEventFixtures';
+import {runEventProductionBonusTests} from './eventProductionBonuses';
+import { runNaturalEventEligibilityTests } from './naturalEventEligibility';
 import { runProductionWorkoutActivationTests } from './productionWorkoutActivation';
 import { runEventEffectPersistenceTests } from './eventEffectPersistence';
 import {registerGameplayContractTests} from './gameplayContracts';
@@ -1034,9 +1037,8 @@ test('getEventByTypeId returns undefined for an unknown type rather than another
   assert.strictEqual(getEventByTypeId('not_a_real_event'), undefined);
   assert.strictEqual(getEventByTypeId(''), undefined);
 });
-test('an unknown ActiveEvent typeId does not silently become drought (or any other event)', () => {
+test('an unknown ActiveEvent typeId does not silently become drought (or any other event)', () => withoutNewNaturalEvents(() => {
   const { gameState } = SimulationBuilder.buildFromSpecs(SAMPLE_MAP, WARLORD_SPECS, 42);
-  for (const t of gameState.territories.values()) t.population = 0; // no new world-condition triggers
   const target = [...gameState.territories.values()].find((t) => t.owner)!;
   const foodBefore = target.resourceOutput.food ?? 0;
   const fake = makeActiveEvent({
@@ -1060,7 +1062,7 @@ test('an unknown ActiveEvent typeId does not silently become drought (or any oth
     'unknown type must not apply another event\'s per-turn effects (EVENT_LIST[0] fallback regression)');
   assert.ok(!out.perTurnConsequences.some((c) => (c.message || '').toLowerCase().includes('drought')),
     'unknown type must not emit drought per-turn consequences');
-});
+}));
 
 console.log('Event engine correctness — choice cost validation');
 test('unaffordable choice fails and leaves the entire relevant state unchanged', () => {
@@ -3289,6 +3291,8 @@ void (async () => {
   await runTutorialDeployedForceTests(executeTest);
   await runEventEffectPersistenceTests(executeTest);
   await runProductionWorkoutActivationTests(executeTest);
+  await runNaturalEventEligibilityTests(executeTest);
+  await runEventProductionBonusTests(executeTest);
   await runSessionReplayTests(executeTest);
   await runLeaseWorldAccrualTests(executeTest);
   await runGameplaySessionLifecycleTests(executeTest);

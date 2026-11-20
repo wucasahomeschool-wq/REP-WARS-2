@@ -1,4 +1,6 @@
+import {effectiveResourceOutput} from '../src/gameplay/economy/effectiveOutput';
 import assert from 'node:assert/strict';
+import {BALANCE} from '../src/constants/balance';
 import {createGameState} from '../src/state/createGameState';
 import {cloneGameState} from '../src/state/cloneGameState';
 import {loadProductionLevel2Definition} from '../src/worldDefinition/catalog';
@@ -30,7 +32,8 @@ function naturalDiscovery() {
   const before=state.territories.get('t_07')!.resourceOutput.gold;
   const event=runEventEngineTurn(state,new WorldSimulator());
   assert(event.events.some(e=>e.id==='resource_discovery'));
-  assert.equal(before,1);assert.equal(state.territories.get('t_07')!.resourceOutput.gold,2);
+  assert.equal(before,1);assert.equal(state.territories.get('t_07')!.resourceOutput.gold,1);
+  assert.equal(effectiveResourceOutput(state,state.territories.get('t_07')!).gold,2);
   assert.deepEqual(checkGameStateInvariants(state),[]);
   return state;
 }
@@ -56,7 +59,7 @@ export async function runEventEffectPersistenceTests(report:(name:string,fn:()=>
 
 /** Controlled active-event fixture, not authored content or a new event type.
  * A high already-applied Food rate makes each rounded recurring delta observable.
- * Population remains the real registered value, so unrelated natural events stay quiet. */
+ * Unrelated natural triggers are explicitly isolated in the recurrence checks below. */
 function recurringDrought(): GameState {
   const definition = loadProductionLevel2Definition(); assert(definition.ok);
   const state = createGameState({world: definition.definition, seed: 11});
@@ -105,6 +108,9 @@ async function runAdditionalTests(report: (name: string, fn: () => void | Promis
     assert.deepEqual(snapshotGameState(b), snapshotGameState(a));
   });
   for (const at of [0, 1, 2, 3, 4]) await report(`Phase 3: recurring drought reload at turn ${at} preserves inclusive expiry and lasting losses`, () => {
+    const naturalTriggerLimit = BALANCE.events.world.maxEventsPerTurn;
+    BALANCE.events.world.maxEventsPerTurn = 0;
+    try {
     const a = recurringDrought();
     for (let i = 0; i < at; i++) eventAndProductionTick(a);
     const b = reload(a);
@@ -119,6 +125,7 @@ async function runAdditionalTests(report: (name: string, fn: () => void | Promis
     assert.equal(event.status, 'expired'); assert.equal(event.expiresTurn, 3);
     assert.equal(a.eventHistory.filter(h => h.typeId === 'drought' && h.kind === 'expire').length, 1);
     assert.deepEqual(snapshotGameState(reload(b)), snapshotGameState(a));
+    } finally { BALANCE.events.world.maxEventsPerTurn = naturalTriggerLimit; }
   });
   await report('Phase 3: supported choice cost, selected consequence, shortened deadline and chain suppression persist once', () => {
     const state = naturalDiscovery(), simulator = new WorldSimulator();

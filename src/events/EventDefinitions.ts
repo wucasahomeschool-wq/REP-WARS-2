@@ -5,6 +5,7 @@ import {
   pickSeverityFromTable, severityScale, severityAtLeast,
 } from './EventModel';
 import { buildTriggerFn, COMMON_ELIGIBILITY } from './EventTriggers';
+import {productionBonusProduct} from './productionBonuses';
 
 const B = BALANCE.events;
 const BT = B.trigger;
@@ -102,7 +103,8 @@ const FLOOD: EventDefinition = {
     const pop = ctx.helper.getTerritory(loc!)?.population ?? 0;
     const consequences: ConsequenceDelta[] = [{
       territoryId: loc,
-      delta: { populationDeltaAbs: Math.round(BC.floodPopulationPctPerSeverity * scaleVal * pop) },
+      // JSON cannot preserve negative zero; keep zero-loss consequences canonical.
+      delta: { populationDeltaAbs: Math.round(BC.floodPopulationPctPerSeverity * scaleVal * pop) || 0 },
       message: 'Population affected by floodwaters',
     }, {
       territoryId: loc,
@@ -110,7 +112,7 @@ const FLOOD: EventDefinition = {
       message: 'Infrastructure damaged by floodwaters',
     }, {
       territoryId: loc,
-      delta: { foodProductionPct: BC.floodFoodProductionPctPerSeverity * scaleVal },
+      delta: { foodProductionPct: productionBonusProduct(BC.floodFoodProductionPctPerSeverity, scaleVal) },
       message: 'Flood-silt replenishment restores some arable land fertility',
     }];
     return { reasons: ['Heavy seasonal rainfall'], consequences };
@@ -247,7 +249,7 @@ const RESOURCE_DISCOVERY: EventDefinition = {
       message: '+' + gold + ' gold seized from initial extraction windfall',
     }, {
       territoryId: loc,
-      delta: { resourceOutputPct: { gold: BC.resourceDiscoveryResourceBoostPct * scaleVal, iron: BC.resourceDiscoveryResourceBoostPct * scaleVal * 0.5 } },
+      delta: { resourceOutputPct: { gold: productionBonusProduct(BC.resourceDiscoveryResourceBoostPct, scaleVal), iron: productionBonusProduct(BC.resourceDiscoveryResourceBoostPct, scaleVal, 0.5) } },
       message: 'Local resource output boosted by discovery',
     }];
     return { reasons: ['Successful prospecting expedition'], consequences };
@@ -485,7 +487,7 @@ const PROSPERITY: EventDefinition = {
       consequences: [
         { territoryId: loc, factionId: owner, delta: { stabilityDelta: stab }, message: '+' + stab + ' stability from prosperity' },
         { factionId: owner, delta: { resources: { gold: gainGold, food: gainFood } }, message: '+' + gainGold + ' gold, +' + gainFood + ' food in taxes' },
-        { territoryId: loc, delta: { resourceOutputPct: { gold: 0.08 * scaleVal, food: 0.08 * scaleVal } }, message: 'Local production surges' },
+        { territoryId: loc, delta: { resourceOutputPct: { gold: productionBonusProduct(0.08, scaleVal), food: productionBonusProduct(0.08, scaleVal) } }, message: 'Local production surges' },
       ],
     };
   },
@@ -533,7 +535,7 @@ const TRADE_BOOM: EventDefinition = {
       reasons: ['Expanded merchant traffic'],
       consequences: [
         { factionId: owner, delta: { resources: { gold, food } }, message: '+' + gold + ' gold, +' + food + ' food from tariffs' },
-        { territoryId: loc, delta: { resourceOutputPct: { gold: 0.15 * severityScale(sev) } }, message: 'Merchant quarter expands' },
+        { territoryId: loc, delta: { resourceOutputPct: { gold: productionBonusProduct(0.15, severityScale(sev)) } }, message: 'Merchant quarter expands' },
       ],
     };
   },

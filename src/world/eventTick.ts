@@ -3,6 +3,7 @@ import { mergeEventStepOntoGameState, eventsToGameEvents } from '../orchestratio
 import { GameEvent, StateChange } from '../orchestration/protocol';
 import { toWorldStepInput } from '../state/gameStateAdapters';
 import { GameState } from '../types/GameState';
+import {persistAllTerritoryAccrual} from '../gameplay/economy/accrual';
 
 /**
  * Thin EventEngine adapter: one `WorldSimulator` turn. Callers (the
@@ -22,6 +23,9 @@ export interface EventTickResult {
 }
 
 export function runEventEngineTurn(state: GameState, simulator: WorldSimulator): EventTickResult {
+  // Settle the elapsed interval under its original terms before activation or
+  // expiry changes future production. Never reprice earlier earned production.
+  persistAllTerritoryAccrual(state);
   state.turn += 1;
   const input = toWorldStepInput(state);
   input.turn = state.turn;

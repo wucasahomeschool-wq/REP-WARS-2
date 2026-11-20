@@ -119,6 +119,9 @@ export interface EventDefinition {
 }
 
 export interface ActiveEvent {
+  /** Absent on legacy events whose production consequences are already baked in.
+   * New positive bonuses use the stored consequences and existing turn window. */
+  productionBonusPolicy?: 'active-v1' | 'instant-v1';
   instanceId: string;
   typeId: string;
   category: EventCategory;

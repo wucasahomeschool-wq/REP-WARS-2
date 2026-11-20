@@ -10,6 +10,7 @@ import {
 } from './EventModel';
 import { buildConditionContext, candidateTerritoriesForEvents, WorldHelperImpl } from './EventTriggers';
 import { EVENT_REGISTRY, getEventByTypeId, evaluateAllTriggersForTerritory } from './EventDefinitions';
+import {withoutProductionBonuses} from './productionBonuses';
 
 const BW = BALANCE.events.world;
 const BDEF = BALANCE.events.defaultEventDuration;
@@ -327,7 +328,9 @@ export class WorldSimulator {
       if (ev.status !== 'active') continue;
       if (ev.chainSuppressed) continue;
       for (const cd of ev.chainDelays) {
-        if (cd.delayRemaining > 0) continue;
+        // A negative delay is the existing consumed sentinel, not another ready
+        // chain. Retrying a failed probability roll still leaves zero eligible.
+        if (cd.delayRemaining !== 0) continue;
         const rolls = rng.fork(100 + turn * 7 + cd.toEventId.length);
         if (rolls.chance(cd.probability)) {
           chainTriggered.push({
@@ -355,6 +358,7 @@ export class WorldSimulator {
       const worldSnapshot = { territories: terr };
       const inst: ActiveEvent = {
         instanceId: nextId('inst'),
+        productionBonusPolicy: def.isInstant ? 'instant-v1' : 'active-v1',
         typeId: def.typeId,
         category: def.category,
         title: def.titleTemplate(severity, ch.territoryId, worldSnapshot),
@@ -373,7 +377,7 @@ export class WorldSimulator {
         chainDelays: this._seedChainDelays(def, null, severity, rng.fork(700 + turn)),
         choicesPending: choices,
       };
-      const applied = this.applier.applyMany(triggerRes.consequences,`world-event:${turn}:trigger:${inst.instanceId}`);
+      const applied = this.applier.applyMany(withoutProductionBonuses(triggerRes.consequences),`world-event:${turn}:trigger:${inst.instanceId}`);
       newActiveEvents.push(inst);
       triggeredEvents.push({
         definition: def,
@@ -448,6 +452,7 @@ export class WorldSimulator {
       const worldSnapshot = { territories: terr };
       const inst: ActiveEvent = {
         instanceId: nextId('inst'),
+        productionBonusPolicy: def.isInstant ? 'instant-v1' : 'active-v1',
         typeId: def.typeId,
         category: def.category,
         title: def.titleTemplate(severity, tid, worldSnapshot),
@@ -476,7 +481,7 @@ export class WorldSimulator {
         choices,
         durationTurns: dur,
       });
-      const applied = this.applier.applyMany(triggerRes.consequences,`world-event:${turn}:trigger:${inst.instanceId}`);
+      const applied = this.applier.applyMany(withoutProductionBonuses(triggerRes.consequences),`world-event:${turn}:trigger:${inst.instanceId}`);
       newActiveEvents.push(inst);
       triggeredEvents.push(triggeredNow[triggeredNow.length - 1]);
       summary.push(`[EVENT] ${inst.title}`);

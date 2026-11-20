@@ -1,3 +1,4 @@
+import {withoutNewNaturalEvents} from './naturalEventFixtures';
 import assert from 'assert';
 import { ContextPlanComparator } from '../src/scoring/contextPlanComparison';
 import { GameState } from '../src/types/GameState';
@@ -177,7 +178,7 @@ export function registerAiStrategicPressureTests({test,makeSelf,makeTerritory,cm
     assert.strictEqual(s.armies.get('b')!.location,'stage');assert.strictEqual(opportunity(s,'me').lastOutcome,'CONTEXT_INVALIDATED');
     assert.strictEqual(opportunity(s,'me').spacing,null);assert.ok(!s.aiPressure.has(c.id));
   });
-  test('Phase E review: food-cycle source creation is independent of catch-up chunk size',()=>{
+  test('Phase E review: food-cycle source creation is independent of catch-up chunk size',()=>withoutNewNaturalEvents(() => {
     const initial=world();initial.worldLevel=2;initial.territories.get('target')!.baseValue=0;
     initial.empireFoodBaselinePerCycle=10;initial.territories.get('home')!.resourceOutput={food:5};initial.factions.get('me')!.resources.food=4;
     accrueWorldThroughReceipt(initial,0);const coarse=cloneGameState(initial);
@@ -187,8 +188,8 @@ export function registerAiStrategicPressureTests({test,makeSelf,makeTerritory,cm
     assert.deepStrictEqual(encodePersistable(coarse.aiPressure),encodePersistable(fine.aiPressure));
     assert.deepStrictEqual(encodePersistable(coarse.operations),encodePersistable(fine.operations));
     assert.deepStrictEqual(encodePersistable(coarse.aiDecisionOpportunities),encodePersistable(fine.aiDecisionOpportunities));
-  });
-  test('Phase E review: a real military source acts while saturated blocked development stays dormant',()=>{
+  }));
+  test('Phase E review: a real military source acts while saturated blocked development stays dormant',()=>withoutNewNaturalEvents(() => {
     const s=world();s.worldLevel=2;s.empireFoodBaselinePerCycle=10;s.territories.get('home')!.resourceOutput={food:5};
     s.factions.get('me')!.resources.food=0;s.factions.get('me')!.resources.wood=0;
     accrueWorldThroughReceipt(s,0);observeSources(s,'me');
@@ -202,7 +203,7 @@ export function registerAiStrategicPressureTests({test,makeSelf,makeTerritory,cm
     assert.ok(![...s.operations.values()].some(op=>op.action==='BUILD'));
     const blocked=s.aiPressure.get(build.id)!;assert.ok(blocked.blocked);assert.strictEqual(blocked.pressure,T.maximum);
     assert.ok(![...s.aiPressure.values()].some(c=>c.domain==='DIPLOMACY_PEACE'));
-  });
+  }));
   test('Phase E review: new command effects follow an already-earned WAIT boundary',()=>{
     const s=world();s.armies.delete('b');s.factions.get('me')!.armies=['a'];accrueWorldThroughReceipt(s,0);
     const c=military(s);c.pressure=T.ready;prepareProactiveDecision(s,'me');const p=opportunity(s,'me').primary!;

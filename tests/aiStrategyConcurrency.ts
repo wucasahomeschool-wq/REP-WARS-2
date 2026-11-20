@@ -1,3 +1,4 @@
+import {withoutNewNaturalEvents} from './naturalEventFixtures';
 import { primeSourceDecision } from './aiPressureFixtures';
 import { observeSources } from '../src/engine/strategicPressure';
 import { opportunity, selectWaitInitiation } from '../src/engine/proactiveCognition';
@@ -243,12 +244,12 @@ export function registerAiStrategyConcurrencyTests({test,makeSelf,makeTerritory,
     assert.strictEqual(o.execute(cmdReq('RESOLVE_COMMITMENT','ai',{factionId:'me',operationId:id})).success,true);
     assert.strictEqual(o.getState().aiDecisionOpportunities.get('me')!.primaryOperationId,null);assert.strictEqual(o.getState().operations.get(held)!.phase,'physical');
   });
-  test('Phase D: another decision can initiate before an existing long march completes',()=>{
+  test('Phase D: another decision can initiate before an existing long march completes',()=>withoutNewNaturalEvents(() => {
     const s=world(),o=new Orchestrator(s),held=start(o,move(s));const d=cloneGameState(o.getState());d.armies.get('a')!.movement!.durationTicks=20;
     const runner=new Orchestrator(d);advance(runner,12);
     assert.strictEqual(runner.getState().operations.get(held)!.phase,'physical');assert.ok(runner.getState().operations.size>1);
     assert.ok(runner.getState().aiDecisionOpportunities.has('me'));assert.deepStrictEqual(checkGameStateInvariants(runner.getState()),[]);
-  });
+  }));
   test('Phase D: physical completion does not restart proactive reconsideration spacing',()=>{
     const s=world(),o=new Orchestrator(s),id=start(o,move(s)),d=quiet(o.getState()),stamp=d.lastAiDecisionTick.get('me');const runner=new Orchestrator(d);
     advance(runner,d.armies.get('a')!.movement!.durationTicks);assert.strictEqual(runner.getState().operations.get(id)!.phase,'terminal');assert.strictEqual(runner.getState().lastAiDecisionTick.get('me'),stamp);

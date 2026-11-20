@@ -6,6 +6,7 @@ import {
   Orchestrator,
   acceleratedRemainingTicks,
   collectTerritoryYield,
+  cloneGameState,
   createLegacySampleMapGameState,
   decodePersistable,
   deriveFactionResourceIncome,
@@ -197,7 +198,7 @@ export function registerEconomyDevelopmentsTests({ test }: EconomyDevelopmentsTe
     );
   });
 
-  test('one Farm per territory; events compound on base then Farm multiplies', () => {
+  test('one Farm per territory; temporary event output precedes Farm multiplication', () => {
     const state = merchantState();
     const orch = new Orchestrator(state);
     const started = orch.execute(cmdReq('START_CONSTRUCTION', {
@@ -225,7 +226,13 @@ export function registerEconomyDevelopmentsTests({ test }: EconomyDevelopmentsTe
     const authored = tile.resourceOutput.food ?? 0;
     tile.resourceOutput.food = authored + 10;
     const effective = effectiveResourceOutput(live, tile);
-    assert.strictEqual(effective.food, (authored + 10) * 1.5);
+    // Natural events remain enabled in this integration journey. Compare the
+    // same persistent improvement and active terms before/after infrastructure.
+    const withoutFarm = cloneGameState(live);
+    withoutFarm.territoryInfrastructure.get(REACH)!.farmCompletedAtTick = null;
+    const eventOutput = effectiveResourceOutput(withoutFarm, withoutFarm.territories.get(REACH)!);
+    assert.ok(eventOutput.food > authored + 10, 'the seeded active bonus must remain effective');
+    assert.strictEqual(effective.food, eventOutput.food * 1.5);
     assert.strictEqual(tile.resourceOutput.food, authored + 10);
   });
 

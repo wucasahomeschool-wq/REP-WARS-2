@@ -241,11 +241,11 @@ export function candidateTerritoriesForEvents(
   territories: Map<TerritoryId, Territory>,
   activeEvents: ActiveEvent[],
 ): TerritoryId[] {
-  const W = BALANCE.events.world;
   const out: TerritoryId[] = [];
   for (const [id, t] of territories.entries()) {
     if (!t.owner) continue;
-    if (t.population < W.territoryChoiceMinPopulation) continue;
+    // Population is not a universal event prerequisite. The existing per-event
+    // conditions/weights and lifecycle restrictions decide which events apply.
     const onTerritory = activeEvents.filter(
       e => e.status === 'active' && e.territoryId === id
     ).length;

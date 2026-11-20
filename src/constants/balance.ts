@@ -434,7 +434,6 @@ export const BALANCE = {
       maxEventsPerTurn: 4,
       sameEventCooldownTurns: 6,
       sameTerritoryMaxConcurrentActive: 3,
-      territoryChoiceMinPopulation: 2000,
       rngSalt: 0x5CA1AB1E,
     },
     severityWeights: {
